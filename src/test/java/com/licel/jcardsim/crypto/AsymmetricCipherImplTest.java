@@ -48,17 +48,37 @@ public class AsymmetricCipherImplTest extends TestCase {
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl.
      */
     public void testSelftRSA_NOPAD(){
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, (short) ((KeyBuilder.LENGTH_RSA_736/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, (short) ((KeyBuilder.LENGTH_RSA_768/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, (short) ((KeyBuilder.LENGTH_RSA_896/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, (short) ((KeyBuilder.LENGTH_RSA_1024/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, (short) ((KeyBuilder.LENGTH_RSA_1280/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, (short) ((KeyBuilder.LENGTH_RSA_1536/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, (short) ((KeyBuilder.LENGTH_RSA_1984/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, (short) ((KeyBuilder.LENGTH_RSA_2048/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, (short) ((KeyBuilder.LENGTH_RSA_3072/Byte.SIZE) - 1));
-        testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, (short) ((KeyBuilder.LENGTH_RSA_4096/Byte.SIZE) - 1));
+        // Refer to https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_NOPAD
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, (short) ((KeyBuilder.LENGTH_RSA_736/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, (short) ((KeyBuilder.LENGTH_RSA_768/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, (short) ((KeyBuilder.LENGTH_RSA_896/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, (short) ((KeyBuilder.LENGTH_RSA_1024/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, (short) ((KeyBuilder.LENGTH_RSA_1280/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, (short) ((KeyBuilder.LENGTH_RSA_1536/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, (short) ((KeyBuilder.LENGTH_RSA_1984/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, (short) ((KeyBuilder.LENGTH_RSA_2048/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, (short) ((KeyBuilder.LENGTH_RSA_3072/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, (short) ((KeyBuilder.LENGTH_RSA_4096/Byte.SIZE)));
+
+        try{
+            short messageLen = (short) ((KeyBuilder.LENGTH_RSA_512/Byte.SIZE));
+            byte[] msgEqualOrGreaterThanRsaModulus = new byte[messageLen];
+            Arrays.fill(msgEqualOrGreaterThanRsaModulus, (byte) 0xFF);
+            testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, messageLen, msgEqualOrGreaterThanRsaModulus);
+            assert(false);
+        }
+        catch (CryptoException ex) {
+            assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
+        }
+    }
+
+    private void testSelftRSA_NOPAD(byte algorithm, byte keyPairAlgorithm, short keySizeInBits, short messageLen){
+        byte[] msg = new byte[messageLen];
+        new Random().nextBytes(msg);
+        msg[0] = (byte) 0x01; // Ensure that message is not greater than RSA modulus
+
+        testSelftRSA(algorithm, keyPairAlgorithm, keySizeInBits, messageLen, msg);
     }
     
     public void testSelftRSA_PKCS1(){
@@ -281,6 +301,12 @@ public class AsymmetricCipherImplTest extends TestCase {
     }
 
     private void testSelftRSA(byte algorithm, byte keyPairAlgorithm, short keySizeInBits, short messageLen) {
+        byte[] msg = new byte[messageLen];
+        new Random().nextBytes(msg);
+        testSelftRSA(algorithm, keyPairAlgorithm, keySizeInBits, messageLen, msg);
+    }
+
+    private void testSelftRSA(byte algorithm, byte keyPairAlgorithm, short keySizeInBits, short messageLen, byte[] msg) {
         Cipher cipher = Cipher.getInstance(algorithm, false);
         KeyPair kp = new KeyPair(keyPairAlgorithm, keySizeInBits);
         kp.genKeyPair();
@@ -288,14 +314,12 @@ public class AsymmetricCipherImplTest extends TestCase {
         cipher.init(kp.getPublic(), Cipher.MODE_ENCRYPT);
 
         short keySizeInBytes = (short) (keySizeInBits/Byte.SIZE);
-        byte[] msg = new byte[messageLen];
         byte[] encryptedMsg = new byte[keySizeInBytes];
-        new Random().nextBytes(msg);
 
-        cipher.doFinal(msg, (short) 0, (short) msg.length, encryptedMsg, (short) 0);
+        cipher.doFinal(msg, (short) 0, messageLen, encryptedMsg, (short) 0);
 
         cipher.init(kp.getPrivate(), Cipher.MODE_DECRYPT);
-        byte[] decryptedMsg = new byte[msg.length];
+        byte[] decryptedMsg = new byte[messageLen];
         cipher.doFinal(encryptedMsg, (short) 0, (short) encryptedMsg.length, decryptedMsg, (short) 0);
 
         assertEquals(true, Arrays.areEqual(msg, decryptedMsg));
