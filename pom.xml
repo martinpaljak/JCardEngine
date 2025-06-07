@@ -30,7 +30,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <netbeans.hint.license>apache20</netbeans.hint.license>
-        <maven-javadoc-plugin.version>2.10.1</maven-javadoc-plugin.version>
+        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
         <ant.build.dir>${project.build.directory}/antrun/build</ant.build.dir>
         <junit.version>4.13.1</junit.version>
         <java.version>8</java.version>
@@ -91,7 +91,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-jarsigner-plugin</artifactId>
-                        <version>1.2</version>
+                        <version>3.1.0</version>
                         <executions>
                             <execution>
                                 <id>sign</id>
@@ -133,8 +133,8 @@
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk14</artifactId>
-            <version>1.71</version>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.71.1</version>
         </dependency>
         <dependency>
             <groupId>oracle.javacard</groupId>
@@ -145,22 +145,22 @@
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>9.7.1</version>
+            <version>9.8</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-tree</artifactId>
-            <version>9.7.1</version>
+            <version>9.8</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-util</artifactId>
-            <version>9.7.1</version>
+            <version>9.8</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-analysis</artifactId>
-            <version>9.7.1</version>
+            <version>9.8</version>
         </dependency>
     </dependencies>
 
@@ -252,9 +252,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
-                <configuration>
-                    <argLine>-noverify</argLine>
-                </configuration>
             </plugin>
             <!-- patch -->
             <plugin>
@@ -306,7 +303,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
+                <version>3.6.0</version>
                 <configuration>
                     <keepDependenciesWithProvidedScope>false</keepDependenciesWithProvidedScope>
                     <minimizeJar>true</minimizeJar>
@@ -485,7 +482,6 @@
 
                                 <echo>Testing shaded JAR: jcardsim-${project.version}-android.jar</echo>
                                 <junit fork="yes" forkmode="once" haltonfailure="yes" printsummary="true">
-                                    <jvmarg value="-noverify"/>
                                     <classpath>
                                         <path refid="testClasspath"/>
                                         <pathelement location="${ant.build.dir}/bin"/>
