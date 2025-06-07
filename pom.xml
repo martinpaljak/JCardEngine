@@ -2,19 +2,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.licel</groupId>
-    <version>3.0.5-SNAPSHOT</version>
+    <groupId>com.github.martinpaljak</groupId>
+    <version>25.06.07-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://maven.apache.org</url>
 
     <artifactId>jcardsim</artifactId>
     <name>Java Card Runime Environment Simulator</name>
     <description>jCardSim is open-source library contains implementation of Java Card API</description>
-    
-    <organization>
-        <name>Licel Corporation</name>
-        <url>https://licelus.com</url>
-    </organization>
 
     <developers>
         <developer>
@@ -38,22 +33,26 @@
         <maven-javadoc-plugin.version>2.10.1</maven-javadoc-plugin.version>
         <ant.build.dir>${project.build.directory}/antrun/build</ant.build.dir>
         <junit.version>4.13.1</junit.version>
-        <java.version>1.7</java.version>
+        <java.version>8</java.version>
         <jcApiVersion>3.0.5</jcApiVersion>
     </properties>
-    
+
+    <!-- Default is publishing to private Maven repo on mvn.javacard.pro -->
     <distributionManagement>
         <repository>
-            <id>github</id>
-            <name>GitHub Licel JCardSim Apache Maven Packages</name>
-            <url>https://maven.pkg.github.com/licel/jcardsim</url>
+            <id>javacard</id>
+            <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/</url>
         </repository>
-    </distributionManagement>    
+        <snapshotRepository>
+            <id>javacard</id>
+            <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/SNAPSHOTS</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <scm>
-        <connection>scm:git:git@github.com:licel/jcardsim.git</connection>
-        <developerConnection>scm:git:git@github.com:licel/jcardsim.git</developerConnection>
-        <url>git@github.com:licel/jcardsim.git</url>
+        <connection>scm:git:git@github.com:martinpaljak/jcardsim.git</connection>
+        <developerConnection>scm:git:git@github.com:martinpaljak/jcardsim.git</developerConnection>
+        <url>git@github.com:martinpaljak/jcardsim.git</url>
     </scm>
     
     <profiles>
@@ -69,7 +68,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
-                        <version>2.2.1</version>
+                        <version>3.3.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
@@ -86,8 +85,8 @@
                         <version>${maven-javadoc-plugin.version}</version>
                         <configuration>
                             <author>false</author>
-			    <bottom><![CDATA[&nbsp;]]></bottom>
-                        </configuration>    
+                            <bottom><![CDATA[&nbsp;]]></bottom>
+                        </configuration>
                     </plugin>            
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -124,7 +123,7 @@
         <dependency>
            <groupId>com.esotericsoftware</groupId>
            <artifactId>kryo</artifactId>
-           <version>5.2.0</version>
+           <version>5.6.2</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -146,40 +145,65 @@
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>7.2</version>
+            <version>9.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-tree</artifactId>
-            <version>7.2</version>
+            <version>9.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-util</artifactId>
-            <version>7.2</version>
+            <version>9.7.1</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-analysis</artifactId>
-            <version>7.2</version>
+            <version>9.7.1</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Minimum Maven version. Not really relevant with wrapper -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-maven-version</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[8,9)</version>
+                                    <message>Project requires JDK 8</message>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.9.9,)</version>
+                                </requireMavenVersion>
+                                <!--requirePluginVersions/-->
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.2</version>
+                <version>3.14.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <release>11</release>
                 </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
-                <version>2.5.2</version>
+                <version>3.1.4</version>
                 <executions>
                     <execution>
                         <phase>initialize</phase>
@@ -191,7 +215,7 @@
                             <artifactId>api_classic</artifactId>
                             <version>${jcApiVersion}</version>
                             <packaging>jar</packaging>
-                            <file>${env.JC_CLASSIC_HOME}/lib/api_classic.jar</file>
+                            <file>sdks/jc320v25.0_kit/lib/api_classic-3.0.5.jar</file>
                         </configuration>
                     </execution>
                 </executions>
@@ -200,7 +224,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>2.10</version>
+                <version>3.8.1</version>
                 <executions>
                     <execution>
                         <phase>process-classes</phase>
@@ -224,19 +248,19 @@
                     </execution>
                 </executions>
             </plugin>
-	    <plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-        	<artifactId>maven-surefire-plugin</artifactId>
-                <version>2.21.0</version>
-		<configuration>
-		    <argLine>-noverify</argLine>
-		</configuration>
-	    </plugin>                                      
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+                <configuration>
+                    <argLine>-noverify</argLine>
+                </configuration>
+            </plugin>
             <!-- patch -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>1.4.0</version>
+                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <id>cardApi</id>
@@ -408,15 +432,8 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>1.8</version>
+                <version>3.1.0</version>
                 <dependencies>
-                    <dependency>
-                        <groupId>com.sun</groupId>
-                        <artifactId>tools</artifactId>
-                        <version>1.5.0</version>
-                        <scope>system</scope>
-                        <systemPath>${java.home}/../lib/tools.jar</systemPath>
-                    </dependency>
                     <dependency>
                         <groupId>org.apache.ant</groupId>
                         <artifactId>ant-junit</artifactId>
@@ -468,19 +485,19 @@
 
                                 <echo>Testing shaded JAR: jcardsim-${project.version}-android.jar</echo>
                                 <junit fork="yes" forkmode="once" haltonfailure="yes" printsummary="true">
-				    <jvmarg value="-noverify"/>
+                                    <jvmarg value="-noverify"/>
                                     <classpath>
-                                        <path refid="testClasspath" />
-                                        <pathelement location="${ant.build.dir}/bin" />
+                                        <path refid="testClasspath"/>
+                                        <pathelement location="${ant.build.dir}/bin"/>
                                     </classpath>
-                                    <formatter type="brief" />
+                                    <formatter type="brief"/>
                                     <batchtest todir="${ant.build.dir}/reports">
                                         <fileset dir="${ant.build.dir}/src">
-                                            <include name="**/*Test.java" />
-                                            <exclude name="com/licel/jcardsim/smartcardio/*" />
-                                            <exclude name="com/licel/jcardsim/remote/*" />
-                                            <exclude name="com/licel/jcardsim/DocumentationCodeSamplesTest.*" />
-                                            <exclude name="com/licel/jcardsim/utils/APDUScriptToolTest.*" />
+                                            <include name="**/*Test.java"/>
+                                            <exclude name="com/licel/jcardsim/smartcardio/*"/>
+                                            <exclude name="com/licel/jcardsim/remote/*"/>
+                                            <exclude name="com/licel/jcardsim/DocumentationCodeSamplesTest.*"/>
+                                            <exclude name="com/licel/jcardsim/utils/APDUScriptToolTest.*"/>
                                         </fileset>
                                     </batchtest>
                                 </junit>
