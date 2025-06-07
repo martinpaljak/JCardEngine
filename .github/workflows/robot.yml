@@ -6,7 +6,7 @@ on:
       - master
       - fork
       - next
-  pull_requests:
+  pull_request:
     branches:
       - fork
       - next
