@@ -180,7 +180,7 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[8,9)</version>
+                                    <version>[8,)</version>
                                     <message>Project requires JDK 8</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
