@@ -1,0 +1,44 @@
+name: Build robot
+
+on:
+  push:
+    branches:
+      - master
+      - fork
+      - next
+  pull_requests:
+    branches:
+      - fork
+      - next
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        java: [ 8, 11, 17, 21 ]
+    name: Java ${{ matrix.java }} build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0 # To make git describe give the intended output
+          fetch-tags: true
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: zulu
+          cache: maven
+      - name: Run Maven
+        run: ./mvnw initialize && ./mvnw -T1C -B -U verify
+
+
+
+          
+
+
+        
+
+
