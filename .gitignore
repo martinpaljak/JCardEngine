@@ -13,3 +13,8 @@ nb-configuration.xml
 # Eclipse
 .metadata
 .settings/
+# Maven wrapper
+/.mvn/wrapper/maven-wrapper.jar
+
+# Generic
+*~
