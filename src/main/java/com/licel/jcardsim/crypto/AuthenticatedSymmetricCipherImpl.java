@@ -19,19 +19,14 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
-import javacard.security.KeyBuilder;
 import javacardx.crypto.AEADCipher;
-import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.modes.AEADBlockCipher;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.modes.GCMBlockCipher;
-import org.bouncycastle.crypto.modes.gcm.GCMUtil;
 import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
-import org.bouncycastle.internal.asn1.cms.GCMParameters;
 import org.bouncycastle.util.Arrays;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import javax.crypto.spec.GCMParameterSpec;
 
