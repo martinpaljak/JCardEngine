@@ -16,13 +16,14 @@
 package com.licel.jcardsim.framework;
 
 import com.licel.jcardsim.base.SimulatorSystem;
-import com.licel.jcardsim.utils.BiConsumer;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.Shareable;
 import javacard.framework.SystemException;
+
+import java.util.function.BiConsumer;
 
 /**
  * ProxyClass for <code>AppletProxy</code>

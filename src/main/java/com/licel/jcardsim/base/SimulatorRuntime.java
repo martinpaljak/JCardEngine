@@ -16,8 +16,6 @@
 package com.licel.jcardsim.base;
 
 import com.licel.jcardsim.utils.AIDUtil;
-import com.licel.jcardsim.utils.BiConsumer;
-import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
 
@@ -26,8 +24,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 
 /**
  * Base implementation of Java Card Runtime.
