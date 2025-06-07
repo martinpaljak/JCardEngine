@@ -1,11 +1,26 @@
-jCardSim (Official repo of the [jCardSim](http://jcardsim.org) project)
-========
+# `jcardsim`
 
-### Congratulations! jCardSim has won [Duke's Choice 2013 Award](https://www.java.net/dukeschoice/2013)!
+> [!IMPORTANT]
+> **TL;DR**: this is a FORK of the original upstream [@licel/jcardsim](https://github.com/licel/jcardsim) from revision `aa60a02f042c18211e4d0f0aef75f27b0e5cf873`.
+>
+> Longer rationale: Oracle's simulator has gone a long way during 2024/2025 from the `cref` era to the current, regularly released and quite pleasant and functional variant (PC/SC adapter for Linux, Global Platform support etc) as it exists at 25.0 release.
+>
+> This fork intends to be an up to date alternative to the original jcardsim (by being maintained) and Oracle's simulator (by playing on the strong cards of open source and pure java), with the main purpose of getting test coverage info for applet codebases. Something that's a bit more difficult with the closed source, black box Oracle simulator. Some extra effort will be made to support easy mocking of proprietary packages/interfaces.
+>
+> Versioning shall use CalVer (YY.MM.DD), with no claims relating to JavaCard specification versions or SDK releases, but initial claim shall continue to be "somewhere close to 3.0.5". PR-s fixing missing API features are most welcome!
+>
+> Github shall publish automatic releases to `mvn.javacard.pro` (the same as for [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro) and [ant-javacard](https://github.com/martinpaljak/ant-javacard)) and the intended use shall be via Maven dependency (no shaded JAR-s etc).
 
-![alt text](https://licelus.com/wp-content/uploads/DCA2013_Badge_Winner.jpg "jCardSim is a winner of Duke's Choice 2013")
+## Maven dependency
 
-**Please note** that we moved our code repository from Google Code to GitHub.
+```xml
+<dependency>
+    <groupId>com.github.martinpaljak</groupId>
+    <artifactId>jcardsim</artifactId>
+    <version>25.06.XX</version>
+</dependency>
+```
+----
 
 jCardSim is an open source simulator for Java Card, v3.0.5:
 
@@ -65,12 +80,6 @@ assertEquals(0x9000, response.getSW());
 * **Cross-platform**
 
   jCardSim is completely written in Java and can therefore be used on all platforms which support Java (Windows, Linux, MacOS, etc).
-
-### How to help jCardSim?
-
-* Join the team of jCardSim developers.
-* Try out [DexProtector](https://licelus.com/products/dexprotector). The product is designed for strong and robust protection of Android applications against reverse engineering and modification.
-* Licel has one more product you may be interested in - [Stringer Java Obfuscator](https://licelus.com/products/stringer). This tool provides all the features you need to comprehensively protect your Java applications.
 
 **License**: [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
