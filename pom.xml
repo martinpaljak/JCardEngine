@@ -192,6 +192,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Target JDK 11 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -200,6 +201,7 @@
                     <release>11</release>
                 </configuration>
             </plugin>
+            <!-- Install the JC API JAR as an addressable Maven dependency -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
@@ -220,7 +222,7 @@
                     </execution>
                 </executions>
             </plugin>  
-            <!-- extract java card api classes -->
+            <!-- Extract java card API classes -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -248,12 +250,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
-            </plugin>
-            <!-- patch -->
+            <!-- Run the ASM based proxy code injector -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -287,6 +284,12 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Run tests, so that the classes have already been processed with proxy code -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -300,6 +303,7 @@
                     <source>7</source>
                 </configuration>
             </plugin>
+            <!-- Use shade to generate the output JAR files with dependencies remapped / hidden -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -312,6 +316,7 @@
                             <pattern>org.bouncycastle</pattern>
                             <shadedPattern>com.licel.jcardsim.bouncycastle</shadedPattern>
                         </relocation>
+                        <!-- NOTE: next 2 (kryo/objenesis) only used by the persistent simulator -->
                         <relocation>
                             <pattern>com.esotericsoftware</pattern>
                             <shadedPattern>com.licel.jcardsim.esotericsoftware</shadedPattern>
@@ -426,6 +431,7 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Use Ant to run tests against the final shaded JAR as the only dependency on classpath -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
