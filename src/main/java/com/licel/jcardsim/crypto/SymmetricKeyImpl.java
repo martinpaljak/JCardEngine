@@ -138,7 +138,7 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
             case KeyBuilder.TYPE_AES:
             case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
             case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
-                cipher = new AESEngine();
+                cipher = AESEngine.newInstance();
                 break;
 
             case KeyBuilder.TYPE_KOREAN_SEED:

@@ -70,7 +70,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.71.1</version>
+            <version>1.76</version>
         </dependency>
         <dependency>
             <groupId>oracle.javacard</groupId>
@@ -380,9 +380,7 @@
                                         <exclude>java/**</exclude>
                                         <exclude>com/licel/jcardsim/smartcardio/*</exclude>
                                         <exclude>com/licel/jcardsim/remote/*</exclude>
-                                        <exclude>com/licel/jcardsim/utils/APDUScriptTool*</exclude>
                                         <exclude>com/licel/jcardsim/io/JavaxSmartCardInterface*</exclude>
-                                        <exclude>com/licel/jcardsim/io/CAD*</exclude>
                                         <exclude>javacard/framework/service/CardRemoteObject*</exclude>
                                         <exclude>javacard/framework/service/RMIService*</exclude>
                                     </excludes>

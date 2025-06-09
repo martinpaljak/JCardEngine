@@ -468,7 +468,7 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
 
             case ALG_AES_CCM:
                 try {
-                    engine = new CCMBlockCipher(key.getCipher());
+                    engine = CCMBlockCipher.newInstance(key.getCipher());
                 } catch (Exception ex) {
                     log.trace(ex.getMessage(), ex);
                     CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
@@ -477,7 +477,7 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
 
             case ALG_AES_GCM:
                 try {
-                    engine = new GCMBlockCipher(key.getCipher());
+                    engine = GCMBlockCipher.newInstance(key.getCipher());
                 } catch (Exception ex) {
                     log.trace(ex.getMessage(), ex);
                     CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);

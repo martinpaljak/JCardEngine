@@ -35,6 +35,7 @@ import org.bouncycastle.crypto.params.ParametersWithIV;
  * on BouncyCastle CryptoAPI.
  * @see Cipher
  */
+@SuppressWarnings("deprecation") // bc ..
 public class SymmetricCipherImpl extends Cipher {
 
     byte algorithm;
@@ -121,16 +122,16 @@ public class SymmetricCipherImpl extends Cipher {
             case ALG_DES_CBC_NOPAD:
             case ALG_AES_BLOCK_128_CBC_NOPAD:
             case ALG_KOREAN_SEED_CBC_NOPAD:
-                engine = new BufferedBlockCipher(new CBCBlockCipher(key.getCipher()));
+                engine = new BufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()));
                 break;
             case ALG_DES_CBC_ISO9797_M1:
-                engine = new PaddedBufferedBlockCipher(new CBCBlockCipher(key.getCipher()), new ZeroBytePadding());
+                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ZeroBytePadding());
                 break;
             case ALG_DES_CBC_ISO9797_M2:
-                engine = new PaddedBufferedBlockCipher(new CBCBlockCipher(key.getCipher()), new ISO7816d4Padding());
+                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ISO7816d4Padding());
                 break;
             case ALG_DES_CBC_PKCS5:
-                engine = new PaddedBufferedBlockCipher(new CBCBlockCipher(key.getCipher()), new PKCS7Padding());
+                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new PKCS7Padding());
                 break;
             case ALG_DES_ECB_NOPAD:
             case ALG_AES_BLOCK_128_ECB_NOPAD:
@@ -147,7 +148,7 @@ public class SymmetricCipherImpl extends Cipher {
                 engine = new PaddedBufferedBlockCipher(key.getCipher(), new PKCS7Padding());
                 break;
             case ALG_AES_CBC_ISO9797_M2:
-                engine = new PaddedBufferedBlockCipher(new CBCBlockCipher(key.getCipher()), new ISO7816d4Padding());
+                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ISO7816d4Padding());
                 break;
             case ALG_AES_CTR:
                 engine = new BufferedBlockCipher(new SICBlockCipher(key.getCipher()));

@@ -40,6 +40,8 @@ import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.crypto.engines.RSAEngine;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.signers.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /*
  * Implementation <code>Signature</code> with asymmetric keys based
@@ -48,6 +50,7 @@ import org.bouncycastle.crypto.signers.*;
  */
 public class AsymmetricSignatureImpl extends Signature implements SignatureMessageRecovery{
 
+    private static final Logger log = LoggerFactory.getLogger(AsymmetricSignatureImpl.class);
     Signer engine;
     Key key;
     byte algorithm;
@@ -195,8 +198,7 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
         if (!(theKey instanceof KeyWithParameters)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        
-        
+
         if((engine instanceof ISO9796d2Signer) || (theMode != MODE_SIGN)) {
             KeyWithParameters key = (KeyWithParameters) theKey;
             engine.init(theMode == MODE_SIGN, key.getParameters());
@@ -375,6 +377,7 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
         } catch (DataLengthException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         } catch (Exception ex) {
+            log.error("Unexpected exception", ex);
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         } finally {
             engine.reset();
@@ -410,33 +413,36 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
         try {
             if((engine instanceof RSADigestSigner) || (engine instanceof DSADigestSigner) || (engine instanceof PSSSigner)) {
                 // set precomputed hava value - BouncyCastle specific
-                 Field h = engine.getClass().getDeclaredField(engine instanceof PSSSigner ? "contentDigest" : "digest");
+                 Field h = engine.getClass().getDeclaredField(engine instanceof PSSSigner ? "contentDigest1" : "digest");
                  h.setAccessible(true);
                  Object digestObject = h.get(engine);
                  digestObject.getClass().getMethod("setPrecomputedValue", new Class[]{byte[].class, int.class, int.class})
                          .invoke(digestObject, new Object[]{hashBuff,hashOffset,hashLength});
                  return sign(null, (short) 0, (short) 0, sigBuff, sigOffset);
             }
-        } catch(ReflectiveOperationException e) {}
+        } catch(ReflectiveOperationException e) {
+            e.printStackTrace();
+        }
         
         CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         return 0;
     }
-    
+
     public boolean verifyPreComputedHash(byte[] hashBuff, short hashOffset, short hashLength, byte[] sigBuff, short sigOffset, short sigLength) throws CryptoException {
         try {
-            if((engine instanceof RSADigestSigner) || (engine instanceof DSADigestSigner) || (engine instanceof PSSSigner)) {
+            if ((engine instanceof RSADigestSigner) || (engine instanceof DSADigestSigner) || (engine instanceof PSSSigner)) {
                 // set precomputed hava value - BouncyCastle specific
-                 Field h = engine.getClass().getDeclaredField(engine instanceof PSSSigner ? "contentDigest" : "digest");
-                 h.setAccessible(true);
-                 Object digestObject = h.get(engine);
-                 digestObject.getClass().getMethod("setPrecomputedValue", new Class[]{byte[].class, int.class, int.class})
-                         .invoke(digestObject, new Object[]{hashBuff,hashOffset,hashLength});
-                 return verify(null, (short) 0, (short) 0, sigBuff, sigOffset, sigLength);
+                Field h = engine.getClass().getDeclaredField(engine instanceof PSSSigner ? "contentDigest1" : "digest");
+                h.setAccessible(true);
+                Object digestObject = h.get(engine);
+                digestObject.getClass().getMethod("setPrecomputedValue", new Class[]{byte[].class, int.class, int.class})
+                        .invoke(digestObject, new Object[]{hashBuff, hashOffset, hashLength});
+                return verify(null, (short) 0, (short) 0, sigBuff, sigOffset, sigLength);
             }
-        } catch(ReflectiveOperationException e) {
+        } catch (ReflectiveOperationException e) {
+            e.printStackTrace();
         }
-        
+
         CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         return false;
     }
