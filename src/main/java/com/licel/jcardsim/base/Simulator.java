@@ -16,14 +16,13 @@
 package com.licel.jcardsim.base;
 
 import com.licel.jcardsim.io.JavaCardInterface;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.text.MessageFormat;
 import java.util.Locale;
-import java.util.Properties;
 
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
@@ -34,20 +33,15 @@ import org.bouncycastle.util.encoders.Hex;
  * Simulates a JavaCard.
  */
 public class Simulator implements JavaCardInterface {
-
     // default ATR - NXP JCOP 31/36K
     public static final String DEFAULT_ATR = "3BFA1800008131FE454A434F5033315632333298";
     // ATR system property name
     public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
-    static final String PROPERTY_PREFIX = "com.licel.jcardsim.card.applet.";
-    static final String OLD_PROPERTY_PREFIX = "com.licel.jcardsim.smartcardio.applet.";
-    // Applet AID system property template
-    static final MessageFormat AID_SP_TEMPLATE = new MessageFormat("{0}.AID");
-    // Applet ClassName system property template
-    static final MessageFormat APPLET_CLASS_SP_TEMPLATE = new MessageFormat("{0}.Class");
     // Applet Class Loader
     final AppletClassLoader cl = new AppletClassLoader(new URL[]{});
-    /** The simulator runtime */
+    /**
+     * The simulator runtime
+     */
     protected final SimulatorRuntime runtime;
     // current protocol
     private String protocol = "T=0";
@@ -58,28 +52,14 @@ public class Simulator implements JavaCardInterface {
      * <ul>
      *     <li>All <code>Simulator</code> instances share one <code>SimulatorRuntime</code>.</li>
      *     <li>SimulatorRuntime#resetRuntime is called</li>
-     *     <li>If your want multiple independent simulators use <code>Simulator(SimulatorRuntime)</code></li>
+     *     <li>If you want multiple independent simulators use <code>Simulator(SimulatorRuntime)</code></li>
      * </ul>
      */
     public Simulator() {
-        this(SimulatorSystem.DEFAULT_RUNTIME, System.getProperties());
+        this(SimulatorSystem.DEFAULT_RUNTIME);
     }
 
-    /**
-     * Create a Simulator object using a provided Runtime.
-     *
-     * <ul>
-     *     <li>SimulatorRuntime#resetRuntime is called</li>
-     * </ul>
-     *
-     * @param runtime SimulatorRuntime instance to use
-     * @throws java.lang.NullPointerException if <code>runtime</code> is null
-     */
     public Simulator(SimulatorRuntime runtime) {
-        this(runtime, System.getProperties());
-    }
-
-    protected Simulator(SimulatorRuntime runtime, Properties properties) {
         if (runtime == null) {
             throw new NullPointerException("runtime");
         }
@@ -90,31 +70,6 @@ public class Simulator implements JavaCardInterface {
         }
 
         changeProtocol(protocol);
-
-        // init pre-installed applets
-        for (int i = 0; i < 100 && !properties.isEmpty(); i++) {
-            String selectedPrefix = PROPERTY_PREFIX;
-            String aidPropertyName = PROPERTY_PREFIX + AID_SP_TEMPLATE.format(new Object[]{i});
-            String aidPropertyOldName = OLD_PROPERTY_PREFIX + AID_SP_TEMPLATE.format(new Object[]{i});
-            String appletAID = properties.getProperty(aidPropertyName);
-            if (appletAID == null) {
-                appletAID = properties.getProperty(aidPropertyOldName);
-                if (appletAID != null) {
-                    selectedPrefix = OLD_PROPERTY_PREFIX;
-                }
-            }
-            if (appletAID != null) {
-                String appletClassName = properties.getProperty(selectedPrefix + APPLET_CLASS_SP_TEMPLATE.format(new Object[]{i}));
-                if (appletClassName != null) {
-                    byte[] aidBytes = Hex.decode(appletAID);
-                    if (aidBytes == null || aidBytes.length < 5 || aidBytes.length > 16) {
-                        // skip incorrect applet
-                        continue;
-                    }
-                    loadApplet(new AID(aidBytes, (short) 0, (byte) aidBytes.length), appletClassName);
-                }
-            }
-        }
     }
 
     public AID loadApplet(AID aid, String appletClassName, byte[] appletJarContents) throws SystemException {
@@ -151,11 +106,11 @@ public class Simulator implements JavaCardInterface {
      * Load
      * <code>Applet</code> into Simulator
      *
-     * @param aid applet aid
+     * @param aid         applet aid
      * @param appletClass applet class
      * @return applet <code>AID</code>
      * @throws SystemException if <code>appletClass</code> not instanceof
-     * <code>javacard.framework.Applet</code>
+     *                         <code>javacard.framework.Applet</code>
      */
     public AID loadApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
         synchronized (runtime) {
@@ -165,14 +120,13 @@ public class Simulator implements JavaCardInterface {
     }
 
     public AID createApplet(AID aid, byte bArray[], short bOffset,
-            byte bLength) throws SystemException {
+                            byte bLength) throws SystemException {
 
         try {
             synchronized (runtime) {
                 runtime.installApplet(aid, bArray, bOffset, bLength);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             SystemException.throwIt(SimulatorSystem.SW_APPLET_CREATION_FAILED);
         }
@@ -183,11 +137,11 @@ public class Simulator implements JavaCardInterface {
      * Install
      * <code>Applet</code> into Simulator without installing data
      *
-     * @param aid applet aid or null
+     * @param aid         applet aid or null
      * @param appletClass applet class
      * @return applet <code>AID</code>
      * @throws SystemException if <code>appletClass</code> not instanceof
-     * <code>javacard.framework.Applet</code>
+     *                         <code>javacard.framework.Applet</code>
      */
     public AID installApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
         return installApplet(aid, appletClass, new byte[]{}, (short) 0, (byte) 0);
@@ -201,17 +155,17 @@ public class Simulator implements JavaCardInterface {
      * createApplet(...);
      * </code>
      *
-     * @param aid applet aid or null
+     * @param aid         applet aid or null
      * @param appletClass applet class
-     * @param bArray the array containing installation parameters
-     * @param bOffset the starting offset in bArray
-     * @param bLength the length in bytes of the parameter data in bArray
+     * @param bArray      the array containing installation parameters
+     * @param bOffset     the starting offset in bArray
+     * @param bLength     the length in bytes of the parameter data in bArray
      * @return applet <code>AID</code>
      * @throws SystemException if <code>appletClass</code> not instanceof
-     * <code>javacard.framework.Applet</code>
+     *                         <code>javacard.framework.Applet</code>
      */
     public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte bArray[], short bOffset,
-            byte bLength) throws SystemException {
+                             byte bLength) throws SystemException {
         synchronized (runtime) {
             loadApplet(aid, appletClass);
             return createApplet(aid, bArray, bOffset, bLength);
@@ -219,7 +173,7 @@ public class Simulator implements JavaCardInterface {
     }
 
     public AID installApplet(AID aid, String appletClassName, byte bArray[], short bOffset,
-            byte bLength) throws SystemException {
+                             byte bLength) throws SystemException {
         synchronized (runtime) {
             loadApplet(aid, appletClassName);
             return createApplet(aid, bArray, bOffset, bLength);
@@ -227,7 +181,7 @@ public class Simulator implements JavaCardInterface {
     }
 
     public AID installApplet(AID aid, String appletClassName, byte[] appletContents, byte bArray[], short bOffset,
-            byte bLength) throws SystemException {
+                             byte bLength) throws SystemException {
         synchronized (runtime) {
             loadApplet(aid, appletClassName, appletContents);
             return createApplet(aid, bArray, bOffset, bLength);
@@ -236,6 +190,7 @@ public class Simulator implements JavaCardInterface {
 
     /**
      * Delete an applet
+     *
      * @param aid applet aid
      */
     public void deleteApplet(AID aid) {
@@ -248,7 +203,7 @@ public class Simulator implements JavaCardInterface {
         byte[] resp = selectAppletWithResult(aid);
         return ByteUtil.getSW(resp) == ISO7816.SW_NO_ERROR;
     }
-    
+
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
         synchronized (runtime) {
             return runtime.transmitCommand(AIDUtil.select(aid));
@@ -281,32 +236,26 @@ public class Simulator implements JavaCardInterface {
         if (protocol == null) {
             throw new NullPointerException("protocol");
         }
-        String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ","");
+        String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
         byte protocolByte;
 
         if (p.equals("T=0") || p.equals("*")) {
             protocolByte = APDU.PROTOCOL_T0;
-        }
-        else if (p.equals("T=1")) {
+        } else if (p.equals("T=1")) {
             protocolByte = APDU.PROTOCOL_T1;
-        }
-        else if (p.equals("T=CL,TYPE_A,T0") || p.equals("T=CL")) {
+        } else if (p.equals("T=CL,TYPE_A,T0") || p.equals("T=CL")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
             protocolByte |= APDU.PROTOCOL_T0;
-        }
-        else if (p.equals("T=CL,TYPE_A,T1")) {
+        } else if (p.equals("T=CL,TYPE_A,T1")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
             protocolByte |= APDU.PROTOCOL_T1;
-        }
-        else if (p.equals("T=CL,TYPE_B,T0")) {
+        } else if (p.equals("T=CL,TYPE_B,T0")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
             protocolByte |= APDU.PROTOCOL_T0;
-        }
-        else if (p.equals("T=CL,TYPE_B,T1")) {
+        } else if (p.equals("T=CL,TYPE_B,T1")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
             protocolByte |= APDU.PROTOCOL_T1;
-        }
-        else {
+        } else {
             throw new IllegalArgumentException("Unknown protocol: " + protocol);
         }
         return protocolByte;
@@ -337,7 +286,7 @@ public class Simulator implements JavaCardInterface {
         return (Class<? extends Applet>) aClass;
     }
 
-    class AppletClassLoader extends URLClassLoader {
+    static class AppletClassLoader extends URLClassLoader {
 
         AppletClassLoader(URL[] urls) {
             super(urls, Simulator.class.getClassLoader());
@@ -350,7 +299,6 @@ public class Simulator implements JavaCardInterface {
             fos.write(appletJarContents);
             fos.close();
             addURL(downloadedAppletJar.toURI().toURL());
-
         }
     }
 }
