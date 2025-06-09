@@ -17,24 +17,30 @@ package com.licel.jcardsim.crypto;
 
 import javacard.security.CryptoException;
 import javacard.security.Signature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ProxyClass for <code>Signature</code>
+ *
  * @see Signature
  */
 public class SignatureProxy {
+    private static final Logger log = LoggerFactory.getLogger(SignatureProxy.class);
+
     /**
      * Creates a <code>Signature</code> object instance of the selected algorithm.
-     * @param algorithm the desired Signature algorithm. Valid codes listed in
-     * ALG_ .. constants above e.g. <A HREF="../../javacard/security/Signature.html#ALG_DES_MAC4_NOPAD"><CODE>ALG_DES_MAC4_NOPAD</CODE></A>
+     *
+     * @param algorithm      the desired Signature algorithm. Valid codes listed in
+     *                       ALG_ .. constants above e.g. <A HREF="../../javacard/security/Signature.html#ALG_DES_MAC4_NOPAD"><CODE>ALG_DES_MAC4_NOPAD</CODE></A>
      * @param externalAccess <code>true</code> indicates that the instance will be shared among
-     * multiple applet instances and that the <code>Signature</code> instance will also be accessed (via a <code>Shareable</code>
-     * interface) when the owner of the <code>Signature</code> instance is not the currently selected applet.
-     * If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
+     *                       multiple applet instances and that the <code>Signature</code> instance will also be accessed (via a <code>Shareable</code>
+     *                       interface) when the owner of the <code>Signature</code> instance is not the currently selected applet.
+     *                       If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
      * @return the <code>Signature</code> object instance of the requested algorithm
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
-     * or shared access mode is not supported.</ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
+     *                         or shared access mode is not supported.</ul>
      */
     public static final Signature getInstance(byte algorithm, boolean externalAccess)
             throws CryptoException {
@@ -70,13 +76,12 @@ public class SignatureProxy {
             case Signature.ALG_RSA_MD5_PKCS1_PSS:
             case Signature.ALG_RSA_RIPEMD160_PKCS1_PSS:
             case Signature.ALG_RSA_RIPEMD160_ISO9796_MR:
-                System.out.println("getInstance of assymetric algo: " + algorithm);
+                log.trace("getInstance of assymetric algo: " + algorithm);
                 try {
                     instance = new AsymmetricSignatureImpl(algorithm);
-                    System.out.println("getInstance of assymetric algo: " + algorithm + " is OK!");
-                } catch(Exception e) {
-                    e.printStackTrace();
-                    e.getCause().printStackTrace();
+                    log.info("getInstance of assymetric algo: " + algorithm + " is OK!");
+                } catch (Exception e) {
+                    log.error("getInstance of assymetric algo: " + algorithm + " is NOT OK!", e);
                     CryptoException.throwIt(CryptoException.INVALID_INIT);
                 }
                 break;
@@ -90,11 +95,11 @@ public class SignatureProxy {
             case Signature.ALG_DES_MAC4_PKCS5:
             case Signature.ALG_DES_MAC8_PKCS5:
             case Signature.ALG_AES_MAC_128_NOPAD:
-            case Signature.ALG_HMAC_SHA1:                
-            case Signature.ALG_HMAC_SHA_256:                
-            case Signature.ALG_HMAC_SHA_384:                
-            case Signature.ALG_HMAC_SHA_512:                
-            case Signature.ALG_HMAC_MD5:                
+            case Signature.ALG_HMAC_SHA1:
+            case Signature.ALG_HMAC_SHA_256:
+            case Signature.ALG_HMAC_SHA_384:
+            case Signature.ALG_HMAC_SHA_512:
+            case Signature.ALG_HMAC_MD5:
             case Signature.ALG_HMAC_RIPEMD160:
             case Signature.ALG_AES_CMAC_128:
                 instance = new SymmetricSignatureImpl(algorithm);
@@ -103,14 +108,12 @@ public class SignatureProxy {
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
-
-
         }
         return instance;
     }
 
     public static final Signature getInstance(byte messageDigestAlgorithm, byte cipherAlgorithm,
-            byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
+                                              byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
         return new AsymmetricSignatureImpl(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
     }
 

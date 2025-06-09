@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import com.licel.jcardsim.base.CardManager;
 import com.licel.jcardsim.io.JavaCardInterface;
 import javax.smartcardio.*;
 
@@ -93,6 +92,6 @@ public class JCSCard extends Card {
     }
 
     ResponseAPDU transmitCommand(CommandAPDU capdu) {
-        return new ResponseAPDU(CardManager.dispatchApdu(cardInterface, capdu.getBytes()));
+        return new ResponseAPDU(cardInterface.transmitCommand(capdu.getBytes()));
     }
 }

@@ -18,6 +18,8 @@ package com.licel.jcardsim.base;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -33,6 +35,7 @@ import java.util.function.BiConsumer;
  * @see Applet
  */
 public class SimulatorRuntime {
+    private static final Logger log = LoggerFactory.getLogger(SimulatorRuntime.class);
     // holds the Applet registration callback
     protected final ThreadLocal<BiConsumer<Applet,AID>> registrationCallback;
     /** storage for installed applets */
@@ -215,8 +218,8 @@ public class SimulatorRuntime {
         if (applet instanceof AppletEvent) {
             try {
                 ((AppletEvent) applet).uninstall();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
+                log.warn("Applet.uninstall() failed", e);
                 // ignore all
             }
         }
@@ -363,7 +366,7 @@ public class SimulatorRuntime {
                 Applet applet = applicationInstance.getApplet();
                 applet.deselect();
             } catch (Exception e) {
-                // TODO: want to log exceptions
+                log.warn("Applet.deselect() failed", e);
                 // ignore all
             }
         }
@@ -639,10 +642,10 @@ public class SimulatorRuntime {
         });
 
         // Call the install() method.
-        // TODO: really want to log exceptions from this one
         try {
             installMethod.invoke(null, bArray, bOffset, bLength);
         } catch (InvocationTargetException e) {
+            log.error("Error installing applet " + appletAID, e);
             try {
                 ISOException isoException = (ISOException) e.getCause();
                 throw isoException;
@@ -650,6 +653,7 @@ public class SimulatorRuntime {
                 throw new SystemException(SystemException.ILLEGAL_AID);
             }
         } catch (Exception e) {
+            log.error("Error installing applet " + appletAID, e);
             throw new SystemException(SystemException.ILLEGAL_AID);
         } finally {
             registrationCallback.set(null);
@@ -657,6 +661,7 @@ public class SimulatorRuntime {
 
         // register() can and must be called only once.
         if (callCount.get() != 1) {
+            log.error("register() not called once for " + appletAID);
             throw new SystemException(SystemException.ILLEGAL_AID);
         }
     }

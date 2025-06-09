@@ -128,7 +128,6 @@ public class Simulator implements JavaCardInterface {
             appletClass = requireExtendsApplet(cl.loadClass(appletClassName));
         } catch (Exception e) {
             SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-
         }
         if (appletClass != null) {
             return loadApplet(aid, appletClass);

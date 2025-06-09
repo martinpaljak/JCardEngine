@@ -28,6 +28,7 @@ import javacard.framework.Util;
 import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.Ignore;
 
 import javax.smartcardio.ResponseAPDU;
 
@@ -51,19 +52,29 @@ public class SimulatorTest extends TestCase {
     public SimulatorTest(String testName) {
         super(testName);
     }
-    
+
+    static byte[] install_params(byte[] aid, byte[] params) {
+        // XXX: privileges are on two bytes, because the hardcoded .jar blob is based on hardcoded privileges length
+        byte[] privileges = Hex.decode("0000");
+        byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
+        int offset = 0;
+
+        data[offset++] = (byte) aid.length;
+        System.arraycopy(aid, 0, data, offset, aid.length);
+        offset += aid.length;
+
+        data[offset++] = (byte) privileges.length;
+        System.arraycopy(privileges, 0, data, offset, privileges.length);
+        offset += privileges.length;
+
+        data[offset++] = (byte) params.length;
+        System.arraycopy(params, 0, data, offset, params.length);
+        return data;
+    }
+
     @Override
     protected void setUp() throws Exception {
-        super.setUp();
-        createData = new byte[1+TEST_APPLET_AID_BYTES.length+1+2+3];
-        createData[0] = (byte) TEST_APPLET_AID_BYTES.length;
-        System.arraycopy(TEST_APPLET_AID_BYTES, 0, createData, 1, TEST_APPLET_AID_BYTES.length);
-        createData[1+TEST_APPLET_AID_BYTES.length] = (byte) 5;
-        createData[2+TEST_APPLET_AID_BYTES.length] = 0; // aid
-        createData[3+TEST_APPLET_AID_BYTES.length] = 0; // control
-        createData[4+TEST_APPLET_AID_BYTES.length] = 2; // params
-        createData[5+TEST_APPLET_AID_BYTES.length] = 0xF; // params
-        createData[6+TEST_APPLET_AID_BYTES.length] = 0xF; // params
+        createData = install_params(TEST_APPLET_AID_BYTES, Hex.decode("0f0f"));
         InputStream is = SimulatorTest.class.getResourceAsStream("helloworld.jar");
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] chunk = new byte[1024];

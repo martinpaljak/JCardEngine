@@ -37,6 +37,7 @@ public class CAD {
                 cardInterface = new Simulator();
                 break;
             case JAVAX_SMARTCARDIO:
+                System.err.println("WRONG PATH");
                 cardInterface = new JavaxSmartCardInterface();
                 break;
             default:

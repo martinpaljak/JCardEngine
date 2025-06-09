@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import com.licel.jcardsim.base.CardManager;
 import com.licel.jcardsim.base.SimulatorRuntime;
 import com.licel.jcardsim.io.JavaxSmartCardInterface;
 
@@ -260,7 +259,7 @@ public class CardSimulator extends JavaxSmartCardInterface {
                 byte currentProtocol = getProtocolByte(CardSimulator.this.getProtocol());
                 try {
                     runtime.changeProtocol(protocolByte);
-                    return CardManager.dispatchApdu(CardSimulator.this, capdu);
+                    return CardSimulator.this.transmitCommand(capdu);
                 } finally {
                     runtime.changeProtocol(currentProtocol);
                 }

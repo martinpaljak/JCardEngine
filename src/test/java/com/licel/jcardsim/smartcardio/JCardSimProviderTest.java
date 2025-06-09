@@ -15,14 +15,22 @@
  */
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.base.SimulatorRuntime;
 import com.licel.jcardsim.base.SimulatorSystem;
+
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.List;
+
+import com.licel.jcardsim.samples.HelloWorldApplet;
+import javacard.framework.AID;
 import javacard.framework.ISO7816;
+
 import javax.smartcardio.*;
+
 import junit.framework.TestCase;
 import org.bouncycastle.util.encoders.Hex;
 
@@ -35,20 +43,32 @@ public class JCardSimProviderTest extends TestCase {
 
     private static final ATR ETALON_ATR = new ATR(Hex.decode("3BFA1800008131FE454A434F5033315632333298"));
     private static final String TEST_APPLET_AID = "010203040506070809";
+    private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
 
-    protected void setUp() throws Exception {
-        super.setUp();
+
+    static byte[] install_params(byte[] aid, byte[] params) {
+        byte[] privileges = Hex.decode("00");
+        byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
+        int offset = 0;
+
+        data[offset++] = (byte) aid.length;
+        System.arraycopy(aid, 0, data, offset, aid.length);
+        offset += aid.length;
+
+        data[offset++] = (byte) privileges.length;
+        System.arraycopy(privileges, 0, data, offset, privileges.length);
+        offset += privileges.length;
+
+        data[offset++] = (byte) params.length;
+        System.arraycopy(params, 0, data, offset, params.length);
+        return data;
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        System.clearProperty("com.licel.jcardsim.card.applet.0.AID");
-        System.clearProperty("com.licel.jcardsim.card.applet.0.Class");
+    static AID _aid(byte[] aid) {
+        return new AID(aid, (short) 0, (byte) aid.length);
     }
 
     public void testProvider() throws CardException, NoSuchAlgorithmException, UnsupportedEncodingException {
-        System.setProperty("com.licel.jcardsim.card.applet.0.AID", TEST_APPLET_AID);
-        System.setProperty("com.licel.jcardsim.card.applet.0.Class", "com.licel.jcardsim.samples.HelloWorldApplet");
         if (Security.getProvider("jCardSim") == null) {
             JCardSimProvider provider = new JCardSimProvider();
             Security.addProvider(provider);
@@ -73,29 +93,20 @@ public class JCardSimProviderTest extends TestCase {
         // check card ATR
         assertEquals(jcsCard.getATR(), ETALON_ATR);
         // check card protocol
-        assertEquals(jcsCard.getProtocol(), "T=0");
+        assertEquals("T=0", jcsCard.getProtocol());
         // get basic channel
         CardChannel jcsChannel = jcsCard.getBasicChannel();
         assertTrue(jcsChannel != null);
-        // create applet data = aid len (byte), aid bytes, params length (byte), param
-        byte[] aidBytes = Hex.decode(TEST_APPLET_AID);
-        byte[] createData = new byte[1+aidBytes.length+1+2+3];
-        createData[0] = (byte) aidBytes.length;
-        System.arraycopy(aidBytes, 0, createData, 1, aidBytes.length);
-        createData[1+aidBytes.length] = (byte) 5;
-        createData[2+aidBytes.length] = 0; // aid
-        createData[3+aidBytes.length] = 0; // control
-        createData[4+aidBytes.length] = 2; // params
-        createData[5+aidBytes.length] = 0xF; // params
-        createData[6+aidBytes.length] = 0xF; // params
-        CommandAPDU createApplet = new CommandAPDU(0x80, 0xb8, 0, 0, createData);
-        ResponseAPDU response = jcsChannel.transmit(createApplet);
-        assertEquals(response.getSW(), 0x9000);
-        assertEquals(true, Arrays.equals(response.getData(), aidBytes));
+
+        // Returns the default simulator and installs HelloWorld into it
+        Simulator sim = new Simulator();
+        byte[] params = install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        sim.installApplet(_aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
+
         // select applet
         CommandAPDU selectApplet = new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(TEST_APPLET_AID));
-        response = jcsChannel.transmit(selectApplet);
-        assertEquals(response.getSW(), 0x9000);
+        ResponseAPDU response = jcsChannel.transmit(selectApplet);
+        assertEquals(0x9000, response.getSW());
         // test NOP
         response = jcsChannel.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());

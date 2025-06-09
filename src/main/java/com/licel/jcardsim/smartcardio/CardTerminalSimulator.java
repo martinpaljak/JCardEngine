@@ -113,7 +113,7 @@ public final class CardTerminalSimulator {
         if (names == null) {
             throw new NullPointerException("names");
         }
-        Set<String> set = new HashSet<String>(names.length);
+        Set<String> set = new HashSet<>(names.length);
         for (String name : names) {
             if (set.contains(name)) {
                 throw new IllegalArgumentException("Duplicate name '" + name + "'");
@@ -271,7 +271,7 @@ public final class CardTerminalSimulator {
         private final AutoResetEvent terminalsChangeAutoResetEvent;
         private final AutoResetEvent cardPresent = new AutoResetEvent();
         private final AutoResetEvent cardAbsent = new AutoResetEvent();
-        private final AtomicReference<CardSimulator> cardSimulatorReference = new AtomicReference<CardSimulator>();
+        private final AtomicReference<CardSimulator> cardSimulatorReference = new AtomicReference<>();
 
         CardTerminalImpl(String name, Map<CardTerminal, CardTerminals.State> terminalStateMap, AutoResetEvent terminalsChangeAutoResetEvent) {
             this.name = name;

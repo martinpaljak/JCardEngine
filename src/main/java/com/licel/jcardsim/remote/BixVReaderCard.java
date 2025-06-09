@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.remote;
 
-import com.licel.jcardsim.base.CardManager;
 import com.licel.jcardsim.base.Simulator;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -146,7 +145,7 @@ public class BixVReaderCard {
                             break;
                         case 2:
                             byte[] apdu = driverProtocol.readData();
-                            driverProtocol.writeData(CardManager.dispatchApdu(sim, apdu));
+                            driverProtocol.writeData(sim.transmitCommand(apdu));
                             break;
                     }
                 } catch (Exception e) {

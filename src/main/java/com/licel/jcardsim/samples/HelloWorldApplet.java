@@ -80,7 +80,7 @@ public class HelloWorldApplet extends BaseApplet {
             byte iLen = bArray[bOffset]; // aid length
             bOffset = (short) (bOffset + iLen + 1);
             byte cLen = bArray[bOffset]; // info length
-            bOffset = (short) (bOffset + 3);
+            bOffset = (short) (bOffset + cLen + 1);
             byte aLen = bArray[bOffset]; // applet data length
             initParamsBytes = new byte[aLen];
             Util.arrayCopyNonAtomic(bArray, (short) (bOffset + 1), initParamsBytes, (short) 0, aLen);

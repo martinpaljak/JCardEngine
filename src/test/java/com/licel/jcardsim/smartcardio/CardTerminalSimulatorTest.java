@@ -1,5 +1,7 @@
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AutoResetEvent;
 import javacard.framework.ISO7816;
 import junit.framework.TestCase;
@@ -15,21 +17,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CardTerminalSimulatorTest extends TestCase {
     private static final ATR ETALON_ATR = new ATR(Hex.decode("3BFA1800008131FE454A434F5033315632333298"));
     private static final String TEST_APPLET_AID = "010203040506070809";
+    private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
 
     public CardTerminalSimulatorTest(String name) {
         super(name);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        System.setProperty("com.licel.jcardsim.card.applet.0.AID", TEST_APPLET_AID);
-        System.setProperty("com.licel.jcardsim.card.applet.0.Class", "com.licel.jcardsim.samples.HelloWorldApplet");
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        System.clearProperty("com.licel.jcardsim.card.applet.0.AID");
-        System.clearProperty("com.licel.jcardsim.card.applet.0.Class");
     }
 
     public void testCreateSingleTerminal() throws CardException, InterruptedException {
@@ -43,6 +34,10 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
         assertSame(terminal, cardSimulator.getAssignedCardTerminal());
+
+        // Install the test applet to the simulator
+        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -83,6 +78,9 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
+        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
+
         // connect to card
         Card card = terminal.connect("T=1");
         test(card);
@@ -102,6 +100,9 @@ public class CardTerminalSimulatorTest extends TestCase {
         // create and insert card
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
+
+        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -123,6 +124,9 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
+        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
+
         // connect to card
         Card card = terminal.connect("T=1");
 
@@ -140,6 +144,10 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertEquals(false, terminal.waitForCardPresent(1));
 
         final CardSimulator cardSimulator = new CardSimulator();
+
+        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
+
         new Thread() {
             @Override
             public void run() {
@@ -265,25 +273,11 @@ public class CardTerminalSimulatorTest extends TestCase {
         // get basic channel
         CardChannel jcsChannel = jcsCard.getBasicChannel();
         assertTrue(jcsChannel != null);
-        // create applet data = aid len (byte), aid bytes, params length (byte), param
-        byte[] aidBytes = Hex.decode(TEST_APPLET_AID);
-        byte[] createData = new byte[1 + aidBytes.length + 1 + 2 + 3];
-        createData[0] = (byte) aidBytes.length;
-        System.arraycopy(aidBytes, 0, createData, 1, aidBytes.length);
-        createData[1 + aidBytes.length] = (byte) 5;
-        createData[2 + aidBytes.length] = 0; // aid
-        createData[3 + aidBytes.length] = 0; // control
-        createData[4 + aidBytes.length] = 2; // params
-        createData[5 + aidBytes.length] = 0xF; // params
-        createData[6 + aidBytes.length] = 0xF; // params
-        CommandAPDU createApplet = new CommandAPDU(0x80, 0xb8, 0, 0, createData);
-        ResponseAPDU response = jcsChannel.transmit(createApplet);
-        assertEquals(response.getSW(), 0x9000);
-        assertEquals(true, Arrays.equals(response.getData(), aidBytes));
+
         // select applet
         CommandAPDU selectApplet = new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(TEST_APPLET_AID));
-        response = jcsChannel.transmit(selectApplet);
-        assertEquals(response.getSW(), 0x9000);
+        ResponseAPDU response = jcsChannel.transmit(selectApplet);
+        assertEquals(0x9000, response.getSW());
         // test NOP
         response = jcsChannel.transmit(new CommandAPDU(0x01, 0x02, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());
