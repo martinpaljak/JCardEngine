@@ -16,7 +16,6 @@
 package com.licel.jcardsim.io;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.remote.JavaCardRemoteClient;
 import java.util.Properties;
 
 /**
@@ -27,7 +26,6 @@ import java.util.Properties;
 public class CAD {
 
     public final static byte INTERNAL = 0;
-    public final static byte RMI = 1;
     public final static byte JAVAX_SMARTCARDIO = 2;
     byte interfaceType;
     CardInterface cardInterface;
@@ -37,15 +35,6 @@ public class CAD {
         switch (type) {
             case INTERNAL:
                 cardInterface = new Simulator();
-                break;
-            case RMI:
-                try {
-                    String host = params.getProperty("com.licel.jcardsim.terminal.host");
-                    int port = Integer.parseInt(params.getProperty("com.licel.jcardsim.terminal.port"));
-                    cardInterface = new JavaCardRemoteClient(host, port);
-                } catch (Exception e) {
-                    throw new RuntimeException("RMI CardInterface init error", e);
-                }
                 break;
             case JAVAX_SMARTCARDIO:
                 cardInterface = new JavaxSmartCardInterface();
