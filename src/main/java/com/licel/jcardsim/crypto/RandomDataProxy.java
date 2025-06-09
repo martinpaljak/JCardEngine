@@ -27,6 +27,7 @@ import static javacard.security.RandomData.ALG_KEYGENERATION;
  * ProxyClass for <code>RandomData</code>
  * @see RandomData
  */
+@SuppressWarnings("deprecation")
 public class RandomDataProxy {
     /**
      * Creates a <code>RandomData</code> instance of the selected algorithm.
@@ -36,7 +37,7 @@ public class RandomDataProxy {
      * @throws CryptoException with the following reason codes:<ul>
      * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm is not supported.</ul>
      */
-    public static final RandomData getInstance(byte algorithm)
+    public static RandomData getInstance(byte algorithm)
             throws CryptoException {
         RandomData instance = null;
         switch (algorithm) {

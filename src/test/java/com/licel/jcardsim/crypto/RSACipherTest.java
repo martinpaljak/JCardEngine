@@ -77,6 +77,7 @@ public class RSACipherTest extends TestCase {
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl and ByteContainer.getBigInteger() method.
      */
+    @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
     public void testSelfRSA() {
         Cipher cipher = Cipher.getInstance(Cipher.ALG_RSA_NOPAD, false);
 

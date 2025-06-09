@@ -101,6 +101,7 @@ public class VSmartCard {
         new VSmartCard(host, Integer.parseInt(port));
     }
 
+    @SuppressWarnings("deprecation") // Class.newInstance()
     private void startThread(VSmartCardTCPProtocol driverProtocol) throws IOException {
         System.out.println("Trying to load an instance of com.licel.globalplatform.GpSimulatorRuntime");
         SimulatorRuntime simRuntime;

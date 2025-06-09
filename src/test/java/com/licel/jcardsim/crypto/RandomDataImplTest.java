@@ -24,6 +24,7 @@ import java.util.Arrays;
 /**
  * Test for <code>RandomDataImpl</code>
  */
+@SuppressWarnings("deprecation")
 public class RandomDataImplTest extends TestCase {
 
     public RandomDataImplTest(String testName) {

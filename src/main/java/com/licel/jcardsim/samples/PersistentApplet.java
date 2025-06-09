@@ -25,6 +25,7 @@ import javacard.security.RandomData;
 /**
  * @author LICEL LLC
  */
+@SuppressWarnings("deprecation") // random
 public class PersistentApplet extends BaseApplet {
     
     private final byte GET_DATA_INS = 0x01;

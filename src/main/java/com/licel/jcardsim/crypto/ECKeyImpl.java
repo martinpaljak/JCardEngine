@@ -165,6 +165,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
      * @return parameters for use with BouncyCastle API
      * @see ECDomainParameters
      */
+    @SuppressWarnings("deprecation") // ECCurve.Fp
     public ECDomainParameters getDomainParameters() {
         if (!isDomainParametersInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);

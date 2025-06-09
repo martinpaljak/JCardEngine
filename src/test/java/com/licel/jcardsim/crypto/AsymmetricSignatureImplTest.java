@@ -214,6 +214,7 @@ public class AsymmetricSignatureImplTest extends TestCase {
      * @param keySize - key size
      * @param signAlg - signature algorithm
      */
+    @SuppressWarnings("deprecation") // random
     public void testSelfSignVerify(byte keyAlg, short keySize, byte signAlg) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);
@@ -243,6 +244,7 @@ public class AsymmetricSignatureImplTest extends TestCase {
      * @param signAlg - signature algorithm
      * @param digestAlgo - message digest algorithm for signAlg
      */
+    @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
     public void testSelfPrecompSignVerify(byte keyAlg, short keySize, byte signAlg, byte digestAlgo) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);

@@ -24,8 +24,8 @@ import javacard.framework.Util;
 /**
  * CardManager.
  */
-public class CardManager implements CardManagerInterface {
-    private static CardManagerInterface impl = new CardManager();
+public class CardManager {
+    private static final CardManager impl = new CardManager();
 
     // XXX: remove, supposedly a dispatch to a GP implementation
     public static byte[] dispatchApdu(JavaCardInterface sim, byte[] capdu) {
@@ -47,6 +47,7 @@ public class CardManager implements CardManagerInterface {
             // Le field          
             // parameters
             try {
+                // FIXME: remove the assumption of "create applet" pseudo-apdu.
                 AID aid = new AID(capdu, (short) (ISO7816.OFFSET_CDATA + 1), capdu[ISO7816.OFFSET_CDATA]);
                 sim.createApplet(aid, capdu, ISO7816.OFFSET_CDATA, capdu[ISO7816.OFFSET_LC]);
                 byte[] response = new byte[capdu[ISO7816.OFFSET_CDATA] + 2];

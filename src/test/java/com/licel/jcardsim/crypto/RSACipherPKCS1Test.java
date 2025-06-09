@@ -78,6 +78,7 @@ public class RSACipherPKCS1Test extends TestCase {
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl and ALG_RSA_PKCS1 algorithm implementation.
      */
+    @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
     public void testRSAPKCS1() {
         Cipher cipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
 

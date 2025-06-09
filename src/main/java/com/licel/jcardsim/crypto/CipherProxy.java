@@ -22,6 +22,7 @@ import javacardx.crypto.AEADCipher;
  * ProxyClass for <code>Cipher</code>
  * @see Cipher
  */
+@SuppressWarnings("deprecation")
 public class CipherProxy {
     /**
      * Creates a <code>Cipher</code> object instance of the selected algorithm.

@@ -1,5 +1,5 @@
-
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.martinpaljak</groupId>
@@ -18,7 +18,7 @@
             <organization>Licel Corporation</organization>
         </developer>
     </developers>
-    
+
     <licenses>
         <license>
             <name>Apache 2</name>
@@ -54,12 +54,12 @@
         <developerConnection>scm:git:git@github.com:martinpaljak/jcardsim.git</developerConnection>
         <url>git@github.com:martinpaljak/jcardsim.git</url>
     </scm>
-    
+
     <dependencies>
         <dependency>
-           <groupId>com.esotericsoftware</groupId>
-           <artifactId>kryo</artifactId>
-           <version>5.6.2</version>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>5.6.2</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -97,6 +97,17 @@
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-analysis</artifactId>
             <version>9.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>2.0.17</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -142,6 +153,10 @@
                 <version>3.14.0</version>
                 <configuration>
                     <release>11</release>
+                    <compilerArgs>
+                        <arg>-Werror</arg>
+                        <arg>-Xlint:deprecation</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <!-- Install the JC API JAR as an addressable Maven dependency -->
@@ -164,7 +179,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>  
+            </plugin>
             <!-- Extract java card API classes -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -188,7 +203,7 @@
                                     <includes>**/*.class</includes>
                                     <excludes>**/java/**/*.class</excludes>
                                 </artifactItem>
-                            </artifactItems>                                    
+                            </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
@@ -239,11 +254,11 @@
                 <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <links>
-                        <link>https://docs.oracle.com/javase/7/docs/api/</link>
-                        <link>https://docs.oracle.com/javase/7/docs/jre/api/security/smartcardio/spec/</link>
+                        <link>https://docs.oracle.com/javase/8/docs/api/</link>
+                        <link>https://docs.oracle.com/javase/8/docs/jre/api/security/smartcardio/spec/</link>
                     </links>
                     <author>false</author>
-                    <source>7</source>
+                    <source>8</source>
                 </configuration>
             </plugin>
             <!-- Use shade to generate the output JAR files with dependencies remapped / hidden -->
@@ -274,6 +289,7 @@
                             <include>org.bouncycastle:*</include>
                             <include>com.esotericsoftware:*</include>
                             <include>org.objenesis:*</include>
+                            <include>org.slf4j:*</include>
                         </includes>
                         <excludes>
                             <exclude>oracle.javacard:*</exclude>
@@ -308,6 +324,7 @@
                                     <include>org.bouncycastle:*</include>
                                     <include>com.esotericsoftware:*</include>
                                     <include>org.objenesis:*</include>
+                                    <include>org.slf4j:*</include>
                                 </includes>
                                 <excludes>
                                     <exclude>oracle.javacard:*</exclude>
@@ -341,6 +358,7 @@
                                     <include>org.bouncycastle:*</include>
                                     <include>com.esotericsoftware:*</include>
                                     <include>org.objenesis:*</include>
+                                    <include>org.slf4j:*</include>
                                 </includes>
                                 <excludes>
                                     <exclude>oracle.javacard:*</exclude>
@@ -392,30 +410,30 @@
                         <configuration>
                             <target>
                                 <path id="compileClasspath">
-                                    <file name="${project.build.directory}/jcardsim-${project.version}.jar" />
-                                    <file name="${user.home}/.m2/repository/junit/junit/${junit.version}/junit-${junit.version}.jar" />
+                                    <file name="${project.build.directory}/jcardsim-${project.version}.jar"/>
+                                    <file name="${user.home}/.m2/repository/junit/junit/${junit.version}/junit-${junit.version}.jar"/>
                                 </path>
 
-                                <delete dir="${ant.build.dir}" />
+                                <delete dir="${ant.build.dir}"/>
                                 <mkdir dir="${ant.build.dir}/src"/>
                                 <mkdir dir="${ant.build.dir}/bin"/>
                                 <mkdir dir="${ant.build.dir}/reports"/>
                                 <mkdir dir="${ant.build.dir}/bin/unpacked"/>
                                 <!-- remove sign -->
                                 <unzip src="${project.build.directory}/jcardsim-${project.version}-android.jar"
-                                        dest="${ant.build.dir}/bin/unpacked">
+                                       dest="${ant.build.dir}/bin/unpacked">
                                     <patternset>
                                         <exclude name="**/*.SF"/>
                                         <exclude name="**/*.RSA"/>
                                     </patternset>
-                                </unzip>                   
+                                </unzip>
                                 <path id="testClasspath">
                                     <file name="${ant.build.dir}/bin/unpacked"/>
-                                    <file name="${user.home}/.m2/repository/junit/junit/${junit.version}/junit-${junit.version}.jar" />
+                                    <file name="${user.home}/.m2/repository/junit/junit/${junit.version}/junit-${junit.version}.jar"/>
                                 </path>
-                                
+
                                 <copy todir="${ant.build.dir}/src">
-                                    <fileset dir="${project.basedir}/src/test/java" />
+                                    <fileset dir="${project.basedir}/src/test/java"/>
                                 </copy>
 
                                 <replace dir="${ant.build.dir}/src" value="com.licel.jcardsim.bouncycastle.">
@@ -423,10 +441,12 @@
                                     <replacetoken>org.bouncycastle.</replacetoken>
                                 </replace>
 
-                                <javac srcdir="${ant.build.dir}/src" destdir="${ant.build.dir}/bin" classpathref="compileClasspath" includeantruntime="false" source="${java.version}" />
+                                <javac srcdir="${ant.build.dir}/src" destdir="${ant.build.dir}/bin"
+                                       classpathref="compileClasspath" includeantruntime="false"
+                                       source="${java.version}"/>
 
                                 <copy todir="${ant.build.dir}/bin">
-                                    <fileset dir="${project.basedir}/src/test/resources" />
+                                    <fileset dir="${project.basedir}/src/test/resources"/>
                                 </copy>
 
                                 <echo>Testing shaded JAR: jcardsim-${project.version}-android.jar</echo>

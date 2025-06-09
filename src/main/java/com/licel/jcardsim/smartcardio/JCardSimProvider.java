@@ -38,6 +38,7 @@ import java.security.Provider;
  */
 public class JCardSimProvider extends Provider {
 
+    @SuppressWarnings("deprecation")
     public JCardSimProvider() {
         super("jCardSim", 1.0d, "jCardSim Virtual Terminal Provider");
         AccessController.doPrivileged(new PrivilegedAction() {

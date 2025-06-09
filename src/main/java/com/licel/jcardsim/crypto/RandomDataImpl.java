@@ -29,6 +29,7 @@ import java.security.SecureRandom;
  * on BouncyCastle CryptoAPI.
  * @see RandomData
  */
+@SuppressWarnings("deprecation")
 public class RandomDataImpl extends RandomData {
     byte algorithm;
     RandomGenerator engine;

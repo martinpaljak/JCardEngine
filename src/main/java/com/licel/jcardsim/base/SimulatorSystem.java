@@ -34,16 +34,6 @@ public class SimulatorSystem {
     public static final short SW_EXCEPTION_OCCURRED = 0x6424;
 
     /**
-     * @deprecated Use <code>SW_APPLET_CREATION_FAILED</code>
-     */
-    public static final short SW_APPLET_CRATION_FAILED = SW_APPLET_CREATION_FAILED;
-
-    /**
-     * @deprecated Use <code>SW_EXCEPTION_OCCURRED</code>
-     */
-    public static final short SW_EXCEPTION_OCCURED = SW_EXCEPTION_OCCURRED;
-
-    /**
      * Holds the currently active instance
      */
     private static final ThreadLocal<SimulatorRuntime> currentRuntime = new ThreadLocal<>();

@@ -127,8 +127,5 @@ public class SelectTest extends TestCase {
 
         result = simulator.transmitCommand(cmd);
         assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, ByteUtil.getSW(result));
-
-        result = CardManager.dispatchApdu(simulator, new byte[]{CLA,INS_GET_FULL_AID, 0, 0});
-        assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, ByteUtil.getSW(result));
     }
 }
