@@ -38,6 +38,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
       - name: Add known host key
+        if: matrix.java == '8' && github.ref == 'refs/heads/next'
         run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
       - name: Deploy package
         if: matrix.java == '8' && github.ref == 'refs/heads/next'
