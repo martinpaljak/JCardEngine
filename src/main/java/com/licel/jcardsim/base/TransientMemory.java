@@ -174,18 +174,12 @@ public class TransientMemory {
         for (Object obj : list) {
             if (obj instanceof byte[]) {
                 Arrays.fill((byte[]) obj, (byte) 0);
-            }
-            else if (obj instanceof short[]) {
+            } else if (obj instanceof short[]) {
                 Arrays.fill((short[]) obj, (short) 0);
-            }
-            else if (obj instanceof Object[]) {
-                Arrays.fill((Object[])obj, null);
-            }
-            else if (obj instanceof boolean[]) {
-                boolean[] array = (boolean[]) obj;
-                for (int i = 0; i < array.length; ++i) {
-                    array[i] = false;
-                }
+            } else if (obj instanceof Object[]) {
+                Arrays.fill((Object[]) obj, null);
+            } else if (obj instanceof boolean[]) {
+                Arrays.fill((boolean[]) obj, false);
             }
         }
     }

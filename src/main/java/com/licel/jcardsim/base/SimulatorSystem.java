@@ -17,10 +17,9 @@ package com.licel.jcardsim.base;
 
 import javacard.framework.*;
 
-import java.lang.reflect.Constructor;
-
 /**
  * Base implementation of <code>JCSystem</code>.
+ *
  * @see JCSystem
  */
 public class SimulatorSystem {
@@ -34,17 +33,20 @@ public class SimulatorSystem {
      */
     public static final short SW_EXCEPTION_OCCURRED = 0x6424;
 
-    /** @deprecated Use <code>SW_APPLET_CREATION_FAILED</code> */
+    /**
+     * @deprecated Use <code>SW_APPLET_CREATION_FAILED</code>
+     */
     public static final short SW_APPLET_CRATION_FAILED = SW_APPLET_CREATION_FAILED;
 
-    /** @deprecated Use <code>SW_EXCEPTION_OCCURRED</code> */
+    /**
+     * @deprecated Use <code>SW_EXCEPTION_OCCURRED</code>
+     */
     public static final short SW_EXCEPTION_OCCURED = SW_EXCEPTION_OCCURRED;
-
 
     /**
      * Holds the currently active instance
      */
-    private static final ThreadLocal<SimulatorRuntime> currentRuntime = new ThreadLocal<SimulatorRuntime>();
+    private static final ThreadLocal<SimulatorRuntime> currentRuntime = new ThreadLocal<>();
 
     /**
      * the default instance. Used by <code>Simulator</code>
@@ -52,23 +54,16 @@ public class SimulatorSystem {
     public static final SimulatorRuntime DEFAULT_RUNTIME;
 
     static {
-        System.out.println("Trying to load an instance of com.licel.globalplatform.GpSimulatorRuntime");
-        SimulatorRuntime sim;
-        
-        try {
-            sim = setCurrentInstance((SimulatorRuntime)Class.forName("com.licel.globalplatform.GpSimulatorRuntime").newInstance());
-            System.out.println("Succesfully loaded the instance!");
-        } catch (Throwable ex) {
-            System.out.println("Failed to load the instance! Will use the default SimulatorRuntime");
-            sim = setCurrentInstance(new SimulatorRuntime());
-        }
-        
-        DEFAULT_RUNTIME = sim;
+        // XXX: the threadLocal currentRuntime does not seem to make much sense
+        // As communication is sequential by design, would like to have two independent
+        // simulators inside one thread (think: simulating interaction between two cards)
+        // See also: https://github.com/licel/jcardsim/issues/208
+        DEFAULT_RUNTIME = setCurrentInstance(new SimulatorRuntime());
     }
-    
+
     /**
      * Get the currently active SimulatorRuntime instance
-     *
+     * <p>
      * This method should be only called by JCE implementation classes like
      * <code>JCSystem</code>
      *
@@ -84,6 +79,7 @@ public class SimulatorSystem {
 
     /**
      * Internal method to set the currently active SimulatorRuntime
+     *
      * @param simulatorRuntime simulatorRuntime to set
      * @return <code>simulatorRuntime</code>
      */

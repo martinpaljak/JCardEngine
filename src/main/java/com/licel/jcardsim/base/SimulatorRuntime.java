@@ -363,6 +363,7 @@ public class SimulatorRuntime {
                 Applet applet = applicationInstance.getApplet();
                 applet.deselect();
             } catch (Exception e) {
+                // TODO: want to log exceptions
                 // ignore all
             }
         }
@@ -611,14 +612,14 @@ public class SimulatorRuntime {
         }
 
         Class<? extends Applet> appletClass = module.getAppletClass();
-        Method initMethod;
+        Method installMethod;
         try {
-            initMethod = appletClass.getMethod("install",
+            installMethod = appletClass.getMethod("install",
                     new Class[]{byte[].class, short.class, byte.class});
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("Class does not provide install method");
         }
-
+        // XXX: threading and atomics all come from CardSimulator
         final AtomicInteger callCount = new AtomicInteger(0);
         registrationCallback.set(new BiConsumer<Applet,AID>() {
             public void accept(Applet applet, AID installAID) {
@@ -637,31 +638,34 @@ public class SimulatorRuntime {
             }
         });
 
+        // Call the install() method.
+        // TODO: really want to log exceptions from this one
         try {
-            initMethod.invoke(null, bArray, bOffset, bLength);
-        }
-        catch (InvocationTargetException e) {
+            installMethod.invoke(null, bArray, bOffset, bLength);
+        } catch (InvocationTargetException e) {
             try {
                 ISOException isoException = (ISOException) e.getCause();
                 throw isoException;
-            } catch (ClassCastException cce){
+            } catch (ClassCastException cce) {
                 throw new SystemException(SystemException.ILLEGAL_AID);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new SystemException(SystemException.ILLEGAL_AID);
-        }
-        finally {
+        } finally {
             registrationCallback.set(null);
         }
 
+        // register() can and must be called only once.
         if (callCount.get() != 1) {
             throw new SystemException(SystemException.ILLEGAL_AID);
         }
     }
 
-    /** Represents an Applet instance */
+    /**
+     * Represents an Applet instance
+     */
     public static class ApplicationInstance {
+        // TODO: track privileges of install
         private final AID aid;
         private final Applet applet;
 
@@ -670,14 +674,14 @@ public class SimulatorRuntime {
             this.applet = applet;
         }
 
-        public Applet getApplet(){
+        public Applet getApplet() {
             return applet;
         }
-        
+
         public AID getAID() {
             return aid;
         }
-        
+
         @Override
         public String toString() {
             return String.format("ApplicationInstance (%s)", AIDUtil.toString(aid));
