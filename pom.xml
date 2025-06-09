@@ -165,6 +165,13 @@
     </dependencies>
 
     <build>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-ssh-external</artifactId>
+                <version>3.5.3</version>
+            </extension>
+        </extensions>
         <plugins>
             <!-- Minimum Maven version. Not really relevant with wrapper -->
             <plugin>
