@@ -15,6 +15,6 @@ nb-configuration.xml
 .settings/
 # Maven wrapper
 /.mvn/wrapper/maven-wrapper.jar
-
+/dependency-reduced-pom.xml
 # Generic
 *~
