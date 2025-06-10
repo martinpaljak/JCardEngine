@@ -22,6 +22,8 @@ import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 
+import java.math.BigInteger;
+
 /**
  * Implementation <code>RSAPrivateCrtKey</code> based
  * on BouncyCastle CryptoAPI.
@@ -127,7 +129,9 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         // modulus = p * q;
-        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), null,
+        // FIXME: prior to BC 1.77 not sending an exponent worked.
+        // With 1.77+ exponent needs to be present. So we send the default exponent for now if not set, but this needs clarity
+        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exponent.isInitialized() ? exponent.getBigInteger() : new BigInteger("10001", 16),
                 null, p.getBigInteger(), q.getBigInteger(),
                 dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
     }
