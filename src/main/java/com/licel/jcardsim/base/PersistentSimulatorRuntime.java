@@ -36,6 +36,7 @@ import javacard.framework.Applet;
 import javacard.framework.SystemException;
 import org.objenesis.strategy.StdInstantiatorStrategy;
 
+@Deprecated // TODO: until it is properly tested
 public class PersistentSimulatorRuntime extends SimulatorRuntime {
     public static final String PERSISTENT_BASE_DIR = "persistentSimulatorRuntime.dir";
     protected final Kryo kryo;

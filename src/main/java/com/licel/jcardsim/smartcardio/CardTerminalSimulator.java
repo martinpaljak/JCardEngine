@@ -133,7 +133,7 @@ public final class CardTerminalSimulator {
      * </pre>
      */
     public static final class SecurityProvider extends Provider {
-        @SuppressWarnings("deprecation")
+        @SuppressWarnings({"deprecation", "unchecked"})
         public SecurityProvider() {
             super("CardTerminalSimulator", 1.0d, "jCardSim Virtual Terminal Provider");
             AccessController.doPrivileged(new PrivilegedAction() {

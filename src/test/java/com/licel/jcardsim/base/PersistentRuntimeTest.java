@@ -31,6 +31,7 @@ import javacard.framework.AID;
 import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
 
+@SuppressWarnings("deprecation") // TODO: remove once documented and tested
 public class PersistentRuntimeTest extends TestCase {
     
     private final byte GET_DATA_INS = 0x01;

@@ -45,7 +45,7 @@ public class JavaCardApiProcessor {
         if (!buildDir.exists() || !buildDir.isDirectory()) {
             throw new RuntimeException("Invalid directory: " + buildDir);
         }
-        HashMap<String, String> allMap = new HashMap();
+        HashMap<String, String> allMap = new HashMap<>();
         proxyClass(buildDir, "com.licel.jcardsim.framework.AIDProxy", "javacard.framework.AID", false);
         allMap.put("com.licel.jcardsim.framework.APDUProxy".replace(".", "/"), "javacard.framework.APDU".replace(".", "/"));
         proxyClass(buildDir, "com.licel.jcardsim.framework.APDUProxy", "javacard.framework.APDU", false);
@@ -93,7 +93,7 @@ public class JavaCardApiProcessor {
         crTarget.accept(cnTarget, 0);
 
         ClassNode cnProxyRemapped = new ClassNode();
-        HashMap<String, String> map = new HashMap();
+        HashMap<String, String> map = new HashMap<>();
         map.put(cnProxy.name, cnTarget.name);
         // inner classes
         for (int i = 0; i < 10; i++) {
@@ -115,7 +115,7 @@ public class JavaCardApiProcessor {
         proxyFile.delete();
     }
 
-    public static void copyClass(File buildDir, String proxyClassFile, String targetClassName, Map map) throws IOException {
+    public static void copyClass(File buildDir, String proxyClassFile, String targetClassName, Map<String, String> map) throws IOException {
         File sourceFile = new File(buildDir, proxyClassFile.replace(".", File.separator) + ".class");
         FileInputStream fProxyClass = new FileInputStream(sourceFile);
         ClassReader crProxy = new ClassReader(fProxyClass);
@@ -217,8 +217,8 @@ public class JavaCardApiProcessor {
 
         private ClassNode cn;
         private String cname;
-        private HashMap<String, MethodNode> cnMethods = new HashMap();
-        private HashMap<String, FieldNode> cnFields = new HashMap();
+        private HashMap<String, MethodNode> cnMethods = new HashMap<>();
+        private HashMap<String, FieldNode> cnFields = new HashMap<>();
         private boolean skipConstructor;
 
         public MergeAdapter(ClassVisitor cv,

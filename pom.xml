@@ -5,23 +5,32 @@
     <groupId>com.github.martinpaljak</groupId>
     <version>25.06.07-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <url>http://maven.apache.org</url>
-
+    <url>https://github.com/martinpaljak/jcardsim</url>
     <artifactId>jcardsim</artifactId>
     <name>Java Card Runime Environment Simulator</name>
     <description>jCardSim is open-source library contains implementation of Java Card API</description>
 
     <developers>
         <developer>
+            <email>martin@martinpaljak.net</email>
+            <name>Martin Paljak</name>
+            <roles>
+                <role>maintainer</role>
+            </roles>
+        </developer>
+        <developer>
             <email>jcarsim@licelus.com</email>
             <name>jCardSim Team</name>
             <organization>Licel Corporation</organization>
+            <roles>
+                <role>historical</role>
+            </roles>
         </developer>
     </developers>
 
     <licenses>
         <license>
-            <name>Apache 2</name>
+            <name>Apache-2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
             <distribution>repo</distribution>
         </license>
@@ -32,9 +41,10 @@
         <netbeans.hint.license>apache20</netbeans.hint.license>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
         <ant.build.dir>${project.build.directory}/antrun/build</ant.build.dir>
-        <junit.version>4.13.1</junit.version>
+        <junit.version>4.13.2</junit.version>
         <java.version>8</java.version>
-        <jcApiVersion>3.0.5</jcApiVersion>
+        <asm.version>9.8</asm.version>
+        <javacard.version>3.0.5</javacard.version>
     </properties>
 
     <!-- Default is publishing to private Maven repo on mvn.javacard.pro -->
@@ -56,57 +66,63 @@
     </scm>
 
     <dependencies>
+        <!-- The base JC API -->
         <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo</artifactId>
-            <version>5.6.2</version>
+            <groupId>oracle.javacard</groupId>
+            <artifactId>api_classic</artifactId>
+            <version>${javacard.version}</version>
+            <scope>provided</scope>
         </dependency>
+        <!-- Mandatory deps -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.17</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
             <version>1.81</version>
         </dependency>
+        <!-- Persistent simulator deps -->
         <dependency>
-            <groupId>oracle.javacard</groupId>
-            <artifactId>api_classic</artifactId>
-            <version>${jcApiVersion}</version>
-            <scope>compile</scope>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>5.6.2</version>
+            <!-- TODO: Until it is properly tested -->
             <optional>true</optional>
         </dependency>
+        <!-- ASM for bytecode processing - not needed by downstreams -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>9.8</version>
-            <optional>true</optional>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-tree</artifactId>
-            <version>9.8</version>
-            <optional>true</optional>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-util</artifactId>
-            <version>9.8</version>
-            <optional>true</optional>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-analysis</artifactId>
-            <version>9.8</version>
-            <optional>true</optional>
+            <version>${asm.version}</version>
+            <scope>provided</scope>
         </dependency>
+        <!-- unit tests -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.17</version>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -161,6 +177,7 @@
                     <compilerArgs>
                         <arg>-Werror</arg>
                         <arg>-Xlint:deprecation</arg>
+                        <arg>-Xlint:unchecked</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>
@@ -178,7 +195,7 @@
                         <configuration>
                             <groupId>oracle.javacard</groupId>
                             <artifactId>api_classic</artifactId>
-                            <version>${jcApiVersion}</version>
+                            <version>${javacard.version}</version>
                             <packaging>jar</packaging>
                             <file>sdks/jc320v25.0_kit/lib/api_classic-3.0.5.jar</file>
                         </configuration>
@@ -201,7 +218,7 @@
                                 <artifactItem>
                                     <groupId>oracle.javacard</groupId>
                                     <artifactId>api_classic</artifactId>
-                                    <version>${jcApiVersion}</version>
+                                    <version>${javacard.version}</version>
                                     <type>jar</type>
                                     <overWrite>true</overWrite>
                                     <outputDirectory>${project.build.directory}/classes</outputDirectory>
@@ -233,6 +250,31 @@
                         </configuration>
                     </execution>
                 </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-commons</artifactId>
+                        <version>${asm.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-tree</artifactId>
+                        <version>${asm.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-util</artifactId>
+                        <version>${asm.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-analysis</artifactId>
+                        <version>${asm.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
             </plugin>
             <!-- Run tests, so that the classes have already been processed with proxy code -->
             <plugin>
@@ -285,82 +327,27 @@
                         </includes>
                         <excludes>
                             <exclude>oracle.javacard:*</exclude>
-                            <exclude>oracle.javacard:*:*:*</exclude>
-                            <exclude>*:api_classic</exclude>
-                            <exclude>oracle.javacard:api_classic</exclude>
                             <exclude>org.ow2.asm:*</exclude>
                         </excludes>
                     </artifactSet>
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/*.SF</exclude>
-                                <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
                     <transformers>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                             <manifestEntries>
                                 <Multi-Release>true</Multi-Release>
                             </manifestEntries>
                         </transformer>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
-                        <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
-                        <!--addHeader>false</addHeader>
-                    </transformer-->
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                        <transformer
+                                implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
                     </transformers>
                 </configuration>
                 <executions>
-                    <execution>
-                        <id>shade</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <keepDependenciesWithProvidedScope>false</keepDependenciesWithProvidedScope>
-                            <minimizeJar>true</minimizeJar>
-                            <artifactSet>
-                                <includes>
-                                    <include>org.bouncycastle:*</include>
-                                    <include>com.esotericsoftware:*</include>
-                                    <include>org.objenesis:*</include>
-                                    <include>org.slf4j:*</include>
-                                </includes>
-                                <excludes>
-                                    <exclude>oracle.javacard:*</exclude>
-                                </excludes>
-                            </artifactSet>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/MANIFEST.MF</exclude>
-                                        <exclude>META-INF/versions/9/module-info.class</exclude>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <manifestEntries>
-                                        <Multi-Release>true</Multi-Release>
-                                    </manifestEntries>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
-                                    <!--addHeader>false</addHeader>
-                                </transformer-->
-                            </transformers>
-                        </configuration>
-                    </execution>
+                    <!-- NOTE: order here is important, as the second shade execution replaces the original file, so we do the
+                    Android variant (that results in a different file) first -->
                     <execution>
                         <id>shade-for-android</id>
                         <phase>package</phase>
@@ -368,20 +355,6 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <keepDependenciesWithProvidedScope>true</keepDependenciesWithProvidedScope>
-                            <artifactSet>
-                                <includes>
-                                    <include>org.bouncycastle:*</include>
-                                    <include>com.esotericsoftware:*</include>
-                                    <include>org.objenesis:*</include>
-                                    <include>org.slf4j:*</include>
-                                </includes>
-                                <excludes>
-                                    <exclude>oracle.javacard:*</exclude>
-                                    <exclude>org.ow2.asm:*:*</exclude>
-                                </excludes>
-                            </artifactSet>
-                            <minimizeJar>true</minimizeJar>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>android</shadedClassifierName>
                             <filters>
@@ -389,10 +362,7 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/MANIFEST.MF</exclude>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                        <exclude>java/**</exclude>
+                                        <exclude>META-INF/versions/9/module-info.class</exclude>
                                         <exclude>com/licel/jcardsim/smartcardio/*</exclude>
                                         <exclude>com/licel/jcardsim/remote/*</exclude>
                                         <exclude>com/licel/jcardsim/io/JavaxSmartCardInterface*</exclude>
@@ -401,16 +371,24 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <manifestEntries>
-                                        <Multi-Release>true</Multi-Release>
-                                    </manifestEntries>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
-                            </transformers>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>shade</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/versions/9/module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
@@ -424,7 +402,7 @@
                     <dependency>
                         <groupId>org.apache.ant</groupId>
                         <artifactId>ant-junit</artifactId>
-                        <version>1.9.5</version>
+                        <version>1.10.15</version>
                     </dependency>
                 </dependencies>
                 <executions>
