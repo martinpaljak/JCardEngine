@@ -25,13 +25,13 @@ public interface CardInterface {
     /**
      * Powerdown/Powerup
      */
-    public void reset();
+    void reset();
 
     /**
      * Returns ATR
      * @return ATR bytes
      */
-    public byte[] getATR();
+    byte[] getATR();
 
     /**
      * Transmit APDU to previous selected applet
@@ -44,5 +44,5 @@ public interface CardInterface {
      * @see javax.smartcardio.CommandAPDU
      * @see javax.smartcardio.ResponseAPDU
      */
-    public byte[] transmitCommand(byte[] commandAPDU);
+    byte[] transmitCommand(byte[] commandAPDU);
 }

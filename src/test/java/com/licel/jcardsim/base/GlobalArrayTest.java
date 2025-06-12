@@ -69,7 +69,7 @@ public class GlobalArrayTest extends TestCase {
 
         shortsForTest = new short[32];
         for(byte i = 0; i<32 ; i++){
-            shortsForTest[i] = (short)i;
+            shortsForTest[i] = i;
         }
 
 
@@ -177,7 +177,7 @@ public class GlobalArrayTest extends TestCase {
          // Check the global array with the writen data
         byte[] globalArrayBytes = new byte[32];
         System.arraycopy(response4, 0, globalArrayBytes, 0, globalArrayBytes.length);
-        assertEquals(Arrays.areEqual(bytesForTest, (byte[]) globalArrayBytes), true);
+        assertEquals(Arrays.areEqual(bytesForTest, globalArrayBytes), true);
     }
     
 }

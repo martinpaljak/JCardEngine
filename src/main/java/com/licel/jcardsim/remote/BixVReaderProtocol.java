@@ -21,21 +21,21 @@ package com.licel.jcardsim.remote;
 import java.io.IOException;
 
 public interface BixVReaderProtocol {
-    public final static int CARD_INSERTED = 1;
-    public final static int ATR_REQUEST   = 1;
-    public final static int TRANSMIT_DATA = 2;
-    public final static int RESET         = 0;
-    public final static int CARD_REMOVED  = 0;
+    int CARD_INSERTED = 1;
+    int ATR_REQUEST   = 1;
+    int TRANSMIT_DATA = 2;
+    int RESET         = 0;
+    int CARD_REMOVED  = 0;
 
-    public void disconnect();
+    void disconnect();
 
-    public int readCommand() throws IOException;
+    int readCommand() throws IOException;
 
-    public byte[] readData() throws IOException;
+    byte[] readData() throws IOException;
 
-    public void writeData(byte[] data) throws IOException;
+    void writeData(byte[] data) throws IOException;
 
-    public void writeDataCommand(int cmd) throws IOException;
+    void writeDataCommand(int cmd) throws IOException;
 
-    public void writeEventCommand(int cmd) throws IOException;
+    void writeEventCommand(int cmd) throws IOException;
 }

@@ -29,18 +29,18 @@ public interface KeyWithParameters {
      *
      * @return key parameters
      */
-    public CipherParameters getParameters();
+    CipherParameters getParameters();
 
     /**
      * Get keypair generation parameters for use with BouncyCastle Crypto API
      * @param rnd Secure Random Generator
      * @return key parameters
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd);
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd);
 
     /**
      * Set cipher key for use with BouncyCastle Crypto API
      * @param params key parameters
      */
-    public void setParameters(CipherParameters params);
+    void setParameters(CipherParameters params);
 }

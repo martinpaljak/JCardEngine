@@ -20,5 +20,5 @@ import javacard.framework.Shareable;
  *
  */
 public interface GlobalArrayAccess extends Shareable{
-    public Object getGlobalArrayRef();
+    Object getGlobalArrayRef();
 }

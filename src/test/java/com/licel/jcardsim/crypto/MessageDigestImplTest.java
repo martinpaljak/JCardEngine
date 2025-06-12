@@ -379,7 +379,7 @@ public class MessageDigestImplTest extends TestCase {
             partBytes[0] = (byte)((part >> 8) & 0xff);
             partBytes[1] = (byte)(part& 0xff);
 
-            mdInstance.setInitialDigest(initialDigestBuf,initialDigestOff, (short) digests[i].getIntermediateStateSize(),partBytes, (short) 0, (short) partBytes.length);
+            mdInstance.setInitialDigest(initialDigestBuf,initialDigestOff, digests[i].getIntermediateStateSize(),partBytes, (short) 0, (short) partBytes.length);
             mdInstance.doFinal(inputData, part, (short) (inputData.length - part), digest, (short) 0);
 
             assertEquals(true, Arrays.areEqual(etalonDigest, digest));

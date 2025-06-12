@@ -53,7 +53,7 @@ public class CRC16 extends Checksum {
         temp = (short) (~temp);
         Util.setShort(crc16, (short) 0, temp);
         Util.arrayCopy(crc16, (short) 0, outBuff, outOffset, (short) 2);
-        Util.arrayFillNonAtomic(crc16, (short) 0, (short) LENGTH, (byte) 0);
+        Util.arrayFillNonAtomic(crc16, (short) 0, LENGTH, (byte) 0);
         return LENGTH;
     }
 

@@ -334,7 +334,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         byte[] encrypted = new byte[totalMsgLen + tag.length ];
 
         short encryptProcessedBytes = engine.update( msgPart1.getBytes(),(short) 0, (short) msgPart1.length(),encrypted,(short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, (short) encryptProcessedBytes);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, encryptProcessedBytes);
         assertEquals( encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
@@ -439,7 +439,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
 
         byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + aad128Bit.length];
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, (short) encryptProcessedBytes);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
         assertEquals(encryptProcessedBytes, encrypted.length);
 
         byte[] tag = new byte[encryptProcessedBytes - (msgPart1.length() + msgPart2.length())];
@@ -720,7 +720,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         byte[] encrypted = new byte[totalMsgLen + tag.length ];
 
         short encryptProcessedBytes = engine.update( msgPart1.getBytes(),(short) 0, (short) msgPart1.length(),encrypted,(short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, (short) encryptProcessedBytes);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, encryptProcessedBytes);
         assertEquals( encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);

@@ -35,7 +35,7 @@ public interface JavaCardInterface extends CardInterface {
      * @throws SystemException if <code>appletClass</code> not instanceof
      * <code>javacard.framework.Applet</code>
      */
-    public AID loadApplet(AID aid, String appletClassName, byte[] appletJarContents) throws SystemException;
+    AID loadApplet(AID aid, String appletClassName, byte[] appletJarContents) throws SystemException;
 
     /**
      * Load
@@ -47,7 +47,7 @@ public interface JavaCardInterface extends CardInterface {
      * @throws SystemException if <code>appletClass</code> not instanceof
      * <code>javacard.framework.Applet</code>
      */
-    public AID loadApplet(AID aid, String appletClassName);
+    AID loadApplet(AID aid, String appletClassName);
 
     /**
      * Create
@@ -60,8 +60,8 @@ public interface JavaCardInterface extends CardInterface {
      * @throws SystemException if exception in <code>Applet.install(..)</code>
      * method occurs.
      */
-    public AID createApplet(AID aid, byte bArray[], short bOffset,
-            byte bLength) throws SystemException;
+    AID createApplet(AID aid, byte bArray[], short bOffset,
+                     byte bLength) throws SystemException;
 
     /**
      * Install
@@ -80,8 +80,8 @@ public interface JavaCardInterface extends CardInterface {
      * @throws SystemException if <code>appletClass</code> not instanceof
      * <code>javacard.framework.Applet</code>
      */
-    public AID installApplet(AID aid, String appletClassName, byte bArray[], short bOffset,
-            byte bLength) throws SystemException;
+    AID installApplet(AID aid, String appletClassName, byte bArray[], short bOffset,
+                      byte bLength) throws SystemException;
 
     /**
      * Install
@@ -101,8 +101,8 @@ public interface JavaCardInterface extends CardInterface {
      * @throws SystemException if <code>appletClass</code> not instanceof
      * <code>javacard.framework.Applet</code>
      */
-    public AID installApplet(AID aid, String appletClassName, byte[] appletJarContents, byte bArray[], short bOffset,
-            byte bLength) throws SystemException;
+    AID installApplet(AID aid, String appletClassName, byte[] appletJarContents, byte bArray[], short bOffset,
+                      byte bLength) throws SystemException;
 
     /**
      * Select applet by it's AID
@@ -110,7 +110,7 @@ public interface JavaCardInterface extends CardInterface {
      * @param aid appletId
      * @return true if applet selection success
      */
-    public boolean selectApplet(AID aid);
+    boolean selectApplet(AID aid);
 
     /**
      * Select applet by it's AID
@@ -118,7 +118,7 @@ public interface JavaCardInterface extends CardInterface {
      * @param aid appletId
      * @return byte array
      */
-    public byte[] selectAppletWithResult(AID aid);
+    byte[] selectAppletWithResult(AID aid);
 
     /**
      * Switch protocol
@@ -127,20 +127,18 @@ public interface JavaCardInterface extends CardInterface {
      * <ul>
      *     <li><code>T=0</code> (alias: <code>*</code>)</li>
      *     <li><code>T=1</code></li>
-     *     <li><code>T=CL, TYPE_A, T0</code> (alias: <code>T=CL</code>)</li>
      *     <li><code>T=CL, TYPE_A, T1</code></li>
-     *     <li><code>T=CL, TYPE_B, T0</code></li>
      *     <li><code>T=CL, TYPE_B, T1</code></li>
      * </ul>
      *
      * @param protocol protocol to use
      * @throws java.lang.IllegalArgumentException for unknown protocols
      */
-    public void changeProtocol(String protocol);
+    void changeProtocol(String protocol);
 
     /**
      * @return the current protocol string
      * @see #changeProtocol(String)
      */
-    public String getProtocol();
+    String getProtocol();
 }
