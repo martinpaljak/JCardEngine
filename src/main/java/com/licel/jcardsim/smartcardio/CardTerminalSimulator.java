@@ -133,6 +133,7 @@ public final class CardTerminalSimulator {
      * </pre>
      */
     public static final class SecurityProvider extends Provider {
+        @SuppressWarnings("deprecation")
         public SecurityProvider() {
             super("CardTerminalSimulator", 1.0d, "jCardSim Virtual Terminal Provider");
             put("TerminalFactory.CardTerminalSimulator", Factory.class.getName());
