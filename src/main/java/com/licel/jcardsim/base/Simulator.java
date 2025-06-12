@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Locale;
+import java.util.Objects;
 
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
@@ -233,9 +234,7 @@ public class Simulator implements JavaCardInterface {
     }
 
     protected byte getProtocolByte(String protocol) {
-        if (protocol == null) {
-            throw new NullPointerException("protocol");
-        }
+        Objects.requireNonNull(protocol, "protocol");
         String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
         byte protocolByte;
 
@@ -243,15 +242,9 @@ public class Simulator implements JavaCardInterface {
             protocolByte = APDU.PROTOCOL_T0;
         } else if (p.equals("T=1")) {
             protocolByte = APDU.PROTOCOL_T1;
-        } else if (p.equals("T=CL,TYPE_A,T0") || p.equals("T=CL")) {
-            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
-            protocolByte |= APDU.PROTOCOL_T0;
-        } else if (p.equals("T=CL,TYPE_A,T1")) {
+        } else if (p.equals("T=CL,TYPE_A,T1") || p.equals("T=CL")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
             protocolByte |= APDU.PROTOCOL_T1;
-        } else if (p.equals("T=CL,TYPE_B,T0")) {
-            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
-            protocolByte |= APDU.PROTOCOL_T0;
         } else if (p.equals("T=CL,TYPE_B,T1")) {
             protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
             protocolByte |= APDU.PROTOCOL_T1;

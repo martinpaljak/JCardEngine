@@ -61,7 +61,7 @@ public class DualInterfaceApplet extends BaseApplet {
         final short lc = apdu.getIncomingLength();
         final short offsetCData = apdu.getOffsetCdata();
         short read = readCount;
-        while(read < lc) {
+        while (read < lc) {
             read += apdu.receiveBytes(read);
         }
 
@@ -83,8 +83,7 @@ public class DualInterfaceApplet extends BaseApplet {
                 if (isContacted()) {
                     storeLen = lc;
                     Util.arrayCopyNonAtomic(buffer, offsetCData, store, _0, storeLen);
-                }
-                else {
+                } else {
                     ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
                 }
                 break;
@@ -100,6 +99,6 @@ public class DualInterfaceApplet extends BaseApplet {
     }
 
     public boolean isContacted() {
-        return APDU.getProtocol() == APDU.PROTOCOL_T0 || APDU.getProtocol() == APDU.PROTOCOL_T1;
+        return (APDU.getProtocol() & APDU.PROTOCOL_MEDIA_MASK) == APDU.PROTOCOL_MEDIA_DEFAULT;
     }
 }

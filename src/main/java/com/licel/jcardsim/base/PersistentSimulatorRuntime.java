@@ -129,7 +129,7 @@ public class PersistentSimulatorRuntime extends SimulatorRuntime {
         }
 
         Iterator<AID> aids = applets.keySet().iterator();
-        ArrayList<AID> aidsToTrash = new ArrayList<AID>();
+        ArrayList<AID> aidsToTrash = new ArrayList<>();
         while (aids.hasNext()) {
             AID aid = aids.next();
             aidsToTrash.add(aid);

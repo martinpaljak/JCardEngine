@@ -32,7 +32,7 @@ public class JCSCardTerminals extends CardTerminals {
      * in other case returns empty list.
      */
     public List<CardTerminal> list(State state) throws CardException {
-        List<CardTerminal> terminals = new ArrayList<CardTerminal>();
+        List<CardTerminal> terminals = new ArrayList<>();
         switch (state) {
             case ALL:
             case CARD_PRESENT:            

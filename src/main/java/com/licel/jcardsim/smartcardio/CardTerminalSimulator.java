@@ -133,16 +133,9 @@ public final class CardTerminalSimulator {
      * </pre>
      */
     public static final class SecurityProvider extends Provider {
-        @SuppressWarnings({"deprecation", "unchecked"})
         public SecurityProvider() {
             super("CardTerminalSimulator", 1.0d, "jCardSim Virtual Terminal Provider");
-            AccessController.doPrivileged(new PrivilegedAction() {
-                public Object run() {
-                    put("TerminalFactory." + "CardTerminalSimulator", Factory.class.getCanonicalName()
-                            .replace(".Factory", "$Factory"));
-                    return null;
-                }
-            });
+            put("TerminalFactory.CardTerminalSimulator", Factory.class.getName());
         }
     }
 
@@ -150,7 +143,6 @@ public final class CardTerminalSimulator {
      * {@link javax.smartcardio.TerminalFactorySpi} implementation.
      * Applications do not access this class directly, instead see {@link javax.smartcardio.TerminalFactory}.
      */
-    @SuppressWarnings("unused")
     public static final class Factory extends TerminalFactorySpi {
         private final CardTerminals cardTerminals;
 
@@ -195,8 +187,8 @@ public final class CardTerminalSimulator {
         private final HashMap<CardTerminal, State> terminalStateMap;
 
         CardTerminalsImpl(String[] names) {
-            simulatedTerminals = new ArrayList<CardTerminalImpl>(names.length);
-            terminalStateMap = new HashMap<CardTerminal, State>(names.length);
+            simulatedTerminals = new ArrayList<>(names.length);
+            terminalStateMap = new HashMap<>(names.length);
             for (String name : names) {
                 simulatedTerminals.add(new CardTerminalImpl(name, terminalStateMap, terminalsChangeAutoResetEvent));
             }
@@ -208,7 +200,7 @@ public final class CardTerminalSimulator {
                 throw new NullPointerException("state");
             }
             synchronized (terminalStateMap) {
-                final ArrayList<CardTerminal> result = new ArrayList<CardTerminal>(simulatedTerminals.size());
+                final ArrayList<CardTerminal> result = new ArrayList<>(simulatedTerminals.size());
 
                 for (CardTerminal terminal : simulatedTerminals) {
                     State terminalState = terminalStateMap.get(terminal);

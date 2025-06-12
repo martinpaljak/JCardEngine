@@ -44,7 +44,7 @@ public class ProtocolTest extends TestCase {
         // change protocol
         simulator.changeProtocol("T=CL");
         response = simulator.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
-        assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A, response[0]);
+        assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, response[0]);
         assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
 
         // read data

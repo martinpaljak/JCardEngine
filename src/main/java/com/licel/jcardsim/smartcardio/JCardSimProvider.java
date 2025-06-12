@@ -26,27 +26,12 @@ import java.security.Provider;
  * You can configure this by following system properties: 
  * 
  * Card ATR: 
- * com.licel.jcardsim.smartcardio.ATR 
- * 
- * Pre-Installed Applets:
- * com.licel.jcardsim.smartcardio.applet.{index}.AID
- * com.licel.jcardsim.smartcardio.applet.{index}.Class 
- * where {index} is value of 0..10 
- * 
- * NOTE: Applets and it's dependencies  must be available for the ClassLoader
- * before calling CardTerminal.connect();
+ * com.licel.jcardsim.smartcardio.ATR
  */
-public class JCardSimProvider extends Provider {
+public final class JCardSimProvider extends Provider {
 
-    @SuppressWarnings({"deprecation", "unchecked"})
     public JCardSimProvider() {
         super("jCardSim", 1.0d, "jCardSim Virtual Terminal Provider");
-        AccessController.doPrivileged(new PrivilegedAction() {
-
-            public Object run() {
-                put("TerminalFactory.jCardSim", "com.licel.jcardsim.smartcardio.JCSFactory");
-                return null;
-            }
-        });
+        put("TerminalFactory.jCardSim", JCSFactory.class.getName());
     }
 }

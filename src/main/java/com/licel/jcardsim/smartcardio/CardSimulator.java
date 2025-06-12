@@ -30,8 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CardSimulator extends JavaxSmartCardInterface {
     private final CardImpl card = new CardImpl();
     private final AtomicReference<CardTerminal> owningCardTerminalReference
-            = new AtomicReference<CardTerminal>();
-    private final AtomicReference<Thread> threadReference = new AtomicReference<Thread>();
+            = new AtomicReference<>();
+    private final AtomicReference<Thread> threadReference = new AtomicReference<>();
 
     /**
      * Create a Simulator object using a new SimulatorRuntime.

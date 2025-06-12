@@ -49,7 +49,7 @@ public class CipherProxyTest extends TestCase {
     };
 
     public void testSupportCipherForJavaCardv3_0_5() throws ClassNotFoundException {
-        ArrayList<Field> cipher_alg_fields = new ArrayList<Field>();
+        ArrayList<Field> cipher_alg_fields = new ArrayList<>();
 
         for(Field field : Class.forName("javacardx.crypto.Cipher").getDeclaredFields()){
             if( field.getName().startsWith("ALG_") ){
