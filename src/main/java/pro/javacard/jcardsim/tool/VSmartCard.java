@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-class VSmartCard extends RemoteTerminalProtocol {
+public class VSmartCard extends RemoteTerminalProtocol {
     private static final Logger log = LoggerFactory.getLogger(VSmartCard.class);
 
     // Protocol:

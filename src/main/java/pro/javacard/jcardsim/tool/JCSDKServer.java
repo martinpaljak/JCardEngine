@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
-class JCSDKServer extends RemoteTerminalProtocol {
+public class JCSDKServer extends RemoteTerminalProtocol {
     // Protocol: clients (like PC/SC adapter or javax.smartcardio library)
     // connect to us.
     // Protocol: uint32 followed with payload.
