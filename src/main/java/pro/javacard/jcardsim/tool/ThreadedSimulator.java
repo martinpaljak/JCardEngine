@@ -41,24 +41,39 @@ public class ThreadedSimulator implements CardInterface, Runnable {
         try {
             while (!Thread.currentThread().isInterrupted()) {
                 RemoteMessage msg = queue.take();
-                if (msg.type == RemoteMessage.Type.APDU) {
+                log.info("Received message: {}", msg.getType());
+
+                if (msg.type == RemoteMessage.Type.RESET) {
+                    sim.reset();
+                    queue.put(new RemoteMessage(RemoteMessage.Type.RESET));
+                } else if (msg.type == RemoteMessage.Type.APDU) {
                     System.err.println(">> " + Hex.toHexString(msg.payload));
+                    byte[] resp = sim.transmitCommand(msg.payload);
+                    System.err.println("<< " + Hex.toHexString(resp));
+                    queue.put(new RemoteMessage(RemoteMessage.Type.APDU, resp));
                 }
-                byte[] resp = sim.transmitCommand(msg.payload);
-                System.err.println("<< " + Hex.toHexString(resp));
-                queue.put(new RemoteMessage(RemoteMessage.Type.APDU, resp));
             }
         } catch (Exception e) {
-            log.error("Thread done");
+            e.printStackTrace();
+            log.error("Thread done", e);
         }
     }
 
     @Override
     public void reset() {
         try {
-            queue.put(new RemoteMessage(RemoteMessage.Type.RESET));
+            if (!queue.offer(new RemoteMessage(RemoteMessage.Type.RESET), 300, TimeUnit.MILLISECONDS)) {
+                log.error("Timeout when sending command to simulator");
+                throw new RuntimeException("Timeout when sending command to simulator");
+            }
+            RemoteMessage resp = queue.poll(3, TimeUnit.SECONDS);
+            if (resp == null || resp.type != RemoteMessage.Type.RESET) {
+                log.error("Timeout or error when receiving response from simulator");
+                throw new RuntimeException("Timeout or error when receiving response from simulator");
+            }
         } catch (InterruptedException e) {
-            throw new RuntimeException("Interrupted while sending message", e);
+            log.error("Interrupted", e);
+            throw new RuntimeException("Interrupted", e);
         }
     }
 
@@ -70,6 +85,7 @@ public class ThreadedSimulator implements CardInterface, Runnable {
 
     @Override
     public byte[] transmitCommand(byte[] apdu) {
+        log.info("Sending APDU to simulator thread: {}", Hex.toHexString(apdu));
         RemoteMessage msg = new RemoteMessage(RemoteMessage.Type.APDU, apdu);
         try {
             if (!queue.offer(msg, 300, TimeUnit.MILLISECONDS)) {
@@ -109,7 +125,7 @@ public class ThreadedSimulator implements CardInterface, Runnable {
         Simulator sim = new Simulator();
         sim.changeProtocol("T=CL,TYPE_A,T1");
         for (InstallSpec applet : applets) {
-            log.info("Installing applet: {} as {}", applet.klass.getSimpleName(), Hex.toHexString(applet.aid));
+            log.info("Installing applet: {} as {} with {}", applet.klass.getSimpleName(), Hex.toHexString(applet.aid), Hex.toHexString(applet.installData));
             byte[] installdata = install_data(applet.aid, applet.installData);
             AID aid = new AID(applet.aid, (short) 0, (byte) applet.aid.length);
             sim.installApplet(aid, applet.klass, installdata, (short) 0, (byte) installdata.length);

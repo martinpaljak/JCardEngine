@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-
-
 package com.licel.jcardsim.remote;
 
 import java.io.IOException;

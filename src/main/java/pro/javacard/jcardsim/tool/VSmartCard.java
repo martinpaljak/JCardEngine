@@ -1,6 +1,5 @@
 package pro.javacard.jcardsim.tool;
 
-import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.io.CardInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +65,7 @@ public class VSmartCard extends RemoteTerminalProtocol {
                 _send(message.payload);
                 break;
             default:
-                log.warn("Unknown message for protocol: " + message.type);
+                log.warn("Unknown/ignored message for protocol: " + message.type);
         }
     }
 

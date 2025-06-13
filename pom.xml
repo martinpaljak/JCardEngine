@@ -372,7 +372,6 @@
                                         <exclude>META-INF/versions/9/module-info.class</exclude>
                                         <exclude>com/licel/jcardsim/smartcardio/*</exclude>
                                         <exclude>com/licel/jcardsim/remote/*</exclude>
-                                        <exclude>com/licel/jcardsim/io/JavaxSmartCardInterface*</exclude>
                                         <exclude>javacard/framework/service/CardRemoteObject*</exclude>
                                         <exclude>javacard/framework/service/RMIService*</exclude>
                                     </excludes>
@@ -472,7 +471,6 @@
                                             <exclude name="com/licel/jcardsim/smartcardio/*"/>
                                             <exclude name="com/licel/jcardsim/remote/*"/>
                                             <exclude name="com/licel/jcardsim/DocumentationCodeSamplesTest.*"/>
-                                            <exclude name="com/licel/jcardsim/utils/APDUScriptToolTest.*"/>
                                         </fileset>
                                     </batchtest>
                                 </junit>

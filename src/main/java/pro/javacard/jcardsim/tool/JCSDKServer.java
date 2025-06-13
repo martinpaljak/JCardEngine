@@ -19,6 +19,9 @@ public class JCSDKServer extends RemoteTerminalProtocol {
     // 0x00 messages encode length of APDU-s
     private static final Logger log = LoggerFactory.getLogger(JCSDKServer.class);
 
+    static byte[] ATR_SDK = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
+    public static int DEFAULT_SDK_PORT = 9025;
+
     private static ByteBuffer format(byte code, byte[] data) {
         ByteBuffer buffer = ByteBuffer.allocate(4 + data.length);
         buffer.putInt(data.length);
@@ -45,6 +48,7 @@ public class JCSDKServer extends RemoteTerminalProtocol {
 
     @Override
     public RemoteMessage recv(SocketChannel channel) throws IOException {
+        log.info("Trying to read header ...");
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
         if (len < 0) {
@@ -52,7 +56,7 @@ public class JCSDKServer extends RemoteTerminalProtocol {
             throw new EOFException("Client closed connection");
         }
         byte b1 = hdr.get(0);
-
+        log.info("Received {}", Hex.toHexString(hdr.array()));
         switch (b1) {
             case (byte) 0xF0:
                 return new RemoteMessage(RemoteMessage.Type.ATR);
@@ -60,7 +64,6 @@ public class JCSDKServer extends RemoteTerminalProtocol {
                 return new RemoteMessage(RemoteMessage.Type.POWERDOWN);
             case 0x00:
                 int cmdlen = hdr.getInt(0);
-                //logger.info("cmd length: " + cmdlen);
                 ByteBuffer cmd = ByteBuffer.allocate(cmdlen);
                 channel.read(cmd);
                 return new RemoteMessage(RemoteMessage.Type.APDU, cmd.array());
@@ -71,12 +74,17 @@ public class JCSDKServer extends RemoteTerminalProtocol {
 
     @Override
     public void send(SocketChannel channel, RemoteMessage message) throws IOException {
+        log.info("Sending " + message.type);
         switch (message.type) {
             case APDU:
                 channel.write(format((byte) 0x00, message.payload));
                 break;
             case ATR:
-                channel.write(format((byte) 0xF0, sim.getATR()));
+                channel.write(format((byte) 0xF0, message.payload));
+                break;
+            case POWERDOWN:
+                //channel.close();
+                // Do nothing
                 break;
             default:
                 log.warn("Unknown message for protocol: " + message.type);

@@ -15,8 +15,8 @@
  */
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.base.SimulatorRuntime;
-import com.licel.jcardsim.io.JavaxSmartCardInterface;
 
 import javax.smartcardio.*;
 import java.nio.ByteBuffer;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * @see com.licel.jcardsim.smartcardio.CardTerminalSimulator
  */
-public class CardSimulator extends JavaxSmartCardInterface {
+public class CardSimulator extends Simulator {
     private final CardImpl card = new CardImpl();
     private final AtomicReference<CardTerminal> owningCardTerminalReference
             = new AtomicReference<>();
@@ -62,7 +62,6 @@ public class CardSimulator extends JavaxSmartCardInterface {
      * @param commandApdu CommandAPDU
      * @return ResponseAPDU
      */
-    @Override
     public ResponseAPDU transmitCommand(CommandAPDU commandApdu) {
         return new ResponseAPDU(transmitCommand(commandApdu.getBytes()));
     }
