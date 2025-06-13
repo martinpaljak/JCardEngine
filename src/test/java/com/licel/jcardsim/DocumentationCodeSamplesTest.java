@@ -104,7 +104,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(applet1AID, applet2AID);
 
         // String to byte array
-        String hexString = ByteUtil.hexString(new byte[]{0,2,0,0});
+        String hexString = ByteUtil.hexString(new byte[]{0, 2, 0, 0});
 
         // byte array from String
         byte[] bytes = ByteUtil.byteArray("00 02 00 00");
@@ -158,11 +158,9 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(false, terminal2.isCardPresent());
     }
 
-    public void testCodeListing7() throws CardException, NoSuchAlgorithmException {
+    public void testCodeListing7() throws NoSuchAlgorithmException {
         // Register provider
-        if (Security.getProvider("CardTerminalSimulator") == null) {
-            Security.addProvider(new CardTerminalSimulator.SecurityProvider());
-        }
+        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
 
         // Get TerminalFactory
         TerminalFactory factory = TerminalFactory.getInstance("CardTerminalSimulator", null);
@@ -173,14 +171,12 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertNotNull(terminal);
     }
 
-    public void testCodeListing8() throws CardException, NoSuchAlgorithmException {
+    public void testCodeListing8() throws NoSuchAlgorithmException {
         // Register provider
-        if (Security.getProvider("CardTerminalSimulator") == null) {
-            Security.addProvider(new CardTerminalSimulator.SecurityProvider());
-        }
+        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
 
         // Get TerminalFactory with custom names
-        String[] names = new String[] {"My terminal 1", "My terminal 2"};
+        String[] names = new String[]{"My terminal 1", "My terminal 2"};
         TerminalFactory factory = TerminalFactory.getInstance("CardTerminalSimulator", names);
         CardTerminals cardTerminals = factory.terminals();
         assertNotNull(cardTerminals.getTerminal("My terminal 1"));

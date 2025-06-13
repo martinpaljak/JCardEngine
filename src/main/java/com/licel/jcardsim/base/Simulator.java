@@ -40,9 +40,7 @@ public class Simulator implements JavaCardInterface {
     public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
     // Applet Class Loader
     final AppletClassLoader cl = new AppletClassLoader(new URL[]{});
-    /**
-     * The simulator runtime
-     */
+    // Runtime
     protected final SimulatorRuntime runtime;
     // current protocol
     private String protocol = "T=0";

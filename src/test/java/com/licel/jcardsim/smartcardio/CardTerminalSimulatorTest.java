@@ -88,9 +88,7 @@ public class CardTerminalSimulatorTest extends TestCase {
 
     public void testProvider() throws CardException, NoSuchAlgorithmException {
         // register security provider
-        if (Security.getProvider("CardTerminalSimulator") == null) {
-            Security.addProvider(new CardTerminalSimulator.SecurityProvider());
-        }
+        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
 
         // get instance
         TerminalFactory tf = TerminalFactory.getInstance("CardTerminalSimulator", null);
@@ -110,10 +108,7 @@ public class CardTerminalSimulatorTest extends TestCase {
     }
 
     public void testProviderCustomNames() throws CardException, NoSuchAlgorithmException {
-        // register security provider
-        if (Security.getProvider("CardTerminalSimulator") == null) {
-            Security.addProvider(new CardTerminalSimulator.SecurityProvider());
-        }
+        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
 
         // get instance
         TerminalFactory tf = TerminalFactory.getInstance("CardTerminalSimulator", new String[]{"x", "y"});

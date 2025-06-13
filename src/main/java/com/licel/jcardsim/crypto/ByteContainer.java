@@ -16,6 +16,8 @@
 package com.licel.jcardsim.crypto;
 
 import java.math.BigInteger;
+import java.util.Arrays;
+
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
@@ -54,6 +56,7 @@ public final class ByteContainer {
      * @param bInteger <code>BigInteger</code> object
      * @throws java.lang.IllegalArgumentException if bInteger is negative
      */
+    // XXX: consider removal
     public ByteContainer(BigInteger bInteger) {
         setBigInteger(bInteger);
     }
@@ -85,8 +88,7 @@ public final class ByteContainer {
             byte[] trimmedArray = new byte[array.length - 1];
             System.arraycopy(array, 1, trimmedArray, 0, trimmedArray.length);
             setBytes(trimmedArray);
-        }
-        else {
+        } else {
             setBytes(array);
         }
     }
@@ -106,13 +108,14 @@ public final class ByteContainer {
      * @param length length of data in byte array
      */
     public void setBytes(byte[] buff, short offset, short length) {
-        if (data == null) {
+        if (data == null || this.length != length) {
+            // XXX: this "leaks"
             switch (memoryType) {
                 case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
                     data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_DESELECT);
                     break;
                 case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                    data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_DESELECT);
+                    data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_RESET);
                     break;
                 default:
                     data = new byte[length];
@@ -132,7 +135,8 @@ public final class ByteContainer {
         if (length == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new BigInteger(1, data);
+        // java8+: new BigInteger(1, data, 0, length);
+        return new BigInteger(1, Arrays.copyOf(data, length));
     }
 
     /**
@@ -140,6 +144,7 @@ public final class ByteContainer {
      * @param event type of transient byte array
      * @return plain byte array
      */
+    // XXX: reconsider the need for this
     public byte[] getBytes(byte event) {
         if (length == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);

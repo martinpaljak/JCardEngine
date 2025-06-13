@@ -69,10 +69,8 @@ public class JCardSimProviderTest extends TestCase {
     }
 
     public void testProvider() throws CardException, NoSuchAlgorithmException, UnsupportedEncodingException {
-        if (Security.getProvider("jCardSim") == null) {
-            JCardSimProvider provider = new JCardSimProvider();
-            Security.addProvider(provider);
-        }
+        Security.addProvider(new JCardSimProvider());
+
         TerminalFactory tf = TerminalFactory.getInstance("jCardSim", null);
         CardTerminals ct = tf.terminals();
         List<CardTerminal> list = ct.list();
