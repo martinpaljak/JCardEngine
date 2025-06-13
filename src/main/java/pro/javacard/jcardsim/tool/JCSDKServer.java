@@ -39,12 +39,12 @@ class JCSDKServer extends RemoteTerminalProtocol {
     }
 
     @Override
-    void start() throws IOException {
+    public void start() throws IOException {
         server = RemoteTerminalProtocol.start("0.0.0.0", port);
     }
 
     @Override
-    RemoteMessage recv(SocketChannel channel) throws IOException {
+    public RemoteMessage recv(SocketChannel channel) throws IOException {
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
         if (len < 0) {
@@ -70,7 +70,7 @@ class JCSDKServer extends RemoteTerminalProtocol {
     }
 
     @Override
-    void send(SocketChannel channel, RemoteMessage message) throws IOException {
+    public void send(SocketChannel channel, RemoteMessage message) throws IOException {
         switch (message.type) {
             case APDU:
                 channel.write(format((byte) 0x00, message.payload));
@@ -84,7 +84,7 @@ class JCSDKServer extends RemoteTerminalProtocol {
     }
 
     @Override
-    SocketChannel getSocket() throws IOException {
+    public SocketChannel getSocket() throws IOException {
         return server.accept();
     }
 }

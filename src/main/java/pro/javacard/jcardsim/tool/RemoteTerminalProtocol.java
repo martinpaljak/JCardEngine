@@ -15,15 +15,15 @@ public abstract class RemoteTerminalProtocol implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(RemoteTerminalProtocol.class);
 
-    void start() throws IOException {
+    public void start() throws IOException {
         // No special steps needed for clients.
     }
 
-    abstract RemoteMessage recv(SocketChannel channel) throws IOException;
+    public abstract RemoteMessage recv(SocketChannel channel) throws IOException;
 
-    abstract void send(SocketChannel channel, RemoteMessage message) throws IOException;
+    public abstract void send(SocketChannel channel, RemoteMessage message) throws IOException;
 
-    abstract SocketChannel getSocket() throws IOException;
+    public abstract SocketChannel getSocket() throws IOException;
 
     protected CardInterface sim;
 
@@ -70,7 +70,7 @@ public abstract class RemoteTerminalProtocol implements Runnable {
     }
 
     // Connect to remote server
-    static SocketChannel connect(String host, Integer port) throws IOException {
+    protected static SocketChannel connect(String host, Integer port) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         SocketChannel sc = SocketChannel.open();
         if (!sc.connect(addr)) {
@@ -80,7 +80,7 @@ public abstract class RemoteTerminalProtocol implements Runnable {
     }
 
     // Start a local server
-    static ServerSocketChannel start(String host, Integer port) throws IOException {
+    protected static ServerSocketChannel start(String host, Integer port) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         ServerSocketChannel server = ServerSocketChannel.open();
         server.bind(addr);

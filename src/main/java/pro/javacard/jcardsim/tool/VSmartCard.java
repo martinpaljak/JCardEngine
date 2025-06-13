@@ -71,7 +71,7 @@ class VSmartCard extends RemoteTerminalProtocol {
     }
 
     @Override
-    SocketChannel getSocket() throws IOException {
+    public SocketChannel getSocket() throws IOException {
         return RemoteTerminalProtocol.connect(host, port);
     }
 

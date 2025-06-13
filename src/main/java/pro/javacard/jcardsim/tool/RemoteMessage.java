@@ -23,4 +23,12 @@ public class RemoteMessage {
         this.type = type;
         this.payload = null;
     }
+
+    public Type getType() {
+        return type;
+    }
+
+    public byte[] getPayload() {
+        return payload;
+    }
 }
