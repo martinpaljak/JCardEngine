@@ -46,10 +46,10 @@ jobs:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
       - name: Add known host key
-          run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
+        run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
 
       - name: Deploy package
-          run: ./mvnw -B deploy
+        run: ./mvnw -B deploy
 
       - name: Release
         uses: softprops/action-gh-release@v2.2.1
