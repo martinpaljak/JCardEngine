@@ -1,0 +1,53 @@
+name: Weekly Release Robot
+
+on:
+  schedule:
+    # Run every Sunday at 23:59 UTC (one minute before midnight)
+    - cron: '59 23 * * 0'
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  weekly-release:
+    runs-on: ubuntu-24.04
+    name: Weekly Release
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: next
+          submodules: true
+          fetch-depth: 0 # To make git describe give the intended output
+
+      - name: Setup java
+        uses: actions/setup-java@v4.7.0
+        with:
+          java-version: 8
+          distribution: zulu
+          cache: maven
+
+      - name: Set version with current date
+        run: |
+          VERSION=$(date +'%y.%m.%d')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          ./mvnw versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
+
+      - name: Run Maven
+        run: ./mvnw -T1C -B -U verify
+
+      - name: Get SHA-256 of JAR
+        run: echo "JARSUM=$(shasum -a 256 --tag ./target/jcardsim-${{ env.VERSION }}.jar)" >> "$GITHUB_ENV"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2.2.1
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
+          files: ./target/jcardsim-${{ env.VERSION }}.jar
+          fail_on_unmatched_files: true
+          body: |
+            ## Weekly release v${{ env.VERSION }}
+
+            `${{ env.JARSUM }}` (built with JDK-8)"
