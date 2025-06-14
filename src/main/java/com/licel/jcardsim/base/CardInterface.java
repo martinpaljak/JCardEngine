@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.io;
+package com.licel.jcardsim.base;
 
 /**
  * Basic SmartCard Interface.

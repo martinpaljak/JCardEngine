@@ -1,6 +1,6 @@
 package pro.javacard.jcardsim.tool;
 
-import com.licel.jcardsim.io.CardInterface;
+import com.licel.jcardsim.base.CardInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

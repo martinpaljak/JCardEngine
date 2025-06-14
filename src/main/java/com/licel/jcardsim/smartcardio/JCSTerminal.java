@@ -16,7 +16,7 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.io.JavaCardInterface;
+
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
@@ -29,10 +29,10 @@ import javax.smartcardio.CardTerminal;
 public class JCSTerminal extends CardTerminal {
 
     final static String NAME = "jCardSim.Terminal";
-    static JavaCardInterface cardInterface = null;
+    static Simulator simulator = null;
 
     public JCSTerminal() {
-        cardInterface = new Simulator();
+        simulator = new Simulator();
     }
 
     public String getName() {
@@ -41,20 +41,18 @@ public class JCSTerminal extends CardTerminal {
 
     /**
      * @see javax.smartcardio.CardTerminal#connect(String)
-     * @see com.licel.jcardsim.io.JavaCardInterface#changeProtocol(String)
+     * @see com.licel.jcardsim.base.Simulator#changeProtocol(String)
      */
     public Card connect(String protocol) throws CardException {
         if (protocol == null) {
             throw new NullPointerException("protocol");
-        }
-        else if (protocol.equals("*")) {
-            cardInterface.changeProtocol("T=0");
-        }
-        else {
-            cardInterface.changeProtocol(protocol);
+        } else if (protocol.equals("*")) {
+            simulator.changeProtocol("T=0");
+        } else {
+            simulator.changeProtocol(protocol);
         }
 
-        return new JCSCard(cardInterface);
+        return new JCSCard(simulator);
     }
 
     /**

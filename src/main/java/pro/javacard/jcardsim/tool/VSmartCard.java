@@ -1,6 +1,6 @@
 package pro.javacard.jcardsim.tool;
 
-import com.licel.jcardsim.io.CardInterface;
+import com.licel.jcardsim.base.CardInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,11 +37,11 @@ public class VSmartCard extends RemoteTerminalProtocol {
         ByteBuffer buffer = ByteBuffer.allocate(2);
         int len = channel.read(buffer);
         if (len == -1) {
-            throw new EOFException("Closed");
+            throw new EOFException("Client gone");
         }
         short c = buffer.getShort();
         if (c < 0)
-            throw new IOException("Unexpected lentgh: " + c);
+            throw new IOException("Unexpected length: " + c);
         return c;
     }
 

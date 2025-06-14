@@ -15,8 +15,6 @@
  */
 package com.licel.jcardsim.base;
 
-import com.licel.jcardsim.io.JavaCardInterface;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -33,13 +31,12 @@ import org.bouncycastle.util.encoders.Hex;
 /**
  * Simulates a JavaCard.
  */
-public class Simulator implements JavaCardInterface {
+public class Simulator implements CardInterface {
     // default ATR - NXP JCOP 31/36K
     public static final String DEFAULT_ATR = "3BFA1800008131FE454A434F5033315632333298";
     // ATR system property name
     public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
-    // Applet Class Loader
-    final AppletClassLoader cl = new AppletClassLoader(new URL[]{});
+
     // Runtime
     protected final SimulatorRuntime runtime;
     // current protocol
@@ -71,36 +68,6 @@ public class Simulator implements JavaCardInterface {
         changeProtocol(protocol);
     }
 
-    public AID loadApplet(AID aid, String appletClassName, byte[] appletJarContents) throws SystemException {
-        // simple method, but emulate real card login
-        // download data
-        byte[] aidData = new byte[16];
-        aid.getBytes(aidData, (short) 0);
-        Class<? extends Applet> appletClass = null;
-        try {
-            cl.addAppletContents(appletJarContents);
-            appletClass = requireExtendsApplet(cl.loadClass(appletClassName));
-        } catch (Exception e) {
-            SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-        }
-        if (appletClass != null) {
-            return loadApplet(aid, appletClass);
-        } else {
-            SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-            return null;
-        }
-    }
-
-    public AID loadApplet(AID aid, String appletClassName) throws SystemException {
-        Class<? extends Applet> appletClass = null;
-        try {
-            appletClass = requireExtendsApplet(cl.loadClass(appletClassName));
-        } catch (ClassNotFoundException ex) {
-            SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-        }
-        return loadApplet(aid, appletClass);
-    }
-
     /**
      * Load
      * <code>Applet</code> into Simulator
@@ -113,13 +80,12 @@ public class Simulator implements JavaCardInterface {
      */
     public AID loadApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
         synchronized (runtime) {
-            runtime.loadApplet(aid, requireExtendsApplet(appletClass));
+            runtime.loadApplet(aid, appletClass);
         }
         return aid;
     }
 
-    public AID createApplet(AID aid, byte bArray[], short bOffset,
-                            byte bLength) throws SystemException {
+    public AID createApplet(AID aid, byte bArray[], short bOffset, byte bLength) throws SystemException {
 
         try {
             synchronized (runtime) {
@@ -167,22 +133,6 @@ public class Simulator implements JavaCardInterface {
                              byte bLength) throws SystemException {
         synchronized (runtime) {
             loadApplet(aid, appletClass);
-            return createApplet(aid, bArray, bOffset, bLength);
-        }
-    }
-
-    public AID installApplet(AID aid, String appletClassName, byte bArray[], short bOffset,
-                             byte bLength) throws SystemException {
-        synchronized (runtime) {
-            loadApplet(aid, appletClassName);
-            return createApplet(aid, bArray, bOffset, bLength);
-        }
-    }
-
-    public AID installApplet(AID aid, String appletClassName, byte[] appletContents, byte bArray[], short bOffset,
-                             byte bLength) throws SystemException {
-        synchronized (runtime) {
-            loadApplet(aid, appletClassName, appletContents);
             return createApplet(aid, bArray, bOffset, bLength);
         }
     }
@@ -253,8 +203,20 @@ public class Simulator implements JavaCardInterface {
     }
 
     /**
-     * @see com.licel.jcardsim.io.JavaCardInterface#changeProtocol(String)
+     * Switch protocol
+     * <p>
+     * Supported protocols are:
+     * <ul>
+     *     <li><code>T=0</code> (alias: <code>*</code>)</li>
+     *     <li><code>T=1</code></li>
+     *     <li><code>T=CL, TYPE_A, T1</code></li>
+     *     <li><code>T=CL, TYPE_B, T1</code></li>
+     * </ul>
+     *
+     * @param protocol protocol to use
+     * @throws java.lang.IllegalArgumentException for unknown protocols
      */
+    // XXX: changing protocol during session is not really a thing.
     public void changeProtocol(String protocol) {
         synchronized (runtime) {
             runtime.changeProtocol(getProtocolByte(protocol));
@@ -263,33 +225,26 @@ public class Simulator implements JavaCardInterface {
     }
 
     /**
-     * @see com.licel.jcardsim.io.JavaCardInterface#getProtocol()
+     * @return the current protocol string
+     * @see #changeProtocol(String)
      */
     public String getProtocol() {
         return protocol;
     }
 
-    @SuppressWarnings("unchecked")
-    private Class<? extends Applet> requireExtendsApplet(Class<?> aClass) {
-        if (!Applet.class.isAssignableFrom(aClass)) {
-            throw new SystemException(SystemException.ILLEGAL_VALUE);
-        }
-        return (Class<? extends Applet>) aClass;
-    }
-
-    static class AppletClassLoader extends URLClassLoader {
-
-        AppletClassLoader(URL[] urls) {
-            super(urls, Simulator.class.getClassLoader());
-        }
-
-        void addAppletContents(byte[] appletJarContents) throws IOException {
-            File downloadedAppletJar = File.createTempFile("applet", "contents");
-            downloadedAppletJar.deleteOnExit();
-            FileOutputStream fos = new FileOutputStream(downloadedAppletJar);
-            fos.write(appletJarContents);
-            fos.close();
-            addURL(downloadedAppletJar.toURI().toURL());
-        }
+    public static byte[] install_parameters(byte[] aid, byte[] data) {
+        if (data == null)
+            data = new byte[0];
+        byte[] fullData = new byte[1 + aid.length + 1 + 1 + 1 + data.length];
+        int offset = 0;
+        fullData[offset++] = (byte) aid.length;
+        System.arraycopy(aid, 0, fullData, offset, aid.length);
+        offset += aid.length;
+        // NOTE: dummy privileges
+        fullData[offset++] = 0x01;
+        fullData[offset++] = 0x00;
+        fullData[offset++] = (byte) data.length;
+        System.arraycopy(data, 0, fullData, offset, data.length);
+        return fullData;
     }
 }

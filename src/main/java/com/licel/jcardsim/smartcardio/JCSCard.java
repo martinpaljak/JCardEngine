@@ -15,7 +15,8 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import com.licel.jcardsim.io.JavaCardInterface;
+import com.licel.jcardsim.base.Simulator;
+
 import javax.smartcardio.*;
 
 /**
@@ -24,17 +25,14 @@ import javax.smartcardio.*;
  * @author LICEL LLC
  */
 public class JCSCard extends Card {
-    // default protocol
-
     // ATR
     private ATR atr;
     // Simulator
-    private JavaCardInterface cardInterface;
-    //
+    private Simulator simulator;
     private JCSCardChannel basicChannel;
 
-    public JCSCard(JavaCardInterface cardInterface) {
-        this.cardInterface = cardInterface;
+    public JCSCard(Simulator cardInterface) {
+        this.simulator = cardInterface;
         atr = new ATR(cardInterface.getATR());
         basicChannel = new JCSCardChannel(this, 0);
     }
@@ -50,7 +48,7 @@ public class JCSCard extends Card {
      * Always returns T=0.
      */
     public String getProtocol() {
-        return cardInterface.getProtocol();
+        return simulator.getProtocol();
     }
 
     public CardChannel getBasicChannel() {
@@ -87,11 +85,11 @@ public class JCSCard extends Card {
      */
     public void disconnect(boolean reset) throws CardException {
         if (reset) {
-            cardInterface.reset();
+            simulator.reset();
         }
     }
 
     ResponseAPDU transmitCommand(CommandAPDU capdu) {
-        return new ResponseAPDU(cardInterface.transmitCommand(capdu.getBytes()));
+        return new ResponseAPDU(simulator.transmitCommand(capdu.getBytes()));
     }
 }

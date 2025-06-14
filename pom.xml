@@ -454,9 +454,9 @@
                                        classpathref="compileClasspath" includeantruntime="false"
                                        source="${java.version}"/>
 
-                                <copy todir="${ant.build.dir}/bin">
+                                <!--copy todir="${ant.build.dir}/bin">
                                     <fileset dir="${project.basedir}/src/test/resources"/>
-                                </copy>
+                                </copy-->
 
                                 <echo>Testing shaded JAR: jcardsim-${project.version}-android.jar</echo>
                                 <junit fork="yes" forkmode="once" haltonfailure="yes" printsummary="true">

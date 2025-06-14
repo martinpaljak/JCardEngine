@@ -1,7 +1,7 @@
 package pro.javacard.jcardsim.tool;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.io.CardInterface;
+import com.licel.jcardsim.base.CardInterface;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
@@ -104,29 +104,14 @@ public class ThreadedSimulator implements CardInterface, Runnable {
         }
     }
 
-    static byte[] install_data(byte[] aid, byte[] data) {
-        if (data == null)
-            data = new byte[0];
-        byte[] fullData = new byte[1 + aid.length + 1 + 1 + 1 + data.length];
-        int offset = 0;
-        fullData[offset++] = (byte) aid.length;
-        System.arraycopy(aid, 0, fullData, offset, aid.length);
-        offset += aid.length;
-        // NOTE: dummy privileges
-        fullData[offset++] = 0x01;
-        fullData[offset++] = 0x00;
-        fullData[offset++] = (byte) data.length;
-        System.arraycopy(data, 0, fullData, offset, data.length);
-        return fullData;
-    }
 
     // Called from a thread
-    static Simulator makeSimulator(List<InstallSpec> applets) {
+    public static Simulator makeSimulator(List<InstallSpec> applets) {
         Simulator sim = new Simulator();
         sim.changeProtocol("T=CL,TYPE_A,T1");
         for (InstallSpec applet : applets) {
             log.info("Installing applet: {} as {} with {}", applet.klass.getSimpleName(), Hex.toHexString(applet.aid), Hex.toHexString(applet.installData));
-            byte[] installdata = install_data(applet.aid, applet.installData);
+            byte[] installdata = Simulator.install_parameters(applet.aid, applet.installData);
             AID aid = new AID(applet.aid, (short) 0, (byte) applet.aid.length);
             sim.installApplet(aid, applet.klass, installdata, (short) 0, (byte) installdata.length);
         }

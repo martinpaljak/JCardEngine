@@ -18,6 +18,8 @@ package pro.javacard.jcardsim.tool;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import javacard.framework.AID;
+import javacard.framework.Applet;
+import javacard.framework.SystemException;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -26,6 +28,14 @@ import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -123,6 +133,56 @@ public class JCardSimTool {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace(System.err);
             System.exit(2);
+        }
+    }
+
+
+    @SuppressWarnings("unchecked")
+    private Class<? extends Applet> requireExtendsApplet(Class<?> cls) {
+        if (!Applet.class.isAssignableFrom(cls)) {
+            throw new SystemException(SystemException.ILLEGAL_VALUE);
+        }
+        return (Class<? extends Applet>) cls;
+    }
+
+    static class AppletClassLoader extends URLClassLoader {
+
+        AppletClassLoader() {
+            super(new URL[0], Simulator.class.getClassLoader());
+        }
+
+        void addApplet(byte[] contents) throws IOException {
+            Path tmp = Files.createTempFile("applet", ".jar");
+            Files.write(tmp, contents);
+            addURL(tmp.toUri().toURL());
+        }
+
+        void addApplet(Path file) throws IOException {
+            Path tmp = Files.createTempDirectory("applet");
+            String name = file.getFileName().toString().toLowerCase();
+
+            try (FileSystem fs = FileSystems.newFileSystem(file, (ClassLoader) null)) {
+                Path src = name.endsWith(".cap") ?
+                        fs.getPath("APPLET-INF", "classes") :
+                        fs.getPath("/");
+
+                if (Files.exists(src)) {
+                    Files.walk(src)
+                            .filter(p -> p.toString().endsWith(".class"))
+                            .forEach(p -> copy(p, tmp.resolve(src.relativize(p).toString())));
+                }
+            }
+
+            addURL(tmp.toUri().toURL());
+        }
+
+        private void copy(Path from, Path to) {
+            try {
+                Files.createDirectories(to.getParent());
+                Files.copy(from, to);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }

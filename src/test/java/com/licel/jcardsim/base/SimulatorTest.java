@@ -40,22 +40,17 @@ public class SimulatorTest extends TestCase {
     private static final byte[] ETALON_ATR = Hex.decode("3BFA1800008131FE454A434F5033315632333298");
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode("010203040506070809");
     private static final Class<? extends Applet> TEST_APPLET_CLASS = HelloWorldApplet.class;
-    private static final String TEST_APPLET_CLASSNAME = "com.licel.jcardsim.samples.HelloWorldApplet";
     private static final AID TEST_APPLET_AID = new AID(TEST_APPLET_AID_BYTES, (short)0, (byte) TEST_APPLET_AID_BYTES.length);
     private static final byte[] TEST_APPLET1_AID_BYTES = Hex.decode("01020304050607080A");
-    private static final String TEST_APPLET1_CLASSNAME = "com.licel.jcardsim.samples.HelloWorldApplet1";
-    private static final AID TEST_APPLET1_AID = new AID(TEST_APPLET1_AID_BYTES, (short)0, (byte) TEST_APPLET1_AID_BYTES.length);
-    
+
     byte[] createData = null;
-    byte[] appletJarContents = null;
-    
+
     public SimulatorTest(String testName) {
         super(testName);
     }
 
     static byte[] install_params(byte[] aid, byte[] params) {
-        // XXX: privileges are on two bytes, because the hardcoded .jar blob is based on hardcoded privileges length
-        byte[] privileges = Hex.decode("0000");
+        byte[] privileges = Hex.decode("00");
         byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
         int offset = 0;
 
@@ -75,40 +70,11 @@ public class SimulatorTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         createData = install_params(TEST_APPLET_AID_BYTES, Hex.decode("0f0f"));
-        InputStream is = SimulatorTest.class.getResourceAsStream("helloworld.jar");
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        byte[] chunk = new byte[1024];
-        int readed = is.read(chunk);
-        while (readed > 0) {
-                bos.write(chunk, 0, readed);
-                readed = is.read(chunk);
-        }
-        appletJarContents = bos.toByteArray();
-        bos.close();
-        is.close();
     }
     
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-    }
-
-    /**
-     * Test of loadApplet method, of class Simulator.
-     */
-    public void testLoadApplet_3args() {
-        System.out.println("loadApplet");
-        Simulator instance = new Simulator();
-        assertEquals(instance.loadApplet(TEST_APPLET1_AID, TEST_APPLET1_CLASSNAME, appletJarContents).equals(TEST_APPLET1_AID),true);
-    }
-
-    /**
-     * Test of loadApplet method, of class Simulator.
-     */
-    public void testLoadApplet_AID_String() {
-        System.out.println("loadApplet");
-        Simulator instance = new Simulator();
-        assertEquals(instance.loadApplet(TEST_APPLET_AID, TEST_APPLET_CLASSNAME).equals(TEST_APPLET_AID),true);
     }
 
     /**
@@ -147,28 +113,6 @@ public class SimulatorTest extends TestCase {
         System.out.println("installApplet");
         Simulator instance = new Simulator();
         assertEquals(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData, (short)0, (byte) createData.length).equals(TEST_APPLET_AID),true);
-    }
-
-    /**
-     * Test of installApplet method, of class Simulator.
-     */
-    public void testInstallApplet_5args_2() {
-        System.out.println("installApplet");
-        Simulator instance = new Simulator();
-        assertEquals(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASSNAME, createData, (short)0, (byte) createData.length).equals(TEST_APPLET_AID),true);
-    }
-
-    /**
-     * Test of installApplet method, of class Simulator.
-     */
-    public void testInstallApplet_6args() {
-        System.out.println("installApplet");
-        Simulator instance = new Simulator();
-        assertEquals(instance.installApplet(TEST_APPLET1_AID, TEST_APPLET1_CLASSNAME, appletJarContents, createData, (short)0, (byte) createData.length).equals(TEST_APPLET1_AID),true);
-        assertEquals(instance.selectApplet(TEST_APPLET1_AID), true);
-        // test NOP
-        byte[] response = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00});
-        assertEquals(Arrays.areEqual(new byte[]{(byte)0x90, 0x00}, response), true);
     }
 
     public void testNopWithLengthExtensionsFails() {

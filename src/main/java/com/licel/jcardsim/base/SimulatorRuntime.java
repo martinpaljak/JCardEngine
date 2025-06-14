@@ -31,45 +31,78 @@ import java.util.function.BiConsumer;
 
 /**
  * Base implementation of Java Card Runtime.
+ *
  * @see JCSystem
  * @see Applet
  */
 public class SimulatorRuntime {
     private static final Logger log = LoggerFactory.getLogger(SimulatorRuntime.class);
     // holds the Applet registration callback
-    protected final ThreadLocal<BiConsumer<Applet,AID>> registrationCallback;
-    /** storage for installed applets */
-    protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<AID, ApplicationInstance>(AIDUtil.comparator());
-    /** storage for load files */
-    protected final SortedMap<AID, LoadFile> loadFiles = new TreeMap<AID, LoadFile>(AIDUtil.comparator());
-    /** storage for automatically generated loadFile AIDs */
-    protected final SortedMap<AID, AID> generatedLoadFileAIDs = new TreeMap<AID, AID>(AIDUtil.comparator());
-    /** method for resetting APDUs */
+    protected final ThreadLocal<BiConsumer<Applet, AID>> registrationCallback;
+    /**
+     * storage for installed applets
+     */
+    protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
+    /**
+     * storage for load files
+     */
+    protected final SortedMap<AID, LoadFile> loadFiles = new TreeMap<>(AIDUtil.comparator());
+    /**
+     * storage for automatically generated loadFile AIDs
+     */
+    protected final SortedMap<AID, AID> generatedLoadFileAIDs = new TreeMap<>(AIDUtil.comparator());
+    /**
+     * method for resetting APDUs
+     */
     protected final Method apduPrivateResetMethod;
-    /** outbound response byte array buffer */
+    /**
+     * outbound response byte array buffer
+     */
     protected final byte[] responseBuffer = new byte[Short.MAX_VALUE + 2];
-    /** transient memory */
+    /**
+     * transient memory
+     */
     protected final TransientMemory transientMemory;
-    /** regular APDU */
+    /**
+     * regular APDU
+     */
     protected final APDU shortAPDU;
-    /** extended APDU */
+    /**
+     * extended APDU
+     */
     protected final APDU extendedAPDU;
 
-    /** current selected applet */
+    /**
+     * current selected applet
+     */
     protected AID currentAID;
-    /** previous selected applet */
+    /**
+     * previous selected applet
+     */
     protected AID previousAID;
-    /** outbound response byte array buffer size */
+    /**
+     * outbound response byte array buffer size
+     */
     protected short responseBufferSize = 0;
-    /** if the applet is currently being selected */
+    /**
+     * if the applet is currently being selected
+     */
     protected boolean selecting = false;
-    /** if extended APDUs are used  */
+    /**
+     * if extended APDUs are used
+     */
     protected boolean usingExtendedAPDUs = false;
-    /** current protocol */
+    /**
+     * current protocol
+     */
     protected byte currentProtocol = APDU.PROTOCOL_T0;
-    /** current depth of transaction */
+    /**
+     * current depth of transaction
+     */
     protected byte transactionDepth = 0;
-    /** previousActiveObject */
+    /**
+     * previousActiveObject
+     */
     protected Object previousActiveObject;
 
     public SimulatorRuntime() {
@@ -91,7 +124,7 @@ public class SimulatorRuntime {
 
             Field f = Applet.class.getDeclaredField("registrationCallback");
             f.setAccessible(true);
-            registrationCallback = (ThreadLocal<BiConsumer<Applet,AID>>) f.get(null);
+            registrationCallback = (ThreadLocal<BiConsumer<Applet, AID>>) f.get(null);
         } catch (Exception e) {
             throw new RuntimeException("Internal reflection error", e);
         }
@@ -114,6 +147,7 @@ public class SimulatorRuntime {
 
     /**
      * Lookup applet by aid contains in byte array
+     *
      * @param buffer the byte array containing the AID bytes
      * @param offset the start of AID bytes in <code>buffer</code>
      * @param length the length of the AID bytes in <code>buffer</code>
@@ -131,6 +165,7 @@ public class SimulatorRuntime {
 
     /**
      * Lookup applet by aid
+     *
      * @param lookupAid applet AID
      * @return ApplicationInstance or null
      */
@@ -152,6 +187,7 @@ public class SimulatorRuntime {
 
     /**
      * Return <code>Applet</code> by it's AID or null
+     *
      * @param aid applet <code>AID</code>
      * @return Applet or null
      */
@@ -160,13 +196,14 @@ public class SimulatorRuntime {
             return null;
         }
         ApplicationInstance a = lookupApplet(aid);
-        if(a == null) return null;
+        if (a == null) return null;
         else return a.getApplet();
     }
 
     /**
      * Load applet
-     * @param aid Applet AID
+     *
+     * @param aid         Applet AID
      * @param appletClass Applet class
      */
     public void loadApplet(AID aid, Class<? extends Applet> appletClass) {
@@ -184,6 +221,7 @@ public class SimulatorRuntime {
 
     /**
      * Load a LoadFile
+     *
      * @param loadFile LoadFile to load
      */
     public void loadLoadFile(LoadFile loadFile) {
@@ -196,6 +234,7 @@ public class SimulatorRuntime {
 
     /**
      * Delete applet
+     *
      * @param aid Applet AID to delete
      */
     protected void deleteApplet(AID aid) {
@@ -227,6 +266,7 @@ public class SimulatorRuntime {
 
     /**
      * Check if applet is currently being selected
+     *
      * @param aThis applet
      * @return true if applet is being selected
      */
@@ -236,6 +276,7 @@ public class SimulatorRuntime {
 
     /**
      * Transmit APDU to previous selected applet
+     *
      * @param command command apdu
      * @return response apdu
      */
@@ -257,8 +298,7 @@ public class SimulatorRuntime {
                 currentAID = newAid;
                 applet = getApplet(getAID());
                 selecting = true;
-            }
-            else if (applet == null) {
+            } else if (applet == null) {
                 Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
                 return theSW;
             }
@@ -272,13 +312,11 @@ public class SimulatorRuntime {
         if (apduCase.isExtended()) {
             if (applet instanceof ExtendedLength) {
                 usingExtendedAPDUs = true;
-            }
-            else {
-                Util.setShort(theSW, (short)0, ISO7816.SW_WRONG_LENGTH);
+            } else {
+                Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
                 return theSW;
             }
-        }
-        else {
+        } else {
             usingExtendedAPDUs = false;
         }
 
@@ -289,8 +327,7 @@ public class SimulatorRuntime {
                 boolean success;
                 try {
                     success = applet.select();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     success = false;
                 }
                 if (!success) {
@@ -308,19 +345,17 @@ public class SimulatorRuntime {
             if (e instanceof ISOException) {
                 Util.setShort(theSW, (short) 0, ((ISOException) e).getReason());
             }
-        }
-        finally {
+        } finally {
             selecting = false;
             resetAPDU(apdu, null, null);
         }
 
         // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
-        if(theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte)0x90 && theSW[0] <= (byte)0x9F) || isNotAbortingCase(theSW) ) {
+        if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
             response = new byte[responseBufferSize + 2];
             Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
             Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
-        }
-        else {
+        } else {
             response = theSW;
         }
 
@@ -330,6 +365,7 @@ public class SimulatorRuntime {
     /**
      * Check if secure channel is not aborted
      * This method must be override in subclass that have secure channel abort checking
+     *
      * @param SW Status word
      * @return True if secure channel is not aborted
      */
@@ -378,9 +414,10 @@ public class SimulatorRuntime {
 
     /**
      * Copy response bytes to internal buffer
+     *
      * @param buffer source byte array
-     * @param bOff the starting offset in buffer
-     * @param len the length in bytes of the response
+     * @param bOff   the starting offset in buffer
+     * @param len    the length in bytes of the response
      */
     public void sendAPDU(byte[] buffer, short bOff, short len) {
         responseBufferSize = Util.arrayCopyNonAtomic(buffer, bOff, responseBuffer, responseBufferSize, len);
@@ -439,6 +476,7 @@ public class SimulatorRuntime {
 
     /**
      * Change protocol
+     *
      * @param protocol protocol bits
      * @see javacard.framework.APDU#getProtocol()
      */
@@ -483,58 +521,58 @@ public class SimulatorRuntime {
     }
 
     /**
-     * @see javacard.framework.JCSystem#getTransactionDepth()
      * @return 1 if transaction in progress, 0 if not
+     * @see javacard.framework.JCSystem#getTransactionDepth()
      */
     public byte getTransactionDepth() {
         return transactionDepth;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
     public short getUnusedCommitCapacity() {
         return Short.MAX_VALUE;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getMaxCommitCapacity()
      * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getMaxCommitCapacity()
      */
     public short getMaxCommitCapacity() {
         return Short.MAX_VALUE;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
     public short getAvailablePersistentMemory() {
         return Short.MAX_VALUE;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
     public short getAvailableTransientResetMemory() {
         return Short.MAX_VALUE;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
     public short getAvailableTransientDeselectMemory() {
         return Short.MAX_VALUE;
     }
 
     /**
-     * @see javacard.framework.JCSystem#getAppletShareableInterfaceObject(javacard.framework.AID, byte)
      * @param serverAID the AID of the server applet
      * @param parameter optional parameter data
      * @return the shareable interface object or <code>null</code>
+     * @see javacard.framework.JCSystem#getAppletShareableInterfaceObject(javacard.framework.AID, byte)
      */
     public Shareable getSharedObject(AID serverAID, byte parameter) {
         Applet serverApplet = getApplet(serverAID);
@@ -546,8 +584,8 @@ public class SimulatorRuntime {
     }
 
     /**
-     * @see javacard.framework.JCSystem#isObjectDeletionSupported()
      * @return always false
+     * @see javacard.framework.JCSystem#isObjectDeletionSupported()
      */
     public boolean isObjectDeletionSupported() {
         return false;
@@ -562,7 +600,8 @@ public class SimulatorRuntime {
         }
     }
 
-    public void setJavaOwner(Object obj, Object owner) {}
+    public void setJavaOwner(Object obj, Object owner) {
+    }
 
     public Object getJavaOwner(Object obj) {
         return obj;
@@ -595,15 +634,14 @@ public class SimulatorRuntime {
 
     public void installApplet(final AID appletAid, byte[] bArray, short bOffset, byte bLength) {
         AID generatedAID = generatedLoadFileAIDs.get(appletAid);
-        
+
         if (generatedAID == null || !loadFiles.keySet().contains(generatedAID)) {
             throw new SystemException(SystemException.ILLEGAL_AID);
         }
         installApplet(generatedAID, generatedAID, appletAid, bArray, bOffset, bLength);
     }
 
-    public void installApplet(AID loadFileAID, AID moduleAID, final AID appletAID,
-                              byte[] bArray, short bOffset, byte bLength) {
+    public void installApplet(AID loadFileAID, AID moduleAID, final AID appletAID, byte[] bArray, short bOffset, byte bLength) {
         activateSimulatorRuntimeInstance();
         LoadFile loadFile = loadFiles.get(loadFileAID);
         if (loadFile == null) {
@@ -624,7 +662,7 @@ public class SimulatorRuntime {
         }
         // XXX: threading and atomics all come from CardSimulator
         final AtomicInteger callCount = new AtomicInteger(0);
-        registrationCallback.set(new BiConsumer<Applet,AID>() {
+        registrationCallback.set(new BiConsumer<Applet, AID>() {
             public void accept(Applet applet, AID installAID) {
                 // disallow second call to register
                 if (callCount.incrementAndGet() != 1) {
@@ -634,8 +672,7 @@ public class SimulatorRuntime {
                 // register applet
                 if (installAID != null) {
                     applets.put(installAID, new ApplicationInstance(installAID, applet));
-                }
-                else {
+                } else {
                     applets.put(appletAID, new ApplicationInstance(appletAID, applet));
                 }
             }
