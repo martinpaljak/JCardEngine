@@ -40,14 +40,26 @@ jobs:
       - name: Get SHA-256 of JAR
         run: echo "JARSUM=$(shasum -a 256 --tag ./target/jcardsim-${{ env.VERSION }}.jar)" >> "$GITHUB_ENV"
 
+      - name: Set SSH key
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Add known host key
+          run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
+
+      - name: Deploy package
+          run: ./mvnw -B deploy
+
       - name: Release
         uses: softprops/action-gh-release@v2.2.1
         with:
+          prerelease: true
           tag_name: v${{ env.VERSION }}
-          name: Release v${{ env.VERSION }}
+          name: Weekly v${{ env.VERSION }}
           files: ./target/jcardsim-${{ env.VERSION }}.jar
           fail_on_unmatched_files: true
           body: |
             ## Weekly release v${{ env.VERSION }}
 
-            `${{ env.JARSUM }}` (built with JDK-8)"
+            `${{ env.JARSUM }}` (built with JDK-8)
