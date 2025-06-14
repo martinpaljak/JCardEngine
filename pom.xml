@@ -372,8 +372,6 @@
                                         <exclude>META-INF/versions/9/module-info.class</exclude>
                                         <exclude>com/licel/jcardsim/smartcardio/*</exclude>
                                         <exclude>com/licel/jcardsim/remote/*</exclude>
-                                        <exclude>javacard/framework/service/CardRemoteObject*</exclude>
-                                        <exclude>javacard/framework/service/RMIService*</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
