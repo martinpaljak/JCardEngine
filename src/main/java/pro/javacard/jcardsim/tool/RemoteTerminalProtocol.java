@@ -50,7 +50,9 @@ public abstract class RemoteTerminalProtocol implements Runnable {
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
                         RemoteMessage msg = recv(channel);
-                        log.info("Processing {}", msg.getType());
+                        // Silence noisy VSmartCard ATR request.
+                        if (!(this.getClass() == VSmartCard.class && msg.type == RemoteMessage.Type.ATR))
+                            log.info("Processing {}", msg.getType());
                         switch (msg.type) {
                             case ATR:
                                 send(channel, new RemoteMessage(RemoteMessage.Type.ATR, JCSDKServer.ATR_SDK));
@@ -67,7 +69,7 @@ public abstract class RemoteTerminalProtocol implements Runnable {
                                 break;
                         }
                     } catch (EOFException e) {
-                        log.info("Client gone");
+                        log.info("Peer disconnected");
                         break; // new socket
                     } catch (Exception e) {
                         log.error("Error processing client command: " + e.getMessage(), e);

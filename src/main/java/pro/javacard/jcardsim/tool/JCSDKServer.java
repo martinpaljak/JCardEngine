@@ -48,7 +48,7 @@ public class JCSDKServer extends RemoteTerminalProtocol {
 
     @Override
     public RemoteMessage recv(SocketChannel channel) throws IOException {
-        log.info("Trying to read header ...");
+        log.trace("Trying to read header ...");
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
         if (len < 0) {
