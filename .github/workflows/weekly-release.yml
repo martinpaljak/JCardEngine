@@ -38,7 +38,7 @@ jobs:
         run: ./mvnw -T1C -B -U verify
 
       - name: Get SHA-256 of JAR
-        run: echo "JARSUM=$(shasum -a 256 --tag ./target/jcardsim-${{ env.VERSION }}.jar)" >> "$GITHUB_ENV"
+        run: echo "JARSUM=$(shasum -a 256 --tag ./tool/target/jcardsim-${{ env.VERSION }}.jar)" >> "$GITHUB_ENV"
 
       - name: Set SSH key
         uses: webfactory/ssh-agent@v0.9.1
@@ -57,7 +57,7 @@ jobs:
           prerelease: true
           tag_name: v${{ env.VERSION }}
           name: Weekly v${{ env.VERSION }}
-          files: ./target/jcardsim-${{ env.VERSION }}.jar
+          files: ./tool/target/jcardsim-${{ env.VERSION }}.jar
           fail_on_unmatched_files: true
           body: |
             ## Weekly release v${{ env.VERSION }}

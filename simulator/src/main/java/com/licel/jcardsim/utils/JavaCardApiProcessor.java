@@ -45,6 +45,7 @@ public class JavaCardApiProcessor {
         if (!buildDir.exists() || !buildDir.isDirectory()) {
             throw new RuntimeException("Invalid directory: " + buildDir);
         }
+        System.err.println("Processing " + buildDir);
         HashMap<String, String> allMap = new HashMap<>();
         proxyClass(buildDir, "com.licel.jcardsim.framework.AIDProxy", "javacard.framework.AID", false);
         allMap.put("com.licel.jcardsim.framework.APDUProxy".replace(".", "/"), "javacard.framework.APDU".replace(".", "/"));

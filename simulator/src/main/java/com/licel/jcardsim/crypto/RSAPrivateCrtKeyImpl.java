@@ -133,6 +133,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
         }
         // modulus = p * q;
         // FIXME: prior to BC 1.77 the exponent based Lenstra's check was not done.
+        // See https://github.com/bcgit/bc-java/issues/2104
         BigInteger exp = exponent.isInitialized() ? exponent.getBigInteger() : reconstructPublicExponent(p.getBigInteger(), q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
 
         return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exp,
