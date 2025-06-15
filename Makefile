@@ -10,5 +10,8 @@ JAVA21 ?= /Library/Java/JavaVirtualMachines/$(JDK)-21.jdk/Contents/Home
 8:
 	JAVA_HOME=$(JAVA8) ./mvnw -Dmaven.test.skip=true -Dmaven.antrun.skip=true package
 
+test:
+	./mvnw -Dmaven.antrun.skip=true clean verify
+
 fastinstall:
 	./mvnw -Dmaven.test.skip=true -Dmaven.antrun.skip=true install

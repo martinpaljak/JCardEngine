@@ -21,6 +21,8 @@ import javacard.security.RSAPrivateCrtKey;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 
@@ -32,6 +34,7 @@ import java.math.BigInteger;
  */
 public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
 
+    private static final Logger log = LoggerFactory.getLogger(RSAPrivateCrtKeyImpl.class);
     protected ByteContainer p = new ByteContainer();
     protected ByteContainer q = new ByteContainer();
     protected ByteContainer dp1 = new ByteContainer();
@@ -129,10 +132,93 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         // modulus = p * q;
-        // FIXME: prior to BC 1.77 not sending an exponent worked.
-        // With 1.77+ exponent needs to be present. So we send the default exponent for now if not set, but this needs clarity
-        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exponent.isInitialized() ? exponent.getBigInteger() : new BigInteger("10001", 16),
+        // FIXME: prior to BC 1.77 the exponent based Lenstra's check was not done.
+        BigInteger exp = exponent.isInitialized() ? exponent.getBigInteger() : reconstructPublicExponent(p.getBigInteger(), q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
+
+        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exp,
                 null, p.getBigInteger(), q.getBigInteger(),
                 dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
     }
+
+    public BigInteger reconstructPublicExponent(BigInteger p, BigInteger q,
+                                                BigInteger dp1, BigInteger dq1,
+                                                BigInteger pq) {
+
+        BigInteger p1 = p.subtract(BigInteger.ONE);
+        BigInteger q1 = q.subtract(BigInteger.ONE);
+        BigInteger phi = p1.multiply(q1);
+
+        // First check common public exponents
+        BigInteger[] commonExponents = new BigInteger[] {
+                BigInteger.valueOf(65537),
+                BigInteger.valueOf(17),
+                BigInteger.valueOf(3),
+                BigInteger.valueOf(5),
+                BigInteger.valueOf(257),
+                BigInteger.valueOf(65539)
+        };
+
+        for (BigInteger candidateE : commonExponents) {
+            if (candidateE.gcd(phi).equals(BigInteger.ONE)) {
+                BigInteger candidateD = candidateE.modInverse(phi);
+                if (candidateD.mod(p1).equals(dp1) && candidateD.mod(q1).equals(dq1)) {
+                    return candidateE; // quick match found
+                }
+            }
+        }
+
+        // Perform generalized CRT as fallback
+        BigInteger d = robustCRT(dp1, p1, dq1, q1);
+
+        if (!d.gcd(phi).equals(BigInteger.ONE)) {
+            throw new ArithmeticException("Reconstructed d is not invertible modulo phi(n). Check CRT inputs.");
+        }
+
+        return d.modInverse(phi);
+    }
+
+    private BigInteger robustCRT(BigInteger a1, BigInteger m1,
+                                 BigInteger a2, BigInteger m2) {
+        BigInteger gcd = m1.gcd(m2);
+        if (!a1.subtract(a2).mod(gcd).equals(BigInteger.ZERO)) {
+            throw new IllegalArgumentException("Incompatible CRT inputs");
+        }
+
+        BigInteger lcm = m1.divide(gcd).multiply(m2);
+
+        // Extended Euclidean Algorithm to get coefficients
+        BigInteger[] euclid = extendedGCD(m1.divide(gcd), m2.divide(gcd));
+        BigInteger m1Inv = euclid[1];
+
+        BigInteger diff = a2.subtract(a1).divide(gcd);
+
+        BigInteger result = a1.add(m1.multiply(m1Inv).multiply(diff));
+
+        return result.mod(lcm);
+    }
+
+    private BigInteger[] extendedGCD(BigInteger a, BigInteger b) {
+        BigInteger old_r = a, r = b;
+        BigInteger old_s = BigInteger.ONE, s = BigInteger.ZERO;
+        BigInteger old_t = BigInteger.ZERO, t = BigInteger.ONE;
+
+        while (!r.equals(BigInteger.ZERO)) {
+            BigInteger quotient = old_r.divide(r);
+
+            BigInteger temp = r;
+            r = old_r.subtract(quotient.multiply(r));
+            old_r = temp;
+
+            temp = s;
+            s = old_s.subtract(quotient.multiply(s));
+            old_s = temp;
+
+            temp = t;
+            t = old_t.subtract(quotient.multiply(t));
+            old_t = temp;
+        }
+
+        return new BigInteger[]{old_r, old_s, old_t};
+    }
+
 }
