@@ -16,6 +16,13 @@
             <artifactId>jcardsim</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- XXX: this is to please intellij -->
+        <dependency>
+            <groupId>oracle.javacard</groupId>
+            <artifactId>api_classic</artifactId>
+            <version>${javacard.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- Command line utility -->
         <dependency>
             <groupId>net.sf.jopt-simple</groupId>
