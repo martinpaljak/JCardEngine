@@ -50,14 +50,15 @@ public abstract class RemoteTerminalProtocol implements Runnable {
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
                         RemoteMessage msg = recv(channel);
+                        log.info("Processing {}", msg.getType());
                         switch (msg.type) {
                             case ATR:
-                                sim.reset();
                                 send(channel, new RemoteMessage(RemoteMessage.Type.ATR, JCSDKServer.ATR_SDK));
                                 break;
                             case RESET:
                             case POWERUP:
                             case POWERDOWN:
+                                sim.reset();
                                 send(channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
                                 break;
                             case APDU:

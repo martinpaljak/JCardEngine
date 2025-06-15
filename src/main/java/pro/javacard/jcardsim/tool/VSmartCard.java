@@ -1,6 +1,7 @@
 package pro.javacard.jcardsim.tool;
 
 import com.licel.jcardsim.base.CardInterface;
+import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,18 +34,6 @@ public class VSmartCard extends RemoteTerminalProtocol {
         this.port = port;
     }
 
-    static int code(SocketChannel channel) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(2);
-        int len = channel.read(buffer);
-        if (len == -1) {
-            throw new EOFException("Client gone");
-        }
-        short c = buffer.getShort();
-        if (c < 0)
-            throw new IOException("Unexpected length: " + c);
-        return c;
-    }
-
     static ByteBuffer _send(byte[] data) throws IOException {
         if (data.length > Short.MAX_VALUE)
             throw new IllegalArgumentException("Too big payload");
@@ -57,16 +46,21 @@ public class VSmartCard extends RemoteTerminalProtocol {
 
     @Override
     public void send(SocketChannel channel, RemoteMessage message) throws IOException {
+        log.trace("Sending {}", message.getType());
+        ByteBuffer msg;
         switch (message.type) {
             case ATR:
-                _send(message.payload);
+                msg = _send(message.payload);
                 break;
             case APDU:
-                _send(message.payload);
+                msg = _send(message.payload);
                 break;
             default:
                 log.warn("Unknown/ignored message for protocol: " + message.type);
+                return;
         }
+        log.trace("Sending {}", Hex.toHexString(msg.array()));
+        channel.write(msg);
     }
 
     @Override
@@ -74,22 +68,44 @@ public class VSmartCard extends RemoteTerminalProtocol {
         return RemoteTerminalProtocol.connect(host, port);
     }
 
+    ByteBuffer _read(SocketChannel channel, int len) throws IOException {
+        log.trace("Waiting for input ...");
+        ByteBuffer buf = ByteBuffer.allocate(len);
+        int read = channel.read(buf);
+        if (read == -1) {
+            throw new EOFException("Client gone");
+        }
+        if (read != len) {
+            throw new IOException("Could not read buffer: " + read);
+        }
+        return buf;
+    }
     @Override
     public RemoteMessage recv(SocketChannel channel) throws IOException {
-        int c = code(channel);
-        switch (c) {
-            case 0x00: // power off;
-                return new RemoteMessage(RemoteMessage.Type.POWERDOWN);
-            case 0x01: // power on;
-                return new RemoteMessage(RemoteMessage.Type.POWERUP);
-            case 0x02: // reset;
-                return new RemoteMessage(RemoteMessage.Type.RESET);
-            case 0x04: // ATR
-                return new RemoteMessage(RemoteMessage.Type.ATR);
-            default: // APDU
-                ByteBuffer apdu = ByteBuffer.allocate(c);
-                channel.read(apdu);
-                return new RemoteMessage(RemoteMessage.Type.APDU, apdu.array());
+        ByteBuffer hdr = _read(channel, 2);
+
+        short len = hdr.getShort(0);
+        if (len < 0)
+            throw new IOException("Unexpected length: " + len);
+
+        // command
+        if (len == 0x01) {
+            ByteBuffer cmd = _read(channel, 1);
+            switch (cmd.get(0)) {
+                case 0x00: // power off;
+                    return new RemoteMessage(RemoteMessage.Type.POWERDOWN);
+                case 0x01: // power on;
+                    return new RemoteMessage(RemoteMessage.Type.POWERUP);
+                case 0x02: // reset;
+                    return new RemoteMessage(RemoteMessage.Type.RESET);
+                case 0x04: // ATR
+                    return new RemoteMessage(RemoteMessage.Type.ATR);
+                default:
+                    throw new IOException("Unknown command: " + cmd);
+            }
         }
+        // APDU otherwise
+        ByteBuffer apdu = _read(channel, len);
+        return new RemoteMessage(RemoteMessage.Type.APDU, apdu.array());
     }
 }
