@@ -1,4 +1,4 @@
-# `jcardsim` &middot; reborn
+# `jcardsim` &middot; REBORN
 
 
 [![Latest release](https://img.shields.io/github/release/martinpaljak/jcardsim.svg)](https://github.com/martinpaljak/jcardsim/releases/latest)
@@ -53,6 +53,6 @@ ResponseAPDU response = simulator.transmitCommand(commandAPDU);
 assertEquals(0x9000, response.getSW());
 ```
 
-* easy interaction with `javax.smartcardio` or use from existing legacy applications with PC/SC adapters like vsmartcard.
+* easy interaction with `javax.smartcardio` or use from existing PC/SC applications with adapters like `vsmartcard` or Oracle's JavaCard simulator PC/SC driver.
 
-<small>Oracle and Java are trademarks of Oracle Corporation.</small>
+<sub>Oracle and Java are trademarks of Oracle Corporation.</sub>
