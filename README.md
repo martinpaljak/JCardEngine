@@ -1,4 +1,11 @@
-# `jcardsim`
+# `jcardsim` &middot; reborn
+
+
+[![Latest release](https://img.shields.io/github/release/martinpaljak/jcardsim.svg)](https://github.com/martinpaljak/jcardsim/releases/latest)
+&nbsp;[![Maven version](https://img.shields.io/maven-metadata/v?label=maven&metadataUrl=https%3A%2F%2Fmvn.javacard.pro%2Fmaven%2Fcom%2Fgithub%2Fmartinpaljak%2Fjcardsim%2Fmaven-metadata.xml)](https://gist.github.com/martinpaljak/c77d11d671260e24eef6c39123345cae)
+&nbsp;[![MIT licensed](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/martinpaljak/jcardsim/blob/master/LICENSE)
+&nbsp;[![Build status](https://github.com/martinpaljak/jcardsim/actions/workflows/robot.yml/badge.svg?branch=next)](https://github.com/martinpaljak/jcardsim/actions)
+&nbsp;[![Made in Estonia](https://img.shields.io/badge/Made_in-Estonia-0072CE)](https://estonia.ee)
 
 > [!IMPORTANT]
 > **TL;DR**: this is a **fork** of the original upstream [@licel/jcardsim](https://github.com/licel/jcardsim) from April 3, 2024 revision `aa60a02f042c18211e4d0f0aef75f27b0e5cf873`.
@@ -46,37 +53,6 @@ ResponseAPDU response = simulator.transmitCommand(commandAPDU);
 assertEquals(0x9000, response.getSW());
 ```
 
-* Emulation of Java Card Terminal, ability to use `javax.smartcardio`
-* APDU scripting (scripts are compatible with `apdutool` from Java Card Development Kit)
-* Simplifies verification tests creation (Common Criteria)
+* easy interaction with `javax.smartcardio` or use from existing legacy applications with PC/SC adapters like vsmartcard.
 
-*JavaDoc*: https://github.com/licel/jcardsim/tree/master/javadoc
-
-  (Javadoc rendered: https://jcardsim.org/jcardsim/)
-
-*Latest release 3.0.5*: https://github.com/licel/jcardsim/packages/1650016
-
-
-### What is the difference from Oracle Java Card Development Kit simulator?
-
-* **Implementation of javacard.security.***
-
-  One of the main differences is the implementation of `javacard.security.*`: the current version is analogous to an NXP JCOP 31/36k card. For example, in jCardSim we have support for on-card `KeyPair.ALG_EC_F2M/ALG_RSA_CRT` key generation. Oracle's simulator only supports `KeyPair.ALG_RSA` and `KeyPair.ALG_EC_FP`, which are not supported by real cards.
-
-* **Execution of Java Card applications without converting into CAP**
-
-  jCardSim can work with class files without any conversions. This allows us to simplify and accelerate the development and writing of unit tests.
-
-* **Simulator API**
-
-  jCardSim has a simple and usable API, which also allows you to work with the simulator using `javax.smartcardio.*`.
-
-* **Cross-platform**
-
-  jCardSim is completely written in Java and can therefore be used on all platforms which support Java (Windows, Linux, MacOS, etc).
-
-**License**: [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-**Third-party libraries**: [Legion of the Bouncy Castle Java](http://www.bouncycastle.org/java.html)
-
-**Trademarks**: Oracle, Java and Java Card are trademarks of Oracle Corporation.
+<small>Oracle and Java are trademarks of Oracle Corporation.</small>
