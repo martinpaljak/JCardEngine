@@ -33,6 +33,7 @@ import pro.javacard.jcardsim.core.InstallSpec;
 import pro.javacard.jcardsim.core.ThreadedSimulator;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
@@ -66,12 +67,14 @@ public class JCardSimTool {
     static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "host to listen on").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
 
     // ATR to report
-    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to send (hex)").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class);
 
     // .cap/.jar files to load
-    static OptionSpec<File> toLoad = parser.nonOptions(".cap or .jar").ofType(File.class);
+    static OptionSpec<File> toLoad = parser.nonOptions(".cap or .jar or path to classes").ofType(File.class);
 
     static OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Applet to install").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_AID = parser.accepts("aid", "Applet AID").withRequiredArg().ofType(String.class);
 
     // While Simulator interface has an ATR interface, we don't really handle it on that level
     // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
@@ -89,8 +92,6 @@ public class JCardSimTool {
 
         String version = JCardSimTool.class.getPackage().getImplementationVersion();
 
-        System.out.printf("%s v%s%n", me, version);
-
         try {
             OptionSet options = parser.parse(args);
 
@@ -106,18 +107,16 @@ public class JCardSimTool {
             }
 
             Set<String> availableApplets = new TreeSet<>();
+            Map<String, byte[]> defaultAID = new HashMap<>();
             // Load non-options
             for (File f : options.valuesOf(toLoad)) {
-                System.out.println("Loading " + f.getAbsolutePath());
                 Path p = f.toPath();
 
-                if (Files.isDirectory(p)) {
-                } else if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".cap")) {
+                if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".cap")) {
                     CAPFile cap = CAPFile.fromFile(p);
                     for (Map.Entry<pro.javacard.capfile.AID, String> app : cap.getApplets().entrySet()) {
-                        System.out.println(app.getKey() + ": " + app.getValue());
+                        defaultAID.put(app.getValue(), app.getKey().getBytes());
                     }
-                } else if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".jar")) {
                 }
                 availableApplets.addAll(loader.addApplet(p));
             }
@@ -129,10 +128,25 @@ public class JCardSimTool {
                 System.exit(1);
             } else if (options.has(OPT_APPLET)) {
                 Class<? extends Applet> applet = requireExtendsApplet(loader.loadClass(options.valueOf(OPT_APPLET)));
-                spec.add(InstallSpec.of(Hex.decode("010203040506"), applet, null));
+                final byte[] aid;
+                if (!options.has(OPT_AID) && defaultAID.containsKey(options.valueOf(OPT_APPLET))) {
+                    aid = defaultAID.get(options.valueOf(OPT_APPLET));
+                } else {
+                    aid = Hex.decode(options.valueOf(OPT_AID));
+                }
+                byte[] params = options.has(OPT_PARAMS) ? Hex.decode(options.valueOf(OPT_PARAMS)) : null;
+                spec.add(InstallSpec.of(aid, applet, params));
             } else if (availableApplets.size() == 1) {
-                Class<? extends Applet> applet = requireExtendsApplet(loader.loadClass(availableApplets.iterator().next()));
-                spec.add(InstallSpec.of(Hex.decode("010203040506"), applet, null));
+                String klass = availableApplets.iterator().next();
+                Class<? extends Applet> applet = requireExtendsApplet(loader.loadClass(klass));
+                final byte[] aid;
+                if (!options.has(OPT_AID) && defaultAID.containsKey(klass)) {
+                    aid = defaultAID.get(klass);
+                } else {
+                    aid = Hex.decode(options.valueOf(OPT_AID));
+                }
+                byte[] params = options.has(OPT_PARAMS) ? Hex.decode(options.valueOf(OPT_PARAMS)) : null;
+                spec.add(InstallSpec.of(aid, applet, params));
             } else {
                 System.err.println("Multiple applets found, use --applet");
                 for (String applet : availableApplets) {
@@ -244,6 +258,8 @@ public class JCardSimTool {
                     Files.walk(src)
                             .filter(p -> p.toString().endsWith(".class"))
                             .forEach(p -> copy(p, tmp.resolve(src.relativize(p).toString())));
+                } else {
+                    throw new FileNotFoundException("APPLET-INF/classes is missing from " + file.getFileName());
                 }
             }
             // Add to classpath here, so that locateApplets would have access to loaded classes.
