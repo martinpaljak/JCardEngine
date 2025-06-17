@@ -1,4 +1,4 @@
-package pro.javacard.jcardsim.tool;
+package pro.javacard.jcardsim.core;
 
 import javacard.framework.Applet;
 

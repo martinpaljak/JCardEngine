@@ -1,9 +1,10 @@
-package pro.javacard.jcardsim.tool;
+package pro.javacard.jcardsim.adapters;
 
 import com.licel.jcardsim.base.CardInterface;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.jcardsim.core.RemoteMessage;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -19,8 +20,8 @@ public class JCSDKServer extends RemoteTerminalProtocol {
     // 0x00 messages encode length of APDU-s
     private static final Logger log = LoggerFactory.getLogger(JCSDKServer.class);
 
-    static byte[] ATR_SDK = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
-    public static int DEFAULT_SDK_PORT = 9025;
+    public static final int DEFAULT_JCSDK_PORT = 9025;
+    public static final String DEFAULT_JCSDK_HOST = "0.0.0.0";
 
     private static ByteBuffer format(byte code, byte[] data) {
         ByteBuffer buffer = ByteBuffer.allocate(4 + data.length);
@@ -35,15 +36,17 @@ public class JCSDKServer extends RemoteTerminalProtocol {
 
     ServerSocketChannel server;
     final int port;
+    final String host;
 
-    public JCSDKServer(int port, CardInterface sim) {
+    public JCSDKServer(String host, int port, CardInterface sim) {
         super(sim);
         this.port = port;
+        this.host = host;
     }
 
     @Override
     public void start() throws IOException {
-        server = RemoteTerminalProtocol.start("0.0.0.0", port);
+        server = RemoteTerminalProtocol.start(host, port);
     }
 
     @Override
@@ -74,20 +77,20 @@ public class JCSDKServer extends RemoteTerminalProtocol {
 
     @Override
     public void send(SocketChannel channel, RemoteMessage message) throws IOException {
-        log.info("Sending " + message.type);
-        switch (message.type) {
+        log.info("Sending " + message.getType());
+        switch (message.getType()) {
             case APDU:
-                channel.write(format((byte) 0x00, message.payload));
+                channel.write(format((byte) 0x00, message.getPayload()));
                 break;
             case ATR:
-                channel.write(format((byte) 0xF0, message.payload));
+                channel.write(format((byte) 0xF0, message.getPayload()));
                 break;
             case POWERDOWN:
                 //channel.close();
                 // Do nothing
                 break;
             default:
-                log.warn("Unknown message for protocol: " + message.type);
+                log.warn("Unknown message for protocol: " + message.getType());
         }
     }
 

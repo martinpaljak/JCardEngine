@@ -58,6 +58,13 @@
         </snapshotRepository>
     </distributionManagement>
 
+    <repositories>
+        <repository>
+            <id>javacard-pro</id>
+            <url>https://mvn.javacard.pro/maven/</url>
+        </repository>
+    </repositories>
+
     <scm>
         <connection>scm:git:git@github.com:martinpaljak/jcardsim.git</connection>
         <developerConnection>scm:git:git@github.com:martinpaljak/jcardsim.git</developerConnection>

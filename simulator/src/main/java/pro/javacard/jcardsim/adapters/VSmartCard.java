@@ -1,9 +1,10 @@
-package pro.javacard.jcardsim.tool;
+package pro.javacard.jcardsim.adapters;
 
 import com.licel.jcardsim.base.CardInterface;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.jcardsim.core.RemoteMessage;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -12,6 +13,10 @@ import java.nio.channels.SocketChannel;
 
 public class VSmartCard extends RemoteTerminalProtocol {
     private static final Logger log = LoggerFactory.getLogger(VSmartCard.class);
+
+    // Default values
+    public static final int DEFAULT_VSMARTCARD_PORT = 35963;
+    public static final String DEFAULT_VSMARTCARD_HOST = "127.0.0.1";
 
     // Protocol:
     // We are a client, connecting to vpcd server
@@ -48,15 +53,15 @@ public class VSmartCard extends RemoteTerminalProtocol {
     public void send(SocketChannel channel, RemoteMessage message) throws IOException {
         log.trace("Sending {}", message.getType());
         ByteBuffer msg;
-        switch (message.type) {
+        switch (message.getType()) {
             case ATR:
-                msg = _send(message.payload);
+                msg = _send(message.getPayload());
                 break;
             case APDU:
-                msg = _send(message.payload);
+                msg = _send(message.getPayload());
                 break;
             default:
-                log.warn("Unknown/ignored message for protocol: " + message.type);
+                log.warn("Unknown/ignored message for protocol: " + message.getType());
                 return;
         }
         log.trace("Sending {}", Hex.toHexString(msg.array()));

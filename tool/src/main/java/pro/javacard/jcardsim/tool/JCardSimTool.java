@@ -15,9 +15,7 @@
  */
 package pro.javacard.jcardsim.tool;
 
-import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.samples.HelloWorldApplet;
-import javacard.framework.AID;
+import com.licel.jcardsim.base.CardInterface;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
 import joptsimple.OptionException;
@@ -27,7 +25,14 @@ import joptsimple.OptionSpec;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.capfile.CAPFile;
+import pro.javacard.jcardsim.adapters.JCSDKServer;
+import pro.javacard.jcardsim.adapters.RemoteTerminalProtocol;
+import pro.javacard.jcardsim.adapters.VSmartCard;
+import pro.javacard.jcardsim.core.InstallSpec;
+import pro.javacard.jcardsim.core.ThreadedSimulator;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URL;
@@ -36,24 +41,47 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 public class JCardSimTool {
     private static final Logger log = LoggerFactory.getLogger(JCardSimTool.class);
 
-    // Default values
-    public static final int DEFAULT_VSMARTCARD_PORT = 8099;
-    public static final int DEFAULT_BIXVREADER_PORT = 21238;
-    public static final int DEFAULT_JCSDK_PORT = 9025;
-    public static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
+    static OptionParser parser = new OptionParser();
+
+    // Main options
+    static OptionSpec<Void> OPT_HELP = parser.acceptsAll(Arrays.asList("h", "help"), "Show this help").forHelp();
+
+    // VSmartCard options
+    static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
+    static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withOptionalArg().ofType(Integer.class).defaultsTo(VSmartCard.DEFAULT_VSMARTCARD_PORT);
+    static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCard.DEFAULT_VSMARTCARD_HOST);
+
+    // Oracle options
+    static OptionSpec<Void> OPT_JCSDK = parser.accepts("jcsdk", "Run a JCSDK server");
+    static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "port to listen on").withOptionalArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
+    static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "host to listen on").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
+
+    // ATR to report
+    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to send (hex)").withRequiredArg().ofType(String.class);
+
+    // .cap/.jar files to load
+    static OptionSpec<File> toLoad = parser.nonOptions(".cap or .jar").ofType(File.class);
+
+    static OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Applet to install").withRequiredArg().ofType(String.class);
+
+    // While Simulator interface has an ATR interface, we don't really handle it on that level
+    // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
+    // for adapters.
+    static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
+
+    // Class loader
+    static final AppletClassLoader loader = new AppletClassLoader();
 
     public static void main(String[] args) {
-
         String me = JCardSimTool.class.getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
@@ -63,21 +91,6 @@ public class JCardSimTool {
 
         System.out.printf("%s v%s%n", me, version);
 
-        OptionParser parser = new OptionParser();
-
-        // Main options
-        OptionSpec<Void> OPT_HELP = parser.acceptsAll(Arrays.asList("h", "help"), "Show this help").forHelp();
-
-        // VSmartCard options
-        OptionSpec<Integer> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard server").withOptionalArg().ofType(Integer.class).defaultsTo(DEFAULT_VSMARTCARD_PORT);
-
-        // Oracle options
-        OptionSpec<Integer> OPT_JCSDK = parser.accepts("jcsdk", "Run a JavaCard SDK simulator-compatible server").withOptionalArg().ofType(Integer.class).defaultsTo(DEFAULT_JCSDK_PORT);
-
-        OptionSpec<String> OPT_HOST = parser.accepts("host", "host to connect to or bind to").withRequiredArg().ofType(String.class);
-
-        OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to send (hex)").withRequiredArg().ofType(String.class);
-
         try {
             OptionSet options = parser.parse(args);
 
@@ -86,46 +99,97 @@ public class JCardSimTool {
                 return;
             }
 
+            if (options.nonOptionArguments().isEmpty()) {
+                System.err.println("Missing applets");
+                parser.printHelpOn(System.err);
+                System.exit(2);
+            }
+
+            Set<String> availableApplets = new TreeSet<>();
+            // Load non-options
+            for (File f : options.valuesOf(toLoad)) {
+                System.out.println("Loading " + f.getAbsolutePath());
+                Path p = f.toPath();
+
+                if (Files.isDirectory(p)) {
+                } else if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".cap")) {
+                    CAPFile cap = CAPFile.fromFile(p);
+                    for (Map.Entry<pro.javacard.capfile.AID, String> app : cap.getApplets().entrySet()) {
+                        System.out.println(app.getKey() + ": " + app.getValue());
+                    }
+                } else if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".jar")) {
+                }
+                availableApplets.addAll(loader.addApplet(p));
+            }
+
+            List<InstallSpec> spec = new ArrayList<>();
+
+            if (availableApplets.isEmpty()) {
+                System.err.println("No applets found");
+                System.exit(1);
+            } else if (options.has(OPT_APPLET)) {
+                Class<? extends Applet> applet = requireExtendsApplet(loader.loadClass(options.valueOf(OPT_APPLET)));
+                spec.add(InstallSpec.of(Hex.decode("010203040506"), applet, null));
+            } else if (availableApplets.size() == 1) {
+                Class<? extends Applet> applet = requireExtendsApplet(loader.loadClass(availableApplets.iterator().next()));
+                spec.add(InstallSpec.of(Hex.decode("010203040506"), applet, null));
+            } else {
+                System.err.println("Multiple applets found, use --applet");
+                for (String applet : availableApplets) {
+                    System.out.println("- " + applet);
+                }
+                System.exit(1);
+            }
+
+            // Set ATR.
+            final byte[] atr = options.has(OPT_ATR) ? Hex.decode(options.valueOf(OPT_ATR)) : DEFAULT_ATR;
+
             // Set up simulator. Right now a sample thingy
+            CardInterface sim = new ThreadedSimulator(spec);
             byte[] aid_bytes = Hex.decode("010203040506");
-            Simulator sim = new Simulator();
-            sim.installApplet(new AID(aid_bytes, (short) 0, (byte) aid_bytes.length), HelloWorldApplet.class);
-
             ExecutorService exec = Executors.newFixedThreadPool(3);
-
 
             List<RemoteTerminalProtocol> adapters = new ArrayList<>();
 
-            if (options.has(OPT_VSMARTCARD)) {
-                int port = options.valueOf(OPT_VSMARTCARD);
-                String host = options.has(OPT_HOST) ? options.valueOf(OPT_HOST) : "127.0.0.1";
-                System.out.printf("vsmartcard on port %d%n", port);
-                adapters.add(new VSmartCard(host, port, sim));
+            if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST)) {
+                int port = options.valueOf(OPT_VSMARTCARD_PORT);
+                String host = options.has(OPT_VSMARTCARD_HOST) ? options.valueOf(OPT_VSMARTCARD_HOST) : VSmartCard.DEFAULT_VSMARTCARD_HOST;
+                System.out.printf("vsmartcard to host %s port %d%n", host, port);
+                RemoteTerminalProtocol adapter = new VSmartCard(host, port, sim);
+                adapter.setATR(atr);
+                adapters.add(adapter);
             }
 
-            if (options.has(OPT_JCSDK)) {
-                int port = options.hasArgument(OPT_JCSDK) ? options.valueOf(OPT_JCSDK) : DEFAULT_JCSDK_PORT;
-                String host = options.has(OPT_HOST) ? options.valueOf(OPT_HOST) : "0.0.0.0";
-                System.out.printf("jcsdk on port %d%n", port);
-                adapters.add(new JCSDKServer(port, sim));
+            if (options.has(OPT_JCSDK) || options.has(OPT_JCSDK_PORT) || options.has(OPT_JCSDK_HOST)) {
+                int port = options.hasArgument(OPT_JCSDK_PORT) ? options.valueOf(OPT_JCSDK_PORT) : JCSDKServer.DEFAULT_JCSDK_PORT;
+                String host = options.has(OPT_JCSDK_HOST) ? options.valueOf(OPT_JCSDK_HOST) : JCSDKServer.DEFAULT_JCSDK_HOST;
+                System.out.printf("jcsdk on host %s port %d%n", host, port);
+                RemoteTerminalProtocol adapter = new JCSDKServer(host, port, sim);
+                adapter.setATR(atr);
+                adapters.add(adapter);
             }
-
 
             // Trap ctrl-c and similar signals
             Thread shutdownThread = new Thread(() -> {
                 System.err.println("Quitting jcardsim");
-                exec.shutdown();
+                exec.shutdownNow();
             });
 
-            for (RemoteTerminalProtocol proto : adapters) {
-                exec.submit(proto);
+            if (adapters.isEmpty()) {
+                System.err.println("Use one of --vsmartcard or --jcsdk");
+                System.exit(2);
             }
+
             Runtime.getRuntime().addShutdownHook(shutdownThread);
+            // This blocks until all are done
+            List<Future<Boolean>> results = exec.invokeAll(adapters);
+            Runtime.getRuntime().removeShutdownHook(shutdownThread);
+            exec.shutdownNow();
             while (!exec.isTerminated()) {
                 if (exec.awaitTermination(1, TimeUnit.MINUTES))
                     break;
             }
-            System.out.println("jcardsim is done.");
+            System.out.println("Thank you for using jcardsim " + version + "!");
         } catch (OptionException e) {
             System.err.println("Error: " + e.getMessage());
             System.exit(1);
@@ -136,9 +200,22 @@ public class JCardSimTool {
         }
     }
 
+    private static List<String> locateApplets(Path src, URLClassLoader cl) throws IOException {
+        List<String> applets = new ArrayList<>();
+        Files.walk(src)
+                .filter(p -> p.toString().endsWith(".class"))
+                .forEach(p -> {
+                    if (InstallableAppletChecker.isValidApplet(p, cl)) {
+                        String cls = src.relativize(p).toString().replace("/", ".");
+                        applets.add(cls.substring(0, cls.length() - 6)); // bite off ".class"
+                    }
+                });
+        return applets;
+    }
 
     @SuppressWarnings("unchecked")
-    private Class<? extends Applet> requireExtendsApplet(Class<?> cls) {
+    private static Class<? extends Applet> requireExtendsApplet(Class<?> cls) {
+        System.out.println("Validating " + cls.getName());
         if (!Applet.class.isAssignableFrom(cls)) {
             throw new SystemException(SystemException.ILLEGAL_VALUE);
         }
@@ -146,18 +223,15 @@ public class JCardSimTool {
     }
 
     static class AppletClassLoader extends URLClassLoader {
-
         AppletClassLoader() {
-            super(new URL[0], Simulator.class.getClassLoader());
+            super(new URL[0], AppletClassLoader.class.getClassLoader());
         }
 
-        void addApplet(byte[] contents) throws IOException {
-            Path tmp = Files.createTempFile("applet", ".jar");
-            Files.write(tmp, contents);
-            addURL(tmp.toUri().toURL());
-        }
-
-        void addApplet(Path file) throws IOException {
+        List<String> addApplet(Path file) throws IOException {
+            if (Files.isDirectory(file)) {
+                addURL(file.toUri().toURL());
+                return locateApplets(file, this);
+            }
             Path tmp = Files.createTempDirectory("applet");
             String name = file.getFileName().toString().toLowerCase();
 
@@ -172,8 +246,9 @@ public class JCardSimTool {
                             .forEach(p -> copy(p, tmp.resolve(src.relativize(p).toString())));
                 }
             }
-
+            // Add to classpath here, so that locateApplets would have access to loaded classes.
             addURL(tmp.toUri().toURL());
+            return locateApplets(tmp, this);
         }
 
         private void copy(Path from, Path to) {
