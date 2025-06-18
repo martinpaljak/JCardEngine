@@ -105,9 +105,10 @@ public class TransientMemory {
                 array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET);
                 break;
             case JCSystem.ARRAY_TYPE_INT:
-            default:
                 SystemException.throwIt(SystemException.ILLEGAL_VALUE);
                 break;
+            default:
+                SystemException.throwIt(SystemException.ILLEGAL_VALUE);
         }
 
         return array;

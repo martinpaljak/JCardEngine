@@ -17,6 +17,7 @@ package com.licel.jcardsim.crypto;
 
 import javacard.security.CryptoException;
 import javacard.security.RandomData;
+
 import static javacard.security.RandomData.ALG_PSEUDO_RANDOM;
 import static javacard.security.RandomData.ALG_SECURE_RANDOM;
 import static javacard.security.RandomData.ALG_TRNG;
@@ -25,6 +26,7 @@ import static javacard.security.RandomData.ALG_KEYGENERATION;
 
 /**
  * ProxyClass for <code>RandomData</code>
+ *
  * @see RandomData
  */
 @SuppressWarnings("deprecation")
@@ -32,16 +34,17 @@ public class RandomDataProxy {
     /**
      * Creates a <code>RandomData</code> instance of the selected algorithm.
      * The pseudo random <code>RandomData</code> instance's seed is initialized to a internal default value.
+     *
      * @param algorithm the desired random number algorithm. Valid codes listed in ALG_ .. constants above. See <A HREF="../../javacard/security/RandomData.html#ALG_PSEUDO_RANDOM"><CODE>ALG_PSEUDO_RANDOM</CODE></A>.
      * @return the <code>RandomData</code> object instance of the requested algorithm
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm is not supported.</ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm is not supported.</ul>
      */
     public static RandomData getInstance(byte algorithm)
             throws CryptoException {
         RandomData instance = null;
         switch (algorithm) {
-            case ALG_PSEUDO_RANDOM: 
+            case ALG_PSEUDO_RANDOM:
             case ALG_SECURE_RANDOM:
             case ALG_TRNG:
             case ALG_FAST:
@@ -49,7 +52,7 @@ public class RandomDataProxy {
                 instance = new RandomDataImpl(algorithm);
                 break;
             default:
-                CryptoException.throwIt((short) 3);
+                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
         }
         return instance;

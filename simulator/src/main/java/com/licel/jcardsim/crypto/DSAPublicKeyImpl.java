@@ -25,6 +25,7 @@ import org.bouncycastle.crypto.params.DSAPublicKeyParameters;
 /**
  * Implementation <code>DSAPublicKey</code> based
  * on BouncyCastle CryptoAPI.
+ *
  * @see DSAPublicKey
  * @see DSAPublicKeyParameters
  */
@@ -34,6 +35,7 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
 
     /**
      * Construct not-initialized dsa public key
+     *
      * @param keySize key size it bits
      * @see KeyBuilder
      */
@@ -41,23 +43,11 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
         super(KeyBuilder.TYPE_DSA_PUBLIC, keySize);
     }
 
-    /**
-     * Construct and initialize ecc key with DSAPublicKeyParameters.
-     * Use in KeyPairImpl
-     * @see javacard.security.KeyPair
-     * @see DSAPublicKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public DSAPublicKeyImpl(DSAPublicKeyParameters params) {
-        super(params);
-        setParameters(params);
-    }
-
     public void setParameters(CipherParameters params) {
         super.setParameters(params);
         y.setBigInteger(((DSAPublicKeyParameters) params).getY());
     }
-    
+
     public void setY(byte[] buffer, short offset, short length) throws CryptoException {
         y.setBytes(buffer, offset, length);
     }
@@ -80,5 +70,5 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         return new DSAPublicKeyParameters(y.getBigInteger(), ((DSAKeyParameters) super.getParameters()).getParameters());
-    }   
+    }
 }

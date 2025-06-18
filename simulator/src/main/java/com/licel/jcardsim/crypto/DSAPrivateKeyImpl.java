@@ -41,18 +41,6 @@ public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
         super(KeyBuilder.TYPE_DSA_PRIVATE, keySize);
     }
 
-    /**
-     * Construct and initialize dsa key with DSAPrivateKeyParameters.
-     * Use in KeyPairImpl
-     * @see javacard.security.KeyPair
-     * @see DSAPrivateKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public DSAPrivateKeyImpl(DSAPrivateKeyParameters params) {
-        super(params);
-        setParameters(params);
-    }
-
     public void setParameters(CipherParameters params) {
         super.setParameters(params);
         x.setBigInteger(((DSAPrivateKeyParameters) params).getX());

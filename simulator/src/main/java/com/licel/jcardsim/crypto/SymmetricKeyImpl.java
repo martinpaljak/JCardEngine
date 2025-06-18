@@ -16,6 +16,7 @@
 package com.licel.jcardsim.crypto;
 
 import java.security.SecureRandom;
+
 import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.crypto.BlockCipher;
@@ -26,9 +27,12 @@ import org.bouncycastle.crypto.engines.DESEngine;
 import org.bouncycastle.crypto.engines.DESedeEngine;
 import org.bouncycastle.crypto.engines.SEEDEngine;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of secret key.
+ *
  * @see DESKey
  * @see AESKey
  * @see HMACKey
@@ -36,10 +40,12 @@ import org.bouncycastle.crypto.params.KeyParameter;
  */
 public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey, KoreanSEEDKey {
 
+    private static final Logger log = LoggerFactory.getLogger(SymmetricKeyImpl.class);
     protected ByteContainer key;
 
     /**
      * Create new instance of <code>SymmetricKeyImpl</code>
+     *
      * @param keyType keyType interface
      * @param keySize keySize in bits
      * @see KeyBuilder
@@ -66,6 +72,7 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
             case KeyBuilder.TYPE_KOREAN_SEED:
                 key = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT);
                 break;
+            default:
         }
     }
 
@@ -89,6 +96,7 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
     public void setKey(byte[] keyData, short kOff, short kLen) throws CryptoException, NullPointerException, ArrayIndexOutOfBoundsException {
         key.setBytes(keyData, kOff, kLen);
     }
+
     /**
      * Returns the <code>Key</code> data in plain text.
      */
@@ -96,12 +104,13 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
         return (byte) key.getBytes(keyData, kOff);
     }
 
-     public void setParameters(CipherParameters params){
-       key.setBytes(((KeyParameter)params).getKey());
+    public void setParameters(CipherParameters params) {
+        key.setBytes(((KeyParameter) params).getKey());
     }
-    
+
     /**
      * Return the BouncyCastle <code>KeyParameter</code> of the key
+     *
      * @return parameter of the key
      * @throws CryptoException if key not initialized
      * @see KeyParameter
@@ -115,11 +124,12 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
 
     /**
      * Return the BouncyCastle <code>BlockCipher</code> for using with this key
+     *
      * @return <code>BlockCipher</code> for this key, or null for HMACKey
      * @throws CryptoException if key not initialized
      * @see BlockCipher
      */
-    public BlockCipher getCipher() throws CryptoException {
+    BlockCipher getCipher() throws CryptoException {
         if (!key.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -146,6 +156,10 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
             case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
                 cipher = new SEEDEngine();
                 break;
+            case KeyBuilder.TYPE_HMAC: // XXX: added explicitly to reduce warnings in log
+                break;
+            default: // XXX: what to throw?
+                log.warn("Unhandled key type: " + type);
         }
         return cipher;
     }

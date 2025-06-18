@@ -29,11 +29,11 @@ import java.math.BigInteger;
 /**
  * Implementation <code>RSAPrivateCrtKey</code> based
  * on BouncyCastle CryptoAPI.
+ *
  * @see RSAPrivateCrtKey
  * @see RSAPrivateCrtKeyParameters
  */
 public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
-
     private static final Logger log = LoggerFactory.getLogger(RSAPrivateCrtKeyImpl.class);
     protected ByteContainer p = new ByteContainer();
     protected ByteContainer q = new ByteContainer();
@@ -43,6 +43,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
 
     /**
      * Construct not-initialized rsa private crt key
+     *
      * @param keySize key size it bits (modulus size)
      * @see KeyBuilder
      */
@@ -54,24 +55,25 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     /**
      * Construct and initialize rsa key with RSAPrivateCrtKeyParameters.
      * Use in KeyPairImpl
+     *
+     * @param params key params from BouncyCastle API
      * @see javacard.security.KeyPair
      * @see RSAPrivateCrtKeyParameters
-     * @param params key params from BouncyCastle API
      */
-    public RSAPrivateCrtKeyImpl(RSAPrivateCrtKeyParameters params) {
-        super(new RSAKeyParameters(true, params.getModulus(), params.getExponent()));
-        type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
-        setParameters(params);
+    //public RSAPrivateCrtKeyImpl(RSAPrivateCrtKeyParameters params) {
+    //    super(new RSAKeyParameters(true, params.getModulus(), params.getExponent()));
+    //    type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
+    //    setParameters(params);
+    //}
+
+    public void setParameters(CipherParameters params) {
+        p.setBigInteger(((RSAPrivateCrtKeyParameters) params).getP());
+        q.setBigInteger(((RSAPrivateCrtKeyParameters) params).getQ());
+        dp1.setBigInteger(((RSAPrivateCrtKeyParameters) params).getDP());
+        dq1.setBigInteger(((RSAPrivateCrtKeyParameters) params).getDQ());
+        pq.setBigInteger(((RSAPrivateCrtKeyParameters) params).getQInv());
     }
 
-     public void setParameters(CipherParameters params){
-        p.setBigInteger(((RSAPrivateCrtKeyParameters)params).getP());
-        q.setBigInteger(((RSAPrivateCrtKeyParameters)params).getQ());
-        dp1.setBigInteger(((RSAPrivateCrtKeyParameters)params).getDP());
-        dq1.setBigInteger(((RSAPrivateCrtKeyParameters)params).getDQ());
-        pq.setBigInteger(((RSAPrivateCrtKeyParameters)params).getQInv());
-    }
-   
     public void setP(byte[] buffer, short offset, short length) throws CryptoException {
         p.setBytes(buffer, offset, length);
     }
@@ -150,7 +152,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
         BigInteger phi = p1.multiply(q1);
 
         // First check common public exponents
-        BigInteger[] commonExponents = new BigInteger[] {
+        BigInteger[] commonExponents = new BigInteger[]{
                 BigInteger.valueOf(65537),
                 BigInteger.valueOf(17),
                 BigInteger.valueOf(3),

@@ -18,6 +18,8 @@ package com.licel.jcardsim.framework;
 import javacard.framework.SystemException;
 import javacard.framework.Util;
 
+import java.util.Objects;
+
 /**
  * ProxyClass for <code>AID</code>
  * @see javacard.framework.AID
@@ -188,6 +190,12 @@ public class AIDProxy {
         }
         Util.arrayCopy(aid, aidOffset, dest, oOffset, copyLen);
         return (byte) copyLen;
+    }
+
+    // We still run in a JVM environment. AID is used as HashMap key
+    @Override
+    public int hashCode() {
+        return Objects.hash(aid);
     }
 }
 

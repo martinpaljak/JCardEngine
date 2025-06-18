@@ -37,7 +37,6 @@ public class AsymmetricCipherImpl extends Cipher {
 
     byte algorithm;
     AsymmetricBlockCipher engine;
-    BlockCipherPadding paddingEngine;
     boolean isInitialized;
     byte[] buffer;
     short bufferPos;
@@ -49,15 +48,12 @@ public class AsymmetricCipherImpl extends Cipher {
         switch (algorithm) {
             case ALG_RSA_NOPAD:
                 engine = new RSAEngine();
-                paddingEngine = null;
                 break;
             case ALG_RSA_PKCS1:
                 engine = new PKCS1Encoding(new RSAEngine());
-                paddingEngine = null;
                 break;
             case ALG_RSA_PKCS1_OAEP:
                 engine = new OAEPEncoding(new RSAEngine());
-                paddingEngine = null;
                 break;
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
@@ -96,7 +92,7 @@ public class AsymmetricCipherImpl extends Cipher {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
-        if( initMode == MODE_ENCRYPT ) {
+        if (initMode == MODE_ENCRYPT) {
             if ((outBuff.length - outOffset) < engine.getOutputBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_USE);
             }
@@ -106,10 +102,8 @@ public class AsymmetricCipherImpl extends Cipher {
         }
         update(inBuff, inOffset, inLength, outBuff, outOffset);
         if (algorithm == ALG_RSA_NOPAD) {
-            if ((bufferPos < engine.getInputBlockSize()) && (paddingEngine == null)) {
+            if ((bufferPos < engine.getInputBlockSize())) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_USE);
-            } else if (bufferPos < engine.getInputBlockSize()) {
-                paddingEngine.addPadding(buffer, bufferPos);
             }
         }
         try {
@@ -133,9 +127,11 @@ public class AsymmetricCipherImpl extends Cipher {
         bufferPos = (short) (bufferPos + Util.arrayCopyNonAtomic(inBuff, inOffset, buffer, bufferPos, inLength));
         return bufferPos;
     }
+
     public byte getPaddingAlgorithm() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+
     public byte getCipherAlgorithm() {
         throw new UnsupportedOperationException("Not supported yet.");
     }

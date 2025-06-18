@@ -33,8 +33,7 @@ public class AppletProxy {
     /**
      * The current registration callback, set by SimulatorRuntime via reflection.
      */
-    private static final ThreadLocal<BiConsumer<AppletProxy,AID>> registrationCallback
-            = new ThreadLocal<>();
+    private static final ThreadLocal<BiConsumer<AppletProxy,AID>> registrationCallback = new ThreadLocal<>();
 
     /**
      * Only this class's <code>install()</code> method should create the applet object.

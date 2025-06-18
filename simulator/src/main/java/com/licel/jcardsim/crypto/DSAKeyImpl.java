@@ -17,6 +17,7 @@ package com.licel.jcardsim.crypto;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
 import javacard.security.KeyBuilder;
@@ -30,6 +31,7 @@ import org.bouncycastle.crypto.params.DSAValidationParameters;
 /**
  * Base class for <code>DSAPublicKeyImpl/DSAPrivateKeyImpl</code>
  * on BouncyCastle CryptoAPI.
+ *
  * @see DSAKey
  */
 public class DSAKeyImpl extends KeyImpl implements DSAKey {
@@ -41,6 +43,7 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
 
     /**
      * Construct not-initialized dsa key
+     *
      * @param keyType - key type
      * @param keySize - key size in bits
      * @see javacard.security.KeyPair
@@ -51,24 +54,12 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
         type = keyType;
     }
 
-    /**
-     * Construct and initialize dsa key with DSAKeyParameters.
-     * Use in KeyPairImpl
-     * @see javacard.security.KeyPair
-     * @see DSAKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public DSAKeyImpl(DSAKeyParameters params) {
-        this(params.isPrivate() ? KeyBuilder.TYPE_DSA_PRIVATE : KeyBuilder.TYPE_DSA_PUBLIC, (short) params.getParameters().getP().bitLength());
-        setParameters(params);
+    public void setParameters(CipherParameters params) {
+        p.setBigInteger(((DSAKeyParameters) params).getParameters().getP());
+        q.setBigInteger(((DSAKeyParameters) params).getParameters().getQ());
+        g.setBigInteger(((DSAKeyParameters) params).getParameters().getG());
     }
 
-     public void setParameters(CipherParameters params){
-        p.setBigInteger(((DSAKeyParameters)params).getParameters().getP());
-        q.setBigInteger(((DSAKeyParameters)params).getParameters().getQ());
-        g.setBigInteger(((DSAKeyParameters)params).getParameters().getG());
-    }
-    
     public void clearKey() {
         p.clear();
         q.clear();
@@ -105,6 +96,7 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
 
     /**
      * Get <code>DSAKeyParameters</code>
+     *
      * @return parameters for use with BouncyCastle API
      * @see DSAKeyParameters
      */
@@ -114,8 +106,8 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
         }
         return new DSAKeyParameters(isPrivate, new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger()));
     }
-    
- 
+
+
     /**
      * Get
      * <code>DSAKeyGenerationParameters</code>
@@ -130,15 +122,15 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
         return getDefaultKeyGenerationParameters(size, rnd);
     }
 
-    
+
     /**
      * Get DSA KeyGeneration Defaults Parameters
      * {@link http://docs.oracle.com/javase/6/docs/technotes/guides/security/StandardNames.html#alg}
      *
      * @param keySize key size in bits
-     * @param rnd Secure Random Generator
+     * @param rnd     Secure Random Generator
      */
-     static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {
+    static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {
         BigInteger p = null;
         BigInteger q = null;
         BigInteger g = null;
@@ -191,5 +183,5 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
         return new DSAKeyGenerationParameters(rnd,
                 new DSAParameters(p, q, g, new DSAValidationParameters(seed.toByteArray(), counter)));
 
-    }    
+    }
 }

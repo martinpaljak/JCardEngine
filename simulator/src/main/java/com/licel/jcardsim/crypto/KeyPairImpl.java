@@ -16,6 +16,7 @@
 package com.licel.jcardsim.crypto;
 
 import java.security.SecureRandom;
+
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
@@ -74,9 +75,9 @@ public final class KeyPairImpl {
      * </ul>
      *
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.ILLEGAL_VALUE</code> if the exponent value
-     * parameter in RSA or the p, q, g parameter set in DSA or the Field, A, B,
-     * G and R parameter set in EC is invalid. </ul>
+     *                         <li><code>CryptoException.ILLEGAL_VALUE</code> if the exponent value
+     *                         parameter in RSA or the p, q, g parameter set in DSA or the Field, A, B,
+     *                         G and R parameter set in EC is invalid. </ul>
      * @see javacard.framework.APDU
      * @see javacard.security.Signature
      * @see javacardx.crypto.Cipher
@@ -86,11 +87,11 @@ public final class KeyPairImpl {
      */
     public final void genKeyPair()
             throws CryptoException {
-        initEngine();        
+        initEngine();
         createKeys();
         AsymmetricCipherKeyPair kp = engine.generateKeyPair();
-        ((KeyWithParameters)publicKey).setParameters(kp.getPublic());
-        ((KeyWithParameters)privateKey).setParameters(kp.getPrivate());
+        ((KeyWithParameters) publicKey).setParameters(kp.getPublic());
+        ((KeyWithParameters) privateKey).setParameters(kp.getPrivate());
     }
 
     /**
@@ -111,15 +112,15 @@ public final class KeyPairImpl {
      * not support the </em><code>KeyEncryption</code><em> interface.</em></p>
      *
      * @param algorithm the type of algorithm whose key pair needs to be
-     * generated. Valid codes listed in <code>ALG_..</code> constants above.
-     * {@link KeyPair}
+     *                  generated. Valid codes listed in <code>ALG_..</code> constants above.
+     *                  {@link KeyPair}
      * @param keyLength the key size in bits. The valid key bit lengths are key
-     * type dependent. See the <code>KeyBuilder</code> class.
-     * @see KeyBuilder
+     *                  type dependent. See the <code>KeyBuilder</code> class.
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested
-     * algorithm associated with the specified type, size of key is not
-     * supported.</ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested
+     *                         algorithm associated with the specified type, size of key is not
+     *                         supported.</ul>
+     * @see KeyBuilder
      * @see KeyBuilder
      * @see javacard.security.Signature
      * @see javacardx.crypto.KeyEncryption
@@ -140,13 +141,13 @@ public final class KeyPairImpl {
      * <code>KeyPair</code> object. It does not throw an exception if the key
      * parameter objects are uninitialized.
      *
-     * @param publicKey the public key.
+     * @param publicKey  the public key.
      * @param privateKey the private key.
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.ILLEGAL_VALUE</code> if the input parameter key
-     * objects are inconsistent with each other - i.e mismatched algorithm, size
-     * etc. <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the algorithm
-     * associated with the specified type, size of key is not supported. </ul>
+     *                         <li><code>CryptoException.ILLEGAL_VALUE</code> if the input parameter key
+     *                         objects are inconsistent with each other - i.e mismatched algorithm, size
+     *                         etc. <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the algorithm
+     *                         associated with the specified type, size of key is not supported. </ul>
      */
     public KeyPairImpl(PublicKey publicKey, PrivateKey privateKey)
             throws CryptoException {
@@ -213,7 +214,9 @@ public final class KeyPairImpl {
             case KeyBuilder.TYPE_DH_PUBLIC:
             case KeyBuilder.TYPE_DH_PRIVATE:
                 algorithm = KeyPair.ALG_DH;
-                break;    
+                break;
+            default: // XXX: what to throw here?
+                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
     }
 
@@ -259,7 +262,7 @@ public final class KeyPairImpl {
                 }
                 engine = new DHKeyPairGenerator();
                 break;
-                
+
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
@@ -267,7 +270,7 @@ public final class KeyPairImpl {
         engine.init(keyGenerationParameters);
 
     }
-    
+
     /*
      * Create uninitialized keys
      */
@@ -303,13 +306,13 @@ public final class KeyPairImpl {
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
         }
-        if(publicKey!=null && keyLength == 0){
+        if (publicKey != null && keyLength == 0) {
             keyLength = publicKey.getSize();
         }
-        if(publicKey == null){
+        if (publicKey == null) {
             publicKey = (PublicKey) KeyBuilder.buildKey(publicKeyType, keyLength, false);
-        }    
-        if(privateKey == null){
+        }
+        if (privateKey == null) {
             privateKey = (PrivateKey) KeyBuilder.buildKey(privateKeyType, keyLength, false);
         }
     }

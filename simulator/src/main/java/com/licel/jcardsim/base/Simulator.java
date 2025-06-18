@@ -56,9 +56,7 @@ public class Simulator implements CardInterface {
     }
 
     public Simulator(SimulatorRuntime runtime) {
-        if (runtime == null) {
-            throw new NullPointerException("runtime");
-        }
+        Objects.requireNonNull(runtime, "SimulatorRuntime cannot be null");
 
         this.runtime = runtime;
         synchronized (this.runtime) {

@@ -29,15 +29,19 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation <code>Cipher</code> with symmetric keys based
  * on BouncyCastle CryptoAPI.
+ *
  * @see Cipher
  */
 @SuppressWarnings("deprecation") // bc ..
 public class SymmetricCipherImpl extends Cipher {
 
+    private static final Logger log = LoggerFactory.getLogger(SymmetricCipherImpl.class);
     byte algorithm;
     BufferedBlockCipher engine;
     boolean isInitialized;
@@ -70,6 +74,8 @@ public class SymmetricCipherImpl extends Cipher {
                     CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
                 }
                 break;
+            default:
+                log.trace("No init for cipher algo: " + algorithm);
         }
         selectCipherEngine(theKey);
         byte[] iv = JCSystem.makeTransientByteArray(bLen, JCSystem.CLEAR_ON_RESET);
@@ -113,7 +119,7 @@ public class SymmetricCipherImpl extends Cipher {
         if (!(theKey instanceof SymmetricKeyImpl)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        if( !checkKeyCompatibility(theKey)){
+        if (!checkKeyCompatibility(theKey)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
@@ -159,34 +165,34 @@ public class SymmetricCipherImpl extends Cipher {
         }
     }
 
-    private boolean checkKeyCompatibility(Key theKey){
-        switch(theKey.getType()){
+    private boolean checkKeyCompatibility(Key theKey) {
+        switch (theKey.getType()) {
             case KeyBuilder.TYPE_DES:
             case KeyBuilder.TYPE_DES_TRANSIENT_RESET:
             case KeyBuilder.TYPE_DES_TRANSIENT_DESELECT:
-                if( (algorithm == Cipher.ALG_DES_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_DES_CBC_PKCS5) ||
-                    (algorithm == Cipher.ALG_DES_ECB_NOPAD) ||
-                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_DES_ECB_PKCS5))
+                if ((algorithm == Cipher.ALG_DES_CBC_NOPAD) ||
+                        (algorithm == Cipher.ALG_DES_CBC_ISO9797_M1) ||
+                        (algorithm == Cipher.ALG_DES_CBC_ISO9797_M2) ||
+                        (algorithm == Cipher.ALG_DES_CBC_PKCS5) ||
+                        (algorithm == Cipher.ALG_DES_ECB_NOPAD) ||
+                        (algorithm == Cipher.ALG_DES_ECB_ISO9797_M1) ||
+                        (algorithm == Cipher.ALG_DES_ECB_ISO9797_M2) ||
+                        (algorithm == Cipher.ALG_DES_ECB_PKCS5))
                     return true;
                 break;
 
             case KeyBuilder.TYPE_AES:
             case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
             case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
-                if( (algorithm == Cipher.ALG_AES_CTR) ||
-                    (algorithm == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_AES_BLOCK_128_ECB_NOPAD) ||
-                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_AES_CBC_PKCS5) ||
-                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_AES_ECB_PKCS5))
+                if ((algorithm == Cipher.ALG_AES_CTR) ||
+                        (algorithm == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD) ||
+                        (algorithm == Cipher.ALG_AES_BLOCK_128_ECB_NOPAD) ||
+                        (algorithm == Cipher.ALG_AES_CBC_ISO9797_M1) ||
+                        (algorithm == Cipher.ALG_AES_CBC_ISO9797_M2) ||
+                        (algorithm == Cipher.ALG_AES_CBC_PKCS5) ||
+                        (algorithm == Cipher.ALG_AES_ECB_ISO9797_M1) ||
+                        (algorithm == Cipher.ALG_AES_ECB_ISO9797_M2) ||
+                        (algorithm == Cipher.ALG_AES_ECB_PKCS5))
                     return true;
                 break;
 
@@ -194,8 +200,8 @@ public class SymmetricCipherImpl extends Cipher {
             case KeyBuilder.TYPE_KOREAN_SEED:
             case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
             case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT:
-                if( (algorithm == Cipher.ALG_KOREAN_SEED_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_KOREAN_SEED_ECB_NOPAD) )
+                if ((algorithm == Cipher.ALG_KOREAN_SEED_CBC_NOPAD) ||
+                        (algorithm == Cipher.ALG_KOREAN_SEED_ECB_NOPAD))
                     return true;
                 break;
         }
@@ -207,6 +213,7 @@ public class SymmetricCipherImpl extends Cipher {
     public byte getPaddingAlgorithm() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+
     public byte getCipherAlgorithm() {
         throw new UnsupportedOperationException("Not supported yet.");
     }

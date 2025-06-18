@@ -23,25 +23,28 @@ import javax.smartcardio.CardTerminals;
 
 /**
  * CardTerminals implementation class.
+ *
  * @author LICEL LLC
  */
 public class JCSCardTerminals extends CardTerminals {
 
     /**
-     * Returns only one terminal with state ALL|CARD_PRESENT|CARD_INSERTION, 
+     * Returns only one terminal with state ALL|CARD_PRESENT|CARD_INSERTION,
      * in other case returns empty list.
      */
+    // XXX: just a single terminal is exposed, with uncontrolled simulator setup. Consider removal or merging with CardTerminalSimulator
     public List<CardTerminal> list(State state) throws CardException {
         List<CardTerminal> terminals = new ArrayList<>();
         switch (state) {
             case ALL:
-            case CARD_PRESENT:            
-            case CARD_INSERTION:                
+            case CARD_PRESENT:
+            case CARD_INSERTION:
                 terminals.add(new JCSTerminal());
-                break;
-            
+                return terminals;
+            default:
+                // No reader without a card, ever.
+                return terminals;
         }
-        return terminals;
     }
 
     /**

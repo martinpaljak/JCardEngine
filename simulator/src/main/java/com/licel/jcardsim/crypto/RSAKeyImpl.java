@@ -17,6 +17,7 @@ package com.licel.jcardsim.crypto;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateKey;
@@ -44,7 +45,7 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      * Construct not-initialized rsa key
      *
      * @param isPrivate true if private key
-     * @param size key size it bits (modulus size)
+     * @param size      key size it bits (modulus size)
      * @see KeyBuilder
      */
     public RSAKeyImpl(boolean isPrivate, short size) {
@@ -53,22 +54,9 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
         type = isPrivate ? KeyBuilder.TYPE_RSA_PRIVATE : KeyBuilder.TYPE_RSA_PUBLIC;
     }
 
-    /**
-     * Construct and initialize rsa key with RSAKeyParameters. Use in
-     * KeyPairImpl
-     *
-     * @see javacard.security.KeyPair
-     * @see RSAKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public RSAKeyImpl(RSAKeyParameters params) {
-        this(params.isPrivate(), (short) params.getModulus().bitLength());
-        setParameters(params);
-    }
-    
-    public void setParameters(CipherParameters params){
-        modulus.setBigInteger(((RSAKeyParameters)params).getModulus());
-        exponent.setBigInteger(((RSAKeyParameters)params).getExponent());
+    public void setParameters(CipherParameters params) {
+        modulus.setBigInteger(((RSAKeyParameters) params).getModulus());
+        exponent.setBigInteger(((RSAKeyParameters) params).getExponent());
     }
 
     public short getExponent(byte[] buffer, short offset) {
@@ -130,7 +118,7 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      * <code>RSAKeyGenerationParameters</code>
      *
      * @param keySize key size in bits
-     * @param rnd Secure Random Generator
+     * @param rnd     Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
     static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {

@@ -8,7 +8,9 @@ JAVA17 ?= /Library/Java/JavaVirtualMachines/$(JDK)-17.jdk/Contents/Home
 JAVA21 ?= /Library/Java/JavaVirtualMachines/$(JDK)-21.jdk/Contents/Home
 
 8:
-	JAVA_HOME=$(JAVA8) ./mvnw -Dmaven.test.skip=true clean package
+	JAVA_HOME=$(JAVA8) ./mvnw clean verify
+21:
+	JAVA_HOME=$(JAVA21) ./mvnw clean verify
 
 test:
 	./mvnw clean verify

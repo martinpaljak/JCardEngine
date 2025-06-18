@@ -20,8 +20,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -45,7 +45,7 @@ public class JavaCardApiProcessor {
         if (!buildDir.exists() || !buildDir.isDirectory()) {
             throw new RuntimeException("Invalid directory: " + buildDir);
         }
-        System.err.println("Processing " + buildDir);
+        System.out.println("Processing " + buildDir);
         HashMap<String, String> allMap = new HashMap<>();
         proxyClass(buildDir, "com.licel.jcardsim.framework.AIDProxy", "javacard.framework.AID", false);
         allMap.put("com.licel.jcardsim.framework.APDUProxy".replace(".", "/"), "javacard.framework.APDU".replace(".", "/"));
@@ -113,7 +113,9 @@ public class JavaCardApiProcessor {
         fos.write(cw.toByteArray());
         fos.close();
         // remove proxy class
-        proxyFile.delete();
+        if (!proxyFile.delete()) {
+            System.err.println("Could not delete " + proxyFile.getAbsolutePath());
+        }
     }
 
     public static void copyClass(File buildDir, String proxyClassFile, String targetClassName, Map<String, String> map) throws IOException {
@@ -134,7 +136,9 @@ public class JavaCardApiProcessor {
         fos.close();
 
         // remove source class
-        sourceFile.delete();
+        if (!sourceFile.delete()) {
+            System.err.println("Could not delete " + sourceFile.getAbsolutePath());
+        }
     }
 
     public static void proxyExceptionClass(File buildDir, String targetClassName) throws IOException {
@@ -150,7 +154,6 @@ public class JavaCardApiProcessor {
         FileOutputStream fos = new FileOutputStream(new File(buildDir, targetClassName.replace(".", File.separator) + ".class"));
         fos.write(cw.toByteArray());
         fos.close();
-
     }
 
     static class ExceptionClassProxy extends ClassVisitor implements Opcodes {
@@ -222,32 +225,24 @@ public class JavaCardApiProcessor {
         private HashMap<String, FieldNode> cnFields = new HashMap<>();
         private boolean skipConstructor;
 
-        public MergeAdapter(ClassVisitor cv,
-                ClassNode cn, boolean skipConstructor) {
+        public MergeAdapter(ClassVisitor cv, ClassNode cn, boolean skipConstructor) {
             super(cv);
             this.cn = cn;
             this.skipConstructor = skipConstructor;
-            for (Iterator it = cn.methods.iterator();
-                    it.hasNext();) {
-                MethodNode mn = (MethodNode) it.next();
+            for (MethodNode mn : cn.methods) {
                 if (skipConstructor && mn.name.equals("<init>")) {
                     continue;
                 }
                 cnMethods.put(mn.name + mn.desc, mn);
             }
-            for (Iterator it = cn.fields.iterator();
-                    it.hasNext();) {
-                FieldNode fn = (FieldNode) it.next();
+            for (FieldNode fn : cn.fields) {
                 cnFields.put(fn.name + fn.desc, fn);
             }
         }
 
         @Override
-        public void visit(int version, int access,
-                String name, String signature,
-                String superName, String[] interfaces) {
-            super.visit(version, access, name,
-                    signature, superName, interfaces);
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+            super.visit(version, access, name, signature, superName, interfaces);
             this.cname = name;
         }
 
@@ -255,10 +250,10 @@ public class JavaCardApiProcessor {
         public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
             // skip jc 2.2.2 api impl
             if (cnMethods.containsKey(name + desc) || ((access & (ACC_PUBLIC | ACC_PROTECTED)) == 0)) {
-                System.out.println("skip method: " + cname + name + desc);
+                System.out.println("skip method: " + cname + "::" + name + " " + desc);
                 return null;
             }
-            System.out.println("Use original:" + cname + name + desc);
+            System.out.println("Use original:" + cname + "::" + name + " " + desc);
             return super.visitMethod(access, name, desc, signature, exceptions);
         }
 
@@ -275,24 +270,16 @@ public class JavaCardApiProcessor {
         @Override
         public void visitEnd() {
             super.visitEnd();
-            for (Iterator it = cn.fields.iterator();
-                    it.hasNext();) {
-                FieldNode fn = (FieldNode) it.next();
+            for (FieldNode fn : cn.fields) {
                 cv.visitField(fn.access, fn.name, fn.desc, fn.signature, fn.value);
             }
-            for (Iterator it = cn.methods.iterator();
-                    it.hasNext();) {
-                MethodNode mn = (MethodNode) it.next();
+            for (MethodNode mn : cn.methods) {
                 if (skipConstructor && mn.name.equals("<init>")) {
                     continue;
                 }
-                String[] exceptions
-                        = new String[mn.exceptions.size()];
+                String[] exceptions = new String[mn.exceptions.size()];
                 mn.exceptions.toArray(exceptions);
-                MethodVisitor mv
-                        = cv.visitMethod(
-                                mn.access, mn.name, mn.desc,
-                                mn.signature, exceptions);
+                MethodVisitor mv = cv.visitMethod(mn.access, mn.name, mn.desc, mn.signature, exceptions);
                 mn.instructions.resetLabels();
                 mn.accept(mv);
             }

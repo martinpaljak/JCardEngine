@@ -239,6 +239,9 @@ public final class CardTerminalSimulator {
                                 result.add(terminal);
                             }
                             break;
+                        default:
+                            // here to silence spotbugs
+                            throw new IllegalStateException("Impossible state: " + state);
                     }
                 }
                 return Collections.unmodifiableList(result);

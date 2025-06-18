@@ -31,7 +31,7 @@ public class CRC32 extends Checksum {
     final static byte LENGTH = 4;
     private byte crc32[];
     private final byte polynom[] = {
-        4, -63, 29, -73
+            4, -63, 29, -73
     };
 
     public CRC32() {
@@ -108,25 +108,25 @@ public class CRC32 extends Checksum {
         Util.setShort(crc32, (short) 0, reflect16(fcs_l));
     }
 
-    private byte reflect8(byte input){
+    private byte reflect8(byte input) {
         byte reflected = 0;
-        for( byte i = 0; i < 8; i++){
-            if((input & (0x80 >> i)) > 0 )
+        for (byte i = 0; i < 8; i++) {
+            if ((input & (0x80 >> i)) > 0)
                 reflected |= (1 << i);
         }
         return reflected;
     }
 
-    private short reflect16(short input){
+    private short reflect16(short input) {
         short reflected = 0;
-        for( byte i = 0; i < 16; i++){
-            if((input & (0x8000 >> i)) > 0 )
+        for (byte i = 0; i < 16; i++) {
+            if ((input & (0x8000 >> i)) > 0)
                 reflected |= (1 << i);
         }
         return reflected;
     }
 
     short shift(short s) {
-        return s <<= 1;
+        return (short) (s << 1);
     }
 }

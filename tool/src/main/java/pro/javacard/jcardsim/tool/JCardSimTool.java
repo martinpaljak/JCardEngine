@@ -85,11 +85,6 @@ public class JCardSimTool {
     static final AppletClassLoader loader = new AppletClassLoader();
 
     public static void main(String[] args) {
-        String me = JCardSimTool.class.getProtectionDomain()
-                .getCodeSource()
-                .getLocation()
-                .getPath();
-
         String version = JCardSimTool.class.getPackage().getImplementationVersion();
 
         try {
@@ -195,8 +190,8 @@ public class JCardSimTool {
             }
 
             Runtime.getRuntime().addShutdownHook(shutdownThread);
-            // This blocks until all are done
-            List<Future<Boolean>> results = exec.invokeAll(adapters);
+            // This blocks until all are done, unless ctrl-c is hit
+            exec.invokeAll(adapters);
             Runtime.getRuntime().removeShutdownHook(shutdownThread);
             exec.shutdownNow();
             while (!exec.isTerminated()) {

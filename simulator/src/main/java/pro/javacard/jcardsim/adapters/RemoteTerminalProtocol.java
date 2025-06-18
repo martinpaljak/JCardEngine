@@ -87,6 +87,8 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
                                 byte[] response = sim.transmitCommand(msg.getPayload());
                                 send(channel, new RemoteMessage(Type.APDU, response));
                                 break;
+                            default:
+                                log.warn("Unhandled message type: " + msg.getType());
                         }
                     } catch (EOFException e) {
                         log.info("Peer disconnected");

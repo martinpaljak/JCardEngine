@@ -29,7 +29,7 @@ import javax.smartcardio.CardTerminal;
 public class JCSTerminal extends CardTerminal {
 
     final static String NAME = "jCardSim.Terminal";
-    static Simulator simulator = null;
+    private Simulator simulator;
 
     public JCSTerminal() {
         simulator = new Simulator();

@@ -16,13 +16,14 @@
 package com.licel.jcardsim.crypto;
 
 import java.security.SecureRandom;
+
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 
 /**
  * KeyWithParameters.
  */
-public interface KeyWithParameters {
+interface KeyWithParameters {
 
     /**
      * Get cipher key parameters for use with BouncyCastle Crypto API
@@ -33,6 +34,7 @@ public interface KeyWithParameters {
 
     /**
      * Get keypair generation parameters for use with BouncyCastle Crypto API
+     *
      * @param rnd Secure Random Generator
      * @return key parameters
      */
@@ -40,6 +42,7 @@ public interface KeyWithParameters {
 
     /**
      * Set cipher key for use with BouncyCastle Crypto API
+     *
      * @param params key parameters
      */
     void setParameters(CipherParameters params);

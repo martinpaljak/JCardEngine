@@ -22,22 +22,35 @@ import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.prng.DigestRandomGenerator;
 import org.bouncycastle.crypto.prng.RandomGenerator;
 
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 
 /**
  * Implementation <code>RandomData</code> based
  * on BouncyCastle CryptoAPI.
+ *
  * @see RandomData
  */
 @SuppressWarnings("deprecation")
 public class RandomDataImpl extends RandomData {
     byte algorithm;
+    // TODO: should settle on just a single one, clarify assumptions on seeding.
     RandomGenerator engine;
+    static SecureRandom random;
+
+    static {
+        try {
+            random = SecureRandom.getInstanceStrong();
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException("No random?");
+        }
+    }
 
     public RandomDataImpl(byte algorithm) {
         this.algorithm = algorithm;
         this.engine = new DigestRandomGenerator(new SHA1Digest());
-        this.engine.addSeedMaterial(new SecureRandom().generateSeed(8));
+        this.engine.addSeedMaterial(random.generateSeed(8));
     }
 
     public void generateData(byte[] buffer, short offset, short length) throws CryptoException {
@@ -45,9 +58,8 @@ public class RandomDataImpl extends RandomData {
     }
 
     public void setSeed(byte[] buffer, short offset, short length) {
-        byte[] seed = new byte[length];
-        Util.arrayCopyNonAtomic(buffer, offset, seed, (short) 0, length);
-        engine.addSeedMaterial(seed);
+        // XXX: for ALG_PRESEEDED_DRBG seeding should set known state ?
+        engine.addSeedMaterial(Arrays.copyOfRange(buffer, offset, length));
     }
 
     public byte getAlgorithm() {
