@@ -83,6 +83,7 @@ public class VSmartCard extends RemoteTerminalProtocol {
         if (read != len) {
             throw new IOException("Could not read buffer: " + read);
         }
+        buf.rewind();
         return buf;
     }
     @Override

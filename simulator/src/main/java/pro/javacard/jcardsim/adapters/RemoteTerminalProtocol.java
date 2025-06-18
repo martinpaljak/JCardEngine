@@ -98,7 +98,6 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
                 }
             } catch (SocketException | SocketTimeoutException e) {
                 log.error("Could not connect: " + e.getMessage(), e);
-                //System.exit(1); // FIXME: no exit here.
                 return false;
             } catch (IOException e) {
                 log.error("I/O error: " + e.getMessage(), e);
