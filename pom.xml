@@ -99,8 +99,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[11,22)</version>
-                                    <message>Project requires a LTS JDK from v11 to v21</message>
+                                    <version>[11,)</version>
+                                    <message>Project requires a LTS JDK from v11+</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.9.10,)</version>
