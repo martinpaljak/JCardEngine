@@ -15,8 +15,9 @@
  */
 package com.licel.jcardsim.samples;
 
-import javacard.framework.*;
-import static javacard.framework.JCSystem.CLEAR_ON_RESET;
+import javacard.framework.APDU;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
 import javacard.security.AESKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;

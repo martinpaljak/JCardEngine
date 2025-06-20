@@ -15,11 +15,12 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
-import java.security.SecureRandomSpi;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.prng.DigestRandomGenerator;
 import org.bouncycastle.crypto.prng.RandomGenerator;
+
+import java.security.SecureRandom;
+import java.security.SecureRandomSpi;
 
 class SecureRandomNullProvider extends SecureRandom {
 

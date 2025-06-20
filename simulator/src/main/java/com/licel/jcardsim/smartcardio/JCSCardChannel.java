@@ -15,8 +15,8 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import java.nio.ByteBuffer;
 import javax.smartcardio.*;
+import java.nio.ByteBuffer;
 
 /**
  * CardChannel implementation class.

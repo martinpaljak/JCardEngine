@@ -20,22 +20,21 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.JCSystem;
 import javacard.framework.SystemException;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import javax.smartcardio.ResponseAPDU;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-public class TransientMemoryTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TransientMemoryTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_DIGEST = 0;
     private static final byte INS_LAST_DIGEST = 6;
 
-    public TransientMemoryTest(String name) {
-        super(name);
-    }
-
+    @Test
     public void testMemoryManagementWorks() {
         final Object dummy1 = new Object();
 
@@ -102,6 +101,7 @@ public class TransientMemoryTest extends TestCase {
     }
 
 
+    @Test
     public void testInvalidEventThrows() {
         final byte invalid = JCSystem.CLEAR_ON_DESELECT + JCSystem.CLEAR_ON_RESET;
         TransientMemory transientMemory = new TransientMemory();
@@ -139,6 +139,7 @@ public class TransientMemoryTest extends TestCase {
         }
     }
 
+    @Test
     public void testCleanOnDeselectWorks() throws NoSuchAlgorithmException {
         MessageDigest sha1 = MessageDigest.getInstance("SHA1");
         byte[] expectedOutput = sha1.digest(new byte[]{'A'});
@@ -174,6 +175,7 @@ public class TransientMemoryTest extends TestCase {
         assertEquals(Arrays.toString(new byte[20]), Arrays.toString(responseApdu.getData()));
     }
 
+    @Test
     public void testGlobalArrayBooleanType(){
         final short size = 1;
 
@@ -188,6 +190,7 @@ public class TransientMemoryTest extends TestCase {
         assertTrue(!globalBooleans[0]);
     }
 
+    @Test
     public void testGlobalArrayByteType(){
         final short size = 1;
 
@@ -202,6 +205,7 @@ public class TransientMemoryTest extends TestCase {
         assertTrue(globalBytes[0] == 0);
     }
 
+    @Test
     public void testGlobalArrayShortType(){
         final short size = 1;
 
@@ -216,6 +220,7 @@ public class TransientMemoryTest extends TestCase {
         assertTrue(globalShorts[0] == 0);
     }
 
+    @Test
     public void testGlobalArrayObjectType(){
         final Object dummy = new Object();
 
@@ -232,6 +237,7 @@ public class TransientMemoryTest extends TestCase {
         assertTrue(globalObjects[0] == null);
     }
 
+    @Test
     public void testGlobalArrayInvalidType() {
         final byte invalid = JCSystem.ARRAY_TYPE_INT;
         final short size = 1;

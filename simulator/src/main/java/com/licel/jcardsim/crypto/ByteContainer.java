@@ -15,12 +15,12 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.math.BigInteger;
-import java.util.Arrays;
-
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
+
+import java.math.BigInteger;
+import java.util.Arrays;
 
 /**
  * This class contains byte array, initialization flag of this

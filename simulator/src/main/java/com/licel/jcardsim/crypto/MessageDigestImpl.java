@@ -15,17 +15,14 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-
-import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.InitializedMessageDigest;
 import javacard.security.MessageDigest;
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.digests.*;
-import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Pack;
+
+import java.lang.reflect.Field;
 
 /**
  * Implementation

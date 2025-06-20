@@ -16,58 +16,36 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorRuntime;
-import com.licel.jcardsim.base.SimulatorSystem;
-
-import java.io.UnsupportedEncodingException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Security;
-import java.util.Arrays;
-import java.util.List;
-
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
+import org.bouncycastle.util.encoders.Hex;
 
 import javax.smartcardio.*;
+import java.io.UnsupportedEncodingException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Security;
+import java.util.List;
 
-import junit.framework.TestCase;
-import org.bouncycastle.util.encoders.Hex;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test Java Card Terminal emulation.
  *
  * @author LICEL LLC
  */
-public class JCardSimProviderTest extends TestCase {
+public class JCardSimProviderTest {
 
     private static final ATR ETALON_ATR = new ATR(Hex.decode("3BFA1800008131FE454A434F5033315632333298"));
     private static final String TEST_APPLET_AID = "010203040506070809";
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
 
-
-    static byte[] install_params(byte[] aid, byte[] params) {
-        byte[] privileges = Hex.decode("00");
-        byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
-        int offset = 0;
-
-        data[offset++] = (byte) aid.length;
-        System.arraycopy(aid, 0, data, offset, aid.length);
-        offset += aid.length;
-
-        data[offset++] = (byte) privileges.length;
-        System.arraycopy(privileges, 0, data, offset, privileges.length);
-        offset += privileges.length;
-
-        data[offset++] = (byte) params.length;
-        System.arraycopy(params, 0, data, offset, params.length);
-        return data;
-    }
-
     static AID _aid(byte[] aid) {
         return new AID(aid, (short) 0, (byte) aid.length);
     }
 
+    // Ignored
     public void testProvider() throws CardException, NoSuchAlgorithmException, UnsupportedEncodingException {
         Security.addProvider(new JCardSimProvider());
 
@@ -97,8 +75,9 @@ public class JCardSimProviderTest extends TestCase {
         assertTrue(jcsChannel != null);
 
         // Returns the default simulator and installs HelloWorld into it
-        Simulator sim = new Simulator();
-        byte[] params = install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        Simulator sim = new Simulator(); // FIXME: this is wrong, as it assumes _this_ simulator is the same as used by the terminal implementation.
+        // Instead pass the simulator into the terminal factory as a parameter. Until then this test is disabled
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         sim.installApplet(_aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // select applet
@@ -149,4 +128,5 @@ public class JCardSimProviderTest extends TestCase {
         response = jcsChannel.transmit(new CommandAPDU(0x00, 0x08, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());
     }
+
 }

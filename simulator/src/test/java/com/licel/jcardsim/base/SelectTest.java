@@ -4,12 +4,15 @@ import com.licel.jcardsim.samples.MultiInstanceApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
-import junit.framework.TestCase;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-public class SelectTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class SelectTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_GET_FULL_AID = 0;
 
@@ -32,12 +35,10 @@ public class SelectTest extends TestCase {
         }
     }
 
-    public SelectTest(String name) {
-        super(name);
-    }
 
+    @Test
     public void testAidComparator() {
-        AID[] input = new AID[] {
+        AID[] input = new AID[]{
                 AIDUtil.create("A000008812"),
                 AIDUtil.create("FF00066767"),
                 AIDUtil.create("D0000CAFE001"),
@@ -53,6 +54,7 @@ public class SelectTest extends TestCase {
         for (int i = 0; i < input.length; i++) {
             tmp[i] = AIDUtil.toString(input[i]);
         }
+        // FIXME - just say no
         String expected = "[0100CAFE01, 0200888888, A000008812, " +
                 "D0000CAFE000, D0000CAFE00001, D0000CAFE00023, D0000CAFE001, FF00066767]";
 
@@ -71,16 +73,18 @@ public class SelectTest extends TestCase {
         return simulator;
     }
 
+    @Test
     public void testPartialSelectWorks1() {
         Simulator simulator = prepareSimulator();
 
         // should select d0000cafe00001
         assertTrue(simulator.selectApplet(AIDUtil.create("d0000cafe0")));
         byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA,INS_GET_FULL_AID,0,0});
+        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
     }
 
+    @Test
     public void testPartialSelectWorks2() {
         Simulator simulator = prepareSimulator();
 
@@ -88,25 +92,27 @@ public class SelectTest extends TestCase {
         simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 1, (byte) 0xD0});
 
         byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA,INS_GET_FULL_AID,0,0});
+        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
     }
 
+    @Test
     public void testEmptySelectWorks() {
         final byte[] expected = Hex.decode("0102030405060708099000");
         Simulator simulator = prepareSimulator();
 
         // should select 010203040506070809
         simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA,INS_GET_FULL_AID, 0, 0});
+        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
 
         // should select 010203040506070809
         simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 0});
-        actual = simulator.transmitCommand(new byte[]{CLA,INS_GET_FULL_AID,0,0});
+        actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
     }
 
+    @Test
     public void testCanNotSelectUnselectableApplet() {
         selectedCalled = false;
 
@@ -116,10 +122,11 @@ public class SelectTest extends TestCase {
 
         byte[] result = simulator.selectAppletWithResult(aid);
         assertEquals(2, result.length);
-        assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, Util.getShort(result, (short)0));
+        assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, Util.getShort(result, (short) 0));
         assertTrue(selectedCalled);
     }
 
+    @Test
     public void testApduWithoutSelectedAppletFails() {
         Simulator simulator = new Simulator();
         byte[] cmd = new byte[]{CLA, INS_GET_FULL_AID, 0, 0};

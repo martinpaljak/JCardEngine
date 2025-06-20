@@ -15,8 +15,6 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
 import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECKey;
@@ -29,6 +27,9 @@ import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECKeyParameters;
 import org.bouncycastle.math.ec.ECCurve;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
 
 /**
  * Base class for

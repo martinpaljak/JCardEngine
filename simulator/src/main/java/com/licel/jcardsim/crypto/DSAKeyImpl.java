@@ -15,9 +15,6 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
-
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
 import javacard.security.KeyBuilder;
@@ -27,6 +24,9 @@ import org.bouncycastle.crypto.params.DSAKeyGenerationParameters;
 import org.bouncycastle.crypto.params.DSAKeyParameters;
 import org.bouncycastle.crypto.params.DSAParameters;
 import org.bouncycastle.crypto.params.DSAValidationParameters;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
 
 /**
  * Base class for <code>DSAPublicKeyImpl/DSAPrivateKeyImpl</code>

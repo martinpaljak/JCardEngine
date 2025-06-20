@@ -4,25 +4,23 @@ import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AutoResetEvent;
 import javacard.framework.ISO7816;
-import junit.framework.TestCase;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.Test;
 
 import javax.smartcardio.*;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class CardTerminalSimulatorTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.*;
+
+public class CardTerminalSimulatorTest {
     private static final ATR ETALON_ATR = new ATR(Hex.decode("3BFA1800008131FE454A434F5033315632333298"));
     private static final String TEST_APPLET_AID = "010203040506070809";
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
 
-    public CardTerminalSimulatorTest(String name) {
-        super(name);
-    }
-
+    @Test
     public void testCreateSingleTerminal() throws CardException, InterruptedException {
         final AutoResetEvent autoResetEvent = new AutoResetEvent();
 
@@ -36,7 +34,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertSame(terminal, cardSimulator.getAssignedCardTerminal());
 
         // Install the test applet to the simulator
-        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
@@ -69,6 +67,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertNull(cardSimulator.getAssignedCardTerminal());
     }
 
+    @Test
     public void testCreateTerminals() throws CardException {
         // get instance
         CardTerminals terminals = CardTerminalSimulator.terminals("terminal #1", "terminal #2");
@@ -78,7 +77,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
@@ -86,6 +85,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         test(card);
     }
 
+    @Test
     public void testProvider() throws CardException, NoSuchAlgorithmException {
         // register security provider
         Security.addProvider(new CardTerminalSimulator.SecurityProvider());
@@ -99,7 +99,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
@@ -107,6 +107,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         test(card);
     }
 
+    @Test
     public void testProviderCustomNames() throws CardException, NoSuchAlgorithmException {
         Security.addProvider(new CardTerminalSimulator.SecurityProvider());
 
@@ -119,7 +120,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // connect to card
@@ -131,6 +132,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertEquals("y", terminals.list().get(1).getName());
     }
 
+    @Test
     public void testWaitForInsert() throws CardException, InterruptedException {
         final AutoResetEvent autoResetEvent = new AutoResetEvent();
         final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
@@ -140,7 +142,7 @@ public class CardTerminalSimulatorTest extends TestCase {
 
         final CardSimulator cardSimulator = new CardSimulator();
 
-        byte[] params = JCardSimProviderTest.install_params(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         new Thread() {
@@ -159,6 +161,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         test(card);
     }
 
+    @Test
     public void testWaitForCardAbsent() throws CardException, InterruptedException {
         final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
         final CardTerminal terminal = terminals.getTerminal("my terminal");
@@ -179,6 +182,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertEquals(true, terminal.waitForCardAbsent(0));
     }
 
+    @Test
     public void testWaitForCardChange() throws CardException, InterruptedException {
         final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
 
@@ -194,6 +198,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertEquals(true, terminals.waitForChange(1));
     }
 
+    @Test
     public void testList() throws CardException, InterruptedException {
         final CardTerminals terminals = CardTerminalSimulator.terminals("1", "2", "3", "4");
 
@@ -228,6 +233,7 @@ public class CardTerminalSimulatorTest extends TestCase {
         assertEquals(4, terminals.list(CardTerminals.State.CARD_ABSENT).size());
     }
 
+    @Test
     public void testExclusive() throws CardException, InterruptedException {
         final CardTerminal terminal = CardTerminalSimulator.terminal(new CardSimulator());
         final AutoResetEvent autoResetEvent = new AutoResetEvent();

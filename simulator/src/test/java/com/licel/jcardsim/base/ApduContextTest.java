@@ -4,9 +4,12 @@ import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class ApduContextTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class ApduContextTest {
     private static class DummyApplet extends Applet implements AppletEvent {
         public static boolean exceptionInSelect = false;
         public static boolean exceptionInInstall = false;
@@ -86,10 +89,7 @@ public class ApduContextTest extends TestCase {
         }
     }
 
-    public ApduContextTest(String name) {
-        super(name);
-    }
-
+    @Test
     public void testCallingGetCurrentAPDUinWrongContextThrows() {
         Simulator simulator = new Simulator();
         AID otherAppletAID = AIDUtil.create("d0000cafe00001");

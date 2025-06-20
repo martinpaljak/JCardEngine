@@ -20,63 +20,61 @@ import com.licel.jcardsim.samples.ApduExtendedCasesApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
+import org.junit.jupiter.api.Test;
+
 import javax.smartcardio.ResponseAPDU;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ApduExtendedCasesTest extends TestCase {
+
+public class ApduExtendedCasesTest {
 
     private static final byte CLA = (byte) 0x80;
-    private static final byte INS = (byte)0xb4;
+    private static final byte INS = (byte) 0xb4;
     private static final byte P1 = (byte) 0;
     private static final byte P2 = (byte) 0;
-    byte[] appletAIDBytes = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 };
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+    byte[] appletAIDBytes = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
-    public void testApduCase2_Request256BytesWithLeZeroValue(){
+    @Test
+    public void testApduCase2_Request256BytesWithLeZeroValue() {
         Simulator instance = getReadySimulator();
 
         byte Le = 0;
         byte[] apdu = new byte[]{CLA, INS, P1, P2, Le};
         byte[] response = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertEquals(ISO7816.SW_NO_ERROR,(short) responseApdu.getSW() );
+        assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
         // Check content
-        for( short i = 0 ; i < 256; i++){
-            assertEquals((byte)0x5a,response[i]);
+        for (short i = 0; i < 256; i++) {
+            assertEquals((byte) 0x5a, response[i]);
         }
 
     }
 
-    public void testApduCase2E_Request256BytesWith3ByteLe(){
+    @Test
+    public void testApduCase2E_Request256BytesWith3ByteLe() {
         Simulator instance = getReadySimulator();
 
         //  Le = 0x00, 0x01,0x00 -> 256
-        byte[] apdu = new byte[]{CLA, INS, P1, P2, 0x00, 0x01,0x00};
+        byte[] apdu = new byte[]{CLA, INS, P1, P2, 0x00, 0x01, 0x00};
         byte[] response = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertEquals(ISO7816.SW_NO_ERROR,(short) responseApdu.getSW() );
+        assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
         // Check content
-        for( short i = 0 ; i < 256; i++){
-            assertEquals((byte)0x5a,response[i]);
+        for (short i = 0; i < 256; i++) {
+            assertEquals((byte) 0x5a, response[i]);
         }
     }
 
-    public void testApduCase3E_Send256Bytes(){
+    @Test
+    public void testApduCase3E_Send256Bytes() {
         Simulator instance = getReadySimulator();
 
         //  Lc = 0x00, 0x01,0x00 -> 256
-        byte[] apduHeader_Case3E =new byte[]{CLA, INS, P1, P2, 0x00, 0x01, 0x00};
+        byte[] apduHeader_Case3E = new byte[]{CLA, INS, P1, P2, 0x00, 0x01, 0x00};
         byte[] data = new byte[256];
         Arrays.fill(data, (byte) 0x5a);
 
@@ -87,11 +85,11 @@ public class ApduExtendedCasesTest extends TestCase {
 
         byte[] response = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertEquals(ISO7816.SW_NO_ERROR,(short) responseApdu.getSW() );
+        assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
     }
 
-
-    public void testApduCase4_Request256BytesWithLeZeroValue(){
+    @Test
+    public void testApduCase4_Request256BytesWithLeZeroValue() {
         Simulator instance = getReadySimulator();
 
         byte Lc = 0x01;
@@ -100,15 +98,16 @@ public class ApduExtendedCasesTest extends TestCase {
         byte[] apdu = new byte[]{CLA, INS, P1, P2, Lc, CData, Le};
         byte[] response = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertEquals(ISO7816.SW_NO_ERROR,(short) responseApdu.getSW() );
+        assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
         // Check content
-        for( short i = 0 ; i < 256; i++){
-            assertEquals((byte)0x5a,response[i]);
+        for (short i = 0; i < 256; i++) {
+            assertEquals((byte) 0x5a, response[i]);
         }
 
     }
 
+    @Test
     public void testApduCase4E_Send256BytesAndRequest256Bytes() {
         Simulator instance = getReadySimulator();
         // Lc = 0x00, 0x01, 0x00 -> 256
@@ -119,27 +118,28 @@ public class ApduExtendedCasesTest extends TestCase {
         // Le = 0x01, 0x00 -> Le contains only 2 bytes with the valid data, without the first zero byte.
         byte[] Le = new byte[]{0x01, 0x00};
 
-        byte[] apduHeader =new byte[]{CLA, INS, P1, P2};
+        byte[] apduHeader = new byte[]{CLA, INS, P1, P2};
 
         byte[] apduCase4E = new byte[apduHeader.length + Lc.length + data.length + Le.length];
 
-        System.arraycopy(apduHeader,0, apduCase4E, 0, apduHeader.length);
-        System.arraycopy(Lc,0,apduCase4E,apduHeader.length,Lc.length);
-        System.arraycopy(data,0,apduCase4E, apduHeader.length + Lc.length, data.length);
+        System.arraycopy(apduHeader, 0, apduCase4E, 0, apduHeader.length);
+        System.arraycopy(Lc, 0, apduCase4E, apduHeader.length, Lc.length);
+        System.arraycopy(data, 0, apduCase4E, apduHeader.length + Lc.length, data.length);
         System.arraycopy(Le, 0, apduCase4E, apduHeader.length + Lc.length + data.length, Le.length);
 
         byte[] response = instance.transmitCommand(apduCase4E);
 
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertEquals(ISO7816.SW_NO_ERROR, (short)responseApdu.getSW());
+        assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
         // Check content
-        for( short i = 0 ; i < 256; i++){
-            assertEquals((byte)0x5a,response[i]);
+        for (short i = 0; i < 256; i++) {
+            assertEquals((byte) 0x5a, response[i]);
         }
 
     }
-        private Simulator getReadySimulator() {
+
+    private Simulator getReadySimulator() {
         Simulator instance = new Simulator();
         AID appletAID = AIDUtil.create(appletAIDBytes);
 

@@ -15,37 +15,35 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.security.Checksum;
-import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test for <code>CRC16</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class CRC16Test extends TestCase {
+public class CRC16Test {
 
     // etalon msg
     String MESSAGE = "C46A3D01F5494013F9DFF3C5392C64";
     // etalon crc
     String CRC = "0B93";
 
-    public CRC16Test(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @BeforeAll
+    static void setUp() {
+        Simulator sim = new Simulator();
     }
 
     /**
      * Test of of class CRC16.
      */
+    @Test
     public void testCrc16() {
         System.out.println("test crc16");
         Checksum crcEngine = Checksum.getInstance(Checksum.ALG_ISO3309_CRC16, false);

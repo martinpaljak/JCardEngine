@@ -15,10 +15,10 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
-
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
+
+import java.security.SecureRandom;
 
 /**
  * KeyWithParameters.

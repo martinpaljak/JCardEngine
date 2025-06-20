@@ -15,8 +15,6 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.security.Provider;
 
 /**

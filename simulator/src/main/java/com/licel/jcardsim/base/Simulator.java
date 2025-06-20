@@ -15,18 +15,13 @@
  */
 package com.licel.jcardsim.base;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.Locale;
-import java.util.Objects;
-
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
+
+import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Simulates a JavaCard.
@@ -36,6 +31,15 @@ public class Simulator implements CardInterface {
     public static final String DEFAULT_ATR = "3BFA1800008131FE454A434F5033315632333298";
     // ATR system property name
     public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
+    /**
+     * Response status : Applet creation failed = 0x6444
+     */
+    public static final short SW_APPLET_CREATION_FAILED = 0x6444;
+
+    /**
+     * Holds the currently active instance
+     */
+    private static final ThreadLocal<SimulatorRuntime> currentRuntime = new ThreadLocal<>();
 
     // Runtime
     protected final SimulatorRuntime runtime;
@@ -52,18 +56,42 @@ public class Simulator implements CardInterface {
      * </ul>
      */
     public Simulator() {
-        this(SimulatorSystem.DEFAULT_RUNTIME);
+        this(new SimulatorRuntime());
     }
 
     public Simulator(SimulatorRuntime runtime) {
         Objects.requireNonNull(runtime, "SimulatorRuntime cannot be null");
-
         this.runtime = runtime;
-        synchronized (this.runtime) {
-            this.runtime.resetRuntime();
-        }
-
+        currentRuntime.set(runtime); // FIXME: remove split between runtime and simulator
+        this.runtime.resetRuntime();
         changeProtocol(protocol);
+    }
+
+    /**
+     * Get the currently active SimulatorRuntime instance
+     * <p>
+     * This method should be only called by JCE implementation classes like
+     * <code>JCSystem</code>
+     *
+     * @return current instance
+     */
+    public static SimulatorRuntime instance() {
+        SimulatorRuntime simulatorRuntime = currentRuntime.get();
+        if (simulatorRuntime == null) {
+            throw new AssertionError("No current simulator instance");
+        }
+        return simulatorRuntime;
+    }
+
+    /**
+     * Internal method to set the currently active SimulatorRuntime
+     *
+     * @param simulatorRuntime simulatorRuntime to set
+     * @return <code>simulatorRuntime</code>
+     */
+    static SimulatorRuntime setCurrentInstance(SimulatorRuntime simulatorRuntime) {
+        currentRuntime.set(simulatorRuntime);
+        return simulatorRuntime;
     }
 
     /**
@@ -77,21 +105,16 @@ public class Simulator implements CardInterface {
      *                         <code>javacard.framework.Applet</code>
      */
     public AID loadApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
-        synchronized (runtime) {
-            runtime.loadApplet(aid, appletClass);
-        }
+        runtime.loadApplet(aid, appletClass);
         return aid;
     }
 
     public AID createApplet(AID aid, byte bArray[], short bOffset, byte bLength) throws SystemException {
-
         try {
-            synchronized (runtime) {
-                runtime.installApplet(aid, bArray, bOffset, bLength);
-            }
+            runtime.installApplet(aid, bArray, bOffset, bLength);
         } catch (Exception e) {
             e.printStackTrace();
-            SystemException.throwIt(SimulatorSystem.SW_APPLET_CREATION_FAILED);
+            SystemException.throwIt(SW_APPLET_CREATION_FAILED);
         }
         return aid;
     }
@@ -129,10 +152,8 @@ public class Simulator implements CardInterface {
      */
     public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte bArray[], short bOffset,
                              byte bLength) throws SystemException {
-        synchronized (runtime) {
-            loadApplet(aid, appletClass);
-            return createApplet(aid, bArray, bOffset, bLength);
-        }
+        loadApplet(aid, appletClass);
+        return createApplet(aid, bArray, bOffset, bLength);
     }
 
     /**
@@ -141,9 +162,7 @@ public class Simulator implements CardInterface {
      * @param aid applet aid
      */
     public void deleteApplet(AID aid) {
-        synchronized (runtime) {
-            runtime.deleteApplet(aid);
-        }
+        runtime.deleteApplet(aid);
     }
 
     public boolean selectApplet(AID aid) throws SystemException {
@@ -152,27 +171,19 @@ public class Simulator implements CardInterface {
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        synchronized (runtime) {
-            return runtime.transmitCommand(AIDUtil.select(aid));
-        }
+        return runtime.transmitCommand(AIDUtil.select(aid));
     }
 
     public byte[] transmitCommand(byte[] command) {
-        synchronized (runtime) {
-            return runtime.transmitCommand(command);
-        }
+        return runtime.transmitCommand(command);
     }
 
     public void reset() {
-        synchronized (runtime) {
-            runtime.reset();
-        }
+        runtime.reset();
     }
 
     public final void resetRuntime() {
-        synchronized (runtime) {
-            runtime.resetRuntime();
-        }
+        runtime.resetRuntime();
     }
 
     public byte[] getATR() {
@@ -216,10 +227,8 @@ public class Simulator implements CardInterface {
      */
     // XXX: changing protocol during session is not really a thing.
     public void changeProtocol(String protocol) {
-        synchronized (runtime) {
-            runtime.changeProtocol(getProtocolByte(protocol));
-            this.protocol = protocol;
-        }
+        runtime.changeProtocol(getProtocolByte(protocol));
+        this.protocol = protocol;
     }
 
     /**
@@ -230,19 +239,23 @@ public class Simulator implements CardInterface {
         return protocol;
     }
 
-    public static byte[] install_parameters(byte[] aid, byte[] data) {
-        if (data == null)
-            data = new byte[0];
-        byte[] fullData = new byte[1 + aid.length + 1 + 1 + 1 + data.length];
+    public static byte[] install_parameters(byte[] aid, byte[] params) {
+        if (params == null)
+            params = new byte[0];
+        byte[] privileges = Hex.decode("00");
+        byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
         int offset = 0;
-        fullData[offset++] = (byte) aid.length;
-        System.arraycopy(aid, 0, fullData, offset, aid.length);
+
+        data[offset++] = (byte) aid.length;
+        System.arraycopy(aid, 0, data, offset, aid.length);
         offset += aid.length;
-        // NOTE: dummy privileges
-        fullData[offset++] = 0x01;
-        fullData[offset++] = 0x00;
-        fullData[offset++] = (byte) data.length;
-        System.arraycopy(data, 0, fullData, offset, data.length);
-        return fullData;
+
+        data[offset++] = (byte) privileges.length;
+        System.arraycopy(privileges, 0, data, offset, privileges.length);
+        offset += privileges.length;
+
+        data[offset++] = (byte) params.length;
+        System.arraycopy(params, 0, data, offset, params.length);
+        return data;
     }
 }

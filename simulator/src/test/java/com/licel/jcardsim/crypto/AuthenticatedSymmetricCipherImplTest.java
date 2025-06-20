@@ -15,30 +15,31 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.security.*;
+import com.licel.jcardsim.base.Simulator;
+import javacard.security.AESKey;
+import javacard.security.CryptoException;
+import javacard.security.DESKey;
+import javacard.security.KeyBuilder;
 import javacardx.crypto.AEADCipher;
 import javacardx.crypto.Cipher;
-import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
-public class AuthenticatedSymmetricCipherImplTest extends TestCase {
-    public AuthenticatedSymmetricCipherImplTest(String testName) {
-        super(testName);
+import static org.junit.jupiter.api.Assertions.*;
+
+public class AuthenticatedSymmetricCipherImplTest {
+    @BeforeAll
+    static void setUp() {
+        Simulator sim = new Simulator();
     }
 
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
-    public void testAES_GCM_NotSupportKey(){
-        byte[] desKey64bit = new byte[KeyBuilder.LENGTH_DES/Byte.SIZE];
+    @Test
+    public void testAES_GCM_NotSupportKey() {
+        byte[] desKey64bit = new byte[KeyBuilder.LENGTH_DES / Byte.SIZE];
         new Random().nextBytes(desKey64bit);
 
         // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
@@ -51,17 +52,16 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         try {
             engine.init(desKey, Cipher.MODE_ENCRYPT);
             fail("No exception");
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
         }
     }
 
 
-
     // GCM sample test data downloaded from NIST.GOV
     // https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/gcmtestvectors.zip
-    public void testAES_GCM_Sample_Key128Bit_AAD128Bit_Tag128Bit(){
+    @Test
+    public void testAES_GCM_Sample_Key128Bit_AAD128Bit_Tag128Bit() {
         String[] testData = {
                 "298efa1ccf29cf62ae6824bfc19557fc",                                 // 128-bit Key
                 "6f58a93fe1d207fae4ed2f6d",                                         // 96-bit IV
@@ -74,7 +74,8 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
-    public void testAES_GCM_Sample_Key128Bit_NoAAD_Tag96Bit(){
+    @Test
+    public void testAES_GCM_Sample_Key128Bit_NoAAD_Tag96Bit() {
         String[] testData = {
                 "82ba8dc240bc3e5ea1c98ae5c8bc58a3",                                 // 128-bit Key
                 "a016b0b2ab3e259f738ba228",                                         // 96-bit IV
@@ -87,7 +88,8 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
-    public void testAES_GCM_Sample_Key128Bit_AAD128Bit_ShortTag64Bit(){
+    @Test
+    public void testAES_GCM_Sample_Key128Bit_AAD128Bit_ShortTag64Bit() {
         String[] testData = {
                 "76faaf2bfbd103b5fae725f4990b8282",                                 // 128-bit Key
                 "4f32472c588fcbae5012ce70",                                         // 96-bit IV
@@ -100,7 +102,8 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
-    public void testAES_GCM_Sample_Key192Bit_AAD128Bit_Tag112Bit(){
+    @Test
+    public void testAES_GCM_Sample_Key192Bit_AAD128Bit_Tag112Bit() {
         String[] testData = {
                 "8ef391e4b7a2fe05b959be27823357080f963ed2f64b9e59",    // 192-bit Key
                 "0080052a2a5bb0e95222a419",                            // 96-bit IV
@@ -113,6 +116,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
+    @Test
     public void testAES_GCM_Sample_Key192Bit_AAD160Bit_Tag128Bit() {
         String[] testData = {
                 "95e5c8dcee4ef17571e1becc3f2d4ac8d5aa73e74b3f1115",    // 192-bit Key
@@ -126,12 +130,13 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
+    @Test
     public void testAES_GCM_NotSupportTagLength() {
 
-        byte[] key128Bit = new byte[128/Byte.SIZE];
+        byte[] key128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(key128Bit);
 
-        byte[] iv96Bit = new byte[96/Byte.SIZE];
+        byte[] iv96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(iv96Bit);
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
@@ -144,16 +149,16 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         final short MSG_BYTES = 32;
         final short NOT_SUPPORT_TAG_LEN = 32;
         try {
-            engine.init(aesKey, Cipher.MODE_ENCRYPT,iv96Bit,(short)0,(short)iv96Bit.length, AAD_BYTES, MSG_BYTES, NOT_SUPPORT_TAG_LEN);
+            engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, AAD_BYTES, MSG_BYTES, NOT_SUPPORT_TAG_LEN);
             fail("No exception");
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
         }
 
     }
 
-    public void testAES_GCM_Key256Bit_AAD128Bit_Tag120Bit(){
+    @Test
+    public void testAES_GCM_Key256Bit_AAD128Bit_Tag120Bit() {
         String[] testData = {
                 // 256-bit Key
                 "8bdb9073bca042d3bfe99240c438386c877d2a00b1f3bc9485aea034982b6779",
@@ -177,7 +182,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         testAES_GCM_PrearrangedResult(testData);
     }
 
-    public void testAES_GCM_PrearrangedResult(String[] testData){
+    private void testAES_GCM_PrearrangedResult(String[] testData) {
         byte[] key = Hex.decode(testData[0]);
         byte[] iv = Hex.decode(testData[1]);
         byte[] plaintext = Hex.decode(testData[2]);
@@ -192,14 +197,14 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
         // Test encryption
-        engine.init(aesKey, Cipher.MODE_ENCRYPT,iv,(short)0,(short)iv.length, (short) aad.length, (short) plaintext.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length, (short) aad.length, (short) plaintext.length, (short) tag.length);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
         byte[] encrypted = new byte[plaintext.length + tag.length];
-        short encryptProcessedBytes = engine.doFinal(plaintext, (short) 0, (short) plaintext.length,encrypted, (short) 0);
+        short encryptProcessedBytes = engine.doFinal(plaintext, (short) 0, (short) plaintext.length, encrypted, (short) 0);
 
-        assertEquals(true,Arrays.areEqual(ciphertext,0,ciphertext.length,encrypted,0,ciphertext.length));
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        assertTrue(Arrays.areEqual(ciphertext, 0, ciphertext.length, encrypted, 0, ciphertext.length));
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         byte[] retrievedTag = new byte[tag.length];
         engine.retrieveTag(retrievedTag, (short) 0, (short) retrievedTag.length);
@@ -210,54 +215,54 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         byte[] wrongAAD = new byte[16];
         new Random().nextBytes(wrongAAD);
 
-        engine.init(aesKey, Cipher.MODE_DECRYPT,iv,(short)0,(short)iv.length, (short) wrongAAD.length, (short) ciphertext.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length, (short) wrongAAD.length, (short) ciphertext.length, (short) tag.length);
         engine.updateAAD(wrongAAD, (short) 0, (short) wrongAAD.length);
         byte[] decrypted = new byte[ciphertext.length];
 
         short decryptProcessedBytes = 0;
         try {
-            decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+            decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
             fail("No exception");
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
         }
 
         // Re-initiate to reset cipher
-        engine.init(aesKey, Cipher.MODE_DECRYPT,iv,(short)0,(short)iv.length, (short) aad.length, (short) ciphertext.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length, (short) aad.length, (short) ciphertext.length, (short) tag.length);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
-        decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        assertEquals(decryptProcessedBytes, decrypted.length);
 
         assertEquals(true, Arrays.areEqual(decrypted, plaintext));
         assertEquals(true, engine.verifyTag(encrypted, (short) ciphertext.length, (short) tag.length, (short) tag.length));
 
     }
 
-    public void testAES_GCM_SinglePartOfflineEncryptAndDecrypt(){
-        byte[] key256Bit = new byte[256/Byte.SIZE];
+    @Test
+    public void testAES_GCM_SinglePartOfflineEncryptAndDecrypt() {
+        byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
-        byte[] iv96Bit = new byte[96/Byte.SIZE];
+        byte[] iv96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(iv96Bit);
 
-        byte[] aad128Bit = new byte[128/Byte.SIZE];
+        byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
         String msg =
                 "Copyright 2022 Licel Corporation.\n" +
-                "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                "you may not use this file except in compliance with the License.\n" +
-                "You may obtain a copy of the License at\n" +
-                "\n" +
-                "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                "\n" +
-                "Unless required by applicable law or agreed to in writing, software\n" +
-                "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                "See the License for the specific language governing permissions and\n" +
-                "limitations under the License.\n";
+                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
+                        "you may not use this file except in compliance with the License.\n" +
+                        "You may obtain a copy of the License at\n" +
+                        "\n" +
+                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
+                        "\n" +
+                        "Unless required by applicable law or agreed to in writing, software\n" +
+                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
+                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
+                        "See the License for the specific language governing permissions and\n" +
+                        "limitations under the License.\n";
 
         byte[] msgBytes = msg.getBytes();
 
@@ -267,55 +272,56 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
         final short tagLenInBits = 96;
-        byte[] tag = new byte[tagLenInBits/Byte.SIZE];
+        byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
         // Test encryption
-        engine.init(aesKey, Cipher.MODE_ENCRYPT,iv96Bit,(short)0,(short)iv96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] encrypted = new byte[msgBytes.length + tag.length];
-        short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length,encrypted, (short) 0);
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length, encrypted, (short) 0);
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
-        engine.init(aesKey, Cipher.MODE_DECRYPT,iv96Bit,(short)0,(short)iv96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[msgBytes.length];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        assertEquals(decryptProcessedBytes, decrypted.length);
         assertEquals(true, Arrays.areEqual(decrypted, msgBytes));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short)(tagLenInBits/Byte.SIZE)));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
-    public void testAES_GCM_MultiplePartOfflineEncryptAndDecrypt(){
-        byte[] key256Bit = new byte[256/Byte.SIZE];
+    @Test
+    public void testAES_GCM_MultiplePartOfflineEncryptAndDecrypt() {
+        byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
-        byte[] iv96Bit = new byte[96/Byte.SIZE];
+        byte[] iv96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(iv96Bit);
 
-        byte[] aad128Bit = new byte[128/Byte.SIZE];
+        byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
         String msgPart1 =
                 "Copyright 2022 Licel Corporation.\n" +
-                "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                "you may not use this file except in compliance with the License.\n" +
-                "You may obtain a copy of the License at\n" +
-                "\n" +
-                "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                "\n";
+                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
+                        "you may not use this file except in compliance with the License.\n" +
+                        "You may obtain a copy of the License at\n" +
+                        "\n" +
+                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
+                        "\n";
 
         String msgPart2 =
                 "Unless required by applicable law or agreed to in writing, software\n" +
-                "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                "See the License for the specific language governing permissions and\n" +
-                "limitations under the License.\n";
+                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
+                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
+                        "See the License for the specific language governing permissions and\n" +
+                        "limitations under the License.\n";
 
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
@@ -324,69 +330,70 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
         final short tagLenInBits = 96;
-        byte[] tag = new byte[tagLenInBits/Byte.SIZE];
+        byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
-        short totalMsgLen = (short)( msgPart1.length() + msgPart2.length());
+        short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
         // Test encryption
-        engine.init(aesKey, Cipher.MODE_ENCRYPT,iv96Bit,(short)0,(short)iv96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[totalMsgLen + tag.length ];
+        byte[] encrypted = new byte[totalMsgLen + tag.length];
 
-        short encryptProcessedBytes = engine.update( msgPart1.getBytes(),(short) 0, (short) msgPart1.length(),encrypted,(short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, encryptProcessedBytes);
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
-        engine.init(aesKey, Cipher.MODE_DECRYPT,iv96Bit,(short)0,(short)iv96Bit.length, (short) aad128Bit.length, (short)encrypted.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[totalMsgLen];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        assertEquals(decryptProcessedBytes, decrypted.length);
         assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short)(tagLenInBits/Byte.SIZE)));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
-    public void testAES_GCM_OnlineEncryptAndDecryptWithZeroIV(){
-        byte[] key256Bit = new byte[256/Byte.SIZE];
+    @Test
+    public void testAES_GCM_OnlineEncryptAndDecryptWithZeroIV() {
+        byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
-        byte[] aad128Bit = new byte[128/Byte.SIZE];
+        byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
         aesKey.setKey(key256Bit, (short) 0);
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
-        engine.init(aesKey,Cipher.MODE_ENCRYPT);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         String msgPart1 =
                 "Copyright 2022 Licel Corporation.\n" +
-                "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                "you may not use this file except in compliance with the License.\n" +
-                "You may obtain a copy of the License at\n" +
-                "\n" +
-                "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                "\n";
+                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
+                        "you may not use this file except in compliance with the License.\n" +
+                        "You may obtain a copy of the License at\n" +
+                        "\n" +
+                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
+                        "\n";
 
         String msgPart2 =
                 "Unless required by applicable law or agreed to in writing, software\n" +
-                "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                "See the License for the specific language governing permissions and\n" +
-                "limitations under the License.\n";
+                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
+                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
+                        "See the License for the specific language governing permissions and\n" +
+                        "limitations under the License.\n";
 
         final short TAG_SIZE = 16;
         byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + TAG_SIZE];
-        short encryptProcessedBytes = engine.update( msgPart1.getBytes(),(short) 0, (short) msgPart1.length(),encrypted,(short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, encryptProcessedBytes);
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         byte[] tag = new byte[encryptProcessedBytes - (msgPart1.length() + msgPart2.length())];
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
@@ -395,16 +402,17 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         engine.init(aesKey, Cipher.MODE_DECRYPT);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] decrypted = new byte[msgPart1.length()+msgPart2.length()];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+        byte[] decrypted = new byte[msgPart1.length() + msgPart2.length()];
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        assertEquals(decryptProcessedBytes, decrypted.length);
         assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
     }
 
-    public void testAES_GCM_OnlineEncryptAndDecryptWithIV(){
+    @Test
+    public void testAES_GCM_OnlineEncryptAndDecryptWithIV() {
         byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
@@ -423,19 +431,19 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
 
         String msgPart1 =
                 "Copyright 2022 Licel Corporation.\n" +
-                "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                "you may not use this file except in compliance with the License.\n" +
-                "You may obtain a copy of the License at\n" +
-                "\n" +
-                "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                "\n";
+                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
+                        "you may not use this file except in compliance with the License.\n" +
+                        "You may obtain a copy of the License at\n" +
+                        "\n" +
+                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
+                        "\n";
 
         String msgPart2 =
                 "Unless required by applicable law or agreed to in writing, software\n" +
-                "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                "See the License for the specific language governing permissions and\n" +
-                "limitations under the License.\n";
+                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
+                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
+                        "See the License for the specific language governing permissions and\n" +
+                        "limitations under the License.\n";
 
         byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + aad128Bit.length];
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
@@ -446,7 +454,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
-        engine.init(aesKey, Cipher.MODE_DECRYPT,iv96Bit, (short) 0, (short) iv96Bit.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv96Bit, (short) 0, (short) iv96Bit.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[msgPart1.length() + msgPart2.length()];
@@ -458,8 +466,9 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short) aad128Bit.length));
     }
 
-    public void testAES_CCM_NotSupportOnlineEncryption(){
-        byte[] key128bit = new byte[KeyBuilder.LENGTH_AES_128/Byte.SIZE];
+    @Test
+    public void testAES_CCM_NotSupportOnlineEncryption() {
+        byte[] key128bit = new byte[KeyBuilder.LENGTH_AES_128 / Byte.SIZE];
         new Random().nextBytes(key128bit);
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
@@ -471,8 +480,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
             // Call for online mode of encryption
             engine.init(aesKey, Cipher.MODE_ENCRYPT);
             fail("No exception");
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             assertEquals(CryptoException.INVALID_INIT, e.getReason());
         }
     }
@@ -481,6 +489,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
     // Supports only the 12 byte IV length, which is the value recommended by NIST Special Publication 800-38D 5.2.1.1 Input Data
     // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
+    @Test
     public void testAES_CCM_Sample_Key128Bit_AAD64Bit_Tag32Bit_NotSupportNonce56Bit() {
         //In the following example, Klen = 128, Tlen=32, Nlen = 56, Alen = 64, and Plen = 32.
         String[] testData = {
@@ -507,11 +516,10 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
         // The returned Cipher instance should then be cast to AEADCipher.
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
-        try{
+        try {
             engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) payload.length, TAG_LEN);
             fail("No exception");
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
         }
 
@@ -519,6 +527,7 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
 
     // Use C.3 Example 3 in Appendix C of NIST Special Publication 800-38D
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
+    @Test
     public void testAES_CCM_Sample_Key128Bit_AAD160Bit_Tag64Bit() {
         //In the following example, Klen = 128, Tlen=64, Nlen = 96, Alen = 160, and Plen = 192.
         String[] testData = {
@@ -531,11 +540,12 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
 
         };
         final short TAG_LEN = 8;
-        testAES_CCM_PrearrangedResult(testData,TAG_LEN);
+        testAES_CCM_PrearrangedResult(testData, TAG_LEN);
     }
 
     // Use sample vector from
     // https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/ccmtestvectors.zip
+    @Test
     public void testAES_CCM_Sample_Key128Bit_AAD128Bit_Tag128Bit() {
         String[] testData = {
                 "005e8f4d8e0cbf4e1ceeb5d87a275848",// 128-bit Key
@@ -545,9 +555,10 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
                 "9575e16f35da3c88a19c26a7b762044f4d7bbbafeff05d754829e2a7752fa3a14890972884b511d8", // 192-bit Cipher text
         };
         final short TAG_LEN = 16;
-        testAES_CCM_PrearrangedResult(testData,TAG_LEN);
+        testAES_CCM_PrearrangedResult(testData, TAG_LEN);
     }
 
+    @Test
     public void testAES_CCM_Sample_Key192Bit_AAD256Bit_Tag128Bit() {
         String[] testData = {
                 "d49b255aed8be1c02eb6d8ae2bac6dcd7901f1f61df3bbf5",// 192-bit Key
@@ -557,9 +568,10 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
                 "5b300c718d5a64f537f6cbb4d212d0f903b547ab4b21af56ef7662525021c5777c2d74ea239a4c44", //Cipher text
         };
         final short TAG_LEN = 16;
-        testAES_CCM_PrearrangedResult(testData,TAG_LEN);
+        testAES_CCM_PrearrangedResult(testData, TAG_LEN);
     }
 
+    @Test
     public void testAES_CCM_Sample_Key256Bit_AAD256Bit_Tag128Bit() {
         String[] testData = {
                 "d6ff67379a2ead2ca87aa4f29536258f9fb9fc2e91b0ed18e7b9f5df332dd1dc",// 256-bit Key
@@ -569,9 +581,10 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
                 "50e22db70ac2bab6d6af7059c90d00fbf0fb52eee5eb650e08aca7dec636170f481dcb9fefb85c05", //Cipher text
         };
         final short TAG_LEN = 16;
-        testAES_CCM_PrearrangedResult(testData,TAG_LEN);
+        testAES_CCM_PrearrangedResult(testData, TAG_LEN);
     }
-    private void testAES_CCM_PrearrangedResult(String[] testData, short tagLen){
+
+    private void testAES_CCM_PrearrangedResult(String[] testData, short tagLen) {
 
         byte[] key = Hex.decode(testData[0]);
         byte[] payload = Hex.decode(testData[1]);
@@ -581,11 +594,11 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
 
         boolean have_sample_tag = (testData.length == 6);
         byte[] sample_tag = new byte[tagLen];
-        if( have_sample_tag ){
-            sample_tag = Arrays.copyOf(Hex.decode(testData[5]),tagLen);
+        if (have_sample_tag) {
+            sample_tag = Arrays.copyOf(Hex.decode(testData[5]), tagLen);
         }
 
-        AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, (short) (key.length*Byte.SIZE), false);
+        AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, (short) (key.length * Byte.SIZE), false);
         aesKey.setKey(key, (short) 0);
 
         // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
@@ -595,16 +608,16 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
         byte[] encrypted = new byte[payload.length + tagLen];
-        short encryptProcessedBytes = engine.doFinal(payload, (short) 0, (short) payload.length,encrypted, (short) 0);
+        short encryptProcessedBytes = engine.doFinal(payload, (short) 0, (short) payload.length, encrypted, (short) 0);
 
-        assertEquals( encryptProcessedBytes, encrypted.length);
-        assertEquals(true,Arrays.areEqual(ciphertext,encrypted));
+        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertTrue(Arrays.areEqual(ciphertext, encrypted));
 
-        byte[] tag =new byte[tagLen];
+        byte[] tag = new byte[tagLen];
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
-        if(have_sample_tag){
-            assertEquals(true,Arrays.areEqual(tag,sample_tag));
+        if (have_sample_tag) {
+            assertTrue(Arrays.areEqual(tag, sample_tag));
         }
 
         // Test decryption
@@ -614,21 +627,22 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         byte[] decrypted = new byte[payload.length];
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
-        assertEquals(true,Arrays.areEqual(payload,decrypted));
+        assertEquals(decryptProcessedBytes, decrypted.length);
+        assertTrue(Arrays.areEqual(payload, decrypted));
 
         // Verify tag
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length,tagLen));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, tagLen));
     }
 
-    public void testAES_CCM_SinglePartEncryptAndDecrypt(){
-        byte[] key256Bit = new byte[256/Byte.SIZE];
+    @Test
+    public void testAES_CCM_SinglePartEncryptAndDecrypt() {
+        byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
-        byte[] nonce96Bit = new byte[96/Byte.SIZE];
+        byte[] nonce96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(nonce96Bit);
 
-        byte[] aad128Bit = new byte[128/Byte.SIZE];
+        byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
         String msg =
@@ -653,38 +667,39 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
         final short tagLenInBits = 96;
-        byte[] tag = new byte[tagLenInBits/Byte.SIZE];
+        byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
         // Test encryption
-        engine.init(aesKey, Cipher.MODE_ENCRYPT,nonce96Bit,(short)0,(short)nonce96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] encrypted = new byte[msgBytes.length + tag.length];
-        short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length,encrypted, (short) 0);
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length, encrypted, (short) 0);
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
-        engine.init(aesKey, Cipher.MODE_DECRYPT,nonce96Bit,(short)0,(short)nonce96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[msgBytes.length];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        assertEquals(decryptProcessedBytes, decrypted.length);
         assertEquals(true, Arrays.areEqual(decrypted, msgBytes));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short)(tagLenInBits/Byte.SIZE)));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
-    public void testAES_CCM_MultiplePartEncryptAndDecrypt(){
-        byte[] key256Bit = new byte[256/Byte.SIZE];
+    @Test
+    public void testAES_CCM_MultiplePartEncryptAndDecrypt() {
+        byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
-        byte[] nonce96Bit = new byte[96/Byte.SIZE];
+        byte[] nonce96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(nonce96Bit);
 
-        byte[] aad128Bit = new byte[128/Byte.SIZE];
+        byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
         String msgPart1 =
@@ -710,31 +725,31 @@ public class AuthenticatedSymmetricCipherImplTest extends TestCase {
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
 
         final short tagLenInBits = 96;
-        byte[] tag = new byte[tagLenInBits/Byte.SIZE];
+        byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
-        short totalMsgLen = (short)( msgPart1.length() + msgPart2.length());
+        short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
         // Test encryption
-        engine.init(aesKey, Cipher.MODE_ENCRYPT,nonce96Bit,(short)0,(short)nonce96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[totalMsgLen + tag.length ];
+        byte[] encrypted = new byte[totalMsgLen + tag.length];
 
-        short encryptProcessedBytes = engine.update( msgPart1.getBytes(),(short) 0, (short) msgPart1.length(),encrypted,(short) 0);
-        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(),encrypted, encryptProcessedBytes);
-        assertEquals( encryptProcessedBytes, encrypted.length);
+        short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
+        encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
+        assertEquals(encryptProcessedBytes, encrypted.length);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
-        engine.init(aesKey, Cipher.MODE_DECRYPT,nonce96Bit,(short)0,(short)nonce96Bit.length, (short) aad128Bit.length, (short)encrypted.length, (short) tag.length);
+        engine.init(aesKey, Cipher.MODE_DECRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, (short) encrypted.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[totalMsgLen];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length),decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
-        assertEquals( decryptProcessedBytes, decrypted.length);
+        assertEquals(decryptProcessedBytes, decrypted.length);
         assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short)(tagLenInBits/Byte.SIZE)));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 }

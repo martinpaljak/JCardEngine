@@ -15,10 +15,21 @@
  */
 package javacard.framework;
 
-import junit.framework.TestCase;
 
-public class OwnerPinTest extends TestCase {
+import com.licel.jcardsim.base.Simulator;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class OwnerPinTest {
+
+    @BeforeAll
+    static void setUp() {
+        Simulator sim = new Simulator();
+    }
+
+    @Test
     public void testConstructor1() {
         boolean isException = false;
         try {
@@ -31,6 +42,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(true, isException);
     }
 
+    @Test
     public void testConstructor2() {
         boolean isException = false;
         try {
@@ -43,12 +55,14 @@ public class OwnerPinTest extends TestCase {
         assertEquals(true, isException);
     }
 
+    @Test
     public void testConstructor3() {
         byte tries = 3;
         OwnerPIN o = new OwnerPIN(tries, (byte) 16);
         assertEquals(tries, o.getTriesRemaining());
     }
 
+    @Test
     public void testConstructor4() {
         boolean isException = false;
         try {
@@ -63,6 +77,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(true, isException);
     }
 
+    @Test
     public void testUpdate() {
         byte tries = 3;
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
@@ -72,6 +87,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(tries, o.getTriesRemaining());
     }
 
+    @Test
     public void testCheck() {
         byte tries = 4;
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
@@ -108,6 +124,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(false, o.isValidated());
     }
 
+    @Test
     public void testReset1() {
         byte tries = 1;
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
@@ -120,6 +137,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(0, o.getTriesRemaining());
     }
 
+    @Test
     public void testReset2() {
         byte tries = 2;
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
@@ -133,6 +151,7 @@ public class OwnerPinTest extends TestCase {
         assertEquals(tries, o.getTriesRemaining());
     }
 
+    @Test
     public void testResetAndUnblock() {
         byte tries = 1;
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
@@ -145,5 +164,5 @@ public class OwnerPinTest extends TestCase {
         assertEquals(tries, o.getTriesRemaining());
         assertEquals(false, o.isValidated());
     }
-    
+
 }

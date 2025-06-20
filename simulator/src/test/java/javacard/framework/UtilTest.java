@@ -1,12 +1,12 @@
 package javacard.framework;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class UtilTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    /**
-     *
-     */
+public class UtilTest {
+
+    @Test
     public void testArrayCompare1() {
         byte[] src = new byte[]{0x01};
         byte[] dest = new byte[]{0x02};
@@ -14,9 +14,7 @@ public class UtilTest extends TestCase {
         assertEquals(-1, res);
     }
 
-    /**
-     *
-     */
+    @Test
     public void testArrayCompare2() {
         byte[] src = new byte[]{(byte) 0xff};
         byte[] dest = new byte[]{0x01};
@@ -27,6 +25,7 @@ public class UtilTest extends TestCase {
     /**
      * Test of arrayFillNonAtomic method, of class Util.
      */
+    @Test
     public void testArrayFillNonAtomic() {
         System.out.println("arrayFillNonAtomic");
         byte[] etalonArray = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0};

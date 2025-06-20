@@ -15,19 +15,27 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Util;
 import javacard.security.KeyBuilder;
-import javacard.security.RandomData;
 import javacard.security.RSAPrivateKey;
 import javacard.security.RSAPublicKey;
+import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
-import junit.framework.TestCase;
-import org.bouncycastle.util.Arrays;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test for <code>AsymmetricCipherImpl</code> and <code>ALG_RSA_PKCS1</code> algorithm implementation.
  */
-public class RSACipherPKCS1Test extends TestCase {
+public class RSACipherPKCS1Test {
+
+    @BeforeAll
+    public static void setUp() throws Exception {
+        Simulator sim = new Simulator(); // sets up the necessary threadlocal
+    }
 
     // RSA keypair data
     private static final byte[] rsaPrivateKeyModulus = {
@@ -63,22 +71,11 @@ public class RSACipherPKCS1Test extends TestCase {
     private static final byte[] rsaPublicKeyExponent = {
         (byte) 0x01, (byte) 0x00, (byte) 0x01 };
 
-    public RSACipherPKCS1Test(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl and ALG_RSA_PKCS1 algorithm implementation.
      */
     @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
+    @Test
     public void testRSAPKCS1() {
         Cipher cipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
 

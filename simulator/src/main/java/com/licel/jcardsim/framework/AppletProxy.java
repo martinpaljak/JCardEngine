@@ -15,13 +15,8 @@
  */
 package com.licel.jcardsim.framework;
 
-import com.licel.jcardsim.base.SimulatorSystem;
-import javacard.framework.AID;
-import javacard.framework.Applet;
-import javacard.framework.ISO7816;
-import javacard.framework.ISOException;
-import javacard.framework.Shareable;
-import javacard.framework.SystemException;
+import com.licel.jcardsim.base.Simulator;
+import javacard.framework.*;
 
 import java.util.function.BiConsumer;
 
@@ -239,7 +234,7 @@ public class AppletProxy {
      * @return <code>true</code> if <code>this</code> applet is being selected
      */
     protected final boolean selectingApplet() {
-        return SimulatorSystem.instance().isAppletSelecting(this);
+        return Simulator.instance().isAppletSelecting(this);
     }
     
 }

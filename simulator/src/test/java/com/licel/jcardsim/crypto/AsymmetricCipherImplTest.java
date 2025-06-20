@@ -15,164 +15,161 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
+import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
-import javacard.security.RandomData;
 import javacard.security.RSAPublicKey;
-import javacard.security.CryptoException;
 import javacardx.crypto.Cipher;
-import junit.framework.TestCase;
 import org.bouncycastle.util.Arrays;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test for <code>AsymmetricCipherImpl</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class AsymmetricCipherImplTest extends TestCase {
+public class AsymmetricCipherImplTest {
 
-    public AsymmetricCipherImplTest(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @BeforeAll
+    static void setup() {
+        Simulator sim = new Simulator();
     }
 
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl.
      */
-    public void testSelftRSA_NOPAD(){
+    @Test
+    public void testSelftRSA_NOPAD() {
         // Refer to https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_NOPAD
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, (short) ((KeyBuilder.LENGTH_RSA_736/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, (short) ((KeyBuilder.LENGTH_RSA_768/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, (short) ((KeyBuilder.LENGTH_RSA_896/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, (short) ((KeyBuilder.LENGTH_RSA_1024/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, (short) ((KeyBuilder.LENGTH_RSA_1280/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, (short) ((KeyBuilder.LENGTH_RSA_1536/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, (short) ((KeyBuilder.LENGTH_RSA_1984/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, (short) ((KeyBuilder.LENGTH_RSA_2048/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, (short) ((KeyBuilder.LENGTH_RSA_3072/Byte.SIZE)));
-        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, (short) ((KeyBuilder.LENGTH_RSA_4096/Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, (short) ((KeyBuilder.LENGTH_RSA_736 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, (short) ((KeyBuilder.LENGTH_RSA_768 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, (short) ((KeyBuilder.LENGTH_RSA_896 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, (short) ((KeyBuilder.LENGTH_RSA_1024 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, (short) ((KeyBuilder.LENGTH_RSA_1280 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, (short) ((KeyBuilder.LENGTH_RSA_1536 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, (short) ((KeyBuilder.LENGTH_RSA_1984 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, (short) ((KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, (short) ((KeyBuilder.LENGTH_RSA_3072 / Byte.SIZE)));
+        testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, (short) ((KeyBuilder.LENGTH_RSA_4096 / Byte.SIZE)));
 
-        try{
-            short messageLen = (short) ((KeyBuilder.LENGTH_RSA_512/Byte.SIZE));
+        try {
+            short messageLen = (short) ((KeyBuilder.LENGTH_RSA_512 / Byte.SIZE));
             byte[] msgEqualOrGreaterThanRsaModulus = new byte[messageLen];
             Arrays.fill(msgEqualOrGreaterThanRsaModulus, (byte) 0xFF);
             testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, messageLen, msgEqualOrGreaterThanRsaModulus);
-            assert(false);
-        }
-        catch (CryptoException ex) {
+            assert (false);
+        } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
     }
 
-    private void testSelftRSA_NOPAD(byte algorithm, byte keyPairAlgorithm, short keySizeInBits, short messageLen){
+    private void testSelftRSA_NOPAD(byte algorithm, byte keyPairAlgorithm, short keySizeInBits, short messageLen) {
         byte[] msg = new byte[messageLen];
         new Random().nextBytes(msg);
         msg[0] = (byte) 0x01; // Ensure that message is not greater than RSA modulus
 
         testSelftRSA(algorithm, keyPairAlgorithm, keySizeInBits, messageLen, msg);
     }
-    
-    public void testSelftRSA_PKCS1(){
+
+    @Test
+    public void testSelftRSA_PKCS1() {
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.2.1 and https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_PKCS1
         // mLen <= k - 11, k is the length in octets of the modulus n
 
         // Test at maximum message length, mLen = k - 11
         // RSA Key Pair
-        short k = KeyBuilder.LENGTH_RSA_512/Byte.SIZE;
+        short k = KeyBuilder.LENGTH_RSA_512 / Byte.SIZE;
         short maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_736/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_736 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_768/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_768 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_896/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_896 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1024/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1024 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1280/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1280 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1536/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1536 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1984/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1984 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_2048/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_3072/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_3072 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_4096/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_4096 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, maxMsgLen);
 
         // RSA Key Pair with private key in its Chinese Remainder Theorem form
-        k = KeyBuilder.LENGTH_RSA_512/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_512 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_736/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_736 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_736, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_768/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_768 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_768, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_896/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_896 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_896, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1024/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1024 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1280/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1280 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1280, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1536/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1536 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1536, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1984/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_1984 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
-        testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1984,  maxMsgLen);
+        testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1984, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_2048/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_2048, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_3072/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_3072 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_3072, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_4096/Byte.SIZE;
+        k = KeyBuilder.LENGTH_RSA_4096 / Byte.SIZE;
         maxMsgLen = (short) (k - 11);
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, maxMsgLen);
 
@@ -180,122 +177,121 @@ public class AsymmetricCipherImplTest extends TestCase {
         testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen - 1));
 
         // Test with mLen > k - 11
-        try{
+        try {
             testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
-            assert(false);
-        }
-        catch (CryptoException ex) {
+            assert (false);
+        } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
     }
 
-    public void testSelftRSA_PKCS1_OEAP(){
+    @Test
+    public void testSelftRSA_PKCS1_OEAP() {
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.1.1
         // mLen <= k - 2hLen - 2,
         //      k is the length in octets of the modulus n and
         //      hLen is the hash function output octet length, SHA1 is used as default https://www.rfc-editor.org/rfc/rfc8017#appendix-A.2.1
         short hLen = 20; // SHA1 hash size is 20 bytes
 
-       // Test at maximum message length, mLen = k - 2hLen - 2
+        // Test at maximum message length, mLen = k - 2hLen - 2
         // RSA Key Pair
-        short k = KeyBuilder.LENGTH_RSA_512/Byte.SIZE;
-        short maxMsgLen = (short) (k - (2*hLen) - 2);
+        short k = KeyBuilder.LENGTH_RSA_512 / Byte.SIZE;
+        short maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_736/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_736 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_768/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_768 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_768, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_896/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_896 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_896, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1024/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1024 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1280/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1280 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1280, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1536/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1536 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1536, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1984/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1984 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1984, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_2048/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_3072/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_3072 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_3072, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_4096/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_4096 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_4096, maxMsgLen);
 
         // RSA Key Pair with private key in its Chinese Remainder Theorem form
-        k = KeyBuilder.LENGTH_RSA_512/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_512 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_736/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_736 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_736, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_768/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_768 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_768, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_896/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_896 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_896, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1024/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1024 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1280/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1280 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1280, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1536/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1536 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1536, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_1984/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_1984 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1984, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_2048/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_2048, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_3072/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_3072 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_3072, maxMsgLen);
 
-        k = KeyBuilder.LENGTH_RSA_4096/Byte.SIZE;
-        maxMsgLen = (short) (k - (2*hLen) - 2);
+        k = KeyBuilder.LENGTH_RSA_4096 / Byte.SIZE;
+        maxMsgLen = (short) (k - (2 * hLen) - 2);
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, maxMsgLen);
 
         // Test with mLen < k - 2hLen - 2
         testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen - 1));
 
         // Test with mLen > k - 2hLen - 2
-        try{
+        try {
             testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
-            assert(false);
-        }
-        catch (CryptoException ex) {
+            assert (false);
+        } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
     }
@@ -313,7 +309,7 @@ public class AsymmetricCipherImplTest extends TestCase {
 
         cipher.init(kp.getPublic(), Cipher.MODE_ENCRYPT);
 
-        short keySizeInBytes = (short) (keySizeInBits/Byte.SIZE);
+        short keySizeInBytes = (short) (keySizeInBits / Byte.SIZE);
         byte[] encryptedMsg = new byte[keySizeInBytes];
 
         cipher.doFinal(msg, (short) 0, messageLen, encryptedMsg, (short) 0);
@@ -325,6 +321,7 @@ public class AsymmetricCipherImplTest extends TestCase {
         assertEquals(true, Arrays.areEqual(msg, decryptedMsg));
     }
 
+    @Test
     public void testRegression_CipherDoFinal_bufferPosNotReset() throws Exception {
         Cipher encryptEngine = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         KeyPair keyPair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);
@@ -336,11 +333,10 @@ public class AsymmetricCipherImplTest extends TestCase {
         encryptEngine.doFinal(buffer, (short) 0, (short) 59, buffer, (short) 0);
         try {
             encryptEngine.doFinal(buffer, (short) 0, (short) 59, buffer, (short) 0);
-        }
-        catch (CryptoException e) {
+        } catch (CryptoException e) {
             // For RSA1024, data len into PKCS1 frame is 117B, but because AssymetricCipherImpl.bufferPos is not set
             // to 0 during doFinal(), it will emit exception because 68 + 68 > 117
-            assert(false);
+            assert (false);
         }
     }
 }

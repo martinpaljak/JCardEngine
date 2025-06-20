@@ -5,16 +5,20 @@ import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class DeleteTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+// FIXME: this test makes sense, and works via intellij, but fails under maven
+// Probably has something to do with the removal of the threadlocal simulator hackery
+// re-visit once that seems done. As the applet instance counter is static, we can't "unload"
+// the value
+//@Ignore
+public class DeleteTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_GET_COUNT = 2;
 
-    public DeleteTest(String name) {
-        super(name);
-    }
-
+    @Test
     public void testDeleteWorks() {
         byte[] result;
         AID aid1 = AIDUtil.create("d0000cafe00001");

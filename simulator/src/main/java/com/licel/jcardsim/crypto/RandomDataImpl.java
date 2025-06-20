@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.RandomData;
 import org.bouncycastle.crypto.digests.SHA1Digest;

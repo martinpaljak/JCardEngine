@@ -15,33 +15,22 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.lang.reflect.Field;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
-import javacard.security.CryptoException;
-import javacard.security.Key;
-import javacard.security.Signature;
-import javacard.security.SignatureMessageRecovery;
-import javacard.security.MessageDigest;
+import javacard.security.*;
 import javacardx.crypto.Cipher;
-
 import org.bouncycastle.crypto.DataLengthException;
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.Signer;
 import org.bouncycastle.crypto.SignerWithRecovery;
-import org.bouncycastle.crypto.digests.MD5Digest;
-import org.bouncycastle.crypto.digests.NullDigest;
-import org.bouncycastle.crypto.digests.RIPEMD160Digest;
-import org.bouncycastle.crypto.digests.SHA1Digest;
-import org.bouncycastle.crypto.digests.SHA224Digest;
-import org.bouncycastle.crypto.digests.SHA256Digest;
-import org.bouncycastle.crypto.digests.SHA384Digest;
-import org.bouncycastle.crypto.digests.SHA512Digest;
+import org.bouncycastle.crypto.digests.*;
 import org.bouncycastle.crypto.engines.RSAEngine;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.signers.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Field;
 
 /*
  * Implementation <code>Signature</code> with asymmetric keys based

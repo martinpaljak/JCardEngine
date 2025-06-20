@@ -6,16 +6,21 @@ import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.AID;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import javax.smartcardio.*;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 /**
  * Contains all listing from the documentation
  */
-public class DocumentationCodeSamplesTest extends TestCase {
+public class DocumentationCodeSamplesTest {
+
+    @Test
     public void testCodeListingReadme() {
         // 1. Create simulator
         CardSimulator simulator = new CardSimulator();
@@ -35,6 +40,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(0x9000, response.getSW());
     }
 
+    @Test
     public void testCodeListing1() {
         // 1. Create simulator
         CardSimulator simulator = new CardSimulator();
@@ -54,7 +60,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(0x9000, response.getSW());
     }
 
-
+    @Test
     public void testCodeListing2() {
         CardSimulator simulator = new CardSimulator();
 
@@ -80,6 +86,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals("Hello javacard world !", new String(response.getData()));
     }
 
+    @Test
     public void testCodeListing3() {
         CardSimulator simulator = new CardSimulator();
 
@@ -94,6 +101,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         ByteUtil.requireSW(response, 0x9000);
     }
 
+    @Test
     public void testCodeListing4() {
         // AID from byte array
         AID applet1AID = AIDUtil.create(new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -113,6 +121,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals("00020000", ByteUtil.hexString(bytes));
     }
 
+    @Test
     public void testCodeListing5() throws CardException {
         // 1. Create simulator and install applet
         CardSimulator simulator = new CardSimulator();
@@ -138,6 +147,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(0x9000, response.getSW());
     }
 
+    @Test
     public void testCodeListing6() throws CardException {
         // Obtain CardTerminal
         CardTerminals cardTerminals = CardTerminalSimulator.terminals("My terminal 1", "My terminal 2");
@@ -158,6 +168,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertEquals(false, terminal2.isCardPresent());
     }
 
+    @Test
     public void testCodeListing7() throws NoSuchAlgorithmException {
         // Register provider
         Security.addProvider(new CardTerminalSimulator.SecurityProvider());
@@ -171,6 +182,7 @@ public class DocumentationCodeSamplesTest extends TestCase {
         assertNotNull(terminal);
     }
 
+    @Test
     public void testCodeListing8() throws NoSuchAlgorithmException {
         // Register provider
         Security.addProvider(new CardTerminalSimulator.SecurityProvider());

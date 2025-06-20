@@ -15,13 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
-
-import javacard.security.CryptoException;
-import javacard.security.KeyBuilder;
-import javacard.security.KeyPair;
-import javacard.security.PrivateKey;
-import javacard.security.PublicKey;
+import javacard.security.*;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
 import org.bouncycastle.crypto.KeyGenerationParameters;
@@ -29,6 +23,8 @@ import org.bouncycastle.crypto.generators.DHKeyPairGenerator;
 import org.bouncycastle.crypto.generators.DSAKeyPairGenerator;
 import org.bouncycastle.crypto.generators.ECKeyPairGenerator;
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator;
+
+import java.security.SecureRandom;
 
 /**
  * Implementation

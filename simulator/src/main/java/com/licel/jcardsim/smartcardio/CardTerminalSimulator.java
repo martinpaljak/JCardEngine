@@ -18,8 +18,6 @@ package com.licel.jcardsim.smartcardio;
 import com.licel.jcardsim.utils.AutoResetEvent;
 
 import javax.smartcardio.*;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.security.Provider;
 import java.util.*;
 import java.util.concurrent.TimeUnit;

@@ -15,54 +15,54 @@
  */
 package com.licel.jcardsim.base;
 
-import static com.licel.jcardsim.base.Simulator.ATR_SYSTEM_PROPERTY;
-import static com.licel.jcardsim.base.Simulator.DEFAULT_ATR;
-
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.samples.PersistentApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
+import javacard.framework.AID;
+import org.bouncycastle.util.Arrays;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import javacard.framework.AID;
-import junit.framework.TestCase;
-import org.bouncycastle.util.Arrays;
+
+import static com.licel.jcardsim.base.Simulator.ATR_SYSTEM_PROPERTY;
+import static com.licel.jcardsim.base.Simulator.DEFAULT_ATR;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SuppressWarnings("deprecation") // TODO: remove once documented and tested
-public class PersistentRuntimeTest extends TestCase {
-    
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class PersistentRuntimeTest {
+
     private final byte GET_DATA_INS = 0x01;
     private final byte GET_COUNTER = 0x02;
     private final byte INC_COUNTER = 0x03;
     private final byte GET_DESELECT_COUNTER = 0x04;
-    
+
     String aidStr;
     AID aid;
     Path baseDir;
 
-    public PersistentRuntimeTest(String testName) {
-        super(testName);
-    }
-    
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @BeforeEach
+    void setUp() throws Exception {
         baseDir = Files.createTempDirectory(null);
         System.setProperty("persistentSimulatorRuntime.dir", baseDir.toString());
         System.setProperty(ATR_SYSTEM_PROPERTY, DEFAULT_ATR);
         aidStr = "0A0B0C0D0E0F070809";
         aid = AIDUtil.create(aidStr);
     }
-    
-    @Override
+
+    @AfterEach
     protected void tearDown() throws Exception {
         deleteDirectory(baseDir.toFile());
-        super.tearDown();
     }
 
+    @Test
     public void testInstallApplet() {
         System.out.println("testInstallApplet");
 
@@ -75,7 +75,8 @@ public class PersistentRuntimeTest extends TestCase {
         instance.installApplet(aid, PersistentApplet.class);
         assertEquals(true, appletFile.isFile());
     }
-    
+
+    @Test
     public void testDeleteApplet() {
         System.out.println("testDeleteApplet");
 
@@ -89,7 +90,8 @@ public class PersistentRuntimeTest extends TestCase {
         assertEquals(false, appletFile.isFile());
 
     }
-        
+
+    @Test
     public void testUpdateApplet() {
         System.out.println("testUpdateApplet");
 
@@ -105,7 +107,8 @@ public class PersistentRuntimeTest extends TestCase {
         assertEquals(true, counter2 == 1);
         assertEquals(true, counter3 == 2);
     }
-    
+
+    @Test
     public void testDeSelectApplet() {
         System.out.println("testDeSelectApplet");
 
@@ -118,10 +121,10 @@ public class PersistentRuntimeTest extends TestCase {
         byte[] response = instance.transmitCommand(new byte[]{0x01, GET_DESELECT_COUNTER, 0x00, 0x00});
         assertSW_9000(response);
         byte counter1 = response[0];
-        
+
         //Select other applet, so the first will be deselected
         assertEquals(true, instance.selectApplet(otherAid));
-        
+
         SimulatorRuntime otherRuntime = new PersistentSimulatorRuntime();
         Simulator otherInstance = new Simulator(otherRuntime);
         otherInstance.loadApplet(aid, PersistentApplet.class);
@@ -129,11 +132,12 @@ public class PersistentRuntimeTest extends TestCase {
         byte[] otherResponse = otherInstance.transmitCommand(new byte[]{0x01, GET_DESELECT_COUNTER, 0x00, 0x00});
         assertSW_9000(otherResponse);
         byte counter2 = otherResponse[0];
-        
+
         assertEquals(true, counter1 == 0);
         assertEquals(true, counter2 == 1);
     }
-    
+
+    @Test
     public void testNullAppletDir() {
         System.out.println("testNullAppletDir");
 
@@ -145,7 +149,8 @@ public class PersistentRuntimeTest extends TestCase {
         byte[] response = instance.transmitCommand(new byte[]{0x01, GET_DATA_INS, 0x00, 0x00});
         assertSW_9000(response);
     }
-    
+
+    @Test
     public void testSerializeApplet() {
         System.out.println("testSerializeApplet");
 
@@ -162,10 +167,10 @@ public class PersistentRuntimeTest extends TestCase {
         assertEquals(true, otherInstance.selectApplet(aid));
         byte[] otherResponse = otherInstance.transmitCommand(new byte[]{0x01, GET_DATA_INS, 0x00, 0x00});
         assertSW_9000(otherResponse);
-        
+
         assertEquals(true, Arrays.areEqual(response, otherResponse));
     }
-    
+
     private byte incCounter() {
         SimulatorRuntime tmpRuntime = new PersistentSimulatorRuntime();
         Simulator tmpInst = new Simulator(tmpRuntime);
@@ -175,18 +180,18 @@ public class PersistentRuntimeTest extends TestCase {
 
         byte[] getCounterResponse = tmpInst.transmitCommand(new byte[]{0x01, GET_COUNTER, 0x00, 0x00});
         assertSW_9000(getCounterResponse);
-        byte counter = getCounterResponse[0];        
+        byte counter = getCounterResponse[0];
 
         byte[] incCounterResponse = tmpInst.transmitCommand(new byte[]{0x01, INC_COUNTER, 0x00, 0x00});
         assertSW_9000(incCounterResponse);
-        
+
         return counter;
     }
-    
+
     private void assertSW_9000(byte[] response) {
         ByteUtil.requireSW(response, 0x9000);
     }
-    
+
     static boolean deleteDirectory(File directoryToBeDeleted) {
         File[] allContents = directoryToBeDeleted.listFiles();
         if (allContents != null) {
@@ -197,7 +202,8 @@ public class PersistentRuntimeTest extends TestCase {
         return directoryToBeDeleted.delete();
     }
 
-    public void testResetRuntime(){
+    @Test
+    public void testResetRuntime() {
         System.out.println("testResetRuntime");
 
         System.clearProperty("persistentSimulatorRuntime.dir");
@@ -218,15 +224,16 @@ public class PersistentRuntimeTest extends TestCase {
 
     }
 
+    @Test
     public void testEmptyAppletDir() {
         System.out.println("testEmptyAppletDir");
 
-        System.setProperty("persistentSimulatorRuntime.dir","");
+        System.setProperty("persistentSimulatorRuntime.dir", "");
 
         try {
             SimulatorRuntime runtime = new PersistentSimulatorRuntime();
-        }catch(Throwable ex){
-            assertEquals(ex.getMessage(),"persistentSimulatorRuntime.dir can't be empty string");
+        } catch (Throwable ex) {
+            assertEquals(ex.getMessage(), "persistentSimulatorRuntime.dir can't be empty string");
         }
 
         // Check path must not be created
@@ -234,45 +241,50 @@ public class PersistentRuntimeTest extends TestCase {
         assertEquals(false, Files.exists(path));
     }
 
+    @Test
     public void testSpaceAppletDir() {
         System.out.println("testEmptyAppletDir");
 
         String spacePathStr = " ";
-        System.setProperty("persistentSimulatorRuntime.dir",spacePathStr);
+        System.setProperty("persistentSimulatorRuntime.dir", spacePathStr);
 
         try {
             SimulatorRuntime runtime = new PersistentSimulatorRuntime();
-        }catch(Throwable ex){
-            assertEquals(ex.getMessage(),"persistentSimulatorRuntime.dir can't be empty string");
+        } catch (Throwable ex) {
+            assertEquals(ex.getMessage(), "persistentSimulatorRuntime.dir can't be empty string");
         }
 
         // Check path must not be created
         try {
             Path path = Paths.get(spacePathStr);
             assertEquals(false, Files.exists(path));
-        }catch(Throwable ex){}
+        } catch (Throwable ex) {
+        }
     }
 
+    @Test
     public void testConsecutiveSpaceAppletDir() {
         System.out.println("testEmptyAppletDir");
 
         String consecutiveSpacePathStr = "    ";
-        System.setProperty("persistentSimulatorRuntime.dir",consecutiveSpacePathStr);
+        System.setProperty("persistentSimulatorRuntime.dir", consecutiveSpacePathStr);
 
         try {
             SimulatorRuntime runtime = new PersistentSimulatorRuntime();
-        }catch(Throwable ex){
-            assertEquals(ex.getMessage(),"persistentSimulatorRuntime.dir can't be empty string");
+        } catch (Throwable ex) {
+            assertEquals(ex.getMessage(), "persistentSimulatorRuntime.dir can't be empty string");
         }
 
         // Check path must not be created
         try {
             Path path = Paths.get(consecutiveSpacePathStr);
             assertEquals(false, Files.exists(path));
-        }catch(Throwable ex){}
+        } catch (Throwable ex) {
+        }
     }
 
-    public void testResetWithAppletDirs(){
+    @Test
+    public void testResetWithAppletDirs() {
         System.out.println("testResetWithAppletDirs");
 
         SimulatorRuntime runtime = new PersistentSimulatorRuntime();
@@ -289,7 +301,8 @@ public class PersistentRuntimeTest extends TestCase {
         assertSW_9000(response);
     }
 
-    public void testResetWithoutAppletDirs(){
+    @Test
+    public void testResetWithoutAppletDirs() {
         System.out.println("testResetWithoutAppletDirs");
 
         System.clearProperty("persistentSimulatorRuntime.dir");

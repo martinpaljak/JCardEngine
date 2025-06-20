@@ -30,8 +30,6 @@ import org.bouncycastle.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.crypto.spec.GCMParameterSpec;
-
 public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
     private static final Logger log = LoggerFactory.getLogger(AuthenticatedSymmetricCipherImpl.class);
     byte algorithm;

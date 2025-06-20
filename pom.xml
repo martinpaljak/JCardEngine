@@ -112,22 +112,22 @@
                 </executions>
             </plugin>
             <plugin>
-                    <groupId>com.github.spotbugs</groupId>
-                    <artifactId>spotbugs-maven-plugin</artifactId>
-                    <version>4.9.3.0</version>
-                    <executions>
-                        <execution>
-                            <id>parent-spotbugs</id>
-                            <phase>verify</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <excludeFilterFile>spotbugs.xml</excludeFilterFile>
-                    </configuration>
-                </plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.9.3.0</version>
+                <executions>
+                    <execution>
+                        <id>parent-spotbugs</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludeFilterFile>spotbugs.xml</excludeFilterFile>
+                </configuration>
+            </plugin>
         </plugins>
         <pluginManagement>
             <plugins>

@@ -16,8 +16,8 @@
 package com.licel.jcardsim.crypto;
 
 import javacard.security.CryptoException;
-import javacardx.crypto.Cipher;
 import javacardx.crypto.AEADCipher;
+import javacardx.crypto.Cipher;
 /**
  * ProxyClass for <code>Cipher</code>
  * @see Cipher

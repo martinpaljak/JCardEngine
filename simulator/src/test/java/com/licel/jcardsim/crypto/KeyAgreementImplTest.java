@@ -15,37 +15,31 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.security.DHPublicKey;
-import javacard.security.ECPublicKey;
-import javacard.security.KeyAgreement;
-import javacard.security.KeyBuilder;
-import javacard.security.KeyPair;
-import javacard.security.PrivateKey;
-import junit.framework.TestCase;
+import com.licel.jcardsim.base.Simulator;
+import javacard.security.*;
 import org.bouncycastle.util.Arrays;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for <code>KeyAgreementImpl</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class KeyAgreementImplTest extends TestCase {
+public class KeyAgreementImplTest {
 
-    public KeyAgreementImplTest(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @BeforeAll
+    static void setUp() {
+        Simulator sim = new Simulator();
     }
 
     /**
-     * SelfTest of generateSecret method with ECDH algorithm, 
+     * SelfTest of generateSecret method with ECDH algorithm,
      * of class KeyAgreementImpl.
      */
+    @Test
     public void testGenerateSecretECDH() {
         System.out.println("test ecdh");
         testGenerateSecret(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, KeyAgreement.ALG_EC_SVDP_DH);
@@ -63,24 +57,26 @@ public class KeyAgreementImplTest extends TestCase {
         testGenerateSecret(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, KeyAgreement.ALG_EC_PACE_GM);
         testGenerateSecret(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, KeyAgreement.ALG_EC_PACE_GM);
     }
-    
-     /**
-     * SelfTest of generateSecret method with DH algorithm, 
+
+    /**
+     * SelfTest of generateSecret method with DH algorithm,
      * of class KeyAgreementImpl.
      */
+    @Test
     public void testGenerateSecretDH() {
         System.out.println("test dh");
         generateSecretDH(KeyPair.ALG_DH, KeyBuilder.LENGTH_DH_1024, KeyAgreement.ALG_DH_PLAIN);
         generateSecretDH(KeyPair.ALG_DH, KeyBuilder.LENGTH_DH_2048, KeyAgreement.ALG_DH_PLAIN);
     }
 
-        /**
+    /**
      * DH method generateSecret
-     * @param keyAlg - key generation algorithm
-     * @param keySize - key size
+     *
+     * @param keyAlg          - key generation algorithm
+     * @param keySize         - key size
      * @param keyAgreementAlg - key agreement algorithm
      */
-    public void generateSecretDH(byte keyAlg, short keySize, byte keyAgreementAlg) {
+    private void generateSecretDH(byte keyAlg, short keySize, byte keyAgreementAlg) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);
         kp.genKeyPair();
@@ -102,18 +98,19 @@ public class KeyAgreementImplTest extends TestCase {
         publicKeyLength = publicKey1.getY(public1, (short) 0);
         ka.init(privateKey2);
         short secret2Size = ka.generateSecret(public1, (short) 0, publicKeyLength, secret2, (short) 0);
-        
+
         // check match of values
         assertEquals(true, Arrays.areEqual(secret1, secret2));
     }
-    
+
     /**
      * Base method generateSecret
-     * @param keyAlg - key generation algorithm
-     * @param keySize - key size
+     *
+     * @param keyAlg          - key generation algorithm
+     * @param keySize         - key size
      * @param keyAgreementAlg - key agreement algorithm
      */
-    public void testGenerateSecret(byte keyAlg, short keySize, byte keyAgreementAlg) {
+    private void testGenerateSecret(byte keyAlg, short keySize, byte keyAgreementAlg) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);
         kp.genKeyPair();
@@ -135,11 +132,11 @@ public class KeyAgreementImplTest extends TestCase {
         publicKeyLength = publicKey1.getW(public1, (short) 0);
         ka.init(privateKey2);
         short secret2Size = ka.generateSecret(public1, (short) 0, publicKeyLength, secret2, (short) 0);
-        
+
         // check expected length
         switch (keyAgreementAlg) {
             case KeyAgreement.ALG_EC_SVDP_DH: // no break
-            case KeyAgreement.ALG_EC_SVDP_DHC: 
+            case KeyAgreement.ALG_EC_SVDP_DHC:
                 // sha1 size = 20
                 assertEquals(secret1Size, 20);
                 assertEquals(secret2Size, 20);

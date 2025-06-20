@@ -15,12 +15,12 @@
  */
 package com.licel.jcardsim.base;
 
+import javacard.framework.JCSystem;
+import javacard.framework.SystemException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import javacard.framework.JCSystem;
-import javacard.framework.SystemException;
 
 /**
  * Basic implementation of storage transient memory of JCRE.

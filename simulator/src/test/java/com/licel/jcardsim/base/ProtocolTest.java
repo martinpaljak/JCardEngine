@@ -6,9 +6,11 @@ import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.ISO7816;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class ProtocolTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class ProtocolTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_READ = 0;
     private static final byte INS_WRITE = 2;
@@ -16,10 +18,8 @@ public class ProtocolTest extends TestCase {
 
     private final AID aid = AIDUtil.create("D0000CAFE00001");
 
-    public ProtocolTest(String name) {
-        super(name);
-    }
 
+    @Test
     public void testDualInterfaceApplet() {
         final String expectedOutput = "CAFE9000";
         byte[] response;

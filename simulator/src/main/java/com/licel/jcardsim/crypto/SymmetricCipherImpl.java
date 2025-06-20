@@ -15,13 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.*;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.crypto.BufferedBlockCipher;
-import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.modes.SICBlockCipher;
 import org.bouncycastle.crypto.paddings.ISO7816d4Padding;

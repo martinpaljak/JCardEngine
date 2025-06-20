@@ -9,7 +9,6 @@ import pro.javacard.jcardsim.core.RemoteMessage.Type;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;

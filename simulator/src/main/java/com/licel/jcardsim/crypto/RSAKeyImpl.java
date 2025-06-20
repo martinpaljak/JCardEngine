@@ -15,9 +15,6 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
-
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateKey;
@@ -26,6 +23,9 @@ import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
 
 /**
  * Implementation

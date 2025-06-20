@@ -16,14 +16,15 @@
 package com.licel.jcardsim.framework;
 
 import com.licel.jcardsim.base.ApduCase;
-import com.licel.jcardsim.base.SimulatorSystem;
+import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.ByteUtil;
-import java.lang.reflect.Field;
-import java.util.Arrays;
 import javacard.framework.APDU;
 import javacard.framework.APDUException;
 import javacard.framework.ISO7816;
 import javacard.framework.Util;
+
+import java.lang.reflect.Field;
+import java.util.Arrays;
 
 /**
  * Implementation for <code>APDU</code>
@@ -152,7 +153,7 @@ public class APDUProxy {
      * @see <CODE>PROTOCOL_T0</CODE>
      */
     public static byte getProtocol() {
-        APDU apdu = SimulatorSystem.instance().getCurrentAPDU();
+        APDU apdu = Simulator.instance().getCurrentAPDU();
         return (byte)((short[])getFieldInternal(apdu,"ramVars"))[ACTIVE_PROTOCOL];
     }
 
@@ -390,7 +391,7 @@ public class APDUProxy {
         if (len > Lr) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        SimulatorSystem.instance().sendAPDU(buffer, bOff, len);
+        Simulator.instance().sendAPDU(buffer, bOff, len);
 
         Lr -= len;
         if (Lr == 0) {
@@ -529,7 +530,7 @@ public class APDUProxy {
      */
     public static javacard.framework.APDU getCurrentAPDU()
             throws SecurityException {
-        javacard.framework.APDU currentAPDU = SimulatorSystem.instance().getCurrentAPDU();
+        javacard.framework.APDU currentAPDU = Simulator.instance().getCurrentAPDU();
         
         if (!((boolean[])getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
@@ -572,7 +573,7 @@ public class APDUProxy {
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
     public static byte getCLAChannel() {
-        javacard.framework.APDU apdu = SimulatorSystem.instance().getCurrentAPDU();
+        javacard.framework.APDU apdu = Simulator.instance().getCurrentAPDU();
         return (byte)((short[])getFieldInternal(apdu,"ramVars"))[LOGICAL_CHN];
     }
 
@@ -593,7 +594,7 @@ public class APDUProxy {
      */
     public static void waitExtension()
             throws APDUException {
-        javacard.framework.APDU apdu = SimulatorSystem.instance().getCurrentAPDU();
+        javacard.framework.APDU apdu = Simulator.instance().getCurrentAPDU();
         boolean[] apduFlags = (boolean[])getFieldInternal(apdu, "flags");
         if (!apduFlags[ACCESS_ALLOWED_FLAG] || apduFlags[NO_CHAINING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);

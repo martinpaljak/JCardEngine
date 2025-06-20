@@ -26,7 +26,6 @@ import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.encodings.OAEPEncoding;
 import org.bouncycastle.crypto.encodings.PKCS1Encoding;
 import org.bouncycastle.crypto.engines.RSAEngine;
-import org.bouncycastle.crypto.paddings.BlockCipherPadding;
 
 /*
  * Implementation <code>Cipher</code> with asymmetric keys based

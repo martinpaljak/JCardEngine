@@ -15,22 +15,17 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.math.BigInteger;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.KeyAgreement;
 import javacard.security.PrivateKey;
 import org.bouncycastle.crypto.BasicAgreement;
-import org.bouncycastle.crypto.agreement.DHBasicAgreement;
 import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.agreement.DHBasicAgreement;
 import org.bouncycastle.crypto.agreement.ECDHBasicAgreement;
 import org.bouncycastle.crypto.agreement.ECDHCBasicAgreement;
 import org.bouncycastle.crypto.digests.SHA1Digest;
-import org.bouncycastle.crypto.params.DHKeyParameters;
-import org.bouncycastle.crypto.params.DHParameters;
-import org.bouncycastle.crypto.params.DHPublicKeyParameters;
-import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
-import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.crypto.params.*;
 import org.bouncycastle.math.ec.ECPoint;
 
 import java.math.BigInteger;

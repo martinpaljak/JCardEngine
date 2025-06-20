@@ -16,25 +16,14 @@
 package com.licel.jcardsim.crypto;
 
 import javacardx.crypto.Cipher;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CipherProxyTest extends TestCase {
-    public CipherProxyTest(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
+public class CipherProxyTest {
 
     // The deprecated cipher algorithm list is created because JavaCard 3.0.5 API uses only javadoc annotation @deprecated
     // And not use the Java annotation @Deprecated, which can be read by java.lang.reflect.Field
@@ -48,6 +37,7 @@ public class CipherProxyTest extends TestCase {
         "ALG_RSA_ISO9796",
     };
 
+    @Test
     public void testSupportCipherForJavaCardv3_0_5() throws ClassNotFoundException {
         ArrayList<Field> cipher_alg_fields = new ArrayList<>();
 

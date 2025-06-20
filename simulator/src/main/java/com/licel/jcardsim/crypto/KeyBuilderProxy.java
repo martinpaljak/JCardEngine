@@ -18,7 +18,6 @@ package com.licel.jcardsim.crypto;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
-import javacard.security.KoreanSEEDKey;
 
 /**
  * ProxyClass for <code>KeyBuilder</code>

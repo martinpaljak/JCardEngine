@@ -15,16 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
 import javacard.security.CryptoException;
 import javacard.security.DHPrivateKey;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.DHKeyParameters;
 import org.bouncycastle.crypto.params.DHParameters;
 import org.bouncycastle.crypto.params.DHPrivateKeyParameters;
-import org.bouncycastle.crypto.params.DHPublicKeyParameters;
 
 public final class DHPrivateKeyImpl extends DHKeyImpl implements DHPrivateKey {
         

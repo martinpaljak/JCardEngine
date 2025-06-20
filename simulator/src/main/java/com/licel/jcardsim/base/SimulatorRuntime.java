@@ -134,7 +134,7 @@ public class SimulatorRuntime {
      * Register <code>this</code> with <code>SimulatorRuntime</code>
      */
     protected final void activateSimulatorRuntimeInstance() {
-        SimulatorSystem.setCurrentInstance(this);
+        Simulator.setCurrentInstance(this);
     }
 
 
@@ -299,7 +299,7 @@ public class SimulatorRuntime {
                 applet = getApplet(getAID());
                 selecting = true;
             } else if (applet == null) {
-                Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
+                Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED); // FIXME: "not found"
                 return theSW;
             }
         }

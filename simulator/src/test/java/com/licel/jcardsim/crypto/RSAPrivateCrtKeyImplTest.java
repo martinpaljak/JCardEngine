@@ -15,14 +15,16 @@
  */
 package com.licel.jcardsim.crypto;
 
-import junit.framework.TestCase;
 import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Test for <code>RSAPrivateCrtKeyImpl</code>
  * Test data from NXP JCOP31-36 JavaCard*
  */
-public class RSAPrivateCrtKeyImplTest extends TestCase {
+public class RSAPrivateCrtKeyImplTest {
     // RSA CRT Private Key Components (2048-bit)
 
     final static String P = "DA2CBBE7572AE9441538EFE23943A6C72B564482E482D50954769920AD4A45179D2842327BF8271C592FA9D6DCCAE737B45BCA4A3B026CF5C32E6008284D8ABA3A1B249EF900CCF40746C599D9217EC3D1179DC35976AE05A50CF6F8AE23E15B8E0D4481D1D6035826AB7F43CECEB511699814BF2EFCF0EA37E230C4F586E6C7";
@@ -31,23 +33,10 @@ public class RSAPrivateCrtKeyImplTest extends TestCase {
     final static String DQ = "94B23E9437F1B011B6246E2DA845B25077A1757841420BB619C6F395A896A7187EB648037C2501788A13D9E8B92DE61EDF8A243F3F45C3E870F45D3426B0ADB1AB60B027F09AF1A2197A6C1214BD488CE2464D5EA4D12C199205423F561C27B027AF5C57C940307606DABC2DEC58715D92E76634FFDEC3A342D3F54DDB76FC3B";
     final static String PQ = "92CC66692E8D14EB93D0705EFA58276CD7A1A8B82C17544E8D181C3F987ED62E83355844D2E89380A17169614D8367709CB62A3DF9339BD537078AD1629D1B87DCA66E31809ADB78746633C28A6EA064B34EF750C27E32800ECE3C5F17524D35EE3CEAE8989745EAECD411D519210D4FCD699F4218A22249F76BE75A2F8160A0";
 
-    public RSAPrivateCrtKeyImplTest(String testName) {
-        super(testName);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
-
     /**
      * Test of isInitialized method, of class RSAPrivateCrtKeyImpl.
      */
+    @Test
     public void testIsInitialized() {
         System.out.println("isInitialized");
         RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short)2048);

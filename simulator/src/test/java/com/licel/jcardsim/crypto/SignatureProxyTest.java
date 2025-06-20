@@ -16,25 +16,14 @@
 package com.licel.jcardsim.crypto;
 
 import javacard.security.Signature;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class SignatureProxyTest extends TestCase {
-    public SignatureProxyTest(String testName) {
-        super(testName);
-    }
-
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
+public class SignatureProxyTest {
 
     // The deprecated signature algorithm list is created because JavaCard 3.0.5 API uses only javadoc annotation @deprecated
     // And not use the Java annotation @Deprecated, which can be read by java.lang.reflect.Field
@@ -44,23 +33,23 @@ public class SignatureProxyTest extends TestCase {
             "ALG_AES_MAC_256_NOPAD",
     };
 
+    @Test
     public void testSupportSignatureForJavaCardv3_0_5() throws ClassNotFoundException {
 
         ArrayList<Field> signature_alg_fields = new ArrayList<>();
 
-        for(Field field : Class.forName("javacard.security.Signature").getDeclaredFields()){
-            if( field.getName().startsWith("ALG_") ){
+        for (Field field : Class.forName("javacard.security.Signature").getDeclaredFields()) {
+            if (field.getName().startsWith("ALG_")) {
                 List<String> deprecated_list = Arrays.asList(SIGNATURE_DEPRECATED_ALG_JAVACARD_V3_0_5);
-                if( !deprecated_list.contains(field.getName()))
+                if (!deprecated_list.contains(field.getName()))
                     signature_alg_fields.add(field);
             }
         }
 
-        for( Field alg_field : signature_alg_fields ) {
+        for (Field alg_field : signature_alg_fields) {
             try {
                 Signature sig = Signature.getInstance(alg_field.getByte(null), false);
-            }
-            catch (Throwable ex){
+            } catch (Throwable ex) {
                 System.out.println("Signature algorithm " + alg_field.getName() + " has not been implemented yet!!!");
             }
         }

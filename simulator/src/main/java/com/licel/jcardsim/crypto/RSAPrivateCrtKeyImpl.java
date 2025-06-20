@@ -19,7 +19,6 @@ import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateCrtKey;
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 package com.licel.jcardsim.samples;
-import com.licel.jcardsim.smartcardio.JCSCard;
+
 import javacard.framework.*;
 import javacard.security.AESKey;
 import javacard.security.DESKey;

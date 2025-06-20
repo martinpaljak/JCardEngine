@@ -15,11 +15,11 @@
  */
 package com.licel.jcardsim.smartcardio;
 
-import java.util.ArrayList;
-import java.util.List;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
 import javax.smartcardio.CardTerminals;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * CardTerminals implementation class.

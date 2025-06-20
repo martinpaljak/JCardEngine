@@ -15,8 +15,6 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
-
 import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.crypto.BlockCipher;
@@ -29,6 +27,8 @@ import org.bouncycastle.crypto.engines.SEEDEngine;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.security.SecureRandom;
 
 /**
  * Implementation of secret key.

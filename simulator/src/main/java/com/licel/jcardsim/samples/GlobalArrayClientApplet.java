@@ -16,7 +16,6 @@
 package com.licel.jcardsim.samples;
 
 import com.licel.jcardsim.utils.AIDUtil;
-
 import javacard.framework.*;
 
 /**

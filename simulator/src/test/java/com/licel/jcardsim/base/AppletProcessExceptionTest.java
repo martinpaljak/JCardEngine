@@ -26,11 +26,13 @@ import javacardx.external.ExternalException;
 import javacardx.framework.string.StringException;
 import javacardx.framework.tlv.TLVException;
 import javacardx.framework.util.UtilException;
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
 import javax.smartcardio.ResponseAPDU;
 
-public class AppletProcessExceptionTest extends TestCase {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class AppletProcessExceptionTest {
     private static final byte CLA_CRYPTO_EXCEPTION = 1;
     private final static byte CLA_APDU_EXCEPTION = 2;
     private final static byte CLA_SYSTEM_EXCEPTION = 3;
@@ -48,374 +50,377 @@ public class AppletProcessExceptionTest extends TestCase {
 
     private final static String appletAIDStr = "010203040506070809";
 
-    public AppletProcessExceptionTest(String name) {super(name);}
-
-    public void testCryptoException(){
+    @Test
+    public void testCryptoException() {
         Simulator instance = getReadySimulator();
 
         // Test CryptoException.ILLEGAL_VALUE without try catch
         byte[] apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.ILLEGAL_VALUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.ILLEGAL_VALUE);
         byte[] result = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test CryptoException.ILLEGAL_VALUE with try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.ILLEGAL_VALUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.ILLEGAL_VALUE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test CryptoException.UNINITIALIZED_KEY without try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.UNINITIALIZED_KEY);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.UNINITIALIZED_KEY);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test CryptoException.UNINITIALIZED_KEY with try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.UNINITIALIZED_KEY);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.UNINITIALIZED_KEY);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test CryptoException.NO_SUCH_ALGORITHM without try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.NO_SUCH_ALGORITHM);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.NO_SUCH_ALGORITHM);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test CryptoException.NO_SUCH_ALGORITHM with try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.NO_SUCH_ALGORITHM);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.NO_SUCH_ALGORITHM);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test CryptoException.INVALID_INIT without try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.INVALID_INIT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.INVALID_INIT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test CryptoException.INVALID_INIT with try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.INVALID_INIT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.INVALID_INIT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test CryptoException.ILLEGAL_USE without try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.ILLEGAL_USE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test CryptoException.ILLEGAL_USE with try catch
         apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, CryptoException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, CryptoException.ILLEGAL_USE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
-    public void testAPDUException(){
+    @Test
+    public void testAPDUException() {
         Simulator instance = getReadySimulator();
 
         // Test APDUException.ILLEGAL_USE without try catch
         byte[] apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.ILLEGAL_USE);
         byte[] result = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.ILLEGAL_USE with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.ILLEGAL_USE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.BUFFER_BOUNDS without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.BUFFER_BOUNDS);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.BUFFER_BOUNDS);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.BUFFER_BOUNDS with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.BUFFER_BOUNDS);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.BUFFER_BOUNDS);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.BAD_LENGTH without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.BAD_LENGTH);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.BAD_LENGTH);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.BAD_LENGTH with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.BAD_LENGTH);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.BAD_LENGTH);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.IO_ERROR without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.IO_ERROR);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.IO_ERROR);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.IO_ERROR with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.IO_ERROR);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.IO_ERROR);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.NO_T0_GETRESPONSE without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.NO_T0_GETRESPONSE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.NO_T0_GETRESPONSE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.NO_T0_GETRESPONSE with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.NO_T0_GETRESPONSE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.NO_T0_GETRESPONSE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.T1_IFD_ABORT without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.T1_IFD_ABORT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.T1_IFD_ABORT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.T1_IFD_ABORT with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.T1_IFD_ABORT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.T1_IFD_ABORT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test APDUException.NO_T0_REISSUE without try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.NO_T0_REISSUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.NO_T0_REISSUE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test APDUException.NO_T0_REISSUE with try catch
         apdu = new byte[]{CLA_APDU_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, APDUException.NO_T0_REISSUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, APDUException.NO_T0_REISSUE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
-    public void testSystemException(){
+    @Test
+    public void testSystemException() {
         Simulator instance = getReadySimulator();
 
         // Test SystemException.ILLEGAL_VALUE without try catch
         byte[] apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_VALUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_VALUE);
         byte[] result = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_VALUE with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_VALUE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_VALUE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test SystemException.NO_TRANSIENT_SPACE without try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.NO_TRANSIENT_SPACE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.NO_TRANSIENT_SPACE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.NO_TRANSIENT_SPACE with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.NO_TRANSIENT_SPACE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.NO_TRANSIENT_SPACE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_TRANSIENT without try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_TRANSIENT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_TRANSIENT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_TRANSIENT with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_TRANSIENT);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_TRANSIENT);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_AID without try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_AID);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_AID);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_AID with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_AID);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_AID);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test SystemException.NO_RESOURCE without try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.NO_RESOURCE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.NO_RESOURCE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.NO_RESOURCE with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.NO_RESOURCE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.NO_RESOURCE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_USE without try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_USE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test SystemException.ILLEGAL_USE with try catch
         apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, SystemException.ILLEGAL_USE);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, SystemException.ILLEGAL_USE);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
-    public void testServiceException(){
+    @Test
+    public void testServiceException() {
         Simulator instance = getReadySimulator();
 
         // Test ServiceException.ILLEGAL_PARAM without try catch
         byte[] apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.ILLEGAL_PARAM);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.ILLEGAL_PARAM);
         byte[] result = instance.transmitCommand(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.ILLEGAL_PARAM without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.ILLEGAL_PARAM);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.ILLEGAL_PARAM);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.DISPATCH_TABLE_FULL without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.DISPATCH_TABLE_FULL);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.DISPATCH_TABLE_FULL);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.DISPATCH_TABLE_FULL with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.DISPATCH_TABLE_FULL);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.DISPATCH_TABLE_FULL);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.COMMAND_DATA_TOO_LONG without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.COMMAND_DATA_TOO_LONG);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.COMMAND_DATA_TOO_LONG);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.COMMAND_DATA_TOO_LONG with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.COMMAND_DATA_TOO_LONG);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.COMMAND_DATA_TOO_LONG);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.CANNOT_ACCESS_IN_COMMAND without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_IN_COMMAND);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_IN_COMMAND);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.CANNOT_ACCESS_IN_COMMAND with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_IN_COMMAND);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_IN_COMMAND);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.CANNOT_ACCESS_OUT_COMMAND without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_OUT_COMMAND);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_OUT_COMMAND);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.CANNOT_ACCESS_OUT_COMMAND with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_OUT_COMMAND);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.CANNOT_ACCESS_OUT_COMMAND);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.COMMAND_IS_FINISHED without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.COMMAND_IS_FINISHED);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.COMMAND_IS_FINISHED);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.COMMAND_IS_FINISHED with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.COMMAND_IS_FINISHED);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.COMMAND_IS_FINISHED);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test ServiceException.REMOTE_OBJECT_NOT_EXPORTED without try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.REMOTE_OBJECT_NOT_EXPORTED);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.REMOTE_OBJECT_NOT_EXPORTED);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_UNKNOWN, responseApdu.getSW());
 
         // Test ServiceException.REMOTE_OBJECT_NOT_EXPORTED with try catch
         apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        Util.setShort(apdu,ISO7816.OFFSET_P1, ServiceException.REMOTE_OBJECT_NOT_EXPORTED);
+        Util.setShort(apdu, ISO7816.OFFSET_P1, ServiceException.REMOTE_OBJECT_NOT_EXPORTED);
         result = instance.transmitCommand(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testBioException() {
         Simulator instance = getReadySimulator();
 
@@ -490,6 +495,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testBio1toNException() {
         Simulator instance = getReadySimulator();
 
@@ -592,6 +598,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testExternalException() {
         Simulator instance = getReadySimulator();
 
@@ -638,6 +645,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testPINException() {
         Simulator instance = getReadySimulator();
 
@@ -670,6 +678,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testStringException() {
         Simulator instance = getReadySimulator();
 
@@ -716,6 +725,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testTLVException() {
         Simulator instance = getReadySimulator();
 
@@ -867,6 +877,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testTransactionException() {
         Simulator instance = getReadySimulator();
 
@@ -941,6 +952,7 @@ public class AppletProcessExceptionTest extends TestCase {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
+    @Test
     public void testUtilException() {
         Simulator instance = getReadySimulator();
 
@@ -972,6 +984,7 @@ public class AppletProcessExceptionTest extends TestCase {
         responseApdu = new ResponseAPDU(result);
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
+
     private Simulator getReadySimulator() {
         Simulator instance = new Simulator();
         AID appletAID = AIDUtil.create(appletAIDStr);
