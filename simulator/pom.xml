@@ -62,12 +62,6 @@
             <version>5.13.1</version>
             <scope>test</scope>
         </dependency>
-        <!--dependency>
-            <groupId>org.junit.vintage</groupId>
-            <artifactId>junit-vintage-engine</artifactId>
-            <version>5.11.1</version>
-            <scope>test</scope>
-        </dependency-->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -158,8 +152,8 @@
                 <version>3.5.3</version>
                 <!-- FIXME: remove once the threading has been fixed in simulator/simulatorruntime -->
                 <configuration>
-                    <forkCount>1</forkCount>
-                    <reuseForks>false</reuseForks>
+                    <forkCount>1C</forkCount>
+                    <reuseForks>true</reuseForks>
                 </configuration>
             </plugin>
             <plugin>
