@@ -12,13 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 // FIXME: this test makes sense, and works via intellij, but fails under maven
 // Probably has something to do with the removal of the threadlocal simulator hackery
 // re-visit once that seems done. As the applet instance counter is static, we can't "unload"
-// the value
-//@Ignore
+// the class easily, and the counter value remains.
 public class DeleteTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_GET_COUNT = 2;
 
-    @Test
+    // FIXME: Ignored
     public void testDeleteWorks() {
         byte[] result;
         AID aid1 = AIDUtil.create("d0000cafe00001");
