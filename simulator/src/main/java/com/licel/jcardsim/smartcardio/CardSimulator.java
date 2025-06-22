@@ -16,7 +16,6 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorRuntime;
 
 import javax.smartcardio.*;
 import java.nio.ByteBuffer;
@@ -29,8 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class CardSimulator extends Simulator {
     private final CardImpl card = new CardImpl();
-    private final AtomicReference<CardTerminal> owningCardTerminalReference
-            = new AtomicReference<>();
+    private final AtomicReference<CardTerminal> owningCardTerminalReference = new AtomicReference<>();
     private final AtomicReference<Thread> threadReference = new AtomicReference<>();
 
     /**
@@ -40,20 +38,7 @@ public class CardSimulator extends Simulator {
      * </ul>
      */
     public CardSimulator() {
-        this(new SimulatorRuntime());
-    }
-
-    /**
-     * Create a Simulator object using a provided Runtime.
-     * <ul>
-     * <li>SimulatorRuntime#resetRuntime is called</li>
-     * </ul>
-     *
-     * @param runtime SimulatorRuntime instance to use
-     * @throws java.lang.NullPointerException if <code>runtime</code> is null
-     */
-    public CardSimulator(SimulatorRuntime runtime) {
-        super(runtime);
+        super();
     }
 
     /**
@@ -194,7 +179,7 @@ public class CardSimulator extends Simulator {
 
         @Override
         public void beginExclusive() throws CardException {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 if (!threadReference.compareAndSet(null, Thread.currentThread())) {
                     throw new CardException("Card is held exclusively by Thread " + threadReference.get());
                 }
@@ -203,7 +188,7 @@ public class CardSimulator extends Simulator {
 
         @Override
         public void endExclusive() throws CardException {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 if (!threadReference.compareAndSet(Thread.currentThread(), null)) {
                     throw new CardException("Card is held exclusively by Thread " + threadReference.get());
                 }
@@ -212,12 +197,12 @@ public class CardSimulator extends Simulator {
 
         @Override
         public byte[] transmitControlCommand(int i, byte[] bytes) throws CardException {
-            throw new UnsupportedOperationException("Not supported yet.");
+            throw new CardException("Control commands not supported");
         }
 
         @Override
         public void disconnect(boolean reset) throws CardException {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 if (reset) {
                     CardSimulator.this.reset();
                 }
@@ -226,7 +211,7 @@ public class CardSimulator extends Simulator {
         }
 
         void connect(String protocol) {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 this.protocolByte = CardSimulator.this.getProtocolByte(protocol);
                 this.protocol = protocol;
                 this.state = CardState.Connected;
@@ -234,21 +219,21 @@ public class CardSimulator extends Simulator {
         }
 
         void eject() {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 CardSimulator.this.reset();
                 state = CardState.Ejected;
             }
         }
 
         void disconnect() {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 CardSimulator.this.reset();
                 state = CardState.Disconnected;
             }
         }
 
         byte[] transmitCommand(byte[] capdu) throws CardException {
-            synchronized (runtime) {
+            synchronized (CardSimulator.this) {
                 ensureConnected();
                 Thread thread = threadReference.get();
                 if (thread != null && thread != Thread.currentThread()) {
@@ -257,10 +242,10 @@ public class CardSimulator extends Simulator {
 
                 byte currentProtocol = getProtocolByte(CardSimulator.this.getProtocol());
                 try {
-                    runtime.changeProtocol(protocolByte);
+                    changeProtocol(protocolByte);
                     return CardSimulator.this.transmitCommand(capdu);
                 } finally {
-                    runtime.changeProtocol(currentProtocol);
+                    changeProtocol(currentProtocol);
                 }
             }
         }

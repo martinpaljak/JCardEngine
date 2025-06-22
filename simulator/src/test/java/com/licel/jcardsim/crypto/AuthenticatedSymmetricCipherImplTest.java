@@ -15,7 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.AESKey;
 import javacard.security.CryptoException;
 import javacard.security.DESKey;
@@ -24,18 +24,13 @@ import javacardx.crypto.AEADCipher;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class AuthenticatedSymmetricCipherImplTest {
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
+public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
 
     @Test
     public void testAES_GCM_NotSupportKey() {

@@ -15,14 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateKey;
 import javacard.security.RSAPublicKey;
 import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,12 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test for <code>AsymmetricCipherImpl</code> and <code>ALG_RSA_PKCS1</code> algorithm implementation.
  */
-public class RSACipherPKCS1Test {
-
-    @BeforeAll
-    public static void setUp() throws Exception {
-        Simulator sim = new Simulator(); // sets up the necessary threadlocal
-    }
+public class RSACipherPKCS1Test extends SimulatorCoreTest {
 
     // RSA keypair data
     private static final byte[] rsaPrivateKeyModulus = {

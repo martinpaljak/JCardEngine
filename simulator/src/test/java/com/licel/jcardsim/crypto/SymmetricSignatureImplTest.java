@@ -15,14 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.HMACKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import javacard.security.Signature;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * <code>SymmetricSignatureImpl</code>
  * Test data from NXP JCOP31-36/41 JavaCard
  */
-public class SymmetricSignatureImplTest {
+public class SymmetricSignatureImplTest extends SimulatorCoreTest {
 
     // padded etalon message
     String MESSAGE_8 = "C899464893435BC8";
@@ -298,11 +297,6 @@ public class SymmetricSignatureImplTest {
                     "5468697320697320612074657374207573696E672061206C6172676572207468616E20626C6F636B2D73697A65206B657920616E642061206C6172676572207468616E20626C6F636B2D73697A6520646174612E20546865206B6579206E6565647320746F20626520686173686564206265666F7265206265696E6720757365642062792074686520484D414320616C676F726974686D2E",
                     "E37B6A775DC87DBAA4DFA9F96E5E3FFDDEBD71F8867289865DF5A32D20CDC944B6022CAC3C4982B10D5EEB55C3E4DE15134676FB6DE0446065C97440FA8C6A58"},
     };
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
 
     /**
      * Test of sign/verify methods, of class SymmetricSignatureImpl with 3DES Key

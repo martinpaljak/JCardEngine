@@ -15,7 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * SignatureMessageRecovery Test
  * based on JCDK Sample
  */
-public class SignatureMessageRecoveryTest {
+public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
 
     //--RSA Keypair data
     private static final byte[] RSA_PUB_KEY_EXP = {(byte) 0x01, (byte) 0x00, (byte) 0x01};
@@ -66,7 +66,6 @@ public class SignatureMessageRecoveryTest {
      */
     @BeforeAll
     static void setUp() {
-        Simulator sim = new Simulator();
         pubKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_512, false);
         privKey = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_512, false);
         privKey.setExponent(RSA_PRIV_KEY_EXP, (short) 0, (short) RSA_PRIV_KEY_EXP.length);

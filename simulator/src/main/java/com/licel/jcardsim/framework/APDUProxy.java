@@ -153,7 +153,7 @@ public class APDUProxy {
      * @see <CODE>PROTOCOL_T0</CODE>
      */
     public static byte getProtocol() {
-        APDU apdu = Simulator.instance().getCurrentAPDU();
+        APDU apdu = Simulator.current().getCurrentAPDU();
         return (byte)((short[])getFieldInternal(apdu,"ramVars"))[ACTIVE_PROTOCOL];
     }
 
@@ -391,7 +391,7 @@ public class APDUProxy {
         if (len > Lr) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        Simulator.instance().sendAPDU(buffer, bOff, len);
+        Simulator.current().sendAPDU(buffer, bOff, len);
 
         Lr -= len;
         if (Lr == 0) {
@@ -530,7 +530,7 @@ public class APDUProxy {
      */
     public static javacard.framework.APDU getCurrentAPDU()
             throws SecurityException {
-        javacard.framework.APDU currentAPDU = Simulator.instance().getCurrentAPDU();
+        javacard.framework.APDU currentAPDU = Simulator.current().getCurrentAPDU();
         
         if (!((boolean[])getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
@@ -573,7 +573,7 @@ public class APDUProxy {
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
     public static byte getCLAChannel() {
-        javacard.framework.APDU apdu = Simulator.instance().getCurrentAPDU();
+        javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
         return (byte)((short[])getFieldInternal(apdu,"ramVars"))[LOGICAL_CHN];
     }
 
@@ -594,7 +594,7 @@ public class APDUProxy {
      */
     public static void waitExtension()
             throws APDUException {
-        javacard.framework.APDU apdu = Simulator.instance().getCurrentAPDU();
+        javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
         boolean[] apduFlags = (boolean[])getFieldInternal(apdu, "flags");
         if (!apduFlags[ACCESS_ALLOWED_FLAG] || apduFlags[NO_CHAINING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);

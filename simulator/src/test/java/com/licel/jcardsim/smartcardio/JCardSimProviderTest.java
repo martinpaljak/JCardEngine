@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.base.Helpers;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import javacard.framework.AID;
@@ -77,7 +78,7 @@ public class JCardSimProviderTest {
         // Returns the default simulator and installs HelloWorld into it
         Simulator sim = new Simulator(); // FIXME: this is wrong, as it assumes _this_ simulator is the same as used by the terminal implementation.
         // Instead pass the simulator into the terminal factory as a parameter. Until then this test is disabled
-        byte[] params = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
+        byte[] params = Helpers.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0F0F"));
         sim.installApplet(_aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, params, (short) 0, (byte) params.length);
 
         // select applet

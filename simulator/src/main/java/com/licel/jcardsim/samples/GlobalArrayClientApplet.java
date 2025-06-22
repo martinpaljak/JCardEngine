@@ -28,7 +28,7 @@ import javacard.framework.*;
  *     <li><code>CLA=0x10 INS=2</code> Write global byte array value from <code>CData</code></li>
  * </ul>
  */
-public class GlobalArrayClientApplet extends BaseApplet{
+public class GlobalArrayClientApplet extends BaseApplet {
     private final static byte CLA = 0x10;
     private final static byte INS_READ_GLOBAL_ARRAY_BYTE = 0x01;
     private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
@@ -39,37 +39,37 @@ public class GlobalArrayClientApplet extends BaseApplet{
 
     /**
      * This method is called once during applet instantiation process.
-     * @param bArray the array containing installation parameters
+     *
+     * @param bArray  the array containing installation parameters
      * @param bOffset the starting offset in bArray
      * @param bLength the length in bytes of the parameter data in bArray
      * @throws ISOException if the install method failed
      */
-    public static void install(byte[] bArray, short bOffset, byte bLength)
-            throws ISOException {
-        new GlobalArrayClientApplet(bArray,bOffset,bLength);
+    public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
+        new GlobalArrayClientApplet(bArray, bOffset, bLength);
     }
 
-    protected GlobalArrayClientApplet(byte[] bArray, short bOffset, byte bLength){
+    protected GlobalArrayClientApplet(byte[] bArray, short bOffset, byte bLength) {
+        // Skip AID and privileges
+        bOffset += (short) (1 + bArray[bOffset]);
+        bOffset += (short) (1 + bArray[bOffset]);
+        // Actual parameters
         byte aidLen = bArray[bOffset];
-        byte[] aidBytes = new byte[aidLen];
-        Util.arrayCopyNonAtomic(bArray, (short) (bOffset+1), aidBytes, (short) 0, aidLen);
-
-        serverAppletAID = AIDUtil.create(aidBytes);
-
+        serverAppletAID = new AID(bArray, (short) (bOffset + 1), aidLen);
         register();
     }
 
 
     public void process(APDU apdu) {
-        if(selectingApplet())
+        if (selectingApplet())
             return;
 
         byte[] buffer = apdu.getBuffer();
 
-        if( buffer[ISO7816.OFFSET_CLA] != CLA)
+        if (buffer[ISO7816.OFFSET_CLA] != CLA)
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
 
-        switch(buffer[ISO7816.OFFSET_INS]){
+        switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_READ_GLOBAL_ARRAY_BYTE:
                 readGlobalArrayByte(apdu);
                 return;
@@ -82,9 +82,9 @@ public class GlobalArrayClientApplet extends BaseApplet{
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
         }
     }
-    
-    private void readGlobalArrayByte(APDU apdu){
-        GlobalArrayAccess shared = (GlobalArrayAccess)JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
+
+    private void readGlobalArrayByte(APDU apdu) {
+        GlobalArrayAccess shared = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
         byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef();
 
         short le = apdu.setOutgoing();
@@ -92,23 +92,23 @@ public class GlobalArrayClientApplet extends BaseApplet{
         apdu.sendBytesLong(globalArrayByte, (short) 0, le);
     }
 
-    private void writeGlobalArrayByte(APDU apdu){
+    private void writeGlobalArrayByte(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte numBytes = buffer[ISO7816.OFFSET_LC];
-        if( (numBytes > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (numBytes == 0) ){
+        if ((numBytes > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (numBytes == 0)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        GlobalArrayAccess shared = (GlobalArrayAccess)JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
+        GlobalArrayAccess shared = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
         byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef();
 
-        byte bytesRead = (byte)apdu.setIncomingAndReceive();
+        byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, globalArrayByte, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
-            bytesRead = (byte)apdu.receiveBytes(ISO7816.OFFSET_CDATA);
+            bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
     }
 

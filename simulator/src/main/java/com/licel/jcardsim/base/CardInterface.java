@@ -29,6 +29,7 @@ public interface CardInterface {
 
     /**
      * Returns ATR
+     *
      * @return ATR bytes
      */
     byte[] getATR();
@@ -36,13 +37,13 @@ public interface CardInterface {
     /**
      * Transmit APDU to previous selected applet
      *
-     * If no applet was selected returns <code>byte[2]</code>
-     * with status word 0x6986 (Command not allowed (no current EF))
-     *
      * @param commandAPDU command apdu
      * @return response APDU
      * @see javax.smartcardio.CommandAPDU
      * @see javax.smartcardio.ResponseAPDU
      */
     byte[] transmitCommand(byte[] commandAPDU);
+
+
+    String getProtocol();
 }

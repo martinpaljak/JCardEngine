@@ -41,7 +41,7 @@ public class JCSystemProxy {
      * @see #makeTransientShortArray(short, byte)
      */
     public static byte isTransient(Object theObj) {
-        return Simulator.instance().getTransientMemory().isTransient(theObj);
+        return Simulator.current().getTransientMemory().isTransient(theObj);
     }
 
     /**
@@ -61,7 +61,7 @@ public class JCSystemProxy {
      */
     public static boolean[] makeTransientBooleanArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
-        return Simulator.instance().getTransientMemory().makeBooleanArray(length, event);
+        return Simulator.current().getTransientMemory().makeBooleanArray(length, event);
     }
 
     /**
@@ -81,7 +81,7 @@ public class JCSystemProxy {
      */
     public static byte[] makeTransientByteArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
-        return Simulator.instance().getTransientMemory().makeByteArray(length, event);
+        return Simulator.current().getTransientMemory().makeByteArray(length, event);
     }
 
     /**
@@ -101,7 +101,7 @@ public class JCSystemProxy {
      */
     public static short[] makeTransientShortArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
-        return Simulator.instance().getTransientMemory().makeShortArray(length, event);
+        return Simulator.current().getTransientMemory().makeShortArray(length, event);
     }
 
     /**
@@ -121,7 +121,7 @@ public class JCSystemProxy {
      */
     public static Object[] makeTransientObjectArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
-        return Simulator.instance().getTransientMemory().makeObjectArray(length, event);
+        return Simulator.current().getTransientMemory().makeObjectArray(length, event);
     }
 
     /**
@@ -141,7 +141,7 @@ public class JCSystemProxy {
      *                                    </ul>
      */
     public static Object makeGlobalArray(byte type, short length) {
-        return Simulator.instance().getTransientMemory().makeGlobalArray(type, length);
+        return Simulator.current().getTransientMemory().makeGlobalArray(type, length);
     }
 
     /**
@@ -167,7 +167,7 @@ public class JCSystemProxy {
      * @return the <code>AID</code> object
      */
     public static AID getAID() {
-        return Simulator.instance().getAID();
+        return Simulator.current().getAID();
     }
 
     /**
@@ -188,7 +188,7 @@ public class JCSystemProxy {
      * or if <code>offset</code> or <code>length</code> are out of range.
      */
     public static AID lookupAID(byte buffer[], short offset, byte length) {
-        return Simulator.instance().lookupAID(buffer, offset, length);
+        return Simulator.current().lookupAID(buffer, offset, length);
     }
 
     /**
@@ -211,7 +211,7 @@ public class JCSystemProxy {
      */
     public static void beginTransaction()
             throws TransactionException {
-        Simulator.instance().beginTransaction();
+        Simulator.current().beginTransaction();
     }
 
     /**
@@ -241,7 +241,7 @@ public class JCSystemProxy {
      */
     public static void abortTransaction()
             throws TransactionException {
-        Simulator.instance().abortTransaction();
+        Simulator.current().abortTransaction();
     }
 
     /**
@@ -265,7 +265,7 @@ public class JCSystemProxy {
      */
     public static void commitTransaction()
             throws TransactionException {
-        Simulator.instance().commitTransaction();
+        Simulator.current().commitTransaction();
     }
 
     /**
@@ -275,7 +275,7 @@ public class JCSystemProxy {
      * @return 1 if transaction in progress, 0 if not
      */
     public static byte getTransactionDepth() {
-        return Simulator.instance().getTransactionDepth();
+        return Simulator.current().getTransactionDepth();
     }
 
     /**
@@ -289,7 +289,7 @@ public class JCSystemProxy {
      * @see #getMaxCommitCapacity()
      */
     public static short getUnusedCommitCapacity() {
-        return Simulator.instance().getUnusedCommitCapacity();
+        return Simulator.current().getUnusedCommitCapacity();
     }
 
     /**
@@ -311,7 +311,7 @@ public class JCSystemProxy {
      * @see #getUnusedCommitCapacity()
      */
     public static short getMaxCommitCapacity() {
-        return Simulator.instance().getMaxCommitCapacity();
+        return Simulator.current().getMaxCommitCapacity();
     }
 
     /**
@@ -327,7 +327,7 @@ public class JCSystemProxy {
      * @return the <code>AID</code> object of the previous context, or <code>null</code> if Java Card runtime environment
      */
     public static AID getPreviousContextAID() {
-        return Simulator.instance().getPreviousContextAID();
+        return Simulator.current().getPreviousContextAID();
     }
 
     /**
@@ -360,13 +360,13 @@ public class JCSystemProxy {
             throws SystemException {
         switch (memoryType) {
             case JCSystem.MEMORY_TYPE_PERSISTENT:
-                return Simulator.instance().getAvailablePersistentMemory();
+                return Simulator.current().getAvailablePersistentMemory();
 
             case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                return Simulator.instance().getAvailableTransientResetMemory();
+                return Simulator.current().getAvailableTransientResetMemory();
 
             case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
-                return Simulator.instance().getAvailableTransientDeselectMemory();
+                return Simulator.current().getAvailableTransientDeselectMemory();
         }
         SystemException.throwIt(SystemException.ILLEGAL_VALUE);
         return 0;
@@ -388,7 +388,7 @@ public class JCSystemProxy {
      * @see javacard.framework.Applet#getShareableInterfaceObject(AID, byte)
      */
     public static Shareable getAppletShareableInterfaceObject(AID serverAID, byte parameter) {
-        return Simulator.instance().getSharedObject(serverAID, parameter);
+        return Simulator.current().getSharedObject(serverAID, parameter);
     }
 
     /**
@@ -398,7 +398,7 @@ public class JCSystemProxy {
      * @return <CODE>true</CODE> if the object deletion mechanism is supported, <CODE>false</CODE> otherwise
      */
     public static boolean isObjectDeletionSupported() {
-        return Simulator.instance().isObjectDeletionSupported();
+        return Simulator.current().isObjectDeletionSupported();
     }
 
     /**
@@ -424,7 +424,7 @@ public class JCSystemProxy {
      */
     public static void requestObjectDeletion()
             throws SystemException {
-        Simulator.instance().requestObjectDeletion();
+        Simulator.current().requestObjectDeletion();
     }
 
     /**
@@ -443,7 +443,7 @@ public class JCSystemProxy {
      * currently selected applet instance
      */
     public static byte getAssignedChannel() {
-        return Simulator.instance().getAssignedChannel();
+        return Simulator.current().getAssignedChannel();
     }
 
     /**
@@ -460,7 +460,7 @@ public class JCSystemProxy {
      * AID parameter is currently active on this or another logical channel
      */
     public static boolean isAppletActive(AID theApplet) {
-        return (theApplet == Simulator.instance().getAID());
+        return (theApplet == Simulator.current().getAID());
     }
 
 }

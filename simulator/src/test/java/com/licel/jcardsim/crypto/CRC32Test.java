@@ -15,11 +15,10 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.Checksum;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,18 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Test for <code>CRC32</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class CRC32Test {
+public class CRC32Test extends SimulatorCoreTest {
 
     // etalon msg
     String MESSAGE = "C46A3D01F5494013F9DFF3C5392C64";
     // etalon crc
 //    String CRC = "7C6277D0";
     String CRC = "C6A5A2E4";
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
 
     /**
      * Test of of class CRC16.

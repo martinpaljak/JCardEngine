@@ -37,17 +37,7 @@ public class SimulatorTest {
     private static final Class<? extends Applet> TEST_APPLET_CLASS = HelloWorldApplet.class;
     private static final AID TEST_APPLET_AID = new AID(TEST_APPLET_AID_BYTES, (short) 0, (byte) TEST_APPLET_AID_BYTES.length);
 
-    byte[] createData = Simulator.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0f0f"));
-
-    /**
-     * Test of loadApplet method, of class Simulator.
-     */
-    @Test
-    public void testLoadApplet_AID_Class() {
-        System.out.println("loadApplet");
-        Simulator instance = new Simulator();
-        assertTrue(instance.loadApplet(TEST_APPLET_AID, TEST_APPLET_CLASS).equals(TEST_APPLET_AID));
-    }
+    byte[] createData = Helpers.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0f0f"));
 
     /**
      * Test of createApplet method, of class Simulator.
@@ -56,8 +46,7 @@ public class SimulatorTest {
     public void testCreateApplet() {
         System.out.println("createApplet");
         Simulator instance = new Simulator();
-        assertTrue(instance.loadApplet(TEST_APPLET_AID, TEST_APPLET_CLASS).equals(TEST_APPLET_AID));
-        assertTrue(instance.createApplet(TEST_APPLET_AID, createData, (short) 0, (byte) createData.length).equals(TEST_APPLET_AID));
+        assertTrue(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData).equals(TEST_APPLET_AID));
     }
 
     /**
@@ -149,19 +138,6 @@ public class SimulatorTest {
     }
 
     /**
-     * Test of resetRuntime method, of class Simulator.
-     */
-    @Test
-    public void testResetRuntime() {
-        System.out.println("resetRuntime");
-        Simulator instance = new Simulator();
-        instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        instance.resetRuntime();
-        // after reset runtime all applets removed
-        assertEquals(instance.selectApplet(TEST_APPLET_AID), false);
-    }
-
-    /**
      * Test of getATR method, of class Simulator.
      */
     @Test
@@ -178,8 +154,8 @@ public class SimulatorTest {
     @Test
     public void testSelectAppletWith2Simulators() {
         System.out.println("selectAppletWith2Simulators");
-        Simulator instance1 = new Simulator(new SimulatorRuntime());
-        Simulator instance2 = new Simulator(new SimulatorRuntime());
+        Simulator instance1 = new Simulator();
+        Simulator instance2 = new Simulator();
 
         instance1.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         assertTrue(instance1.selectApplet(TEST_APPLET_AID));
@@ -189,11 +165,11 @@ public class SimulatorTest {
         assertTrue(instance1.selectApplet(TEST_APPLET_AID));
         assertTrue(instance2.selectApplet(TEST_APPLET_AID));
 
-        instance2.resetRuntime();
+        instance2.deleteApplet(TEST_APPLET_AID);
         assertTrue(instance1.selectApplet(TEST_APPLET_AID));
         assertFalse(instance2.selectApplet(TEST_APPLET_AID));
 
-        instance1.resetRuntime();
+        instance1.deleteApplet(TEST_APPLET_AID);
         assertFalse(instance1.selectApplet(TEST_APPLET_AID));
         assertFalse(instance2.selectApplet(TEST_APPLET_AID));
     }
@@ -204,13 +180,8 @@ public class SimulatorTest {
         final Class<? extends Applet> APPLET_CLASS = TestResponseDataAndStatusWordApplet.class;
         final byte CLA = (byte) 0x01;
         final byte INS = (byte) 0x02;
-        class NotAbortingForSW6985SimulatorRuntime extends SimulatorRuntime {
-            protected final boolean isNotAbortingCase(byte[] SW) {
-                return Util.getShort(SW, (short) 0) == 0x6985;
-            }
-        }
 
-        Simulator instance = new Simulator(new NotAbortingForSW6985SimulatorRuntime());
+        Simulator instance = new Simulator();
 
         AID appletAID = AIDUtil.create(APPLET_AID_BYTES);
         instance.installApplet(appletAID, APPLET_CLASS);
@@ -225,12 +196,6 @@ public class SimulatorTest {
         System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
         apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
 
-        byte[] response = instance.transmitCommand(apduForTransmit);
-
-        ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertTrue(Arrays.areEqual(responseApdu.getData(), commandData));
-        assertEquals(0x6985, (short) responseApdu.getSW());
-
         // Test for SW=0x61XX warning, must have response data
         apduHeader = new byte[]{CLA, INS, 0x61, 0x12};
 
@@ -240,9 +205,9 @@ public class SimulatorTest {
         System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
         apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
 
-        response = instance.transmitCommand(apduForTransmit);
+        byte[] response = instance.transmitCommand(apduForTransmit);
 
-        responseApdu = new ResponseAPDU(response);
+        ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertTrue(Arrays.areEqual(responseApdu.getData(), commandData));
         assertEquals(0x6112, (short) responseApdu.getSW());
 
@@ -262,7 +227,7 @@ public class SimulatorTest {
         assertEquals(0x6434, (short) responseApdu.getSW());
 
         // Try with base SimulatorRuntime
-        instance = new Simulator(new SimulatorRuntime());
+        instance = new Simulator();
 
         appletAID = AIDUtil.create(APPLET_AID_BYTES);
         instance.installApplet(appletAID, APPLET_CLASS);

@@ -15,14 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateKey;
 import javacard.security.RSAPublicKey;
 import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test for <code>AsymmetricCipherImpl</code> and <code>ByteContainer.getBigInteger()</code> method.
  */
-public class RSACipherTest {
+public class RSACipherTest extends SimulatorCoreTest {
 
     // RSA keypair data
     private static final byte[] rsaPrivateKeyModulus = {
@@ -64,12 +63,6 @@ public class RSACipherTest {
             (byte) 0x9a, (byte) 0x4b, (byte) 0x28, (byte) 0x01};
 
     private static final byte[] rsaPublicKeyExponent = {(byte) 0x01, (byte) 0x00, (byte) 0x01};
-
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
 
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl and ByteContainer.getBigInteger() method.

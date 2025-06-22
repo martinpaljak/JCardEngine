@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.base.CardInterface;
 import com.licel.jcardsim.base.Simulator;
 
 import javax.smartcardio.*;
@@ -26,13 +27,13 @@ import javax.smartcardio.*;
  */
 public class JCSCard extends Card {
     // ATR
-    private ATR atr;
+    private final ATR atr;
     // Simulator
-    private Simulator simulator;
+    private final Simulator simulator;
     private JCSCardChannel basicChannel;
 
     public JCSCard(Simulator cardInterface) {
-        this.simulator = cardInterface;
+        simulator = cardInterface;
         atr = new ATR(cardInterface.getATR());
         basicChannel = new JCSCardChannel(this, 0);
     }
@@ -59,7 +60,7 @@ public class JCSCard extends Card {
      * Always returns basic channel with id = 0
      */
     public CardChannel openLogicalChannel() throws CardException {
-        return basicChannel;
+        throw new CardException("No logical channels");
     }
 
     /**
@@ -75,11 +76,12 @@ public class JCSCard extends Card {
     }
 
     public byte[] transmitControlCommand(int i, byte[] bytes) throws CardException {
-        throw new UnsupportedOperationException("Not supported yet.");
+        throw new UnsupportedOperationException("Not supported.");
     }
 
     /**
      * Disconnect form the card
+     *
      * @param reset true if the card should be reset
      * @see Card#disconnect(boolean)
      */

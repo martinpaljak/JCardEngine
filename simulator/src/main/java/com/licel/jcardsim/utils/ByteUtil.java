@@ -104,18 +104,6 @@ public final class ByteUtil {
     }
 
     /**
-     * Check status word from APDU
-     * @param apduBuffer APDU bytes
-     * @param expected expected status word
-     * @throws java.lang.NullPointerException if <code>apduBuffer</code> is null
-     * @throws java.lang.IllegalArgumentException if <code>apduBuffer.length</code>  is &lt; 2
-     * @throws java.lang.AssertionError if <code>expected</code> does not match the status word from <code>apduBuffer</code>
-     */
-    public static void requireSW(byte[] apduBuffer, short expected) {
-        requireSW(apduBuffer, expected & 0xFFFF);
-    }
-
-    /**
      * Read short from array
      * @see javacard.framework.Util#getShort(byte[], short)
      * @param bArray byte array

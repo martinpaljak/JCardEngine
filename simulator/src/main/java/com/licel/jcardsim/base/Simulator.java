@@ -1,4 +1,5 @@
 /*
+ * Copyright 2025 Martin Paljak
  * Copyright 2011 Licel LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,179 +19,156 @@ package com.licel.jcardsim.base;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
+import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Locale;
-import java.util.Objects;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.*;
 
 /**
- * Simulates a JavaCard.
+ * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
+ * manipulation MUST happen via these interfaces. Each Simulator is independent (like a single secure element)
  */
-public class Simulator implements CardInterface {
+public class Simulator implements CardInterface, JavaCardSimulator {
+    private static final Logger log = LoggerFactory.getLogger(Simulator.class);
+
     // default ATR - NXP JCOP 31/36K
     public static final String DEFAULT_ATR = "3BFA1800008131FE454A434F5033315632333298";
     // ATR system property name
     public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
-    /**
-     * Response status : Applet creation failed = 0x6444
-     */
-    public static final short SW_APPLET_CREATION_FAILED = 0x6444;
+    // If the simulator exposes object deletion support TODO: property
+    public static final boolean OBJECT_DELETION_SUPPORTED = false;
 
-    /**
-     * Holds the currently active instance
-     */
-    private static final ThreadLocal<SimulatorRuntime> currentRuntime = new ThreadLocal<>();
+    // Used to set the current simulator instance when two different simulators are run inside a single thread.
+    private static final ThreadLocal<Simulator> currentSimulator = new ThreadLocal<>();
 
-    // Runtime
-    protected final SimulatorRuntime runtime;
-    // current protocol
+    private final IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
+
+    private static ThreadLocal<InstallOperationOptions> options = new ThreadLocal<>();
+
+    // Installed applets
+    protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
+
+    protected final Method apduPrivateResetMethod;
+    // Outbound transfer buffer
+    protected final byte[] responseBuffer = new byte[Short.MAX_VALUE + 2];
+    // Outbound transfer buffer length
+    protected short responseBufferSize = 0;
+
+    // Transient memory
+    protected final TransientMemory transientMemory;
+    // APDU instance for short APDU-s
+    protected final APDU shortAPDU;
+    // APDU instance for extended APDU-s
+    protected final APDU extendedAPDU;
+    // Current applet context AID - FIXME: not correct
+    protected AID currentAID;
+    // Previously selected applet context - FIXME: not correct
+    protected AID previousAID;
+    // If applet selection is ongoing - FIXME: refactor
+    protected boolean selecting = false;
+    // If extended APDU-s are in use
+    protected boolean usingExtendedAPDUs = false;
+    // Current protocol
+    protected byte currentProtocol = APDU.PROTOCOL_T0;
+    // current protocol FIXME: doubled
     private String protocol = "T=0";
 
-    /**
-     * Create a Simulator object using the default SimulatorRuntime.
-     *
-     * <ul>
-     *     <li>All <code>Simulator</code> instances share one <code>SimulatorRuntime</code>.</li>
-     *     <li>SimulatorRuntime#resetRuntime is called</li>
-     *     <li>If you want multiple independent simulators use <code>Simulator(SimulatorRuntime)</code></li>
-     * </ul>
-     */
-    public Simulator() {
-        this(new SimulatorRuntime());
-    }
+    // transaction depth
+    protected byte transactionDepth = 0;
 
-    public Simulator(SimulatorRuntime runtime) {
-        Objects.requireNonNull(runtime, "SimulatorRuntime cannot be null");
-        this.runtime = runtime;
-        currentRuntime.set(runtime); // FIXME: remove split between runtime and simulator
-        this.runtime.resetRuntime();
+    // Number of allocated bytes
+    int bytesAllocated;
+
+    public Simulator() {
+        this.transientMemory = new TransientMemory();
+        makeCurrent();
+        // XXX: smell
+        try {
+            // The APDU implementation in JC API is final, so this is a hack to
+            // have a custom constructor for different types of APDU-s in APDUProxy
+            Constructor<?> ctor = APDU.class.getDeclaredConstructors()[0];
+            ctor.setAccessible(true);
+
+            shortAPDU = (APDU) ctor.newInstance(false);
+            extendedAPDU = (APDU) ctor.newInstance(true);
+
+            apduPrivateResetMethod = APDU.class.getDeclaredMethod("internalReset", byte.class, ApduCase.class, byte[].class);
+            apduPrivateResetMethod.setAccessible(true);
+        } catch (Exception e) {
+            throw new RuntimeException("Internal reflection error", e);
+        }
+        // XXX: smell
         changeProtocol(protocol);
     }
 
+    // When applet code calls back for the internal facade of the simulator,
+    // retiurn _this_ instance. This usually happens via JCSystem.* calls.
+    // and is the mirror of current()
+    private void makeCurrent() {
+        currentSimulator.set(this);
+    }
+
     /**
-     * Get the currently active SimulatorRuntime instance
+     * Get the currently active Simulator instance
      * <p>
-     * This method should be only called by JCE implementation classes like
+     * This method should be only called by internal implementation classes like
      * <code>JCSystem</code>
      *
-     * @return current instance
+     * @return current Simulator instance
      */
-    public static SimulatorRuntime instance() {
-        SimulatorRuntime simulatorRuntime = currentRuntime.get();
-        if (simulatorRuntime == null) {
-            throw new AssertionError("No current simulator instance");
+    public static Simulator current() {
+        Simulator currentInstance = currentSimulator.get();
+        if (currentInstance == null) {
+            throw new AssertionError("No current Simulator instance");
         }
-        return simulatorRuntime;
+        return currentInstance;
     }
 
-    /**
-     * Internal method to set the currently active SimulatorRuntime
-     *
-     * @param simulatorRuntime simulatorRuntime to set
-     * @return <code>simulatorRuntime</code>
-     */
-    static SimulatorRuntime setCurrentInstance(SimulatorRuntime simulatorRuntime) {
-        currentRuntime.set(simulatorRuntime);
-        return simulatorRuntime;
+    @Override
+    public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters) throws SystemException {
+        return installApplet(aid, appletClass, parameters, false);
     }
 
-    /**
-     * Load
-     * <code>Applet</code> into Simulator
-     *
-     * @param aid         applet aid
-     * @param appletClass applet class
-     * @return applet <code>AID</code>
-     * @throws SystemException if <code>appletClass</code> not instanceof
-     *                         <code>javacard.framework.Applet</code>
-     */
-    public AID loadApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
-        runtime.loadApplet(aid, appletClass);
-        return aid;
+    // Wrappers around the main install method
+    public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte bArray[], short bOffset, byte bLength) throws SystemException {
+        return installApplet(aid, appletClass, Arrays.copyOfRange(bArray, bOffset, bOffset + bLength));
     }
 
-    public AID createApplet(AID aid, byte bArray[], short bOffset, byte bLength) throws SystemException {
-        try {
-            runtime.installApplet(aid, bArray, bOffset, bLength);
-        } catch (Exception e) {
-            e.printStackTrace();
-            SystemException.throwIt(SW_APPLET_CREATION_FAILED);
-        }
-        return aid;
+    public AID installApplet(AID aid, Class<? extends Applet> appletClass) {
+        return installApplet(aid, appletClass, new byte[0], false);
     }
 
-    /**
-     * Install
-     * <code>Applet</code> into Simulator without installing data
-     *
-     * @param aid         applet aid or null
-     * @param appletClass applet class
-     * @return applet <code>AID</code>
-     * @throws SystemException if <code>appletClass</code> not instanceof
-     *                         <code>javacard.framework.Applet</code>
-     */
-    public AID installApplet(AID aid, Class<? extends Applet> appletClass) throws SystemException {
-        return installApplet(aid, appletClass, new byte[]{}, (short) 0, (byte) 0);
+    // These load the applet without class isolation, so that internals are exposed to caller.
+    public AID installExposedApplet(AID aid, Class<? extends Applet> appletClass, byte[] params) {
+        return installApplet(aid, appletClass, params, true);
     }
 
-    /**
-     * Install
-     * <code>Applet</code> into Simulator. This method is equal to:
-     * <code>
-     * loadApplet(...);
-     * createApplet(...);
-     * </code>
-     *
-     * @param aid         applet aid or null
-     * @param appletClass applet class
-     * @param bArray      the array containing installation parameters
-     * @param bOffset     the starting offset in bArray
-     * @param bLength     the length in bytes of the parameter data in bArray
-     * @return applet <code>AID</code>
-     * @throws SystemException if <code>appletClass</code> not instanceof
-     *                         <code>javacard.framework.Applet</code>
-     */
-    public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte bArray[], short bOffset,
-                             byte bLength) throws SystemException {
-        loadApplet(aid, appletClass);
-        return createApplet(aid, bArray, bOffset, bLength);
-    }
-
-    /**
-     * Delete an applet
-     *
-     * @param aid applet aid
-     */
-    public void deleteApplet(AID aid) {
-        runtime.deleteApplet(aid);
+    public AID installExposedApplet(AID aid, Class<? extends Applet> appletClass) {
+        return installApplet(aid, appletClass, new byte[0], true);
     }
 
     public boolean selectApplet(AID aid) throws SystemException {
+        log.info("SELECT " + AIDUtil.toString(aid));
         byte[] resp = selectAppletWithResult(aid);
+        log.info("SELECT Response: {}", Hex.toHexString(resp));
         return ByteUtil.getSW(resp) == ISO7816.SW_NO_ERROR;
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        return runtime.transmitCommand(AIDUtil.select(aid));
-    }
-
-    public byte[] transmitCommand(byte[] command) {
-        return runtime.transmitCommand(command);
-    }
-
-    public void reset() {
-        runtime.reset();
-    }
-
-    public final void resetRuntime() {
-        runtime.resetRuntime();
+        return transmitCommand(AIDUtil.select(aid));
     }
 
     public byte[] getATR() {
+        // FIXME: remove from this layer unless GPSystem.setATRHistBytes gets implemented
         return Hex.decode(System.getProperty(ATR_SYSTEM_PROPERTY, DEFAULT_ATR));
     }
 
-    protected byte getProtocolByte(String protocol) {
+    protected static byte getProtocolByte(String protocol) {
         Objects.requireNonNull(protocol, "protocol");
         String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
         byte protocolByte;
@@ -227,7 +205,7 @@ public class Simulator implements CardInterface {
      */
     // XXX: changing protocol during session is not really a thing.
     public void changeProtocol(String protocol) {
-        runtime.changeProtocol(getProtocolByte(protocol));
+        changeProtocol(getProtocolByte(protocol));
         this.protocol = protocol;
     }
 
@@ -239,23 +217,576 @@ public class Simulator implements CardInterface {
         return protocol;
     }
 
-    public static byte[] install_parameters(byte[] aid, byte[] params) {
-        if (params == null)
-            params = new byte[0];
-        byte[] privileges = Hex.decode("00");
-        byte[] data = new byte[1 + aid.length + 1 + privileges.length + 1 + params.length];
-        int offset = 0;
 
-        data[offset++] = (byte) aid.length;
-        System.arraycopy(aid, 0, data, offset, aid.length);
-        offset += aid.length;
+    /**
+     * @return current applet context AID or null
+     */
+    public AID getAID() {
+        return currentAID;
+    }
 
-        data[offset++] = (byte) privileges.length;
-        System.arraycopy(privileges, 0, data, offset, privileges.length);
-        offset += privileges.length;
+    /**
+     * Lookup applet by aid contains in byte array
+     *
+     * @param buffer the byte array containing the AID bytes
+     * @param offset the start of AID bytes in <code>buffer</code>
+     * @param length the length of the AID bytes in <code>buffer</code>
+     * @return Applet AID or null
+     */
+    public AID lookupAID(byte buffer[], short offset, byte length) {
+        // To return the "JC owned" AID instance.
+        for (AID aid : applets.keySet()) {
+            if (aid.equals(buffer, offset, length)) {
+                return aid;
+            }
+        }
+        return null;
+    }
 
-        data[offset++] = (byte) params.length;
-        System.arraycopy(params, 0, data, offset, params.length);
-        return data;
+    /**
+     * Lookup applet by aid
+     *
+     * @param lookupAid applet AID
+     * @return ApplicationInstance or null
+     */
+    public ApplicationInstance lookupApplet(AID lookupAid) {
+        log.info("Searching registry for {}", lookupAid == null ? null : AIDUtil.toString(lookupAid));
+        // To return the "JC owned" AID instance.
+        for (AID aid : applets.keySet()) {
+            if (aid.equals(lookupAid)) {
+                return applets.get(aid);
+            }
+        }
+        log.error("application with AID {} not found", AIDUtil.toString(lookupAid));
+        return null;
+    }
+
+    /**
+     * @return previous selected applet context AID or null
+     */
+    public AID getPreviousContextAID() {
+        return previousAID;
+    }
+
+    /**
+     * Return <code>Applet</code> by it's AID or null
+     *
+     * @param aid applet <code>AID</code>
+     * @return Applet or null
+     */
+    protected Applet getApplet(AID aid) {
+        // FIXME: this should NOT be called with null.
+        //Objects.requireNonNull(aid);
+        if (aid == null) {
+            return null;
+        }
+        ApplicationInstance a = lookupApplet(aid);
+        if (a == null) return null;
+        else return a.getApplet();
+    }
+
+    /**
+     * Delete applet
+     *
+     * @param aid Applet AID to delete
+     */
+    @Override
+    public void deleteApplet(AID aid) {
+        makeCurrent(); // We call into applet.
+        if (currentAID != null) {
+            deselect(lookupApplet(currentAID));
+        }
+        log.info("Deleting applet {}", AIDUtil.toString(aid));
+        ApplicationInstance app = lookupApplet(aid);
+
+        if (app == null) {
+            throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
+        }
+
+        Applet applet = app.getApplet();
+
+        // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
+        // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
+        if (applet instanceof AppletEvent) {
+            try {
+                // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
+                // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
+                ((AppletEvent) applet).uninstall();
+            } catch (Exception e) {
+                // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
+                log.warn("Applet.uninstall() failed", e);
+            }
+        }
+
+        applets.remove(aid);
+        currentAID = null;
+    }
+
+    /**
+     * Check if applet is currently being selected
+     *
+     * @param aThis applet
+     * @return true if applet is being selected
+     */
+    public boolean isAppletSelecting(Object aThis) {
+        return selecting;
+        // NOTE: there is a proxy in play, so identity makes no sense.
+        //return aThis == getApplet(getAID()) && selecting;
+    }
+
+    /**
+     * Transmit APDU to previous selected applet
+     *
+     * @param command command apdu
+     * @return response apdu
+     */
+    @Override
+    public byte[] transmitCommand(byte[] command) throws SystemException {
+        makeCurrent();
+
+        log.info("APDU: {}", Hex.toHexString(command));
+        final ApduCase apduCase = ApduCase.getCase(command);
+        final byte[] theSW = new byte[2];
+        byte[] response;
+
+        selecting = false;
+        final Applet applet;
+        final AID newAid;
+        // check if there is an applet to be selected
+        if (!apduCase.isExtended() && isAppletSelectionApdu(command)) {
+            log.info("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
+            newAid = findAppletForSelectApdu(command, apduCase);
+            log.info("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
+            // Nothing currently selected
+            if (currentAID == null) {
+                // No applet found
+                if (newAid == null) {
+                    Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
+                    return theSW;
+                } else {
+                    selecting = true;
+                    applet = lookupApplet(newAid).getApplet();
+                }
+            } else {
+                // Application currently selected
+                if (newAid == null) {
+                    // new application not found, send the SELECT APDU to current applet
+                    applet = lookupApplet(currentAID).getApplet();
+                } else {
+                    // run deselect
+                    deselect(lookupApplet(currentAID));
+                    // This APDU is selecting
+                    selecting = true;
+                    applet = lookupApplet(newAid).getApplet();
+                }
+            }
+        } else {
+            // Nothing selected and not a SELECT applet - done
+            if (currentAID == null) {
+                Util.setShort(theSW, (short) 0, ISO7816.SW_COMMAND_NOT_ALLOWED);
+                return theSW;
+            }
+            applet = lookupApplet(currentAID).getApplet();
+            newAid = null;
+        }
+
+        if (apduCase.isExtended()) {
+            if (applet instanceof ExtendedLength) {
+                usingExtendedAPDUs = true;
+            } else {
+                Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
+                return theSW;
+            }
+        } else {
+            usingExtendedAPDUs = false;
+        }
+
+        responseBufferSize = 0;
+        APDU apdu = getCurrentAPDU();
+        try {
+            if (selecting) {
+                currentAID = newAid; // so that JCSystem.getAID() would return the right thing
+                log.info("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
+                boolean success;
+                try {
+                    success = applet.select();
+                } catch (Exception e) {
+                    log.error("Exception in Applet.select(): {}", e.getMessage(), e);
+                    success = false;
+                }
+                if (!success) {
+                    log.warn("{} denied selection in Applet.select()", AIDUtil.toString(currentAID));
+                    // If the applet declines to be selected, the Java Card RE returns an APDU response status word of
+                    // ISO7816.SW_APPLET_SELECT_FAILED to the CAD. Upon selection failure, the Java Card RE state
+                    // is set to indicate that no applet is selected. See Section 4.6 Applet Selection for more details.
+                    currentAID = null;
+                    throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
+                }
+            }
+
+            // set apdu
+            resetAPDU(apdu, apduCase, command);
+
+            applet.process(apdu);
+            Util.setShort(theSW, (short) 0, (short) 0x9000);
+        } catch (Throwable e) {
+            Util.setShort(theSW, (short) 0, ISO7816.SW_UNKNOWN);
+            if (e instanceof ISOException) {
+                Util.setShort(theSW, (short) 0, ((ISOException) e).getReason());
+            } else {
+                if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
+                    log.error("Exception in process(): {}", e.getClass().getName());
+                } else {
+                    log.error("Exception in process(): {}", e.getClass().getSimpleName(), e);
+                }
+            }
+        } finally {
+            selecting = false;
+            resetAPDU(apdu, null, null);
+        }
+
+        // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
+        if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
+            response = new byte[responseBufferSize + 2];
+            Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
+            Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
+        } else {
+            response = theSW;
+        }
+
+        return response;
+    }
+
+    /**
+     * Check if secure channel is not aborted
+     * This method must be override in subclass that have secure channel abort checking
+     *
+     * @param SW Status word
+     * @return True if secure channel is not aborted
+     */
+    protected boolean isNotAbortingCase(byte[] SW) {
+        return false;
+    }
+
+    protected AID findAppletForSelectApdu(byte[] selectApdu, ApduCase apduCase) {
+        if (apduCase == ApduCase.Case1 || apduCase == ApduCase.Case2) {
+            // on a regular Smartcard we would select the CardManager applet
+            // in this case we just select the first applet
+            // XXX: does not belong here
+            currentAID = null;
+            return null;
+        }
+
+        for (AID aid : applets.keySet()) {
+            if (aid.equals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
+                log.trace("Selecting {} based on full AID match", AIDUtil.toString(aid));
+                return aid;
+            }
+        }
+
+        for (AID aid : applets.keySet()) {
+            if (aid.partialEquals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
+                log.trace("Selecting {} based on partial AID match", AIDUtil.toString(aid));
+                return aid;
+            }
+        }
+
+        return null;
+    }
+
+    private void deselect(ApplicationInstance app) {
+        log.info("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
+        try {
+            Applet applet = app.getApplet();
+            applet.deselect();
+        } catch (Exception e) {
+            log.warn("Applet.deselect() failed", e);
+            // ignore all
+        }
+
+        currentAID = null;
+
+        if (getTransactionDepth() != 0) {
+            abortTransaction();
+        }
+        transientMemory.clearOnDeselect();
+    }
+
+    /**
+     * Copy response bytes to internal buffer
+     *
+     * @param buffer source byte array
+     * @param bOff   the starting offset in buffer
+     * @param len    the length in bytes of the response
+     */
+    public void sendAPDU(byte[] buffer, short bOff, short len) {
+        responseBufferSize = Util.arrayCopyNonAtomic(buffer, bOff, responseBuffer, responseBufferSize, len);
+    }
+
+    /**
+     * powerdown/powerup
+     */
+    public void reset() {
+        Arrays.fill(responseBuffer, (byte) 0);
+        transactionDepth = 0;
+        responseBufferSize = 0;
+        currentAID = null;
+        previousAID = null;
+        transientMemory.clearOnReset();
+    }
+
+    public TransientMemory getTransientMemory() {
+        return transientMemory;
+    }
+
+    protected void resetAPDU(APDU apdu, ApduCase apduCase, byte[] buffer) {
+        try {
+            apduPrivateResetMethod.invoke(apdu, currentProtocol, apduCase, buffer);
+        } catch (Exception e) {
+            throw new RuntimeException("Internal reflection error", e);
+        }
+    }
+
+    public APDU getCurrentAPDU() {
+        return usingExtendedAPDUs ? extendedAPDU : shortAPDU;
+    }
+
+    /**
+     * Change protocol
+     *
+     * @param protocol protocol bits
+     * @see javacard.framework.APDU#getProtocol()
+     */
+    public void changeProtocol(byte protocol) {
+        this.currentProtocol = protocol;
+        resetAPDU(shortAPDU, null, null);
+        resetAPDU(extendedAPDU, null, null);
+    }
+
+    public byte getAssignedChannel() {
+        return 0; // basic channel
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#beginTransaction()
+     */
+    public void beginTransaction() {
+        if (transactionDepth != 0) {
+            TransactionException.throwIt(TransactionException.IN_PROGRESS);
+        }
+        transactionDepth = 1;
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#abortTransaction()
+     */
+    public void abortTransaction() {
+        if (transactionDepth == 0) {
+            TransactionException.throwIt(TransactionException.NOT_IN_PROGRESS);
+        }
+        transactionDepth = 0;
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#commitTransaction()
+     */
+    public void commitTransaction() {
+        if (transactionDepth == 0) {
+            TransactionException.throwIt(TransactionException.NOT_IN_PROGRESS);
+        }
+        transactionDepth = 0;
+    }
+
+    /**
+     * @return 1 if transaction in progress, 0 if not
+     * @see javacard.framework.JCSystem#getTransactionDepth()
+     */
+    public byte getTransactionDepth() {
+        return transactionDepth;
+    }
+
+    /**
+     * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
+     */
+    public short getUnusedCommitCapacity() {
+        return Short.MAX_VALUE;
+    }
+
+    /**
+     * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getMaxCommitCapacity()
+     */
+    public short getMaxCommitCapacity() {
+        return Short.MAX_VALUE;
+    }
+
+    /**
+     * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
+     */
+    public short getAvailablePersistentMemory() {
+        return Short.MAX_VALUE;
+    }
+
+    /**
+     * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
+     */
+    public short getAvailableTransientResetMemory() {
+        return Short.MAX_VALUE;
+    }
+
+    /**
+     * @return The current implementation always returns 32767
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
+     */
+    public short getAvailableTransientDeselectMemory() {
+        return Short.MAX_VALUE;
+    }
+
+    /**
+     * @param serverAID the AID of the server applet
+     * @param parameter optional parameter data
+     * @return the shareable interface object or <code>null</code>
+     * @see javacard.framework.JCSystem#getAppletShareableInterfaceObject(javacard.framework.AID, byte)
+     */
+    public Shareable getSharedObject(AID serverAID, byte parameter) {
+        log.info("Getting Shareable from {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
+        Applet serverApplet = getApplet(serverAID);
+        if (serverApplet != null) {
+            return serverApplet.getShareableInterfaceObject(getAID(), parameter);
+        }
+        log.warn("Did not find server AID {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
+        return null;
+    }
+
+    /**
+     * @return always false
+     * @see javacard.framework.JCSystem#isObjectDeletionSupported()
+     */
+    public boolean isObjectDeletionSupported() {
+        return OBJECT_DELETION_SUPPORTED;
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#requestObjectDeletion()
+     */
+    public void requestObjectDeletion() {
+        if (!isObjectDeletionSupported()) {
+            throw new SystemException(SystemException.ILLEGAL_USE);
+        }
+    }
+
+    protected static boolean isAppletSelectionApdu(byte[] apdu) {
+        final byte channelMask = (byte) 0xFC; // mask out %b000000xx
+        final byte p2Mask = (byte) 0xE3; // mask out %b000xxx00
+
+        final byte cla = (byte) (apdu[ISO7816.OFFSET_CLA] & channelMask);
+        final byte ins = apdu[ISO7816.OFFSET_INS];
+        final byte p1 = apdu[ISO7816.OFFSET_P1];
+        final byte p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
+
+        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
+    }
+
+    private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
+        makeCurrent();
+
+        // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
+        if (currentAID != null) {
+            deselect(lookupApplet(currentAID));
+        }
+
+        final Class<?> isolated;
+
+        try {
+            isolated = exposed ? appletClass : classLoader.loadClass(appletClass.getName());
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+        }
+
+        // Resolve the install method
+        Method installMethod;
+        try {
+            installMethod = isolated.getMethod("install", byte[].class, short.class, byte.class);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class does not provide install method");
+        }
+
+        // Construct _actual_ install parameters
+        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
+
+        // Call the install() method.
+        options.set(new InstallOperationOptions(appletAID, exposed));
+        try {
+            installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
+        } catch (InvocationTargetException e) {
+            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
+            try {
+                ISOException isoException = (ISOException) e.getCause();
+                throw isoException;
+            } catch (ClassCastException cce) { // FIXME: smell
+                throw new SystemException(SystemException.ILLEGAL_AID);
+            }
+        } catch (Exception e) {
+            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
+            throw new SystemException(SystemException.ILLEGAL_AID);
+        } finally {
+            if (options.get() != null) {
+                log.error("install() did not call register()");
+                SystemException.throwIt(SystemException.ILLEGAL_AID);
+            }
+        }
+        return appletAID;
+    }
+
+    // Callback from Applet.register()
+    public void register(Object instance) {
+        try {
+            // Already registered or not via install() or already registered.
+            if (options.get() == null || applets.containsKey(options.get().aid)) {
+                log.warn("{} already registered or not called from install()", instance.getClass().getName());
+                SystemException.throwIt(SystemException.ILLEGAL_AID);
+            }
+            AID instanceAID = options.get().aid;
+            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(instanceAID), System.identityHashCode(this));
+
+            applets.put(instanceAID, new ApplicationInstance(instanceAID, instance, options.get().exposed));
+        } finally {
+            options.remove();
+        }
+    }
+
+    // Callback from Applet.register()
+    public void register(Object instance, byte[] buffer, short offset, byte len) {
+        try {
+            AID actual = new AID(buffer, offset, len);
+            if (options.get() == null || applets.containsKey(actual))
+                SystemException.throwIt(SystemException.ILLEGAL_AID);
+            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(actual), System.identityHashCode(this));
+            applets.put(actual, new ApplicationInstance(actual, instance, options.get().exposed));
+        } finally {
+            options.remove();
+        }
+    }
+
+    // Intercepted from bytecode
+    public static byte[] allocate(int size) {
+        Simulator current = Simulator.current();
+        log.trace("Allocating {} bytes in {}", size, System.identityHashCode(current));
+        current.bytesAllocated += size;
+        return new byte[size];
+    }
+
+
+    private static class InstallOperationOptions {
+        public final AID aid;
+        public final boolean exposed;
+
+        public InstallOperationOptions(AID aid, boolean exposed) {
+            this.aid = aid;
+            this.exposed = exposed;
+        }
     }
 }

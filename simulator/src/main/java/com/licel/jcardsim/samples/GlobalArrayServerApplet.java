@@ -28,8 +28,8 @@ import javacard.framework.*;
  * </ul>
  */
 
-public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAccess{
-    private final static byte CLA = 0x10; 
+public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAccess {
+    private final static byte CLA = 0x10;
     private final static byte INS_INIT_GLOBAL_ARRAY_BYTE = 0x01;
     private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
 
@@ -38,7 +38,7 @@ public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAc
 
     private Object globalArray = null;
 
-    protected GlobalArrayServerApplet(){
+    protected GlobalArrayServerApplet() {
         transientMemory = JCSystem.makeTransientByteArray(MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES, JCSystem.CLEAR_ON_DESELECT);
         register();
     }
@@ -50,18 +50,18 @@ public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAc
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if(selectingApplet()) {
+        if (selectingApplet()) {
             return;
         }
 
         byte[] buffer = apdu.getBuffer();
 
         // Verify CLA
-        if( buffer[ISO7816.OFFSET_CLA] != CLA){
+        if (buffer[ISO7816.OFFSET_CLA] != CLA) {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
 
-        switch(buffer[ISO7816.OFFSET_INS]){
+        switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_INIT_GLOBAL_ARRAY_BYTE:
                 initGlobalArrayByte(apdu);
                 return;
@@ -73,7 +73,7 @@ public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAc
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
 
         }
-    } 
+    }
 
     public Shareable getShareableInterfaceObject(AID clientAID, byte parameter) {
         return this;
@@ -84,35 +84,35 @@ public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAc
         byte[] buffer = apdu.getBuffer();
         byte size = buffer[ISO7816.OFFSET_P1];
 
-        if( (size > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (size == 0) ) {
+        if ((size > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (size == 0)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         byte init_val = buffer[ISO7816.OFFSET_P2];
-        globalArray = JCSystem.makeGlobalArray( JCSystem.ARRAY_TYPE_BYTE,size);
-        for (byte i=0; i<size; i++ ) {
-            ((byte[])globalArray)[i] = init_val;
+        globalArray = JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, size);
+        for (byte i = 0; i < size; i++) {
+            ((byte[]) globalArray)[i] = init_val;
         }
     }
 
-    private void writeGlobalArrayByte(APDU apdu){
+    private void writeGlobalArrayByte(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte numBytes = buffer[ISO7816.OFFSET_LC];
-        if( (numBytes > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (numBytes == 0) ){
+        if ((numBytes > MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES) || (numBytes == 0)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        byte bytesRead = (byte)apdu.setIncomingAndReceive();
+        byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, transientMemory, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
-            bytesRead = (byte)apdu.receiveBytes(ISO7816.OFFSET_CDATA);
+            bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
 
-        for (byte i=0; i<numBytes; i++ ) {
-            ((byte[])globalArray)[i] = transientMemory[i];
+        for (byte i = 0; i < numBytes; i++) {
+            ((byte[]) globalArray)[i] = transientMemory[i];
         }
     }
 

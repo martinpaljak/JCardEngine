@@ -5,13 +5,9 @@
     <Match>
         <Package name="com.licel.jcardsim.samples"/>
     </Match>
-    <!-- Until it become un-deprecated-->
+    <!-- Reflection use in constructor -->
     <Match>
-        <Class name="com.licel.jcardsim.base.PersistentSimulatorRuntime"/>
-    </Match>
-    <!-- Use of reflection in constructor -->
-    <Match>
-        <Class name="com.licel.jcardsim.base.SimulatorRuntime"/>
+        <Class name="com.licel.jcardsim.base.Simulator"/>
         <Bug pattern="CT_CONSTRUCTOR_THROW"/>
     </Match>
     <!-- JavaCard constructors throw by design -->

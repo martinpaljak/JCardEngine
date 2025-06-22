@@ -26,31 +26,26 @@ public class TestResponseDataAndStatusWordApplet extends Applet {
     final static byte CLA = (byte) 0x01;
     final static byte INS = (byte) 0x02;
 
-    protected TestResponseDataAndStatusWordApplet(){
-        register();
-    }
-
-    public static void install(byte[] bArray, short bOffset, byte bLength)
-            throws ISOException {
-        new TestResponseDataAndStatusWordApplet();
+    public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
+        new TestResponseDataAndStatusWordApplet().register();
     }
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if(selectingApplet()) {
+        if (selectingApplet()) {
             return;
         }
 
         byte[] buffer = apdu.getBuffer();
 
-        if( buffer[ISO7816.OFFSET_CLA] != CLA){
+        if (buffer[ISO7816.OFFSET_CLA] != CLA) {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
 
         byte P1 = buffer[ISO7816.OFFSET_P1];
         byte P2 = buffer[ISO7816.OFFSET_P2];
 
-        if( buffer[ISO7816.OFFSET_INS] != INS){
+        if (buffer[ISO7816.OFFSET_INS] != INS) {
             ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
         }
 
@@ -58,19 +53,19 @@ public class TestResponseDataAndStatusWordApplet extends Applet {
         short Lc = apdu.getIncomingLength();
         short offsetCData = apdu.getOffsetCdata();
         short read = readCnt;
-        while(read < Lc) {
+        while (read < Lc) {
             read += apdu.receiveBytes(read);
         }
 
         short Ne = apdu.setOutgoing();
 
         byte[] CDataBytes = JCSystem.makeTransientByteArray(Lc, JCSystem.CLEAR_ON_DESELECT);
-        Util.arrayCopyNonAtomic(buffer,offsetCData,CDataBytes, (short) 0, Lc);
+        Util.arrayCopyNonAtomic(buffer, offsetCData, CDataBytes, (short) 0, Lc);
 
         apdu.setOutgoingLength(Ne);
-        apdu.sendBytesLong(CDataBytes, (short) 0,Ne);
+        apdu.sendBytesLong(CDataBytes, (short) 0, Ne);
 
-        short statusWord = Util.makeShort(P1,P2);
+        short statusWord = Util.makeShort(P1, P2);
 
         // Force throw exception
         ISOException.throwIt(statusWord);

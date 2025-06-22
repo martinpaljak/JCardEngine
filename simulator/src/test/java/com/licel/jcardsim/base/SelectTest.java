@@ -9,16 +9,18 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SelectTest {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_GET_FULL_AID = 0;
 
-    private static boolean selectedCalled;
 
-    private static class UnselectableApplet extends Applet {
+    public static class UnselectableApplet extends Applet {
+        public static boolean selectedCalled;
+
+        private byte[] array = new byte[12];
+
         @SuppressWarnings("unused")
         public static void install(byte[] bArray, short bOffset, byte bLength) {
             new UnselectableApplet().register();
@@ -32,6 +34,10 @@ public class SelectTest {
 
         @Override
         public void process(APDU apdu) throws ISOException {
+        }
+
+        public boolean selectCalled() {
+            return selectedCalled;
         }
     }
 
@@ -48,17 +54,20 @@ public class SelectTest {
                 AIDUtil.create("0100CAFE01"),
                 AIDUtil.create("0200888888")
         };
+
+        AID[] expected = new AID[]{
+                AIDUtil.create("0100CAFE01"),
+                AIDUtil.create("0200888888"),
+                AIDUtil.create("A000008812"),
+                AIDUtil.create("D0000CAFE000"),
+                AIDUtil.create("D0000CAFE00001"),
+                AIDUtil.create("D0000CAFE00023"),
+                AIDUtil.create("D0000CAFE001"),
+                AIDUtil.create("FF00066767")
+        };
         Arrays.sort(input, AIDUtil.comparator());
 
-        String[] tmp = new String[input.length];
-        for (int i = 0; i < input.length; i++) {
-            tmp[i] = AIDUtil.toString(input[i]);
-        }
-        // FIXME - just say no
-        String expected = "[0100CAFE01, 0200888888, A000008812, " +
-                "D0000CAFE000, D0000CAFE00001, D0000CAFE00023, D0000CAFE001, FF00066767]";
-
-        assertEquals(expected, Arrays.toString(tmp));
+        assertArrayEquals(expected, input);
     }
 
     private Simulator prepareSimulator() {
@@ -98,32 +107,22 @@ public class SelectTest {
 
     @Test
     public void testEmptySelectWorks() {
-        final byte[] expected = Hex.decode("0102030405060708099000");
+        // Expected to always reset the currentAID and return "not found"
         Simulator simulator = prepareSimulator();
-
-        // should select 010203040506070809
-        simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
-        assertEquals(Arrays.toString(expected), Arrays.toString(actual));
-
-        // should select 010203040506070809
-        simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 0});
-        actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
-        assertEquals(Arrays.toString(expected), Arrays.toString(actual));
+        byte[] actual = simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
+        assertEquals(Arrays.toString(Hex.decode("6A82")), Arrays.toString(actual));
     }
 
     @Test
     public void testCanNotSelectUnselectableApplet() {
-        selectedCalled = false;
-
         AID aid = AIDUtil.create("010203040506070809");
         Simulator simulator = new Simulator();
-        simulator.installApplet(aid, UnselectableApplet.class);
+        simulator.installExposedApplet(aid, UnselectableApplet.class);
 
         byte[] result = simulator.selectAppletWithResult(aid);
         assertEquals(2, result.length);
         assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, Util.getShort(result, (short) 0));
-        assertTrue(selectedCalled);
+        assertTrue(UnselectableApplet.selectedCalled);
     }
 
     @Test

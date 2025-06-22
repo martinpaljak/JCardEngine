@@ -1,6 +1,7 @@
 package pro.javacard.jcardsim.core;
 
 import com.licel.jcardsim.base.CardInterface;
+import com.licel.jcardsim.base.Helpers;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
@@ -105,13 +106,18 @@ public class ThreadedSimulator implements CardInterface, Runnable {
         return resp.getPayload();
     }
 
+    @Override
+    public String getProtocol() {
+        return sim.getProtocol();
+    }
+
     // Called from inside the thread, but exposed for re-usability
     public static Simulator makeSimulator(List<InstallSpec> applets) {
         Simulator sim = new Simulator();
         sim.changeProtocol("T=CL,TYPE_A,T1");
         for (InstallSpec applet : applets) {
             log.info("Installing applet: {} as {} with {}", applet.klass.getSimpleName(), Hex.toHexString(applet.aid), Hex.toHexString(applet.installData));
-            byte[] installdata = Simulator.install_parameters(applet.aid, applet.installData);
+            byte[] installdata = Helpers.install_parameters(applet.aid, applet.installData);
             AID aid = new AID(applet.aid, (short) 0, (byte) applet.aid.length);
             sim.installApplet(aid, applet.klass, installdata, (short) 0, (byte) installdata.length);
         }

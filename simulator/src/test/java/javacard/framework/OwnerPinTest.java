@@ -16,18 +16,12 @@
 package javacard.framework;
 
 
-import com.licel.jcardsim.base.Simulator;
-import org.junit.jupiter.api.BeforeAll;
+import com.licel.jcardsim.SimulatorCoreTest;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class OwnerPinTest {
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
+public class OwnerPinTest extends SimulatorCoreTest {
 
     @Test
     public void testConstructor1() {

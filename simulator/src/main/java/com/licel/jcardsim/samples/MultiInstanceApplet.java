@@ -41,12 +41,14 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
 
     private boolean locked = false;
 
+    private byte[] dummy = new byte[42];
+
     public static void install(byte[] bArray, short bOffset, byte bLength) {
         new MultiInstanceApplet().register();
     }
 
     protected MultiInstanceApplet() {
-        ++ instanceCounter;
+        ++instanceCounter;
     }
 
     @Override
@@ -72,7 +74,7 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
             buffer[2] = (byte) (dataSize + 2);
             buffer[3] = (byte) 0x84;  // Tag: Dedicated File (DF) Name
             buffer[4] = dataSize;
-            apdu.setOutgoingAndSend((short) 1, (short)(dataSize + 4));
+            apdu.setOutgoingAndSend((short) 1, (short) (dataSize + 4));
             return;
         }
 
@@ -83,12 +85,13 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_GET_FULL_AID: {
                 short dataSize = JCSystem.getAID().getBytes(buffer, (short) 0);
-                apdu.setOutgoingAndSend((short)0, dataSize);
+                apdu.setOutgoingAndSend((short) 0, dataSize);
                 break;
             }
             case INS_GET_COUNT: {
-                Util.setShort(buffer, (short)0, instanceCounter);
-                apdu.setOutgoingAndSend((short)0, (short) 2);
+                Util.setShort(buffer, (short) 0, instanceCounter);
+                apdu.setOutgoingAndSend((short) 0, (short) 2);
+                break;
             }
             case INS_MAKE_UNUSABLE: {
                 locked = true;
@@ -100,6 +103,6 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
     }
 
     public void uninstall() {
-        -- instanceCounter;
+        --instanceCounter;
     }
 }

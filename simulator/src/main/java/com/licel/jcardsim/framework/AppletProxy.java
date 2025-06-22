@@ -25,10 +25,6 @@ import java.util.function.BiConsumer;
  * @see Applet
  */
 public class AppletProxy {
-    /**
-     * The current registration callback, set by SimulatorRuntime via reflection.
-     */
-    private static final ThreadLocal<BiConsumer<AppletProxy,AID>> registrationCallback = new ThreadLocal<>();
 
     /**
      * Only this class's <code>install()</code> method should create the applet object.
@@ -183,15 +179,8 @@ public class AppletProxy {
      * <code>register()</code> methods or if a Java Card runtime environment initiated <code>install()</code> method execution is not in progress.
      * </ul>
      */
-    protected final void register()
-            throws SystemException {
-        BiConsumer<AppletProxy,AID> callback = registrationCallback.get();
-        if (callback == null) { // not called from install()
-            SystemException.throwIt(SystemException.ILLEGAL_AID);
-        }
-        else {
-            callback.accept(this, null);
-        }
+    protected final void register() throws SystemException {
+        Simulator.current().register(this);
     }
 
     /**
@@ -215,16 +204,11 @@ public class AppletProxy {
      *<code>register()</code> methods or if a Java Card runtime environment-initiated <code>install()</code> method execution is not in progress.
      *</ul>
      */
-    protected final void register(byte bArray[], short bOffset, byte bLength)
-            throws SystemException {
+    protected final void register(byte bArray[], short bOffset, byte bLength) throws SystemException {
         if (bLength < 5 || bLength > 16) {
             throw new SystemException(SystemException.ILLEGAL_VALUE);
         }
-        BiConsumer<AppletProxy,AID> callback = registrationCallback.get();
-        if (callback == null) { // not called from install()
-            throw new SystemException(SystemException.ILLEGAL_AID);
-        }
-        callback.accept(this, new AID(bArray, bOffset, bLength));
+       Simulator.current().register(this,  bArray,  bOffset,  bLength);
     }
 
     /**
@@ -234,7 +218,7 @@ public class AppletProxy {
      * @return <code>true</code> if <code>this</code> applet is being selected
      */
     protected final boolean selectingApplet() {
-        return Simulator.instance().isAppletSelecting(this);
+        return Simulator.current().isAppletSelecting(this);
     }
     
 }

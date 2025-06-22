@@ -67,12 +67,8 @@ public final class CardTerminalSimulator {
      * @throws java.lang.NullPointerException if name or cardSimulator is null
      */
     public static CardTerminal terminal(CardSimulator cardSimulator, String name) {
-        if (name == null) {
-            throw new NullPointerException("name");
-        }
-        if (cardSimulator == null) {
-            throw new NullPointerException("cardSimulator");
-        }
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(cardSimulator, "cardSimulator");
         CardTerminal cardTerminal = terminals(name).getTerminal(name);
         cardSimulator.assignToTerminal(cardTerminal);
         return cardTerminal;

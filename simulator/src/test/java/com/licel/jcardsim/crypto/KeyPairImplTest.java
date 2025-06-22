@@ -15,10 +15,9 @@ package com.licel.jcardsim.crypto;
  * limitations under the License.
  */
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.*;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -29,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Test for <code>KeyPairImpl</code>
  */
-public class KeyPairImplTest {
+public class KeyPairImplTest extends SimulatorCoreTest {
 
     static final short[] RSA_SIZES = new short[]{KeyBuilder.LENGTH_RSA_512,
             KeyBuilder.LENGTH_RSA_736, KeyBuilder.LENGTH_RSA_768, KeyBuilder.LENGTH_RSA_896,
@@ -47,11 +46,6 @@ public class KeyPairImplTest {
     static final short[] DH_SIZES = new short[]{KeyBuilder.LENGTH_DH_1024, DHKeyImpl.LENGTH_DH_1536,
             KeyBuilder.LENGTH_DH_2048
     };
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
 
     @Test
     public void testConstructor() {

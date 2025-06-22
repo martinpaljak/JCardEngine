@@ -44,6 +44,7 @@ public final class AutoResetEvent {
 
     /**
      * Wait until thread is signaled or interrupted.
+     *
      * @param time time to wait
      * @param unit time unit of <code>time</code>
      * @return true if signaled

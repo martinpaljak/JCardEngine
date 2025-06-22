@@ -48,6 +48,12 @@
             <!-- TODO: Until it is properly tested -->
             <optional>true</optional>
         </dependency>
+        <!-- Instance proxy for Applets -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>1.15.1</version>
+        </dependency>
         <!-- ASM for bytecode processing - not needed by downstreams -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
@@ -150,11 +156,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.3</version>
-                <!-- FIXME: remove once the threading has been fixed in simulator/simulatorruntime -->
-                <configuration>
-                    <forkCount>1C</forkCount>
-                    <reuseForks>true</reuseForks>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

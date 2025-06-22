@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Contains all listing from the documentation
  */
-public class DocumentationCodeSamplesTest {
+public class DocumentationCodeSamplesTest implements SmartCardTest {
 
     @Test
     public void testCodeListingReadme() {
@@ -37,7 +37,7 @@ public class DocumentationCodeSamplesTest {
         ResponseAPDU response = simulator.transmitCommand(commandAPDU);
 
         // 5. Check response status word
-        assertEquals(0x9000, response.getSW());
+        assertSW(0x9000, response.getSW());
     }
 
     @Test

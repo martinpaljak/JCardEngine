@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.InitializedMessageDigest;
 import javacard.security.MessageDigest;
 import org.bouncycastle.util.Arrays;
@@ -29,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Test for <code>MessageDigestImpl</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class MessageDigestImplTest {
+public class MessageDigestImplTest extends SimulatorCoreTest {
 
     static final String MESSAGE1 = "F9607F6E66B4162C";
     static final String MESSAGE2 = "26C69FC4C14399A399B5B28AD9CC5B91796BC2565C5580BAC1BE10808F71949D8B";

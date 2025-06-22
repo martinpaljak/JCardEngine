@@ -15,9 +15,12 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -28,6 +31,7 @@ import java.util.Arrays;
  */
 public final class ByteContainer {
 
+    private static final Logger log = LoggerFactory.getLogger(ByteContainer.class);
     private byte[] data;
     private byte memoryType;
     private short length = 0;
@@ -83,6 +87,7 @@ public final class ByteContainer {
             throw new IllegalArgumentException("Negative bInteger");
         }
 
+        // XXX: probably would want to deal with left-padding with zeros
         byte[] array = bInteger.toByteArray();
         if (array[0] == 0 && array.length > 1) {
             byte[] trimmedArray = new byte[array.length - 1];
@@ -108,6 +113,9 @@ public final class ByteContainer {
      * @param length length of data in byte array
      */
     public void setBytes(byte[] buff, short offset, short length) {
+        if (data != null && this.length < length) {
+            log.error("ATTENTION! container size is smaller than data: {}/{} vs {}", this.length, data.length, length);
+        }
         if (data == null || this.length != length) {
             // XXX: this "leaks"
             switch (memoryType) {
@@ -118,7 +126,7 @@ public final class ByteContainer {
                     data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_RESET);
                     break;
                 default:
-                    data = new byte[length];
+                    data = Simulator.allocate(length);
                     break;
             }
         }

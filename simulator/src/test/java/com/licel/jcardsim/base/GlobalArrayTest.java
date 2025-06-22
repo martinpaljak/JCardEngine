@@ -48,9 +48,7 @@ public class GlobalArrayTest {
         serverAppletAID = AIDUtil.create(serverAppletAIDBytes);
         clientAppletAIDStr = "090807060504030201";
         clientAppletAID = AIDUtil.create(clientAppletAIDStr);
-        clientAppletPar = new byte[1 + serverAppletAIDBytes.length];
-        clientAppletPar[0] = (byte) serverAppletAIDBytes.length;
-        System.arraycopy(serverAppletAIDBytes, 0, clientAppletPar, 1, serverAppletAIDBytes.length);
+        clientAppletPar = serverAppletAIDBytes.clone();
 
         bytesForTest = new byte[32];
         for (byte i = 0; i < 32; i++) {
@@ -78,7 +76,7 @@ public class GlobalArrayTest {
     public void testAccessGlobalArrayByteByServerApplet() {
         Simulator instance = new Simulator();
 
-        assertTrue(instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
+        assertTrue(instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
         assertEquals(instance.selectApplet(serverAppletAID), true);
 
         // Get global array reference from server applet
@@ -126,8 +124,8 @@ public class GlobalArrayTest {
         Simulator instance = new Simulator();
 
         // Install server and client applet
-        assertTrue(instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
-        assertTrue(instance.installApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar, (short) 0, (byte) clientAppletPar.length).equals(clientAppletAID));
+        assertTrue(instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
+        assertTrue(instance.installExposedApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar).equals(clientAppletAID));
 
         // Select server applet
         assertTrue(instance.selectApplet(serverAppletAID));

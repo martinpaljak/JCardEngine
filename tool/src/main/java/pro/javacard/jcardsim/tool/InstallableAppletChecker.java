@@ -13,6 +13,7 @@ import java.nio.file.Path;
 
 // Use ASM to filter out classes that extend javacard.framework.Applet
 // and have static install(byte[], short, byte) method
+// TODO: bytebuddy
 public class InstallableAppletChecker {
 
     public static boolean isValidApplet(Path classFilePath, ClassLoader cl) {

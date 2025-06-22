@@ -95,8 +95,8 @@ public class ApduContextTest {
         AID otherAppletAID = AIDUtil.create("d0000cafe00001");
         AID dummyAppletAID = AIDUtil.create("d0000cafe00002");
 
-        simulator.installApplet(otherAppletAID, HelloWorldApplet.class);
-        simulator.installApplet(dummyAppletAID, DummyApplet.class);
+        simulator.installExposedApplet(otherAppletAID, HelloWorldApplet.class);
+        simulator.installExposedApplet(dummyAppletAID, DummyApplet.class);
         assertTrue(DummyApplet.exceptionInInstall);
 
         simulator.selectApplet(dummyAppletAID);

@@ -15,14 +15,13 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
 import javacard.security.RSAPublicKey;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
@@ -33,12 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Test for <code>AsymmetricCipherImpl</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class AsymmetricCipherImplTest {
-
-    @BeforeAll
-    static void setup() {
-        Simulator sim = new Simulator();
-    }
+public class AsymmetricCipherImplTest extends SimulatorCoreTest {
 
     /**
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl.

@@ -15,10 +15,9 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.*;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,12 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Test for <code>KeyAgreementImpl</code>
  * Test data from NXP JCOP31-36 JavaCard
  */
-public class KeyAgreementImplTest {
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
+public class KeyAgreementImplTest extends SimulatorCoreTest {
 
     /**
      * SelfTest of generateSecret method with ECDH algorithm,

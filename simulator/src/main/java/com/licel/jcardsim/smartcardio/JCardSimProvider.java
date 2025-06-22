@@ -19,18 +19,18 @@ import java.security.Provider;
 
 /**
  * Provider object for the Java Card Terminal emulating.
- * @author LICEL LLC 
- * 
- * You can configure this by following system properties: 
- * 
- * Card ATR: 
+ *
+ * @author LICEL LLC
+ * <p>
+ * You can configure this by following system properties:
+ * <p>
+ * Card ATR:
  * com.licel.jcardsim.smartcardio.ATR
  */
 public final class JCardSimProvider extends Provider {
 
-    @SuppressWarnings("deprecation")
     public JCardSimProvider() {
-        super("jCardSim", 1.0d, "jCardSim Virtual Terminal Provider");
+        super("jCardSim", "1.0", "jCardSim Virtual Terminal Provider");
         put("TerminalFactory.jCardSim", JCSFactory.class.getName());
     }
 }

@@ -15,27 +15,20 @@
  */
 package com.licel.jcardsim.crypto;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.math.ec.ECCurve;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.security.SecureRandom;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for <code>ECKeyImplTest</code>.
  */
-public class ECKeyImplTest {
-
-    @BeforeAll
-    static void setUp() {
-        Simulator sim = new Simulator();
-    }
+public class ECKeyImplTest extends SimulatorCoreTest {
 
     /**
      * Test of getKeyGenerationParameters method, of class ECKeyImpl.
