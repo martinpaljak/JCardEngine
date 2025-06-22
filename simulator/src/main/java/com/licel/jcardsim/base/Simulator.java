@@ -153,9 +153,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     }
 
     public boolean selectApplet(AID aid) throws SystemException {
-        log.info("SELECT " + AIDUtil.toString(aid));
         byte[] resp = selectAppletWithResult(aid);
-        log.info("SELECT Response: {}", Hex.toHexString(resp));
         return ByteUtil.getSW(resp) == ISO7816.SW_NO_ERROR;
     }
 
@@ -344,7 +342,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     public byte[] transmitCommand(byte[] command) throws SystemException {
         makeCurrent();
 
-        log.info("APDU: {}", Hex.toHexString(command));
+        log.trace("APDU: {}", Hex.toHexString(command));
         final ApduCase apduCase = ApduCase.getCase(command);
         final byte[] theSW = new byte[2];
         byte[] response;

@@ -69,7 +69,7 @@ import javacardx.framework.util.UtilException;
  *     <li><code>CLA=12 INS=0</code> Throw <code>UtilException</code> with reason code from <code>P1</code> as high order byte and <code>P2</code> as low order byte</li>
  *     <li><code>CLA=12 INS=1</code> <code>UtilException</code> with reason code from <code>P1</code> as high order byte and <code>P2</code> as low order byte is thrown but it has catch exception then throw <code>ISO7816.SW_FUNC_NOT_SUPPORTED</code> instead</li>
  */
-public class RuntimeExceptionApplet extends  BaseApplet{
+public class RuntimeExceptionApplet extends BaseApplet {
     private final static byte CLA_CRYPTO_EXCEPTION = 1;
     private final static byte CLA_APDU_EXCEPTION = 2;
     private final static byte CLA_SYSTEM_EXCEPTION = 3;
@@ -85,22 +85,21 @@ public class RuntimeExceptionApplet extends  BaseApplet{
 
     private static final byte INS_HAS_CATCH_EXCEPTION = 1;
 
-    public static void install(byte[] bArray, short bOffset, byte bLength)
-            throws ISOException {
+    public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
         new RuntimeExceptionApplet();
     }
 
-    protected RuntimeExceptionApplet(){
-    register();
+    protected RuntimeExceptionApplet() {
+        register();
     }
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if(selectingApplet()) return;
+        if (selectingApplet()) return;
 
         byte[] buffer = apdu.getBuffer();
 
-        switch(buffer[ISO7816.OFFSET_CLA]){
+        switch (buffer[ISO7816.OFFSET_CLA]) {
             case CLA_CRYPTO_EXCEPTION:
                 throwCryptoException(apdu);
                 break;
@@ -140,6 +139,7 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             case CLA_TLV_EXCEPTION:
                 throwTLVException(apdu);
                 break;
+
             case CLA_TRANSACTION_EXCEPTION:
                 throwTransactionException(apdu);
                 break;
@@ -185,7 +185,7 @@ public class RuntimeExceptionApplet extends  BaseApplet{
         }
     }
 
-    private void throwSystemException(APDU apdu){
+    private void throwSystemException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short systemExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -196,13 +196,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (SystemException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             SystemException.throwIt(systemExReasonCode);
         }
     }
 
-    private void throwServiceException(APDU apdu){
+    private void throwServiceException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short serviceExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -213,13 +212,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (ServiceException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             ServiceException.throwIt(serviceExReasonCode);
         }
     }
 
-    private void throwBioException(APDU apdu){
+    private void throwBioException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short bioExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -230,13 +228,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (BioException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             BioException.throwIt(bioExReasonCode);
         }
     }
 
-    private void throwBio1toNException(APDU apdu){
+    private void throwBio1toNException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short bio1toNExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -247,13 +244,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (Bio1toNException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             Bio1toNException.throwIt(bio1toNExReasonCode);
         }
     }
 
-    private void throwExternalException(APDU apdu){
+    private void throwExternalException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short externalExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -264,13 +260,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (ExternalException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             ExternalException.throwIt(externalExReasonCode);
         }
     }
 
-    private void throwPINException(APDU apdu){
+    private void throwPINException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short pinExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -281,12 +276,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (PINException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             PINException.throwIt(pinExReasonCode);
         }
     }
-    private void throwStringException(APDU apdu){
+
+    private void throwStringException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short stringExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -297,12 +292,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (StringException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             StringException.throwIt(stringExReasonCode);
         }
     }
-    private void throwTLVException(APDU apdu){
+
+    private void throwTLVException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short tlvExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -313,13 +308,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (TLVException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             TLVException.throwIt(tlvExReasonCode);
         }
     }
 
-    private void throwTransactionException(APDU apdu){
+    private void throwTransactionException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short transactionExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -330,13 +324,12 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (TransactionException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             TransactionException.throwIt(transactionExReasonCode);
         }
     }
 
-    private void throwUtilException(APDU apdu){
+    private void throwUtilException(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
         byte hasExceptionCatch = buffer[ISO7816.OFFSET_INS];
         short utilExReasonCode = Util.makeShort(buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2]);
@@ -347,8 +340,7 @@ public class RuntimeExceptionApplet extends  BaseApplet{
             } catch (UtilException e) {
                 ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
             }
-        }
-        else {
+        } else {
             UtilException.throwIt(utilExReasonCode);
         }
     }
