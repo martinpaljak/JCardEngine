@@ -20,6 +20,7 @@ import com.licel.jcardsim.samples.GlobalArrayServerApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.JCSystem;
+import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,11 +35,11 @@ public class AppletShareableTest {
         AID shareableAppletAID = AIDUtil.create(shareableAppletAIDStr);
 
         Simulator instance = new Simulator();
-        assertTrue(instance.installApplet(shareableAppletAID, GlobalArrayServerApplet.class).equals(shareableAppletAID));
-        assertEquals(instance.selectApplet(shareableAppletAID), true);
-
+        assertEquals(shareableAppletAID, instance.installApplet(shareableAppletAID, GlobalArrayServerApplet.class));
+        assertTrue(instance.selectApplet(shareableAppletAID));
+        instance._makeCurrent();
         assertNotNull(JCSystem.getAppletShareableInterfaceObject(shareableAppletAID, (byte) 0));
-
+        instance._releaseCurrent();
     }
 
     @Test
@@ -46,14 +47,11 @@ public class AppletShareableTest {
         String appletAIDStr = "090807060504030201";
         AID appletAID = AIDUtil.create(appletAIDStr);
 
-        byte[] clientAppletPar = new byte[1 + serverAppletAIDBytes.length];
-        clientAppletPar[0] = (byte) serverAppletAIDBytes.length;
-        System.arraycopy(serverAppletAIDBytes, 0, clientAppletPar, 1, serverAppletAIDBytes.length);
-
         Simulator instance = new Simulator();
-        assertTrue(instance.installApplet(appletAID, GlobalArrayClientApplet.class, clientAppletPar, (short) 0, (byte) clientAppletPar.length).equals(appletAID));
-        assertEquals(instance.selectApplet(appletAID), true);
-
+        assertEquals(appletAID, instance.installApplet(appletAID, GlobalArrayClientApplet.class, Hex.decode(appletAIDStr)));
+        assertTrue(instance.selectApplet(appletAID));
+        instance._makeCurrent();
         assertNull(JCSystem.getAppletShareableInterfaceObject(appletAID, (byte) 0));
+        instance._releaseCurrent();
     }
 }

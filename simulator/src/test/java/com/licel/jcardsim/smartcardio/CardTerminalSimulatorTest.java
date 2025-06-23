@@ -1,6 +1,5 @@
 package com.licel.jcardsim.smartcardio;
 
-import com.licel.jcardsim.base.Helpers;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AutoResetEvent;
 import javacard.framework.ISO7816;

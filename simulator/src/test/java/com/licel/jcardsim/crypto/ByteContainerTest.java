@@ -1,12 +1,13 @@
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ByteContainerTest {
+public class ByteContainerTest extends SimulatorCoreTest {
     @Test
     public void testPositiveIntegerWithLeadingZero() {
         BigInteger expected = new BigInteger("4720643197658441292834747278018339");

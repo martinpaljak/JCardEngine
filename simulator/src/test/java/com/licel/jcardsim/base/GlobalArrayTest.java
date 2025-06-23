@@ -22,7 +22,6 @@ import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
-import org.bouncycastle.util.Arrays;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -79,9 +78,11 @@ public class GlobalArrayTest {
         assertTrue(instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
         assertEquals(instance.selectApplet(serverAppletAID), true);
 
+        instance._makeCurrent();
         // Get global array reference from server applet
         GlobalArrayServerApplet serverApplet = (GlobalArrayServerApplet) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
         Object globalArray = serverApplet.getGlobalArrayRef();
+        instance._releaseCurrent();
 
         // Check global array must be null, because it has not been created yet
         assertNull(globalArray);
@@ -112,8 +113,7 @@ public class GlobalArrayTest {
         // Check command succeeded
         assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response2, (short) 0));
         // Check the global array with the writen data
-        assertEquals(Arrays.areEqual(bytesForTest, (byte[]) globalArray), true);
-
+        assertArrayEquals(bytesForTest, (byte[]) globalArray);
     }
 
     /**
@@ -124,8 +124,8 @@ public class GlobalArrayTest {
         Simulator instance = new Simulator();
 
         // Install server and client applet
-        assertTrue(instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
-        assertTrue(instance.installExposedApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar).equals(clientAppletAID));
+        assertEquals(serverAppletAID, instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class));
+        assertEquals(clientAppletAID, instance.installExposedApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar));
 
         // Select server applet
         assertTrue(instance.selectApplet(serverAppletAID));
@@ -167,6 +167,6 @@ public class GlobalArrayTest {
         // Check the global array with the writen data
         byte[] globalArrayBytes = new byte[32];
         System.arraycopy(response4, 0, globalArrayBytes, 0, globalArrayBytes.length);
-        assertEquals(Arrays.areEqual(bytesForTest, globalArrayBytes), true);
+        assertArrayEquals(bytesForTest, globalArrayBytes);
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Test for <code>RSAPrivateCrtKeyImpl</code>
  * Test data from NXP JCOP31-36 JavaCard*
  */
-public class RSAPrivateCrtKeyImplTest {
+public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
     // RSA CRT Private Key Components (2048-bit)
 
     final static String P = "DA2CBBE7572AE9441538EFE23943A6C72B564482E482D50954769920AD4A45179D2842327BF8271C592FA9D6DCCAE737B45BCA4A3B026CF5C32E6008284D8ABA3A1B249EF900CCF40746C599D9217EC3D1179DC35976AE05A50CF6F8AE23E15B8E0D4481D1D6035826AB7F43CECEB511699814BF2EFCF0EA37E230C4F586E6C7";

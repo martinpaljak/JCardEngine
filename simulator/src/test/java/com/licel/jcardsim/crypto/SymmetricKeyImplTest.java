@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.AESKey;
 import javacard.security.KeyBuilder;
@@ -28,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test for <code>SymmetricKeyImpl</code>
  */
-public class SymmetricKeyImplTest {
+public class SymmetricKeyImplTest extends SimulatorCoreTest {
 
     /**
      * Test of clearKey method, of class SymmetricKeyImpl.

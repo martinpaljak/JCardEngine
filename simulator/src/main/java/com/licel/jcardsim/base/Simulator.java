@@ -86,7 +86,6 @@ public class Simulator implements CardInterface, JavaCardSimulator {
 
     public Simulator() {
         this.transientMemory = new TransientMemory();
-        makeCurrent();
         // XXX: smell
         try {
             // The APDU implementation in JC API is final, so this is a hack to
@@ -102,16 +101,21 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         } catch (Exception e) {
             throw new RuntimeException("Internal reflection error", e);
         }
-        // XXX: smell
+        // XXX: triggers reflective call into APDU instances.
         changeProtocol(protocol);
     }
 
     // When applet code calls back for the internal facade of the simulator,
-    // retiurn _this_ instance. This usually happens via JCSystem.* calls.
+    // return _this_ instance. This usually happens via JCSystem.* calls.
     // and is the mirror of current()
-    private void makeCurrent() {
+    public void _makeCurrent() {
         currentSimulator.set(this);
     }
+
+    public void _releaseCurrent() {
+        currentSimulator.remove();
+    }
+
 
     /**
      * Get the currently active Simulator instance
@@ -290,34 +294,38 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      */
     @Override
     public void deleteApplet(AID aid) {
-        makeCurrent(); // We call into applet.
-        if (currentAID != null) {
-            deselect(lookupApplet(currentAID));
-        }
-        log.info("Deleting applet {}", AIDUtil.toString(aid));
-        ApplicationInstance app = lookupApplet(aid);
-
-        if (app == null) {
-            throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
-        }
-
-        Applet applet = app.getApplet();
-
-        // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
-        // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
-        if (applet instanceof AppletEvent) {
-            try {
-                // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
-                // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
-                ((AppletEvent) applet).uninstall();
-            } catch (Exception e) {
-                // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
-                log.warn("Applet.uninstall() failed", e);
+        _makeCurrent(); // We call into applet.
+        try {
+            if (currentAID != null) {
+                deselect(lookupApplet(currentAID));
             }
-        }
+            log.info("Deleting applet {}", AIDUtil.toString(aid));
+            ApplicationInstance app = lookupApplet(aid);
 
-        applets.remove(aid);
-        currentAID = null;
+            if (app == null) {
+                throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
+            }
+
+            Applet applet = app.getApplet();
+
+            // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
+            // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
+            if (applet instanceof AppletEvent) {
+                try {
+                    // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
+                    // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
+                    ((AppletEvent) applet).uninstall();
+                } catch (Exception e) {
+                    // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
+                    log.warn("Applet.uninstall() failed", e);
+                }
+            }
+
+            applets.remove(aid);
+            currentAID = null;
+        } finally {
+            _releaseCurrent();
+        }
     }
 
     /**
@@ -340,119 +348,123 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      */
     @Override
     public byte[] transmitCommand(byte[] command) throws SystemException {
-        makeCurrent();
-
-        log.trace("APDU: {}", Hex.toHexString(command));
-        final ApduCase apduCase = ApduCase.getCase(command);
-        final byte[] theSW = new byte[2];
-        byte[] response;
-
-        selecting = false;
-        final Applet applet;
-        final AID newAid;
-        // check if there is an applet to be selected
-        if (!apduCase.isExtended() && isAppletSelectionApdu(command)) {
-            log.info("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
-            newAid = findAppletForSelectApdu(command, apduCase);
-            log.info("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
-            // Nothing currently selected
-            if (currentAID == null) {
-                // No applet found
-                if (newAid == null) {
-                    Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
-                    return theSW;
-                } else {
-                    selecting = true;
-                    applet = lookupApplet(newAid).getApplet();
-                }
-            } else {
-                // Application currently selected
-                if (newAid == null) {
-                    // new application not found, send the SELECT APDU to current applet
-                    applet = lookupApplet(currentAID).getApplet();
-                } else {
-                    // run deselect
-                    deselect(lookupApplet(currentAID));
-                    // This APDU is selecting
-                    selecting = true;
-                    applet = lookupApplet(newAid).getApplet();
-                }
-            }
-        } else {
-            // Nothing selected and not a SELECT applet - done
-            if (currentAID == null) {
-                Util.setShort(theSW, (short) 0, ISO7816.SW_COMMAND_NOT_ALLOWED);
-                return theSW;
-            }
-            applet = lookupApplet(currentAID).getApplet();
-            newAid = null;
-        }
-
-        if (apduCase.isExtended()) {
-            if (applet instanceof ExtendedLength) {
-                usingExtendedAPDUs = true;
-            } else {
-                Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
-                return theSW;
-            }
-        } else {
-            usingExtendedAPDUs = false;
-        }
-
-        responseBufferSize = 0;
-        APDU apdu = getCurrentAPDU();
+        _makeCurrent();
         try {
-            if (selecting) {
-                currentAID = newAid; // so that JCSystem.getAID() would return the right thing
-                log.info("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
-                boolean success;
-                try {
-                    success = applet.select();
-                } catch (Exception e) {
-                    log.error("Exception in Applet.select(): {}", e.getMessage(), e);
-                    success = false;
-                }
-                if (!success) {
-                    log.warn("{} denied selection in Applet.select()", AIDUtil.toString(currentAID));
-                    // If the applet declines to be selected, the Java Card RE returns an APDU response status word of
-                    // ISO7816.SW_APPLET_SELECT_FAILED to the CAD. Upon selection failure, the Java Card RE state
-                    // is set to indicate that no applet is selected. See Section 4.6 Applet Selection for more details.
-                    currentAID = null;
-                    throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
-                }
-            }
 
-            // set apdu
-            resetAPDU(apdu, apduCase, command);
+            log.trace("APDU: {}", Hex.toHexString(command));
+            final ApduCase apduCase = ApduCase.getCase(command);
+            final byte[] theSW = new byte[2];
+            byte[] response;
 
-            applet.process(apdu);
-            Util.setShort(theSW, (short) 0, (short) 0x9000);
-        } catch (Throwable e) {
-            Util.setShort(theSW, (short) 0, ISO7816.SW_UNKNOWN);
-            if (e instanceof ISOException) {
-                Util.setShort(theSW, (short) 0, ((ISOException) e).getReason());
-            } else {
-                if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
-                    log.error("Exception in process(): {}", e.getClass().getName());
-                } else {
-                    log.error("Exception in process(): {}", e.getClass().getSimpleName(), e);
-                }
-            }
-        } finally {
             selecting = false;
-            resetAPDU(apdu, null, null);
-        }
+            final Applet applet;
+            final AID newAid;
+            // check if there is an applet to be selected
+            if (!apduCase.isExtended() && isAppletSelectionApdu(command)) {
+                log.info("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
+                newAid = findAppletForSelectApdu(command, apduCase);
+                log.info("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
+                // Nothing currently selected
+                if (currentAID == null) {
+                    // No applet found
+                    if (newAid == null) {
+                        Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
+                        return theSW;
+                    } else {
+                        selecting = true;
+                        applet = lookupApplet(newAid).getApplet();
+                    }
+                } else {
+                    // Application currently selected
+                    if (newAid == null) {
+                        // new application not found, send the SELECT APDU to current applet
+                        applet = lookupApplet(currentAID).getApplet();
+                    } else {
+                        // run deselect
+                        deselect(lookupApplet(currentAID));
+                        // This APDU is selecting
+                        selecting = true;
+                        applet = lookupApplet(newAid).getApplet();
+                    }
+                }
+            } else {
+                // Nothing selected and not a SELECT applet - done
+                if (currentAID == null) {
+                    Util.setShort(theSW, (short) 0, ISO7816.SW_COMMAND_NOT_ALLOWED);
+                    return theSW;
+                }
+                applet = lookupApplet(currentAID).getApplet();
+                newAid = null;
+            }
 
-        // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
-        if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
-            response = new byte[responseBufferSize + 2];
-            Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
-            Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
-        } else {
-            response = theSW;
-        }
+            if (apduCase.isExtended()) {
+                if (applet instanceof ExtendedLength) {
+                    usingExtendedAPDUs = true;
+                } else {
+                    Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
+                    return theSW;
+                }
+            } else {
+                usingExtendedAPDUs = false;
+            }
 
-        return response;
+            responseBufferSize = 0;
+            APDU apdu = getCurrentAPDU();
+            try {
+                if (selecting) {
+                    currentAID = newAid; // so that JCSystem.getAID() would return the right thing
+                    log.info("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
+                    boolean success;
+                    try {
+                        success = applet.select();
+                    } catch (Exception e) {
+                        log.error("Exception in Applet.select(): {}", e.getMessage(), e);
+                        success = false;
+                    }
+                    if (!success) {
+                        log.warn("{} denied selection in Applet.select()", AIDUtil.toString(currentAID));
+                        // If the applet declines to be selected, the Java Card RE returns an APDU response status word of
+                        // ISO7816.SW_APPLET_SELECT_FAILED to the CAD. Upon selection failure, the Java Card RE state
+                        // is set to indicate that no applet is selected. See Section 4.6 Applet Selection for more details.
+                        currentAID = null;
+                        throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
+                    }
+                }
+
+                // set apdu
+                resetAPDU(apdu, apduCase, command);
+
+                applet.process(apdu);
+                Util.setShort(theSW, (short) 0, (short) 0x9000);
+            } catch (Throwable e) {
+                Util.setShort(theSW, (short) 0, ISO7816.SW_UNKNOWN);
+                if (e instanceof ISOException) {
+                    Util.setShort(theSW, (short) 0, ((ISOException) e).getReason());
+                } else {
+                    if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
+                        log.error("Exception in process(): {}", e.getClass().getName());
+                    } else {
+                        log.error("Exception in process(): {}", e.getClass().getSimpleName(), e);
+                    }
+                }
+            } finally {
+                selecting = false;
+                resetAPDU(apdu, null, null);
+            }
+
+            // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
+            if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
+                response = new byte[responseBufferSize + 2];
+                Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
+                Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
+            } else {
+                response = theSW;
+            }
+
+            return response;
+        } finally {
+            _releaseCurrent();
+        }
     }
 
     /**
@@ -689,54 +701,58 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     }
 
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
-        makeCurrent();
-
-        // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
-        if (currentAID != null) {
-            deselect(lookupApplet(currentAID));
-        }
-
-        final Class<?> isolated;
+        _makeCurrent();
 
         try {
-            isolated = exposed ? appletClass : classLoader.loadClass(appletClass.getName());
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
-        }
+            // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
+            if (currentAID != null) {
+                deselect(lookupApplet(currentAID));
+            }
 
-        // Resolve the install method
-        Method installMethod;
-        try {
-            installMethod = isolated.getMethod("install", byte[].class, short.class, byte.class);
-        } catch (NoSuchMethodException e) {
-            throw new IllegalArgumentException("Class does not provide install method");
-        }
+            final Class<?> isolated;
 
-        // Construct _actual_ install parameters
-        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
-
-        // Call the install() method.
-        options.set(new InstallOperationOptions(appletAID, exposed));
-        try {
-            installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
-        } catch (InvocationTargetException e) {
-            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
             try {
-                ISOException isoException = (ISOException) e.getCause();
-                throw isoException;
-            } catch (ClassCastException cce) { // FIXME: smell
+                isolated = exposed ? appletClass : classLoader.loadClass(appletClass.getName());
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+            }
+
+            // Resolve the install method
+            Method installMethod;
+            try {
+                installMethod = isolated.getMethod("install", byte[].class, short.class, byte.class);
+            } catch (NoSuchMethodException e) {
+                throw new IllegalArgumentException("Class does not provide install method");
+            }
+
+            // Construct _actual_ install parameters
+            byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
+
+            // Call the install() method.
+            options.set(new InstallOperationOptions(appletAID, exposed));
+            try {
+                installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
+            } catch (InvocationTargetException e) {
+                log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
+                try {
+                    ISOException isoException = (ISOException) e.getCause();
+                    throw isoException;
+                } catch (ClassCastException cce) { // FIXME: smell
+                    throw new SystemException(SystemException.ILLEGAL_AID);
+                }
+            } catch (Exception e) {
+                log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
                 throw new SystemException(SystemException.ILLEGAL_AID);
+            } finally {
+                if (options.get() != null) {
+                    log.error("install() did not call register()");
+                    SystemException.throwIt(SystemException.ILLEGAL_AID);
+                }
             }
-        } catch (Exception e) {
-            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
-            throw new SystemException(SystemException.ILLEGAL_AID);
+            return appletAID;
         } finally {
-            if (options.get() != null) {
-                log.error("install() did not call register()");
-                SystemException.throwIt(SystemException.ILLEGAL_AID);
-            }
+            _releaseCurrent();
         }
-        return appletAID;
     }
 
     // Callback from Applet.register()
