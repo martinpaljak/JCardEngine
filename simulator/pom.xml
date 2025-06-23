@@ -40,14 +40,6 @@
             <artifactId>bcprov-jdk18on</artifactId>
             <version>1.81</version>
         </dependency>
-        <!-- Persistent simulator deps -->
-        <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo</artifactId>
-            <version>5.6.2</version>
-            <!-- TODO: Until it is properly tested -->
-            <optional>true</optional>
-        </dependency>
         <!-- Instance proxy for Applets -->
         <dependency>
             <groupId>net.bytebuddy</groupId>
@@ -59,7 +51,6 @@
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
             <version>${asm.version}</version>
-            <scope>provided</scope>
         </dependency>
         <!-- unit tests -->
         <dependency>

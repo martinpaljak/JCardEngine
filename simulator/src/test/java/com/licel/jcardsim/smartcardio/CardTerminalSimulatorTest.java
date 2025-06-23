@@ -1,6 +1,7 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.samples.HelloWorldApplet;
+import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.AutoResetEvent;
 import javacard.framework.ISO7816;
 import org.bouncycastle.util.encoders.Hex;
@@ -33,7 +34,7 @@ public class CardTerminalSimulatorTest {
         assertSame(terminal, cardSimulator.getAssignedCardTerminal());
 
         // Install the test applet to the simulator
-        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
+        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -75,7 +76,7 @@ public class CardTerminalSimulatorTest {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
+        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -96,7 +97,7 @@ public class CardTerminalSimulatorTest {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
+        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -116,7 +117,7 @@ public class CardTerminalSimulatorTest {
         CardSimulator cardSimulator = new CardSimulator();
         cardSimulator.assignToTerminal(terminal);
 
-        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
+        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
 
         // connect to card
         Card card = terminal.connect("T=1");
@@ -137,7 +138,7 @@ public class CardTerminalSimulatorTest {
 
         final CardSimulator cardSimulator = new CardSimulator();
 
-        cardSimulator.installApplet(JCardSimProviderTest._aid(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
+        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
 
         new Thread() {
             @Override

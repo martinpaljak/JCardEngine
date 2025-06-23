@@ -8,7 +8,9 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 // Two instances of a Simulator() within one JVM should keep separate copies of Applet classes,
 // to assure the isolation of static fields of applets in two different simulators.
@@ -17,7 +19,29 @@ import java.util.Arrays;
 public class IsolatingClassLoader extends URLClassLoader {
     private static final Logger log = LoggerFactory.getLogger(IsolatingClassLoader.class);
 
-    private static final String[] PREFIXES = new String[]{"java.", "javax.", "sun.", "javacard.", "javacardx.", "com.licel.jcardsim.base."};
+    // NOTE: the strategy here should be "isolate explicitly" but at this point it is easier to mask out unwanted ones
+    // Also, when mocking private/system packages, they are implicitly present on classpath, but not necessarily referenced
+    // via installApplet
+    private static final List<String> PREFIXES = List.of("java.",
+            "javax.",
+            "sun.",
+            "jdk.",
+            "javacard.",
+            "javacardx.",
+            "org.slf4j.",
+            "org.bouncycastle.",
+            "pro.javacard.gp",
+            "com.licel.jcardsim.base.");
+
+    private final List<String> mocks = new ArrayList<>();
+
+    // Explicitly isolate from classpath
+    public void mock(String... packages) {
+        for (String s: packages) {
+            log.info("Mocking (isolating) {}", s);
+            mocks.add(s);
+        }
+    }
 
     public IsolatingClassLoader(ClassLoader parent) {
         super(new URL[0], parent);
@@ -70,6 +94,8 @@ public class IsolatingClassLoader extends URLClassLoader {
                 // Load the class bytecode
                 byte[] classBytes = getClassBytes(name);
                 if (classBytes == null) {
+                    log.error("Could not load {}", name);
+                    // XXX: should probably still refer to super ?
                     throw new ClassNotFoundException(name);
                 }
 
@@ -84,8 +110,10 @@ public class IsolatingClassLoader extends URLClassLoader {
         return super.findClass(name);
     }
 
-    private static boolean isolate(String className) {
-        return Arrays.stream(PREFIXES).noneMatch(className::startsWith);
+    private boolean isolate(String className) {
+        if (mocks.stream().anyMatch(className::startsWith))
+            return true;
+        return false;
+        //return PREFIXES.stream().noneMatch(className::startsWith);
     }
-
 }

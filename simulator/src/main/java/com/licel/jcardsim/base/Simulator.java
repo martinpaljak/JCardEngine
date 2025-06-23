@@ -46,13 +46,16 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     // Used to set the current simulator instance when two different simulators are run inside a single thread.
     private static final ThreadLocal<Simulator> currentSimulator = new ThreadLocal<>();
 
+    // Isolates loaded applet classes to this simulator instance
     private final IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
 
+    // Used to keep track of the installation parameters during install()/register() callbacks
     private static ThreadLocal<InstallOperationOptions> options = new ThreadLocal<>();
 
     // Installed applets
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
 
+    // APDU class is final in JC API, this is a reset method.
     protected final Method apduPrivateResetMethod;
     // Outbound transfer buffer
     protected final byte[] responseBuffer = new byte[Short.MAX_VALUE + 2];
@@ -702,7 +705,6 @@ public class Simulator implements CardInterface, JavaCardSimulator {
 
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
         _makeCurrent();
-
         try {
             // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
             if (currentAID != null) {
@@ -711,6 +713,8 @@ public class Simulator implements CardInterface, JavaCardSimulator {
 
             final Class<?> isolated;
 
+            // Add explicit mock for loaded class.
+            classLoader.mock(appletClass.getPackageName());
             try {
                 isolated = exposed ? appletClass : classLoader.loadClass(appletClass.getName());
             } catch (ClassNotFoundException e) {
@@ -733,13 +737,12 @@ public class Simulator implements CardInterface, JavaCardSimulator {
             try {
                 installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
             } catch (InvocationTargetException e) {
-                log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
-                try {
-                    ISOException isoException = (ISOException) e.getCause();
-                    throw isoException;
-                } catch (ClassCastException cce) { // FIXME: smell
-                    throw new SystemException(SystemException.ILLEGAL_AID);
+                log.error("Exception in {} install() ", AIDUtil.toString(appletAID), e);
+                if (e.getCause() instanceof ISOException) {
+                    ISOException isoex = (ISOException) e.getCause();
+                    log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
                 }
+                throw new SystemException(SystemException.ILLEGAL_AID);
             } catch (Exception e) {
                 log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
                 throw new SystemException(SystemException.ILLEGAL_AID);
@@ -791,6 +794,10 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         log.trace("Allocating {} bytes in {}", size, System.identityHashCode(current));
         current.bytesAllocated += size;
         return new byte[size];
+    }
+
+    public void mock(String packageName) {
+        classLoader.mock(packageName);
     }
 
 

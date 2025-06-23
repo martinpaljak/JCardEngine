@@ -117,9 +117,8 @@ public class ThreadedSimulator implements CardInterface, Runnable {
         sim.changeProtocol("T=CL,TYPE_A,T1");
         for (InstallSpec applet : applets) {
             log.info("Installing applet: {} as {} with {}", applet.klass.getSimpleName(), Hex.toHexString(applet.aid), Hex.toHexString(applet.installData));
-            byte[] installdata = Helpers.install_parameters(applet.aid, applet.installData);
             AID aid = new AID(applet.aid, (short) 0, (byte) applet.aid.length);
-            sim.installApplet(aid, applet.klass, installdata, (short) 0, (byte) installdata.length);
+            sim.installApplet(aid, applet.klass, applet.installData);
         }
         return sim;
     }

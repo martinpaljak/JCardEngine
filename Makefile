@@ -7,11 +7,8 @@ JAVA11 ?= /Library/Java/JavaVirtualMachines/$(JDK)-11.jdk/Contents/Home
 JAVA17 ?= /Library/Java/JavaVirtualMachines/$(JDK)-17.jdk/Contents/Home
 JAVA21 ?= /Library/Java/JavaVirtualMachines/$(JDK)-21.jdk/Contents/Home
 
-8:
-	JAVA_HOME=$(JAVA8) ./mvnw clean verify
-
 11:
-	JAVA_HOME=$(JAVA11) ./mvnw clean verify
+	JAVA_HOME=$(JAVA11) ./mvnw clean install
 
 17:
 	JAVA_HOME=$(JAVA17) ./mvnw clean verify

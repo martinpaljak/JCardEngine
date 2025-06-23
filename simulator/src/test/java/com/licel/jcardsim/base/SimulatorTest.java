@@ -37,7 +37,7 @@ public class SimulatorTest {
     private static final Class<? extends Applet> TEST_APPLET_CLASS = HelloWorldApplet.class;
     private static final AID TEST_APPLET_AID = new AID(TEST_APPLET_AID_BYTES, (short) 0, (byte) TEST_APPLET_AID_BYTES.length);
 
-    byte[] createData = Helpers.install_parameters(TEST_APPLET_AID_BYTES, Hex.decode("0f0f"));
+    byte[] createData = Hex.decode("0f0f");
 
     /**
      * Test of createApplet method, of class Simulator.
