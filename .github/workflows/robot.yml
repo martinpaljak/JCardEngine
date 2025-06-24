@@ -31,7 +31,7 @@ jobs:
           distribution: zulu
           cache: maven
       - name: Run Maven
-        run: ./mvnw initialize && ./mvnw -T1C -B -U verify
+        run: ./mvnw -B --no-transfer-progress initialize && ./mvnw -B --no-transfer-progress -T1C -U verify
       - name: Set SSH key
         if: matrix.java == '11' && github.ref == 'refs/heads/next'
         uses: webfactory/ssh-agent@v0.9.1
@@ -42,4 +42,4 @@ jobs:
         run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
       - name: Deploy package
         if: matrix.java == '11' && github.ref == 'refs/heads/next'
-        run: ./mvnw -B deploy
+        run: ./mvnw -B --no-transfer-progress deploy
