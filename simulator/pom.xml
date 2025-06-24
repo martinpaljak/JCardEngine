@@ -142,18 +142,20 @@
                     <includePluginDependencies>true</includePluginDependencies>
                 </configuration>
             </plugin>
-            <!-- Run tests, so that the classes have already been processed with proxy code -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
-            </plugin>
             <!-- Make Jacoco report -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
                 <executions>
+                    <execution>
+                        <id>agent</id>
+                        <!-- NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent -->
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
                     <execution>
                         <id>report</id>
                         <phase>verify</phase>
@@ -189,6 +191,12 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Run tests, so that the classes have already been processed with proxy code -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.3</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
