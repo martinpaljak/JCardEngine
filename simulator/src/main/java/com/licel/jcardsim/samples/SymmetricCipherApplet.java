@@ -38,7 +38,7 @@ import javacardx.crypto.Cipher;
  *     <li><code>CLA=0x20 INS=0x12</code> Decrypt DES data in <code>CData</code>with cipher algorithm in <code>P1</code></li>
  * </ul>
  */
-public class SymmetricCipherApplet extends  BaseApplet {
+public class SymmetricCipherApplet extends Applet {
     private final static byte CLA_AES = 0x10;
     private final static byte CLA_DES = 0x20;
     private final static byte INS_AES_SET_KEY = 0x10;
@@ -55,27 +55,28 @@ public class SymmetricCipherApplet extends  BaseApplet {
 
     private byte[] transientMemory = null;
     private final static short MAX_DATA_BYTE_SIZE = 32;
+
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
         new SymmetricCipherApplet();
     }
 
-    protected SymmetricCipherApplet(){
+    protected SymmetricCipherApplet() {
         transientMemory = JCSystem.makeTransientByteArray(MAX_DATA_BYTE_SIZE, JCSystem.CLEAR_ON_DESELECT);
         register();
     }
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if(selectingApplet()) return;
+        if (selectingApplet()) return;
 
         byte[] buffer = apdu.getBuffer();
-        switch(buffer[ISO7816.OFFSET_CLA]){
+        switch (buffer[ISO7816.OFFSET_CLA]) {
             case CLA_AES:
                 doAESMode(apdu);
                 break;
 
-            case CLA_DES :
+            case CLA_DES:
                 doDESMode(apdu);
                 break;
 
@@ -87,7 +88,7 @@ public class SymmetricCipherApplet extends  BaseApplet {
 
     private void doAESMode(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-        switch(buffer[ISO7816.OFFSET_INS]){
+        switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_AES_SET_KEY:
                 aesSetKey(apdu);
                 break;
@@ -106,18 +107,18 @@ public class SymmetricCipherApplet extends  BaseApplet {
         byte[] buffer = apdu.getBuffer();
 
         short keyBitLength = (short) (buffer[ISO7816.OFFSET_P1] & 0x00FF);
-        if((keyBitLength != KeyBuilder.LENGTH_AES_128) &&
-                (keyBitLength != KeyBuilder.LENGTH_AES_192)  ) {
+        if ((keyBitLength != KeyBuilder.LENGTH_AES_128) &&
+                (keyBitLength != KeyBuilder.LENGTH_AES_192)) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
         }
 
-        byte apdu_Lc      = buffer[ISO7816.OFFSET_LC];
+        byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
         byte[] aesKeyBytes = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
 
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, aesKeyBytes, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
@@ -132,22 +133,22 @@ public class SymmetricCipherApplet extends  BaseApplet {
         byte aesCipherAlg = buffer[ISO7816.OFFSET_P1];
         byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
 
-        if( apdu_Lc > MAX_DATA_BYTE_SIZE) {
+        if (apdu_Lc > MAX_DATA_BYTE_SIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         byte[] toBeEncryptedData = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, toBeEncryptedData, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
 
         cipher = Cipher.getInstance(aesCipherAlg, false);
-        cipher.init(secreteKey,Cipher.MODE_ENCRYPT);
-        cipher.doFinal(toBeEncryptedData,(short)0, (short) toBeEncryptedData.length,transientMemory, (short) 0);
+        cipher.init(secreteKey, Cipher.MODE_ENCRYPT);
+        cipher.doFinal(toBeEncryptedData, (short) 0, (short) toBeEncryptedData.length, transientMemory, (short) 0);
 
         short le = apdu.setOutgoing();
         apdu.setOutgoingLength(le);
@@ -160,22 +161,22 @@ public class SymmetricCipherApplet extends  BaseApplet {
 
         byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
 
-        if( apdu_Lc > MAX_DATA_BYTE_SIZE) {
+        if (apdu_Lc > MAX_DATA_BYTE_SIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         byte[] encryptedData = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, encryptedData, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
 
         cipher = Cipher.getInstance(aesCipherAlg, false);
-        cipher.init(secreteKey,Cipher.MODE_DECRYPT);
-        cipher.doFinal(encryptedData,(short)0, (short) encryptedData.length,transientMemory, (short) 0);
+        cipher.init(secreteKey, Cipher.MODE_DECRYPT);
+        cipher.doFinal(encryptedData, (short) 0, (short) encryptedData.length, transientMemory, (short) 0);
 
         short le = apdu.setOutgoing();
         apdu.setOutgoingLength(le);
@@ -184,7 +185,7 @@ public class SymmetricCipherApplet extends  BaseApplet {
 
     private void doDESMode(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-        switch(buffer[ISO7816.OFFSET_INS]){
+        switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_DES_SET_KEY:
                 desSetKey(apdu);
                 break;
@@ -203,19 +204,19 @@ public class SymmetricCipherApplet extends  BaseApplet {
         byte[] buffer = apdu.getBuffer();
 
         short keyBitLength = (short) (buffer[ISO7816.OFFSET_P1] & 0x00FF);
-        if((keyBitLength != KeyBuilder.LENGTH_DES) &&
+        if ((keyBitLength != KeyBuilder.LENGTH_DES) &&
                 (keyBitLength != KeyBuilder.LENGTH_DES3_2KEY) &&
-                (keyBitLength != KeyBuilder.LENGTH_DES3_3KEY)    ) {
+                (keyBitLength != KeyBuilder.LENGTH_DES3_3KEY)) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
         }
 
-        byte apdu_Lc      = buffer[ISO7816.OFFSET_LC];
+        byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
         byte[] desKeyBytes = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
 
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, desKeyBytes, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
@@ -230,22 +231,22 @@ public class SymmetricCipherApplet extends  BaseApplet {
         byte desCipherAlg = buffer[ISO7816.OFFSET_P1];
         byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
 
-        if( apdu_Lc > MAX_DATA_BYTE_SIZE) {
+        if (apdu_Lc > MAX_DATA_BYTE_SIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         byte[] toBeEncryptedData = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, toBeEncryptedData, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
 
         cipher = Cipher.getInstance(desCipherAlg, false);
-        cipher.init(secreteKey,Cipher.MODE_ENCRYPT);
-        cipher.doFinal(toBeEncryptedData,(short)0, (short) toBeEncryptedData.length,transientMemory, (short) 0);
+        cipher.init(secreteKey, Cipher.MODE_ENCRYPT);
+        cipher.doFinal(toBeEncryptedData, (short) 0, (short) toBeEncryptedData.length, transientMemory, (short) 0);
 
         short le = apdu.setOutgoing();
         apdu.setOutgoingLength(le);
@@ -258,22 +259,22 @@ public class SymmetricCipherApplet extends  BaseApplet {
 
         byte apdu_Lc = buffer[ISO7816.OFFSET_LC];
 
-        if( apdu_Lc > MAX_DATA_BYTE_SIZE) {
+        if (apdu_Lc > MAX_DATA_BYTE_SIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         byte[] encryptedData = new byte[apdu_Lc];
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;
 
-        while(bytesRead >0){
+        while (bytesRead > 0) {
             Util.arrayCopyNonAtomic(buffer, ISO7816.OFFSET_CDATA, encryptedData, bufferOffset, bytesRead);
             bufferOffset += bytesRead;
             bytesRead = (byte) apdu.receiveBytes(ISO7816.OFFSET_CDATA);
         }
 
         cipher = Cipher.getInstance(desCipherAlg, false);
-        cipher.init(secreteKey,Cipher.MODE_DECRYPT);
-        cipher.doFinal(encryptedData,(short)0, (short) encryptedData.length,transientMemory, (short) 0);
+        cipher.init(secreteKey, Cipher.MODE_DECRYPT);
+        cipher.doFinal(encryptedData, (short) 0, (short) encryptedData.length, transientMemory, (short) 0);
 
         short le = apdu.setOutgoing();
         apdu.setOutgoingLength(le);

@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Callable;
@@ -97,11 +98,17 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
                         break;
                     }
                 }
+            } catch (ClosedByInterruptException e) {
+                log.info("Shutting down. Bye!");
+                // Ctrl-C/Orderly shutdown of listening socket
+                return true;
             } catch (SocketException | SocketTimeoutException e) {
-                log.error("Could not connect: " + e.getMessage(), e);
+                log.error("Connection error: {}", e.getClass().getSimpleName());
+                log.trace("Exception", e);
                 return false;
             } catch (IOException e) {
-                log.error("I/O error: " + e.getMessage(), e);
+                log.error("I/O error: {}", e.getClass().getSimpleName());
+                log.trace("Exception", e);
             }
         }
         return true;

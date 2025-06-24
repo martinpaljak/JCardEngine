@@ -29,6 +29,6 @@ public class RemoteMessage {
     }
 
     public byte[] getPayload() {
-        return payload;
+        return payload.clone();
     }
 }

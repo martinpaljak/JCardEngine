@@ -19,9 +19,10 @@ import javacard.framework.*;
 
 /**
  * Basic HelloWorld JavaCard Applet.
+ *
  * @author LICEL LLC
  */
-public class HelloWorldApplet extends BaseApplet {
+public class HelloWorldApplet extends Applet {
 
     /**
      * Instruction: say hello
@@ -34,7 +35,7 @@ public class HelloWorldApplet extends BaseApplet {
     /**
      * Instruction: get install params
      */
-    private final static byte SAY_IPARAMS_INS = (byte) 0x04;    
+    private final static byte SAY_IPARAMS_INS = (byte) 0x04;
     /**
      * Instruction: NOP
      */
@@ -59,8 +60,8 @@ public class HelloWorldApplet extends BaseApplet {
      * Byte array representing "Hello Java Card world!" string.
      */
     private static byte[] helloMessage = new byte[]{
-        0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, // "Hello "
-        0x77, 0x6F, 0x72, 0x6C, 0x64, 0x20, 0x21 // "world !"
+            0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, // "Hello "
+            0x77, 0x6F, 0x72, 0x6C, 0x64, 0x20, 0x21 // "world !"
     };
 
     private byte[] echoBytes;
@@ -70,7 +71,8 @@ public class HelloWorldApplet extends BaseApplet {
 
     /**
      * Only this class's install method should create the applet object.
-     * @param bArray the array containing installation parameters
+     *
+     * @param bArray  the array containing installation parameters
      * @param bOffset the starting offset in bArray
      * @param bLength the length in bytes of the parameter data in bArray
      */
@@ -87,18 +89,19 @@ public class HelloWorldApplet extends BaseApplet {
         }
         transientMemory = JCSystem.makeTransientByteArray(LENGTH_ECHO_BYTES, JCSystem.CLEAR_ON_RESET);
         register();
-    }    
+    }
 
     /**
      * This method is called once during applet instantiation process.
-     * @param bArray the array containing installation parameters
+     *
+     * @param bArray  the array containing installation parameters
      * @param bOffset the starting offset in bArray
      * @param bLength the length in bytes of the parameter data in bArray
      * @throws ISOException if the install method failed
      */
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new HelloWorldApplet(bArray, bOffset,bLength);
+        new HelloWorldApplet(bArray, bOffset, bLength);
     }
 
     /**
@@ -106,12 +109,12 @@ public class HelloWorldApplet extends BaseApplet {
      */
     public void process(APDU apdu) {
         // good practice
-        if(selectingApplet()) return;
+        if (selectingApplet()) return;
         byte[] buffer = apdu.getBuffer();
         // Now determine the requested instruction:
         switch (buffer[ISO7816.OFFSET_INS]) {
             case SAY_HELLO_INS:
-                sayHello(apdu, (short)0x9000);
+                sayHello(apdu, (short) 0x9000);
                 return;
             case SAY_ECHO2_INS:
                 sayEcho2(apdu);
@@ -126,7 +129,7 @@ public class HelloWorldApplet extends BaseApplet {
                 listObjects(apdu);
                 return;
             case APPLICATION_SPECIFIC_SW_INS:
-                sayHello(apdu, (short)0x9B00);
+                sayHello(apdu, (short) 0x9B00);
                 return;
             case MAXIMUM_DATA_INS:
                 maximumData(apdu);
@@ -143,7 +146,7 @@ public class HelloWorldApplet extends BaseApplet {
      * Sends hello message to host using given APDU.
      *
      * @param apdu APDU that requested hello message
-     * @param sw response sw code
+     * @param sw   response sw code
      */
     private void sayHello(APDU apdu, short sw) {
         // Here all bytes of the APDU are stored
@@ -167,7 +170,7 @@ public class HelloWorldApplet extends BaseApplet {
         // Send our message starting at 0 position
         apdu.sendBytesLong(echo, (short) 0, echoLength);
         // Set application specific sw
-        if(sw!=0x9000) {
+        if (sw != ISO7816.SW_NO_ERROR) {
             ISOException.throwIt(sw);
         }
     }
@@ -200,10 +203,10 @@ public class HelloWorldApplet extends BaseApplet {
      */
     private void sayIParams(APDU apdu) {
         apdu.setOutgoing();
-        apdu.setOutgoingLength((short)initParamsBytes.length);
+        apdu.setOutgoingLength((short) initParamsBytes.length);
         // echo install parmas
-        apdu.sendBytesLong(initParamsBytes, (short) 0, (short)initParamsBytes.length);
-    }   
+        apdu.sendBytesLong(initParamsBytes, (short) 0, (short) initParamsBytes.length);
+    }
 
     /**
      * send some hello data, and indicate there's more
@@ -211,7 +214,7 @@ public class HelloWorldApplet extends BaseApplet {
     private void sayContinue(APDU apdu) {
         byte[] echo = transientMemory;
         short echoLength = (short) 6;
-        Util.arrayCopyNonAtomic(helloMessage, (short)0, echo, (short)0, (short)6);
+        Util.arrayCopyNonAtomic(helloMessage, (short) 0, echo, (short) 0, (short) 6);
         apdu.setOutgoing();
         apdu.setOutgoingLength(echoLength);
         apdu.sendBytesLong(echo, (short) 0, echoLength);
@@ -230,22 +233,21 @@ public class HelloWorldApplet extends BaseApplet {
         Util.arrayFillNonAtomic(buffer, (short) 0, maxData, (byte) 0);
         apdu.setOutgoingAndSend((short) 0, maxData);
     }
-    
+
     // prototype
-    private void listObjects(APDU apdu)
-    {
+    private void listObjects(APDU apdu) {
         byte buffer[] = apdu.getBuffer();
-        
-	if (buffer[ISO7816.OFFSET_P2] != 0) {
-            ISOException.throwIt((short)0x9C11);
+
+        if (buffer[ISO7816.OFFSET_P2] != 0) {
+            ISOException.throwIt((short) 0x9C11);
         }
-	
-	byte expectedBytes = buffer[ISO7816.OFFSET_LC];
-	
-	if (expectedBytes < 14) {
+
+        byte expectedBytes = buffer[ISO7816.OFFSET_LC];
+
+        if (expectedBytes < 14) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
-	
-	ISOException.throwIt((short)0x9C12);
-    }    
+
+        ISOException.throwIt((short) 0x9C12);
+    }
 }

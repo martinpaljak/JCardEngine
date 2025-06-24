@@ -1,41 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter xmlns="https://github.com/spotbugs/filter/3.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                 xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
-    <!-- Ignore everything in sample applets-->
+    <!-- Ignore unavoidable things in sample applets-->
     <Match>
         <Package name="com.licel.jcardsim.samples"/>
+        <Bug pattern="CT_CONSTRUCTOR_THROW,ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
     </Match>
-    <!-- Reflection use in constructor -->
+    <!-- Applet.install() is designed like this -->
+    <Match>
+        <Method name="install" params="byte[],short,byte" returns="void"/>
+        <Bug pattern="HSM_HIDING_METHOD"/>
+    </Match>
+    <!-- Reflection use in constructor results in throw -->
     <Match>
         <Class name="com.licel.jcardsim.base.Simulator"/>
         <Bug pattern="CT_CONSTRUCTOR_THROW"/>
     </Match>
-    <!-- JavaCard constructors throw by design -->
-    <Match>
-        <Package name="com.licel.jcardsim.framework"/>
-        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-    </Match>
+    <!-- Allocation inside constructor with JCSystem.make* -->
     <Match>
         <Package name="com.licel.jcardsim.crypto"/>
         <Bug pattern="CT_CONSTRUCTOR_THROW"/>
     </Match>
-    <!-- Ignore for now -->
+    <!-- Ignore currently inevitable in upstream JC API-s-->
     <Match>
-        <Bug pattern="EI_EXPOSE_REP"/>
-    </Match>
-    <!-- By design, CardRuntimeException.throwIt() -->
-    <Match>
-        <Bug pattern="HSM_HIDING_METHOD"/>
-    </Match>
-    <!-- False positive or noise -->
-    <Match>
-        <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE,AT_NONATOMIC_OPERATIONS_ON_SHARED_VARIABLE"/>
-    </Match>
-    <!-- Ignore everything in upstream JC API-s-->
-    <Match>
-        <Package name="~javacard.framework.*"/>
-    </Match>
-    <Match>
-        <Package name="~javacardx.framework.*"/>
+        <Or>
+            <Package name="~javacard\..*"/>
+            <Package name="~javacardx\..*"/>
+        </Or>
+        <Bug pattern="CT_CONSTRUCTOR_THROW,HSM_HIDING_METHOD,EI_EXPOSE_REP,EQ_ALWAYS_FALSE,HE_INHERITS_EQUALS_USE_HASHCODE"/>
     </Match>
 </FindBugsFilter>

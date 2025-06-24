@@ -17,6 +17,8 @@ package com.licel.jcardsim.base;
 
 import javacard.framework.JCSystem;
 import javacard.framework.SystemException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +28,7 @@ import java.util.List;
  * Basic implementation of storage transient memory of JCRE.
  */
 public class TransientMemory {
+    private static final Logger log = LoggerFactory.getLogger(TransientMemory.class);
     /**
      * List of <code>CLEAR_ON_DESELECT</code> arrays
      */
@@ -34,6 +37,33 @@ public class TransientMemory {
      * List of <code>CLEAR_ON_RESET</code> arrays
      */
     protected final ArrayList<Object> clearOnReset = new ArrayList<>();
+
+    private int sumCOD;
+    private int sumCOR;
+
+    private void add(Object obj, byte event) {
+        int toAdd = 0;
+        if (obj instanceof byte[]) {
+            toAdd += ((byte[]) obj).length;
+        } else if (obj instanceof short[]) {
+            toAdd += ((short[]) obj).length * 2;
+        } else if (obj instanceof Object[]) {
+            // Assume 16 bits for pointer. Arbitrary
+            toAdd += ((Object[]) obj).length * 2;
+        } else if (obj instanceof boolean[]) {
+            toAdd += ((boolean[]) obj).length;
+        } else {
+            log.warn("Unsupported object: {}", obj.getClass());
+        }
+
+        if (event == JCSystem.CLEAR_ON_RESET) {
+            sumCOR += toAdd;
+        } else if (event == JCSystem.CLEAR_ON_DESELECT) {
+            sumCOD += toAdd;
+        } else {
+            log.warn("Unsupported event {}", event);
+        }
+    }
 
     /**
      * @param length the length of the array
@@ -124,8 +154,9 @@ public class TransientMemory {
             return JCSystem.CLEAR_ON_DESELECT;
         } else if (clearOnReset.contains(theObj)) {
             return JCSystem.CLEAR_ON_RESET;
+        } else {
+            return JCSystem.NOT_A_TRANSIENT_OBJECT;
         }
-        return JCSystem.NOT_A_TRANSIENT_OBJECT;
     }
 
     /**
@@ -135,6 +166,7 @@ public class TransientMemory {
      * @param event    event type
      */
     protected void storeArray(Object arrayRef, byte event) {
+        add(arrayRef, event);
         switch (event) {
             case JCSystem.CLEAR_ON_DESELECT:
                 clearOnDeselect.add(arrayRef);
@@ -170,6 +202,8 @@ public class TransientMemory {
         clearOnReset();
         clearOnDeselect.clear();
         clearOnReset.clear();
+        sumCOD = 0;
+        sumCOR = 0;
     }
 
     /**
@@ -187,7 +221,17 @@ public class TransientMemory {
                 Arrays.fill((Object[]) obj, null);
             } else if (obj instanceof boolean[]) {
                 Arrays.fill((boolean[]) obj, false);
+            } else {
+                log.warn("Unsupported object: {}", obj.getClass());
             }
         }
+    }
+
+    public int getSumCOD() {
+        return sumCOD;
+    }
+
+    public int getSumCOR() {
+        return sumCOR;
     }
 }

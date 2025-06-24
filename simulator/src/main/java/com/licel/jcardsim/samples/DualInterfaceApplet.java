@@ -15,10 +15,7 @@
  */
 package com.licel.jcardsim.samples;
 
-import javacard.framework.APDU;
-import javacard.framework.ISO7816;
-import javacard.framework.ISOException;
-import javacard.framework.Util;
+import javacard.framework.*;
 
 
 /**
@@ -35,7 +32,7 @@ import javacard.framework.Util;
  *     <li><code>CLA=0x80 INS=4</code> get interface information (protocol byte)</li>
  * </ul>
  */
-public class DualInterfaceApplet extends BaseApplet {
+public class DualInterfaceApplet extends Applet {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_READ = 0;
     private static final byte INS_WRITE = 2;

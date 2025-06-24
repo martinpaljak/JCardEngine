@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.samples;
 
-import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 
 /**
@@ -28,7 +27,7 @@ import javacard.framework.*;
  *     <li><code>CLA=0x10 INS=2</code> Write global byte array value from <code>CData</code></li>
  * </ul>
  */
-public class GlobalArrayClientApplet extends BaseApplet {
+public class GlobalArrayClientApplet extends Applet {
     private final static byte CLA = 0x10;
     private final static byte INS_READ_GLOBAL_ARRAY_BYTE = 0x01;
     private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;

@@ -87,7 +87,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     // Number of allocated bytes
     int bytesAllocated;
 
-    public Simulator() {
+    public Simulator() throws RuntimeException {
         this.transientMemory = new TransientMemory();
         // XXX: smell
         try {
@@ -255,18 +255,20 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return ApplicationInstance or null
      */
     public ApplicationInstance lookupApplet(AID lookupAid) {
-        log.info("Searching registry for {}", lookupAid == null ? null : AIDUtil.toString(lookupAid));
+        log.trace("Searching registry for {}", lookupAid == null ? null : AIDUtil.toString(lookupAid));
         // To return the "JC owned" AID instance.
         for (AID aid : applets.keySet()) {
             if (aid.equals(lookupAid)) {
                 return applets.get(aid);
             }
         }
-        log.error("application with AID {} not found", AIDUtil.toString(lookupAid));
+        log.warn("Application with AID {} not found", AIDUtil.toString(lookupAid));
         return null;
     }
 
     /**
+     * FIXME: this is bogus
+     *
      * @return previous selected applet context AID or null
      */
     public AID getPreviousContextAID() {
@@ -344,7 +346,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     }
 
     /**
-     * Transmit APDU to previous selected applet
+     * Transmit APDU to previously selected applet or select a new applet
      *
      * @param command command apdu
      * @return response apdu
@@ -353,7 +355,6 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     public byte[] transmitCommand(byte[] command) throws SystemException {
         _makeCurrent();
         try {
-
             log.trace("APDU: {}", Hex.toHexString(command));
             final ApduCase apduCase = ApduCase.getCase(command);
             final byte[] theSW = new byte[2];
@@ -754,6 +755,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
             }
             return appletAID;
         } finally {
+            memstat();
             _releaseCurrent();
         }
     }
@@ -796,8 +798,10 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         return new byte[size];
     }
 
-    public void mock(String packageName) {
-        classLoader.mock(packageName);
+    // Indicate packages to include in isolated classloader
+    public Simulator mock(String... packageNames) {
+        classLoader.mock(packageNames);
+        return this;
     }
 
 
@@ -809,5 +813,11 @@ public class Simulator implements CardInterface, JavaCardSimulator {
             this.aid = aid;
             this.exposed = exposed;
         }
+    }
+
+    public void memstat() {
+        log.info("Persistent         {}", bytesAllocated);
+        log.info("CLEAR_ON_RESET:    {}", transientMemory.getSumCOR());
+        log.info("CLEAR_ON_DESELECT: {}", transientMemory.getSumCOD());
     }
 }

@@ -170,6 +170,7 @@ public class JavaCardApiProcessor {
         public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
             // skip jc 2.2.2 api impl
             if ((access & ACC_PUBLIC) != ACC_PUBLIC) {
+                System.out.println("Ignoring exception field " + name);
                 return null;
             }
             return super.visitField(access, name, desc, signature, value);
@@ -242,12 +243,11 @@ public class JavaCardApiProcessor {
 
         @Override
         public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-            // skip jc 2.2.2 api impl
             if (cnMethods.containsKey(name + desc) || ((access & (ACC_PUBLIC | ACC_PROTECTED)) == 0)) {
-                System.out.println("skip method: " + cname + "::" + name + " " + desc);
+                System.out.println("Use proxy method:    " + cname + "::" + name + desc);
                 return null;
             }
-            System.out.println("Use original:" + cname + "::" + name + " " + desc);
+            System.out.println("Use original method: " + cname + "::" + name + desc);
             return super.visitMethod(access, name, desc, signature, exceptions);
         }
 

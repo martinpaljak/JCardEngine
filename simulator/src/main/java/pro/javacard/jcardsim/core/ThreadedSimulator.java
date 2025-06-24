@@ -20,7 +20,7 @@ public class ThreadedSimulator implements CardInterface, Runnable {
     private static final Logger log = LoggerFactory.getLogger(ThreadedSimulator.class);
 
     private final SynchronousQueue<RemoteMessage> queue = new SynchronousQueue<>(true);
-    private final List<InstallSpec> applets;
+    protected final List<InstallSpec> applets;
     private Thread thread = new Thread(this); // XXX
 
     private Simulator sim;
@@ -121,5 +121,10 @@ public class ThreadedSimulator implements CardInterface, Runnable {
             sim.installApplet(aid, applet.klass, applet.installData);
         }
         return sim;
+    }
+
+    // Construct the simulator
+    public Simulator getSimulator() {
+        return makeSimulator(applets);
     }
 }

@@ -34,7 +34,7 @@ import javacardx.apdu.ExtendedLength;
  *     <li>Case 4E, receive and check data must be all 0x5A which number of bytes according to 3-byte Lc then send back 0x5A which number of bytes according to 2-byte Le/li>
  * </ul>
  */
-public class ApduExtendedCasesApplet extends BaseApplet implements ExtendedLength {
+public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS = (byte) 0xb4;
 

@@ -28,7 +28,7 @@ import javacard.framework.*;
  * </ul>
  */
 
-public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAccess {
+public class GlobalArrayServerApplet extends Applet implements GlobalArrayAccess {
     private final static byte CLA = 0x10;
     private final static byte INS_INIT_GLOBAL_ARRAY_BYTE = 0x01;
     private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
@@ -120,6 +120,4 @@ public class GlobalArrayServerApplet extends BaseApplet implements GlobalArrayAc
     public Object getGlobalArrayRef() {
         return globalArray;
     }
-
-
 }

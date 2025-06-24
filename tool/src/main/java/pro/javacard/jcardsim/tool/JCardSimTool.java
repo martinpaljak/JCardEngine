@@ -16,6 +16,7 @@
 package pro.javacard.jcardsim.tool;
 
 import com.licel.jcardsim.base.CardInterface;
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
 import joptsimple.OptionException;
@@ -48,7 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public class JCardSimTool {
+public class JCardSimTool extends ThreadedSimulator {
     private static final Logger log = LoggerFactory.getLogger(JCardSimTool.class);
 
     static OptionParser parser = new OptionParser();
@@ -81,8 +82,12 @@ public class JCardSimTool {
     // for adapters.
     static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
 
-    // Class loader
+    // Class loader for .jar/.cap/classes
     static final AppletClassLoader loader = new AppletClassLoader();
+
+    JCardSimTool(List<InstallSpec> spec) {
+        super(spec);
+    }
 
     public static void main(String[] args) {
         String version = JCardSimTool.class.getPackage().getImplementationVersion();
@@ -154,7 +159,7 @@ public class JCardSimTool {
             final byte[] atr = options.has(OPT_ATR) ? Hex.decode(options.valueOf(OPT_ATR)) : DEFAULT_ATR;
 
             // Set up simulator. Right now a sample thingy
-            CardInterface sim = new ThreadedSimulator(spec);
+            CardInterface sim = new JCardSimTool(spec);
             byte[] aid_bytes = Hex.decode("010203040506");
             ExecutorService exec = Executors.newFixedThreadPool(3);
 

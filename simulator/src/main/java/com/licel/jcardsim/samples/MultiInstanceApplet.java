@@ -30,7 +30,7 @@ import javacard.framework.*;
  *     <li><code>CLA=0x80 INS=4</code> lock the applet</li>
  * </ul>
  */
-public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
+public class MultiInstanceApplet extends Applet implements AppletEvent {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_GET_FULL_AID = 0;
     private static final byte INS_GET_COUNT = 2;
@@ -40,8 +40,6 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
     private static short instanceCounter = 0;
 
     private boolean locked = false;
-
-    private byte[] dummy = new byte[42];
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
         new MultiInstanceApplet().register();
@@ -61,7 +59,6 @@ public class MultiInstanceApplet extends BaseApplet implements AppletEvent {
 
         final short readCount = apdu.setIncomingAndReceive();
         final short lc = apdu.getIncomingLength();
-        final short offsetCData = apdu.getOffsetCdata();
         short read = readCount;
         while (read < lc) {
             read += apdu.receiveBytes(read);

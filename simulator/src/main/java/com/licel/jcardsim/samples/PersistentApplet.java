@@ -16,6 +16,7 @@
 package com.licel.jcardsim.samples;
 
 import javacard.framework.APDU;
+import javacard.framework.Applet;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.security.AESKey;
@@ -27,15 +28,15 @@ import javacard.security.RandomData;
  * @author LICEL LLC
  */
 @SuppressWarnings("deprecation") // random
-public class PersistentApplet extends BaseApplet {
+public class PersistentApplet extends Applet {
     
-    private final byte GET_DATA_INS = 0x01;
-    private final byte GET_COUNTER = 0x02;
-    private final byte INC_COUNTER = 0x03;
-    private final byte GET_DESELECT_COUNTER = 0x04;
+    private static final byte GET_DATA_INS = 0x01;
+    private static final byte GET_COUNTER = 0x02;
+    private static final byte INC_COUNTER = 0x03;
+    private static final byte GET_DESELECT_COUNTER = 0x04;
     
-    private final short ARR_SIZE = 8;
-    private final short AES_KEY_SIZE = 128;
+    private static final short ARR_SIZE = 8;
+    private static final short AES_KEY_SIZE = 128;
 
     private byte[] byteArr;
     private Key[] keyArr;

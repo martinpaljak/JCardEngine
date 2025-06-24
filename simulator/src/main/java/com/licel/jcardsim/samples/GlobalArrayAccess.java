@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 package com.licel.jcardsim.samples;
+
 import javacard.framework.Shareable;
+
 /**
  * Grants access to the global array.
- *
  */
-public interface GlobalArrayAccess extends Shareable{
+public interface GlobalArrayAccess extends Shareable {
     Object getGlobalArrayRef();
 }

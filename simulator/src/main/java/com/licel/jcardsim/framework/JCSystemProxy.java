@@ -367,9 +367,10 @@ public class JCSystemProxy {
 
             case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
                 return Simulator.current().getAvailableTransientDeselectMemory();
+            default:
+                SystemException.throwIt(SystemException.ILLEGAL_VALUE);
+                return 0;
         }
-        SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-        return 0;
     }
 
     /**

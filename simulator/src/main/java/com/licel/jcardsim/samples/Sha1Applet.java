@@ -32,7 +32,7 @@ import javacardx.apdu.ExtendedLength;
  *     <li><code>CLA=0x80 INS=8</code> return last digest</li>
  * </ul>
  */
-public class Sha1Applet extends BaseApplet implements ExtendedLength {
+public class Sha1Applet extends Applet implements ExtendedLength {
     private static final byte CLA = (byte) 0x80;
     private static final byte INS_DIGEST = 0;
     private static final byte INS_ECHO = 2;
@@ -60,7 +60,7 @@ public class Sha1Applet extends BaseApplet implements ExtendedLength {
         final short lc = apdu.getIncomingLength();
         final short offsetCData = apdu.getOffsetCdata();
         short read = readCount;
-        while(read < lc) {
+        while (read < lc) {
             read += apdu.receiveBytes(read);
         }
 
@@ -74,9 +74,9 @@ public class Sha1Applet extends BaseApplet implements ExtendedLength {
 
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_DIGEST:
-                short len = digest.doFinal(buffer, offsetCData, lc, lastDigest, (short)0);
-                Util.arrayCopy(lastDigest, (short)0, buffer, (short) 0, len);
-                apdu.setOutgoingAndSend((short)0, len);
+                short len = digest.doFinal(buffer, offsetCData, lc, lastDigest, (short) 0);
+                Util.arrayCopy(lastDigest, (short) 0, buffer, (short) 0, len);
+                apdu.setOutgoingAndSend((short) 0, len);
                 break;
             case INS_ECHO: {
                 apdu.setOutgoingAndSend(offsetCData, lc);
@@ -84,17 +84,17 @@ public class Sha1Applet extends BaseApplet implements ExtendedLength {
             }
             case INS_LEN: {
                 short le = apdu.setOutgoing();
-                apdu.setOutgoingLength((short)4);
+                apdu.setOutgoingLength((short) 4);
 
-                Util.setShort(buffer, (short)0, lc);
-                Util.setShort(buffer, (short)2, le);
+                Util.setShort(buffer, (short) 0, lc);
+                Util.setShort(buffer, (short) 2, le);
 
-                apdu.sendBytes((short)0, (short)4);
+                apdu.sendBytes((short) 0, (short) 4);
                 break;
             }
             case INS_LAST_DIGEST: {
-                Util.arrayCopy(lastDigest, (short)0, buffer, (short) 0, (short) lastDigest.length);
-                apdu.setOutgoingAndSend((short)0, (short) lastDigest.length);
+                Util.arrayCopy(lastDigest, (short) 0, buffer, (short) 0, (short) lastDigest.length);
+                apdu.setOutgoingAndSend((short) 0, (short) lastDigest.length);
                 break;
             }
             default:
