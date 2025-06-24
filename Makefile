@@ -21,3 +21,6 @@ test:
 
 fastinstall:
 	./mvnw -Dmaven.test.skip=true install
+
+today:
+	./mvnw versions:set -DnewVersion=$(shell date +%y.%m.%d)-SNAPSHOT -DgenerateBackupPoms=false
