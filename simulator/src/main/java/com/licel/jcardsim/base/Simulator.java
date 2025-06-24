@@ -33,7 +33,7 @@ import java.util.*;
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
  * manipulation MUST happen via these interfaces. Each Simulator is independent (like a single secure element)
  */
-public class Simulator implements CardInterface, JavaCardSimulator {
+public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRuntime {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
     // default ATR - NXP JCOP 31/36K
@@ -128,7 +128,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      *
      * @return current Simulator instance
      */
-    public static Simulator current() {
+    public static JavaCardRuntime current() {
         Simulator currentInstance = currentSimulator.get();
         if (currentInstance == null) {
             throw new AssertionError("No current Simulator instance");
@@ -226,6 +226,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     /**
      * @return current applet context AID or null
      */
+    @Override
     public AID getAID() {
         return currentAID;
     }
@@ -238,6 +239,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @param length the length of the AID bytes in <code>buffer</code>
      * @return Applet AID or null
      */
+    @Override
     public AID lookupAID(byte buffer[], short offset, byte length) {
         // To return the "JC owned" AID instance.
         for (AID aid : applets.keySet()) {
@@ -271,6 +273,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      *
      * @return previous selected applet context AID or null
      */
+    @Override
     public AID getPreviousContextAID() {
         return previousAID;
     }
@@ -339,6 +342,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @param aThis applet
      * @return true if applet is being selected
      */
+    @Override
     public boolean isAppletSelecting(Object aThis) {
         return selecting;
         // NOTE: there is a proxy in play, so identity makes no sense.
@@ -471,6 +475,18 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         }
     }
 
+    static boolean isAppletSelectionApdu(byte[] apdu) {
+        final byte channelMask = (byte) 0xFC; // mask out %b000000xx
+        final byte p2Mask = (byte) 0xE3; // mask out %b000xxx00
+
+        final byte cla = (byte) (apdu[ISO7816.OFFSET_CLA] & channelMask);
+        final byte ins = apdu[ISO7816.OFFSET_INS];
+        final byte p1 = apdu[ISO7816.OFFSET_P1];
+        final byte p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
+
+        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
+    }
+
     /**
      * Check if secure channel is not aborted
      * This method must be override in subclass that have secure channel abort checking
@@ -533,6 +549,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @param bOff   the starting offset in buffer
      * @param len    the length in bytes of the response
      */
+    @Override
     public void sendAPDU(byte[] buffer, short bOff, short len) {
         responseBufferSize = Util.arrayCopyNonAtomic(buffer, bOff, responseBuffer, responseBufferSize, len);
     }
@@ -549,6 +566,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         transientMemory.clearOnReset();
     }
 
+    @Override
     public TransientMemory getTransientMemory() {
         return transientMemory;
     }
@@ -561,6 +579,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         }
     }
 
+    @Override
     public APDU getCurrentAPDU() {
         return usingExtendedAPDUs ? extendedAPDU : shortAPDU;
     }
@@ -577,6 +596,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
         resetAPDU(extendedAPDU, null, null);
     }
 
+    @Override
     public byte getAssignedChannel() {
         return 0; // basic channel
     }
@@ -584,6 +604,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     /**
      * @see javacard.framework.JCSystem#beginTransaction()
      */
+    @Override
     public void beginTransaction() {
         if (transactionDepth != 0) {
             TransactionException.throwIt(TransactionException.IN_PROGRESS);
@@ -594,6 +615,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     /**
      * @see javacard.framework.JCSystem#abortTransaction()
      */
+    @Override
     public void abortTransaction() {
         if (transactionDepth == 0) {
             TransactionException.throwIt(TransactionException.NOT_IN_PROGRESS);
@@ -604,6 +626,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     /**
      * @see javacard.framework.JCSystem#commitTransaction()
      */
+    @Override
     public void commitTransaction() {
         if (transactionDepth == 0) {
             TransactionException.throwIt(TransactionException.NOT_IN_PROGRESS);
@@ -615,6 +638,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return 1 if transaction in progress, 0 if not
      * @see javacard.framework.JCSystem#getTransactionDepth()
      */
+    @Override
     public byte getTransactionDepth() {
         return transactionDepth;
     }
@@ -623,6 +647,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
+    @Override
     public short getUnusedCommitCapacity() {
         return Short.MAX_VALUE;
     }
@@ -631,6 +656,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getMaxCommitCapacity()
      */
+    @Override
     public short getMaxCommitCapacity() {
         return Short.MAX_VALUE;
     }
@@ -639,6 +665,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
+    @Override
     public short getAvailablePersistentMemory() {
         return Short.MAX_VALUE;
     }
@@ -647,6 +674,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
+    @Override
     public short getAvailableTransientResetMemory() {
         return Short.MAX_VALUE;
     }
@@ -655,6 +683,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
+    @Override
     public short getAvailableTransientDeselectMemory() {
         return Short.MAX_VALUE;
     }
@@ -665,6 +694,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return the shareable interface object or <code>null</code>
      * @see javacard.framework.JCSystem#getAppletShareableInterfaceObject(javacard.framework.AID, byte)
      */
+    @Override
     public Shareable getSharedObject(AID serverAID, byte parameter) {
         log.info("Getting Shareable from {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
         Applet serverApplet = getApplet(serverAID);
@@ -679,6 +709,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
      * @return always false
      * @see javacard.framework.JCSystem#isObjectDeletionSupported()
      */
+    @Override
     public boolean isObjectDeletionSupported() {
         return OBJECT_DELETION_SUPPORTED;
     }
@@ -686,22 +717,11 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     /**
      * @see javacard.framework.JCSystem#requestObjectDeletion()
      */
+    @Override
     public void requestObjectDeletion() {
         if (!isObjectDeletionSupported()) {
             throw new SystemException(SystemException.ILLEGAL_USE);
         }
-    }
-
-    protected static boolean isAppletSelectionApdu(byte[] apdu) {
-        final byte channelMask = (byte) 0xFC; // mask out %b000000xx
-        final byte p2Mask = (byte) 0xE3; // mask out %b000xxx00
-
-        final byte cla = (byte) (apdu[ISO7816.OFFSET_CLA] & channelMask);
-        final byte ins = apdu[ISO7816.OFFSET_INS];
-        final byte p1 = apdu[ISO7816.OFFSET_P1];
-        final byte p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
-
-        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
     }
 
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
@@ -761,6 +781,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     }
 
     // Callback from Applet.register()
+    @Override
     public void register(Object instance) {
         try {
             // Already registered or not via install() or already registered.
@@ -778,6 +799,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
     }
 
     // Callback from Applet.register()
+    @Override
     public void register(Object instance, byte[] buffer, short offset, byte len) {
         try {
             AID actual = new AID(buffer, offset, len);
@@ -792,7 +814,7 @@ public class Simulator implements CardInterface, JavaCardSimulator {
 
     // Intercepted from bytecode
     public static byte[] allocate(int size) {
-        Simulator current = Simulator.current();
+        Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
         log.trace("Allocating {} bytes in {}", size, System.identityHashCode(current));
         current.bytesAllocated += size;
         return new byte[size];
