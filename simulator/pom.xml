@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardsim-package</artifactId>
-        <version>25.06.07-SNAPSHOT</version>
+        <version>25.06.24-SNAPSHOT</version>
     </parent>
     <artifactId>jcardsim</artifactId>
     <name>Java Card Runime Environment Simulator</name>
