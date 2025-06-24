@@ -725,8 +725,7 @@ public class AppletProcessExceptionTest {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
     }
 
-    //@Test
-    // FIXME: sometimes this fails with JDK-11 for some reason from line 835 onwards
+    @Test
     public void testTLVException() {
         Simulator instance = getReadySimulator();
 
@@ -829,11 +828,11 @@ public class AppletProcessExceptionTest {
         assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test TLVException.TAG_SIZE_GREATER_THAN_127 with try catch
-        //apdu = new byte[]{CLA_TLV_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
-        //Util.setShort(apdu, ISO7816.OFFSET_P1, TLVException.TAG_SIZE_GREATER_THAN_127);
-        //result = instance.transmitCommand(apdu);
-        //responseApdu = new ResponseAPDU(result);
-        //assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
+        apdu = new byte[]{CLA_TLV_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
+        Util.setShort(apdu, ISO7816.OFFSET_P1, TLVException.TAG_SIZE_GREATER_THAN_127);
+        result = instance.transmitCommand(apdu);
+        responseApdu = new ResponseAPDU(result);
+        assertEquals(ISO7816.SW_FUNC_NOT_SUPPORTED, responseApdu.getSW());
 
         // Test TLVException.TAG_NUMBER_GREATER_THAN_32767 with try catch
         apdu = new byte[]{CLA_TLV_EXCEPTION, INS_HAS_CATCH_EXCEPTION, 0, 0};
