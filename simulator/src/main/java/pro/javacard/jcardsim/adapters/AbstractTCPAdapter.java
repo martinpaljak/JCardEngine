@@ -80,6 +80,9 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 send(channel, new RemoteMessage(Type.ATR, atr));
                                 break;
                             case RESET:
+                                if (session == null) {
+                                    session = sim.connect(protocol);
+                                }
                                 if (session != null) {
                                     sim.reset();
                                 }
@@ -99,7 +102,9 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 send(channel, new RemoteMessage(Type.POWERDOWN));
                                 break;
                             case APDU:
+                                log.info(">> {}", Hex.toHexString(msg.getPayload()));
                                 byte[] response = session.transmitCommand(msg.getPayload());
+                                log.info("<< {}", Hex.toHexString(response));
                                 send(channel, new RemoteMessage(Type.APDU, response));
                                 break;
                             default:
