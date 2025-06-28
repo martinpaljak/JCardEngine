@@ -80,7 +80,14 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 send(channel, new RemoteMessage(Type.ATR, atr));
                                 break;
                             case RESET:
+                                if (session != null) {
+                                    sim.reset();
+                                }
+                                send(channel, new RemoteMessage(Type.RESET));
+                                break;
                             case POWERUP:
+                                if (session != null)
+                                    log.warn("Session is not null");
                                 session = sim.connect(protocol);
                                 send(channel, new RemoteMessage(Type.POWERUP));
                                 break;
