@@ -82,9 +82,12 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                             case RESET:
                             case POWERUP:
                                 session = sim.connect(protocol);
+                                send(channel, new RemoteMessage(Type.POWERUP));
                                 break;
                             case POWERDOWN:
-                                session.close(true); // FIXME: no reset ?
+                                if (session != null) {
+                                    session.close(true); // FIXME: no reset ?
+                                }
                                 session = null;
                                 send(channel, new RemoteMessage(Type.POWERDOWN));
                                 break;
