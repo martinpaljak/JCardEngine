@@ -46,7 +46,7 @@ public class SimulatorTest {
     public void testCreateApplet() {
         System.out.println("createApplet");
         Simulator instance = new Simulator();
-        assertTrue(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData).equals(TEST_APPLET_AID));
+        assertEquals(TEST_APPLET_AID, instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData));
     }
 
     /**
@@ -57,17 +57,7 @@ public class SimulatorTest {
         System.out.println("installApplet");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertEquals(instance.selectApplet(TEST_APPLET_AID), true);
-    }
-
-    /**
-     * Test of installApplet method, of class Simulator.
-     */
-    @Test
-    public void testInstallApplet_5args_1() {
-        System.out.println("installApplet");
-        Simulator instance = new Simulator();
-        assertTrue(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData, (short) 0, (byte) createData.length).equals(TEST_APPLET_AID));
+        assertTrue(instance.selectApplet(TEST_APPLET_AID));
     }
 
     @Test
@@ -91,10 +81,9 @@ public class SimulatorTest {
      */
     @Test
     public void testSelectApplet() {
-        System.out.println("selectApplet");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertEquals(instance.selectApplet(TEST_APPLET_AID), true);
+        assertTrue(instance.selectApplet(TEST_APPLET_AID));
     }
 
     /**
@@ -102,12 +91,11 @@ public class SimulatorTest {
      */
     @Test
     public void testSelectAppletWithResult() {
-        System.out.println("selectApplet");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         byte[] result = instance.selectAppletWithResult(TEST_APPLET_AID);
-        assertEquals(result[0], (byte) 0x90);
-        assertEquals(result[1], 0x00);
+        assertEquals((byte) 0x90, result[0]);
+        assertEquals(0x00, result[1]);
     }
 
     /**
@@ -115,13 +103,12 @@ public class SimulatorTest {
      */
     @Test
     public void testTransmitCommand() {
-        System.out.println("transmitCommand");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertEquals(instance.selectApplet(TEST_APPLET_AID), true);
+        assertTrue(instance.selectApplet(TEST_APPLET_AID));
         // test NOP
         byte[] response = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00});
-        assertTrue(Arrays.areEqual(new byte[]{(byte) 0x90, 0x00}, response));
+        assertArrayEquals(new byte[]{(byte) 0x90, 0x00}, response);
     }
 
     /**
@@ -129,12 +116,11 @@ public class SimulatorTest {
      */
     @Test
     public void testReset() {
-        System.out.println("reset");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         instance.reset();
         // after reset installed applets not deleted
-        assertEquals(instance.selectApplet(TEST_APPLET_AID), true);
+        assertTrue(instance.selectApplet(TEST_APPLET_AID));
     }
 
     /**
@@ -142,10 +128,9 @@ public class SimulatorTest {
      */
     @Test
     public void testGetATR() {
-        System.out.println("getATR");
         Simulator instance = new Simulator();
         byte[] result = instance.getATR();
-        assertEquals(Arrays.areEqual(ETALON_ATR, result), true);
+        assertArrayEquals(ETALON_ATR, result);
     }
 
     /**
@@ -208,7 +193,7 @@ public class SimulatorTest {
         byte[] response = instance.transmitCommand(apduForTransmit);
 
         ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertTrue(Arrays.areEqual(responseApdu.getData(), commandData));
+        assertArrayEquals(commandData, responseApdu.getData());
         assertEquals(0x6112, (short) responseApdu.getSW());
 
         // Test for SW=0x64XX
@@ -223,7 +208,7 @@ public class SimulatorTest {
         response = instance.transmitCommand(apduForTransmit);
 
         responseApdu = new ResponseAPDU(response);
-        assertEquals(true, responseApdu.getData().length == 0);
+        assertEquals(0, responseApdu.getData().length);
         assertEquals(0x6434, (short) responseApdu.getSW());
 
         // Try with base SimulatorRuntime
@@ -243,7 +228,7 @@ public class SimulatorTest {
         response = instance.transmitCommand(apduForTransmit);
 
         responseApdu = new ResponseAPDU(response);
-        assertEquals(true, responseApdu.getData().length == 0);
+        assertEquals(0, responseApdu.getData().length);
         assertEquals(0x6985, (short) responseApdu.getSW());
     }
 }

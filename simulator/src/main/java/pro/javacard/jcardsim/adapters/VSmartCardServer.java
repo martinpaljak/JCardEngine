@@ -1,18 +1,17 @@
 package pro.javacard.jcardsim.adapters;
 
-import com.licel.jcardsim.base.CardInterface;
+import com.licel.jcardsim.base.Simulator;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.jcardsim.core.RemoteMessage;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-public class VSmartCard extends RemoteTerminalProtocol {
-    private static final Logger log = LoggerFactory.getLogger(VSmartCard.class);
+public class VSmartCardServer extends AbstractTCPAdapter {
+    private static final Logger log = LoggerFactory.getLogger(VSmartCardServer.class);
 
     // Default values
     public static final int DEFAULT_VSMARTCARD_PORT = 35963;
@@ -33,7 +32,7 @@ public class VSmartCard extends RemoteTerminalProtocol {
     final String host;
     final int port;
 
-    public VSmartCard(String host, Integer port, CardInterface sim) {
+    public VSmartCardServer(String host, Integer port, Simulator sim) {
         super(sim);
         this.host = host;
         this.port = port;
@@ -55,13 +54,13 @@ public class VSmartCard extends RemoteTerminalProtocol {
         ByteBuffer msg;
         switch (message.getType()) {
             case ATR:
-                msg = _send(message.getPayload());
+                msg = _send(atr == null ? message.getPayload() : atr);
                 break;
             case APDU:
                 msg = _send(message.getPayload());
                 break;
             default:
-                log.warn("Unknown/ignored message for protocol: " + message.getType());
+                log.info("Message type ignored: " + message.getType());
                 return;
         }
         log.trace("Sending {}", Hex.toHexString(msg.array()));
@@ -70,7 +69,7 @@ public class VSmartCard extends RemoteTerminalProtocol {
 
     @Override
     public SocketChannel getSocket() throws IOException {
-        return RemoteTerminalProtocol.connect(host, port);
+        return AbstractTCPAdapter.connect(host, port);
     }
 
     ByteBuffer _read(SocketChannel channel, int len) throws IOException {
@@ -86,13 +85,15 @@ public class VSmartCard extends RemoteTerminalProtocol {
         buf.rewind();
         return buf;
     }
+
     @Override
     public RemoteMessage recv(SocketChannel channel) throws IOException {
         ByteBuffer hdr = _read(channel, 2);
 
         short len = hdr.getShort(0);
-        if (len < 0)
+        if (len < 0) {
             throw new IOException("Unexpected length: " + len);
+        }
 
         // command
         if (len == 0x01) {

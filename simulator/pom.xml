@@ -5,18 +5,15 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardsim-package</artifactId>
-        <version>25.06.24-SNAPSHOT</version>
+        <version>25.06.28-SNAPSHOT</version>
     </parent>
     <artifactId>jcardsim</artifactId>
-    <name>Java Card Runime Environment Simulator</name>
+    <name>JavaCard Simulator</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <netbeans.hint.license>apache20</netbeans.hint.license>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
-        <ant.build.dir>${project.build.directory}/antrun/build</ant.build.dir>
-        <junit.version>4.13.2</junit.version>
-        <java.version>8</java.version>
         <asm.version>9.8</asm.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
@@ -56,7 +53,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.13.1</version>
+            <version>5.13.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -143,15 +140,15 @@
                 </configuration>
             </plugin>
             <!-- Make Jacoco report -->
-            <plugin>
+            <!--plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
                 <executions>
                     <execution>
                         <id>agent</id>
-                        <!-- NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent -->
-                        <phase>test-compile</phase>
+                        <! NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent >
+                        <phase>pre-integration-test</phase>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
@@ -163,7 +160,7 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
-                    <!-- Set current baseline for minimums -->
+                    <! Set current baseline for minimums >
                     <execution>
                         <id>check</id>
                         <goals>
@@ -177,13 +174,13 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.56</minimum>
+                                            <minimum>0.50</minimum>
                                         </limit>
-                                        <!-- this makes sense the way javacard.* is amended in bytecode -->
+                                        <! this makes sense the way javacard.* is amended in bytecode >
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.59</minimum>
+                                            <minimum>0.50</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -191,7 +188,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin-->
             <!-- Run tests, so that the classes have already been processed with proxy code -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

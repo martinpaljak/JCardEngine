@@ -16,6 +16,7 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.base.SimulatorSession;
 
 import javax.smartcardio.*;
 import java.nio.ByteBuffer;
@@ -48,7 +49,9 @@ public class CardSimulator extends Simulator {
      * @return ResponseAPDU
      */
     public ResponseAPDU transmitCommand(CommandAPDU commandApdu) {
-        return new ResponseAPDU(transmitCommand(commandApdu.getBytes()));
+        try (SimulatorSession session = connect()) {
+            return new ResponseAPDU(session.transmitCommand(commandApdu.getBytes()));
+        }
     }
 
     /**
@@ -141,8 +144,9 @@ public class CardSimulator extends Simulator {
     private final class CardImpl extends Card {
         private final CardChannel basicChannel;
         private volatile String protocol = "T=0";
-        private volatile byte protocolByte = 0;
+        //private volatile byte protocolByte = 0;
         private volatile CardState state = CardState.Connected;
+        private SimulatorSession session = null;
 
         CardImpl() {
             this.basicChannel = new CardChannelImpl(this, 0);
@@ -203,16 +207,15 @@ public class CardSimulator extends Simulator {
         @Override
         public void disconnect(boolean reset) throws CardException {
             synchronized (CardSimulator.this) {
-                if (reset) {
-                    CardSimulator.this.reset();
-                }
+                session.close(reset);
                 state = CardState.Disconnected;
             }
         }
 
         void connect(String protocol) {
             synchronized (CardSimulator.this) {
-                this.protocolByte = CardSimulator.this.getProtocolByte(protocol);
+                this.session = CardSimulator.this.connect(protocol);
+                //this.protocolByte = CardSimulator.this.getProtocolByte(protocol);
                 this.protocol = protocol;
                 this.state = CardState.Connected;
             }
@@ -228,6 +231,7 @@ public class CardSimulator extends Simulator {
         void disconnect() {
             synchronized (CardSimulator.this) {
                 CardSimulator.this.reset();
+                //session.close();
                 state = CardState.Disconnected;
             }
         }
@@ -239,14 +243,7 @@ public class CardSimulator extends Simulator {
                 if (thread != null && thread != Thread.currentThread()) {
                     throw new CardException("Card is held exclusively by Thread " + thread.getName());
                 }
-
-                byte currentProtocol = getProtocolByte(CardSimulator.this.getProtocol());
-                try {
-                    changeProtocol(protocolByte);
-                    return CardSimulator.this.transmitCommand(capdu);
-                } finally {
-                    changeProtocol(currentProtocol);
-                }
+                return session.transmitCommand(capdu);
             }
         }
     }

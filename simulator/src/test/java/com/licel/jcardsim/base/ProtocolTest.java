@@ -29,30 +29,33 @@ public class ProtocolTest {
         simulator.selectApplet(aid);
 
         // check interface is T=0 (contacted)
-        response = simulator.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
-        assertEquals(APDU.PROTOCOL_T0, response[0]);
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
+        try (CardSession conn = simulator.connect("*")) {
+            response = conn.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
+            assertEquals(APDU.PROTOCOL_T0, response[0]);
+            assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
 
-        // store data
-        response = simulator.transmitCommand(new byte[]{CLA,INS_WRITE,0,0,2, (byte) 0xCA, (byte) 0xFE});
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
+            // store data
+            response = conn.transmitCommand(new byte[]{CLA, INS_WRITE, 0, 0, 2, (byte) 0xCA, (byte) 0xFE});
+            assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
 
-        // read data
-        response = simulator.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
-        assertEquals(expectedOutput, ByteUtil.hexString(response));
+            // read data
+            response = conn.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
+            assertEquals(expectedOutput, ByteUtil.hexString(response));
+        }
 
         // change protocol
-        simulator.changeProtocol("T=CL");
-        response = simulator.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
-        assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, response[0]);
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
+        try (CardSession conn = simulator.connect("T=CL")) {
+            response = conn.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
+            assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, response[0]);
+            assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
 
-        // read data
-        response = simulator.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
-        assertEquals(expectedOutput, ByteUtil.hexString(response));
+            // read data
+            response = conn.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
+            assertEquals(expectedOutput, ByteUtil.hexString(response));
 
-        // store data should fail
-        response = simulator.transmitCommand(new byte[]{CLA,INS_WRITE,0,0,2, (byte) 0xBA, (byte) 0xD0});
-        assertEquals(ISO7816.SW_CONDITIONS_NOT_SATISFIED, ByteUtil.getSW(response));
+            // store data should fail
+            response = conn.transmitCommand(new byte[]{CLA, INS_WRITE, 0, 0, 2, (byte) 0xBA, (byte) 0xD0});
+            assertEquals(ISO7816.SW_CONDITIONS_NOT_SATISFIED, ByteUtil.getSW(response));
+        }
     }
 }

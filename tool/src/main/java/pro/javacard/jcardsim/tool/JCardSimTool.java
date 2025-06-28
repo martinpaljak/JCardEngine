@@ -15,7 +15,6 @@
  */
 package pro.javacard.jcardsim.tool;
 
-import com.licel.jcardsim.base.CardInterface;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
@@ -24,14 +23,11 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.bouncycastle.util.encoders.Hex;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import pro.javacard.capfile.CAPFile;
 import pro.javacard.jcardsim.adapters.JCSDKServer;
-import pro.javacard.jcardsim.adapters.RemoteTerminalProtocol;
-import pro.javacard.jcardsim.adapters.VSmartCard;
-import pro.javacard.jcardsim.core.InstallSpec;
-import pro.javacard.jcardsim.core.ThreadedSimulator;
+import pro.javacard.jcardsim.adapters.AbstractTCPAdapter;
+import pro.javacard.jcardsim.adapters.VSmartCardServer;
+import com.licel.jcardsim.base.InstallSpec;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -46,11 +42,13 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public class JCardSimTool extends ThreadedSimulator {
-    private static final Logger log = LoggerFactory.getLogger(JCardSimTool.class);
+public class JCardSimTool {
+    // While Simulator interface has an ATR interface, we don't really handle it on that level
+    // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
+    // for adapters.
+    static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
 
     static OptionParser parser = new OptionParser();
 
@@ -59,15 +57,19 @@ public class JCardSimTool extends ThreadedSimulator {
 
     // VSmartCard options
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
-    static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCard.DEFAULT_VSMARTCARD_PORT);
-    static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCard.DEFAULT_VSMARTCARD_HOST);
+    static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCardServer.DEFAULT_VSMARTCARD_PORT);
+    static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCardServer.DEFAULT_VSMARTCARD_HOST);
+    static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_VSMARTCARD_PROTOCOL = parser.accepts("vsmartcard-protocol", "VSmartCard protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
     // Oracle options
     static OptionSpec<Void> OPT_JCSDK = parser.accepts("jcsdk", "Run a JCSDK server");
     static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "port to listen on").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
     static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "host to listen on").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
+    static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "ATR to report").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "Protocol to use towards simulator").withRequiredArg().ofType(String.class);
 
-    // ATR to report
+    // Generic ATR override.
     static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class);
 
     // .cap/.jar files to load
@@ -77,16 +79,18 @@ public class JCardSimTool extends ThreadedSimulator {
     static OptionSpec<String> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_AID = parser.accepts("aid", "Applet AID").withRequiredArg().ofType(String.class);
 
-    // While Simulator interface has an ATR interface, we don't really handle it on that level
-    // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
-    // for adapters.
-    static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
-
     // Class loader for .jar/.cap/classes
     static final AppletClassLoader loader = new AppletClassLoader();
 
-    JCardSimTool(List<InstallSpec> spec) {
-        super(spec);
+    static byte[] _atr(OptionSet options, OptionSpec<String> arg) {
+        final byte[] atr;
+        if (options.has(arg)) {
+            atr = Hex.decode(options.valueOf(arg));
+        } else {
+            // TODO: $JCARDSIM_ATR
+            atr = options.has(OPT_ATR) ? Hex.decode(options.valueOf(OPT_ATR)) : null;
+        }
+        return atr;
     }
 
     public static void main(String[] args) {
@@ -108,7 +112,8 @@ public class JCardSimTool extends ThreadedSimulator {
 
             Set<String> availableApplets = new TreeSet<>();
             Map<String, byte[]> defaultAID = new HashMap<>();
-            // Load non-options
+
+            // Load non-options as applets & classes
             for (File f : options.valuesOf(toLoad)) {
                 Path p = f.toPath();
 
@@ -150,36 +155,49 @@ public class JCardSimTool extends ThreadedSimulator {
             } else {
                 System.err.println("Multiple applets found, use --applet");
                 for (String applet : availableApplets) {
-                    System.out.println("- " + applet);
+                    System.err.println("- " + applet);
                 }
                 System.exit(1);
             }
 
-            // Set ATR.
-            final byte[] atr = options.has(OPT_ATR) ? Hex.decode(options.valueOf(OPT_ATR)) : DEFAULT_ATR;
-
             // Set up simulator. Right now a sample thingy
-            CardInterface sim = new JCardSimTool(spec);
-            byte[] aid_bytes = Hex.decode("010203040506");
+            Simulator sim = Simulator.makeSimulator(spec);
             ExecutorService exec = Executors.newFixedThreadPool(3);
 
-            List<RemoteTerminalProtocol> adapters = new ArrayList<>();
+            List<AbstractTCPAdapter> adapters = new ArrayList<>();
 
-            if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST)) {
+            if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST) || options.has(OPT_VSMARTCARD_PROTOCOL) || options.has(OPT_VSMARTCARD_ATR)) {
                 int port = options.valueOf(OPT_VSMARTCARD_PORT);
-                String host = options.has(OPT_VSMARTCARD_HOST) ? options.valueOf(OPT_VSMARTCARD_HOST) : VSmartCard.DEFAULT_VSMARTCARD_HOST;
+                String host = options.valueOf(OPT_VSMARTCARD_HOST);
+                AbstractTCPAdapter adapter = new VSmartCardServer(host, port, sim);
+                if (options.has(OPT_ATR)) {
+                    adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
+                }
+                if (options.has(OPT_VSMARTCARD_ATR)) {
+                    adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_VSMARTCARD_ATR)));
+                }
+                if (options.has(OPT_VSMARTCARD_PROTOCOL)) {
+                    adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
+                }
                 System.out.printf("vsmartcard to host %s port %d%n", host, port);
-                RemoteTerminalProtocol adapter = new VSmartCard(host, port, sim);
-                adapter.setATR(atr);
                 adapters.add(adapter);
             }
 
-            if (options.has(OPT_JCSDK) || options.has(OPT_JCSDK_PORT) || options.has(OPT_JCSDK_HOST)) {
-                int port = options.hasArgument(OPT_JCSDK_PORT) ? options.valueOf(OPT_JCSDK_PORT) : JCSDKServer.DEFAULT_JCSDK_PORT;
-                String host = options.has(OPT_JCSDK_HOST) ? options.valueOf(OPT_JCSDK_HOST) : JCSDKServer.DEFAULT_JCSDK_HOST;
+            if (options.has(OPT_JCSDK) || options.has(OPT_JCSDK_PORT) || options.has(OPT_JCSDK_HOST) || options.has(OPT_JCSDK_PROTOCOL) || options.has(OPT_JCSDK_ATR)) {
+                int port = options.valueOf(OPT_JCSDK_PORT);
+                String host = options.valueOf(OPT_JCSDK_HOST);
+                AbstractTCPAdapter adapter = new JCSDKServer(host, port, sim);
+
+                if (options.has(OPT_ATR)) {
+                    adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
+                }
+                if (options.has(OPT_JCSDK_ATR)) {
+                    adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_JCSDK_ATR)));
+                }
+                if (options.has(OPT_JCSDK_PROTOCOL)) {
+                    adapter = adapter.withProtocol(options.valueOf(OPT_JCSDK_PROTOCOL));
+                }
                 System.out.printf("jcsdk on host %s port %d%n", host, port);
-                RemoteTerminalProtocol adapter = new JCSDKServer(host, port, sim);
-                adapter.setATR(atr);
                 adapters.add(adapter);
             }
 
@@ -197,6 +215,7 @@ public class JCardSimTool extends ThreadedSimulator {
             Runtime.getRuntime().addShutdownHook(shutdownThread);
             // This blocks until all are done, unless ctrl-c is hit
             exec.invokeAll(adapters);
+
             Runtime.getRuntime().removeShutdownHook(shutdownThread);
             exec.shutdownNow();
             while (!exec.isTerminated()) {

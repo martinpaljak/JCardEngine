@@ -28,6 +28,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -50,7 +51,13 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     private final IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
 
     // Used to keep track of the installation parameters during install()/register() callbacks
-    private static ThreadLocal<InstallOperationOptions> options = new ThreadLocal<>();
+    private static ThreadLocal<RegisterCallbackOptions> options = new ThreadLocal<>();
+
+    // Guards session access
+    final ReentrantLock lock = new ReentrantLock();
+
+    // The thread that creates this Simulator instance. Used for assisting warnings.
+    final Thread creator = Thread.currentThread();
 
     // Installed applets
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
@@ -138,14 +145,14 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
 
     @Override
     public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters) throws SystemException {
+        if (creator != Thread.currentThread()) {
+            log.error("Do not call from a different thread.");
+        }
+        // TODO: add a feature flag for isolation default
         return installApplet(aid, appletClass, parameters, false);
     }
 
-    // Wrappers around the main install method
-    public AID installApplet(AID aid, Class<? extends Applet> appletClass, byte bArray[], short bOffset, byte bLength) throws SystemException {
-        return installApplet(aid, appletClass, Arrays.copyOfRange(bArray, bOffset, bOffset + bLength));
-    }
-
+    // Wrappers around the main install() method
     public AID installApplet(AID aid, Class<? extends Applet> appletClass) {
         return installApplet(aid, appletClass, new byte[0], false);
     }
@@ -165,7 +172,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        return transmitCommand(AIDUtil.select(aid));
+        return _transmitCommand(AIDUtil.select(aid));
     }
 
     public byte[] getATR() {
@@ -173,7 +180,8 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
         return Hex.decode(System.getProperty(ATR_SYSTEM_PROPERTY, DEFAULT_ATR));
     }
 
-    protected static byte getProtocolByte(String protocol) {
+    // Convert the string based protocol into internal protocol byte used by JC
+    private static byte getProtocolByte(String protocol) {
         Objects.requireNonNull(protocol, "protocol");
         String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
         byte protocolByte;
@@ -208,8 +216,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
      * @param protocol protocol to use
      * @throws java.lang.IllegalArgumentException for unknown protocols
      */
-    // XXX: changing protocol during session is not really a thing.
-    public void changeProtocol(String protocol) {
+    void changeProtocol(String protocol) {
         changeProtocol(getProtocolByte(protocol));
         this.protocol = protocol;
     }
@@ -240,7 +247,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
      * @return Applet AID or null
      */
     @Override
-    public AID lookupAID(byte buffer[], short offset, byte length) {
+    public AID lookupAID(byte[] buffer, short offset, byte length) {
         // To return the "JC owned" AID instance.
         for (AID aid : applets.keySet()) {
             if (aid.equals(buffer, offset, length)) {
@@ -302,6 +309,9 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
      */
     @Override
     public void deleteApplet(AID aid) {
+        if (creator != Thread.currentThread()) {
+            log.error("Do not call from a different thread.");
+        }
         _makeCurrent(); // We call into applet.
         try {
             if (currentAID != null) {
@@ -357,7 +367,17 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
      */
     @Override
     public byte[] transmitCommand(byte[] command) throws SystemException {
+        if (creator != Thread.currentThread()) {
+            log.error("Do not call from a different thread.");
+        }
+        try (CardSession session = connect()) {
+            return session.transmitCommand(command);
+        }
+    }
+
+    byte[] _transmitCommand(byte[] command) throws SystemException {
         _makeCurrent();
+        lock.lock();
         try {
             log.trace("APDU: {}", Hex.toHexString(command));
             final ApduCase apduCase = ApduCase.getCase(command);
@@ -472,6 +492,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
             return response;
         } finally {
             _releaseCurrent();
+            lock.unlock();
         }
     }
 
@@ -590,7 +611,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
      * @param protocol protocol bits
      * @see javacard.framework.APDU#getProtocol()
      */
-    public void changeProtocol(byte protocol) {
+    private void changeProtocol(byte protocol) {
         this.currentProtocol = protocol;
         resetAPDU(shortAPDU, null, null);
         resetAPDU(extendedAPDU, null, null);
@@ -732,20 +753,24 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
                 deselect(lookupApplet(currentAID));
             }
 
-            final Class<?> isolated;
+            final Class<?> klass;
 
-            // Add explicit mock for loaded class.
-            classLoader.mock(appletClass.getPackageName());
-            try {
-                isolated = exposed ? appletClass : classLoader.loadClass(appletClass.getName());
-            } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+            if (exposed) {
+                klass = appletClass;
+            } else {
+                // Add explicit isolation for loaded class.
+                classLoader.isolate(appletClass.getPackageName());
+                try {
+                    klass = classLoader.loadClass(appletClass.getName());
+                } catch (ClassNotFoundException e) {
+                    throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+                }
             }
 
-            // Resolve the install method
+            // Resolve the install() method
             Method installMethod;
             try {
-                installMethod = isolated.getMethod("install", byte[].class, short.class, byte.class);
+                installMethod = klass.getMethod("install", byte[].class, short.class, byte.class);
             } catch (NoSuchMethodException e) {
                 throw new IllegalArgumentException("Class does not provide install method");
             }
@@ -753,8 +778,10 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
             // Construct _actual_ install parameters
             byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
 
+            // Set the register() callback options
+            options.set(new RegisterCallbackOptions(appletAID, exposed));
+
             // Call the install() method.
-            options.set(new InstallOperationOptions(appletAID, exposed));
             try {
                 installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
             } catch (InvocationTargetException e) {
@@ -815,23 +842,23 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     // Intercepted from bytecode
     public static byte[] allocate(int size) {
         Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
-        log.trace("Allocating {} bytes in {}", size, System.identityHashCode(current));
         current.bytesAllocated += size;
+        log.trace("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
         return new byte[size];
     }
 
     // Indicate packages to include in isolated classloader
-    public Simulator mock(String... packageNames) {
-        classLoader.mock(packageNames);
+    public Simulator isolate(String... packageNames) {
+        classLoader.isolate(packageNames);
         return this;
     }
 
 
-    private static class InstallOperationOptions {
+    private static class RegisterCallbackOptions {
         public final AID aid;
         public final boolean exposed;
 
-        public InstallOperationOptions(AID aid, boolean exposed) {
+        public RegisterCallbackOptions(AID aid, boolean exposed) {
             this.aid = aid;
             this.exposed = exposed;
         }
@@ -842,4 +869,24 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
         log.info("CLEAR_ON_RESET:    {}", transientMemory.getSumCOR());
         log.info("CLEAR_ON_DESELECT: {}", transientMemory.getSumCOD());
     }
+
+    @Override
+    public SimulatorSession connect(String protocol) {
+        return new SimulatorSession(this, protocol);
+    }
+
+    public SimulatorSession connect() {
+        return new SimulatorSession(this, "*");
+    }
+
+    // Called from inside the thread, but exposed for re-usability
+    public static Simulator makeSimulator(List<InstallSpec> applets) {
+        Simulator sim = new Simulator();
+        for (InstallSpec applet : applets) {
+            log.info("Installing applet: {} as {} with {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()), Hex.toHexString(applet.getParamters()));
+            sim.installApplet(applet.getAID(), applet.getAppletClass(), applet.getParamters());
+        }
+        return sim;
+    }
+
 }

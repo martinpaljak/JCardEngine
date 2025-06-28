@@ -109,32 +109,28 @@ public class TransientMemoryTest {
         try {
             transientMemory.makeByteArray(2, invalid);
             fail("No exception");
-        }
-        catch (SystemException e) {
+        } catch (SystemException e) {
             assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
         }
 
         try {
             transientMemory.makeBooleanArray((short) 1, invalid);
             fail("No exception");
-        }
-        catch (SystemException e) {
+        } catch (SystemException e) {
             assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
         }
 
         try {
             transientMemory.makeObjectArray((short) 1, invalid);
             fail("No exception");
-        }
-        catch (SystemException e) {
+        } catch (SystemException e) {
             assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
         }
 
         try {
             transientMemory.makeBooleanArray((short) 1, invalid);
             fail("No exception");
-        }
-        catch (SystemException e) {
+        } catch (SystemException e) {
             assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
         }
     }
@@ -176,11 +172,11 @@ public class TransientMemoryTest {
     }
 
     @Test
-    public void testGlobalArrayBooleanType(){
+    public void testGlobalArrayBooleanType() {
         final short size = 1;
 
         TransientMemory transientMemory = new TransientMemory();
-        boolean[] globalBooleans = (boolean[])transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BOOLEAN, size);
+        boolean[] globalBooleans = (boolean[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BOOLEAN, size);
         globalBooleans[0] = true;
 
         transientMemory.clearOnDeselect();
@@ -191,12 +187,12 @@ public class TransientMemoryTest {
     }
 
     @Test
-    public void testGlobalArrayByteType(){
+    public void testGlobalArrayByteType() {
         final short size = 1;
 
         TransientMemory transientMemory = new TransientMemory();
-        byte[] globalBytes = (byte[])transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, size);
-        globalBytes[0] = (byte)0x5A;
+        byte[] globalBytes = (byte[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, size);
+        globalBytes[0] = (byte) 0x5A;
 
         transientMemory.clearOnDeselect();
         assertTrue(globalBytes[0] == 0x5A);
@@ -206,12 +202,12 @@ public class TransientMemoryTest {
     }
 
     @Test
-    public void testGlobalArrayShortType(){
+    public void testGlobalArrayShortType() {
         final short size = 1;
 
         TransientMemory transientMemory = new TransientMemory();
-        short[] globalShorts = (short[])transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, size);
-        globalShorts[0] = (short)0x5A7F;
+        short[] globalShorts = (short[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, size);
+        globalShorts[0] = (short) 0x5A7F;
 
         transientMemory.clearOnDeselect();
         assertTrue(globalShorts[0] == 0x5A7F);
@@ -221,13 +217,13 @@ public class TransientMemoryTest {
     }
 
     @Test
-    public void testGlobalArrayObjectType(){
+    public void testGlobalArrayObjectType() {
         final Object dummy = new Object();
 
         final short size = 1;
 
         TransientMemory transientMemory = new TransientMemory();
-        Object[] globalObjects = (Object[])transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_OBJECT, size);
+        Object[] globalObjects = (Object[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_OBJECT, size);
         globalObjects[0] = dummy;
 
         transientMemory.clearOnDeselect();
@@ -246,8 +242,7 @@ public class TransientMemoryTest {
         try {
             transientMemory.makeGlobalArray(invalid, size);
             fail("No exception");
-        }
-        catch (SystemException e) {
+        } catch (SystemException e) {
             assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
         }
     }

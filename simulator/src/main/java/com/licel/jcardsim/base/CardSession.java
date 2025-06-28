@@ -6,7 +6,7 @@ public interface CardSession extends CardInterface, AutoCloseable {
     void close(boolean reset);
 
     @Override
-    default void close() throws Exception {
+    default void close() {
         close(false);
     }
 }

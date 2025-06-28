@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.github.martinpaljak</groupId>
-        <version>25.06.24-SNAPSHOT</version>
+        <version>25.06.28-SNAPSHOT</version>
         <artifactId>jcardsim-package</artifactId>
     </parent>
     <artifactId>jcardsim-tool</artifactId>

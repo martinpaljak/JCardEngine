@@ -25,7 +25,6 @@ public class ApduContextTest {
             exceptionInDeselect = false;
             exceptionInUninstall = false;
 
-
             try {
                 APDU.getCurrentAPDU();
             }
@@ -97,20 +96,23 @@ public class ApduContextTest {
 
         simulator.installExposedApplet(otherAppletAID, HelloWorldApplet.class);
         simulator.installExposedApplet(dummyAppletAID, DummyApplet.class);
-        assertTrue(DummyApplet.exceptionInInstall);
 
-        simulator.selectApplet(dummyAppletAID);
-        assertTrue(DummyApplet.exceptionInSelect);
+        try (SimulatorSession session = simulator.connect()) {
+            assertTrue(DummyApplet.exceptionInInstall);
 
-        byte[] response = simulator.transmitCommand(new byte[]{(byte) 0x80,0,0,0});
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
-        assertTrue(DummyApplet.exceptionIllegalUse1);
-        assertTrue(DummyApplet.exceptionIllegalUse2);
+            simulator.selectApplet(dummyAppletAID);
+            assertTrue(DummyApplet.exceptionInSelect);
 
-        simulator.selectApplet(otherAppletAID);
-        assertTrue(DummyApplet.exceptionInDeselect);
+            byte[] response = session.transmitCommand(new byte[]{(byte) 0x80, 0, 0, 0});
+            assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
+            assertTrue(DummyApplet.exceptionIllegalUse1);
+            assertTrue(DummyApplet.exceptionIllegalUse2);
 
-        simulator.deleteApplet(dummyAppletAID);
-        assertTrue(DummyApplet.exceptionInUninstall);
+            simulator.selectApplet(otherAppletAID);
+            assertTrue(DummyApplet.exceptionInDeselect);
+
+            simulator.deleteApplet(dummyAppletAID);
+            assertTrue(DummyApplet.exceptionInUninstall);
+        }
     }
 }

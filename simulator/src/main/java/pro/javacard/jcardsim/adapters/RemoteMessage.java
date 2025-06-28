@@ -1,4 +1,4 @@
-package pro.javacard.jcardsim.core;
+package pro.javacard.jcardsim.adapters;
 
 // Essentially simple tagged byte array.
 public class RemoteMessage {

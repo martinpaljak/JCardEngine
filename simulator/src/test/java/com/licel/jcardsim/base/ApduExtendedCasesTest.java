@@ -27,7 +27,6 @@ import javax.smartcardio.ResponseAPDU;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-
 public class ApduExtendedCasesTest {
 
     private static final byte CLA = (byte) 0x80;

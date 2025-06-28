@@ -9,7 +9,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 // Two instances of a Simulator() within one JVM should keep separate copies of Applet classes,
@@ -19,26 +18,12 @@ import java.util.List;
 public class IsolatingClassLoader extends URLClassLoader {
     private static final Logger log = LoggerFactory.getLogger(IsolatingClassLoader.class);
 
-    // NOTE: the strategy here should be "isolate explicitly" but at this point it is easier to mask out unwanted ones
-    // Also, when mocking private/system packages, they are implicitly present on classpath, but not necessarily referenced
-    // via installApplet
-    private static final List<String> PREFIXES = List.of("java.",
-            "javax.",
-            "sun.",
-            "jdk.",
-            "javacard.",
-            "javacardx.",
-            "org.slf4j.",
-            "org.bouncycastle.",
-            "pro.javacard.gp",
-            "com.licel.jcardsim.base.");
-
     private final List<String> mocks = new ArrayList<>();
 
     // Explicitly isolate from classpath
-    public void mock(String... packages) {
-        for (String s: packages) {
-            log.info("Mocking (isolating) {}", s);
+    public void isolate(String... packages) {
+        for (String s : packages) {
+            log.info("Isolating {}", s);
             mocks.add(s);
         }
     }
@@ -76,7 +61,6 @@ public class IsolatingClassLoader extends URLClassLoader {
         }
     }
 
-
     private byte[] getClassBytes(String name) throws IOException {
         String path = name.replace('.', '/') + ".class";
         try (InputStream is = getResourceAsStream(path)) {
@@ -101,8 +85,7 @@ public class IsolatingClassLoader extends URLClassLoader {
 
                 // Transform the class to intercept byte array allocations
                 byte[] transformedBytes = NewByteArrayInterceptor.transform(classBytes);
-                return defineClass(name, transformedBytes, 0, transformedBytes.length);
-
+                return defineClass(name, transformedBytes, 0, transformedBytes.length, IsolatingClassLoader.class.getProtectionDomain());
             } catch (Exception e) {
                 throw new ClassNotFoundException("Failed to load and transform class: " + name, e);
             }
@@ -111,9 +94,6 @@ public class IsolatingClassLoader extends URLClassLoader {
     }
 
     private boolean isolate(String className) {
-        if (mocks.stream().anyMatch(className::startsWith))
-            return true;
-        return false;
-        //return PREFIXES.stream().noneMatch(className::startsWith);
+        return mocks.stream().anyMatch(className::startsWith);
     }
 }

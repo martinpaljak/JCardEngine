@@ -97,8 +97,8 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         simulator.selectApplet(appletAID);
 
         // test NOP
-        byte[] response = simulator.transmitCommand(new byte[]{0x00, 0x02, 0x00, 0x00});
-        ByteUtil.requireSW(response, 0x9000);
+        ResponseAPDU response = simulator.transmitCommand(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
+        assertEquals(0x9000, response.getSW());
     }
 
     @Test

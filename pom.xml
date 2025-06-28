@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.martinpaljak</groupId>
-    <version>25.06.24-SNAPSHOT</version>
+    <version>25.06.28-SNAPSHOT</version>
     <packaging>pom</packaging>
     <url>https://github.com/martinpaljak/jcardsim</url>
     <artifactId>jcardsim-package</artifactId>
@@ -37,11 +37,9 @@
     </licenses>
 
     <properties>
-        <project.build.outputTimestamp>2025-06-24T11:36:54Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-06-28T05:23:35Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <junit.version>4.13.2</junit.version>
-        <java.version>8</java.version>
         <asm.version>9.8</asm.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
@@ -114,11 +112,11 @@
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.9.3.0</version>
+                <version>4.9.3.2</version>
                 <executions>
                     <execution>
                         <id>parent-spotbugs</id>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>

@@ -1,9 +1,13 @@
 package com.licel.jcardsim.base;
 
 import org.objectweb.asm.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // Utility class to intercept all "new byte[int]" calls and replace them with "Simulator.allocate(int)"
 public class NewByteArrayInterceptor extends ClassVisitor {
+
+    private static final Logger log = LoggerFactory.getLogger(NewByteArrayInterceptor.class);
 
     public NewByteArrayInterceptor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
@@ -16,6 +20,23 @@ public class NewByteArrayInterceptor extends ClassVisitor {
 
         classReader.accept(interceptor, 0);
         return classWriter.toByteArray();
+    }
+
+    // Feature: set the magic flag in any class to true
+    // TODO: feature flag for this
+    @Override
+    public FieldVisitor visitField(int access, String name, String descriptor,
+                                   String signature, Object value) {
+        // Check if this is a "public static boolean jcardsim" field
+        if (name.equals("jcardsim") &&
+                descriptor.equals("Z") &&
+                (access & Opcodes.ACC_PUBLIC) != 0 &&
+                (access & Opcodes.ACC_STATIC) != 0) {
+            log.info("Setting magic jcardsim field to true");
+            // Force the value to true (represented as 1 for boolean)
+            return super.visitField(access, name, descriptor, signature, 1);
+        }
+        return super.visitField(access, name, descriptor, signature, value);
     }
 
     @Override
@@ -37,8 +58,9 @@ public class NewByteArrayInterceptor extends ClassVisitor {
                 // Replace single-dimension byte array creation with call to allocate method
                 // Stack before: [size]
                 // Stack after: [byte[]]
+                log.trace("Intercepting \"new byte[]\"");
                 super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                        "com/licel/jcardsim/base/Simulator",
+                        Simulator.class.getCanonicalName().replace(".", "/"),
                         "allocate",
                         "(I)[B",
                         false);

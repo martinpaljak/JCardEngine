@@ -1,11 +1,11 @@
 package pro.javacard.jcardsim.adapters;
 
-import com.licel.jcardsim.base.CardInterface;
+import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.base.SimulatorSession;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.jcardsim.core.RemoteMessage;
-import pro.javacard.jcardsim.core.RemoteMessage.Type;
+import pro.javacard.jcardsim.adapters.RemoteMessage.Type;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -18,9 +18,9 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.Callable;
 
 // Minimal generalization to support multiple adapters
-public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
+public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
-    private static final Logger log = LoggerFactory.getLogger(RemoteTerminalProtocol.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractTCPAdapter.class);
 
     static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
 
@@ -34,21 +34,22 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
 
     public abstract SocketChannel getSocket() throws IOException;
 
-    final protected CardInterface sim;
-    protected byte[] atr;
+    final protected Simulator sim;
+    protected byte[] atr = DEFAULT_ATR;
+    protected String protocol = "*";
 
-    protected RemoteTerminalProtocol(CardInterface sim) {
-        this(sim, DEFAULT_ATR);
+    protected AbstractTCPAdapter(Simulator sim) {
+       this.sim = sim;
     }
 
-    protected RemoteTerminalProtocol(CardInterface sim, byte[] atr) {
-        this.sim = sim;
+    public AbstractTCPAdapter withATR(byte[] atr) {
         this.atr = atr.clone();
+        return this;
     }
 
-    // XXX: not the nicest.
-    public void setATR(byte[] atr) {
-        this.atr = atr.clone();
+    public AbstractTCPAdapter withProtocol(String protocol) {
+        this.protocol = protocol;
+        return this;
     }
 
     @Override
@@ -66,12 +67,13 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
             try {
                 // New client.
                 SocketChannel channel = getSocket();
+                SimulatorSession session = null;
                 // Many messages.
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
                         RemoteMessage msg = recv(channel);
                         // Silence noisy VSmartCard ATR request.
-                        if (!(this.getClass() == VSmartCard.class && msg.getType() == Type.ATR))
+                        if (!(this.getClass() == VSmartCardServer.class && msg.getType() == Type.ATR))
                             log.info("Processing {}", msg.getType());
                         switch (msg.getType()) {
                             case ATR:
@@ -79,18 +81,21 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
                                 break;
                             case RESET:
                             case POWERUP:
+                                session = sim.connect(protocol);
+                                break;
                             case POWERDOWN:
-                                sim.reset();
+                                session.close(true); // FIXME: no reset ?
+                                session = null;
                                 send(channel, new RemoteMessage(Type.POWERDOWN));
                                 break;
                             case APDU:
-                                byte[] response = sim.transmitCommand(msg.getPayload());
+                                byte[] response = session.transmitCommand(msg.getPayload());
                                 send(channel, new RemoteMessage(Type.APDU, response));
                                 break;
                             default:
                                 log.warn("Unhandled message type: " + msg.getType());
                         }
-                    } catch (EOFException e) {
+                    } catch (EOFException | ClosedByInterruptException e) {
                         log.info("Peer disconnected");
                         break; // new socket
                     } catch (Exception e) {
@@ -118,7 +123,7 @@ public abstract class RemoteTerminalProtocol implements Callable<Boolean> {
     protected static SocketChannel connect(String host, Integer port) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         SocketChannel sc = SocketChannel.open();
-        sc.socket().connect(addr, 3000);
+        sc.socket().connect(addr, 3000); // TODO: tunable
         if (!sc.isConnected()) {
             throw new IOException("Could not connect to " + addr);
         }

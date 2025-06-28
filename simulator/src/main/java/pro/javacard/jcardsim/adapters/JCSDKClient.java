@@ -1,55 +1,31 @@
 package pro.javacard.jcardsim.adapters;
 
-import com.licel.jcardsim.base.Simulator;
+import com.licel.jcardsim.base.CardInterface;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
-public class JCSDKServer extends AbstractTCPAdapter {
-    // Protocol: clients (like PC/SC adapter or javax.smartcardio library)
-    // connect to us.
-    // Protocol: uint32 followed with payload.
-    // Command messages in high byte: 0xFE power down, 0xF0 send ATR
-    // 0x00 messages encode length of APDU-s
-    private static final Logger log = LoggerFactory.getLogger(JCSDKServer.class);
+// Reverse of the server
+public class JCSDKClient implements CardInterface {
+    private static final Logger log = LoggerFactory.getLogger(JCSDKClient.class);
 
-    public static final int DEFAULT_JCSDK_PORT = 9025;
-    public static final String DEFAULT_JCSDK_HOST = "0.0.0.0";
-
-    static ByteBuffer format(byte code, byte[] data) {
-        ByteBuffer buffer = ByteBuffer.allocate(4 + data.length);
-        buffer.putInt(data.length);
-        buffer.put(0, code);
-        buffer.position(4);
-        buffer.put(data);
-        buffer.rewind();
-        log.info(Hex.toHexString(buffer.array()));
-        return buffer;
-    }
-
-    ServerSocketChannel server;
     final int port;
     final String host;
+    SocketChannel channel;
+    private byte[] atr;
 
-    public JCSDKServer(String host, int port, Simulator sim) {
-        super(sim);
+    public JCSDKClient(String host, int port) {
         this.port = port;
         this.host = host;
     }
 
-    @Override
-    public void start() throws IOException {
-        server = start(host, port);
-    }
-
-    @Override
-    public RemoteMessage recv(SocketChannel channel) throws IOException {
+    RemoteMessage recv(SocketChannel channel) throws IOException {
         log.trace("Trying to read header ...");
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
@@ -74,27 +50,57 @@ public class JCSDKServer extends AbstractTCPAdapter {
         }
     }
 
-    @Override
-    public void send(SocketChannel channel, RemoteMessage message) throws IOException {
+    RemoteMessage send(SocketChannel channel, RemoteMessage message) throws IOException {
         log.info("Sending " + message.getType());
         switch (message.getType()) {
             case APDU:
-                channel.write(format((byte) 0x00, message.getPayload()));
+                channel.write(JCSDKServer.format((byte) 0x00, message.getPayload()));
                 break;
             case ATR:
-                channel.write(format((byte) 0xF0, atr == null ? message.getPayload() : atr));
+                channel.write(JCSDKServer.format((byte) 0xF0, message.getPayload()));
                 break;
             case POWERDOWN:
-                //channel.close();
-                // Do nothing
+                channel.write(JCSDKServer.format((byte) 0xFE, new byte[0]));
                 break;
             default:
                 log.warn("Unknown message for protocol: " + message.getType());
         }
+        return recv(channel);
+    }
+
+    public SocketChannel getSocket() throws IOException {
+        return AbstractTCPAdapter.connect(host, port);
     }
 
     @Override
-    public SocketChannel getSocket() throws IOException {
-        return server.accept();
+    public void reset() {
+        try {
+            send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
+            this.atr = send(this.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public byte[] getATR() {
+        if (this.atr == null) {
+            reset();
+        }
+        return this.atr.clone();
+    }
+
+    @Override
+    public byte[] transmitCommand(byte[] commandAPDU) {
+        try {
+            return send(this.channel, new RemoteMessage(RemoteMessage.Type.APDU, commandAPDU)).getPayload();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public String getProtocol() {
+        return "T=1"; // FIXME
     }
 }

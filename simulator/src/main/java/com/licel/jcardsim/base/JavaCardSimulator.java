@@ -8,4 +8,5 @@ import javacard.framework.Applet;
 public interface JavaCardSimulator {
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
     void deleteApplet(AID aid);
+    SimulatorSession connect(String protocol);
 }

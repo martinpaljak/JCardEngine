@@ -1,4 +1,4 @@
-package pro.javacard.jcardsim.core;
+package com.licel.jcardsim.base;
 
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
