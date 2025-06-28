@@ -1,33 +1,40 @@
 package com.licel.jcardsim.base;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 // Session object lifetime guards the held lock for the simulator
 public class SimulatorSession implements CardSession {
+    private static final Logger log = LoggerFactory.getLogger(SimulatorSession.class);
     private final Simulator simulator;
-    private volatile boolean locked;
     private final String protocol;
 
     SimulatorSession(Simulator simulator, String protocol) {
         this.simulator = simulator;
         simulator.lock.lock();
-        locked = true;
         // The protocol will be active for the whole session.
+        // XXX: verify before locking, so that it would not throw
         simulator.changeProtocol(protocol);
         this.protocol = protocol;
+        log.info("Locked");
     }
 
     @Override
     public void close(boolean reset) {
-        if (!locked)
+        if (!simulator.lock.isHeldByCurrentThread()) {
+            log.error("Simulator.session() called from incorrect thread");
             return;
-        if (reset)
+        }
+        if (reset) {
             reset();
+        }
         simulator.lock.unlock();
-        locked = false;
+        log.info("Unlocked");
     }
 
     @Override
     public void reset() {
-        if (!locked) {
+        if (!simulator.lock.isHeldByCurrentThread()) {
             throw new IllegalStateException("Session already closed");
         }
         simulator.reset();
@@ -35,7 +42,7 @@ public class SimulatorSession implements CardSession {
 
     @Override
     public byte[] getATR() {
-        if (!locked) {
+        if (!simulator.lock.isHeldByCurrentThread()) {
             throw new IllegalStateException("Session already closed");
         }
         return simulator.getATR();
@@ -43,7 +50,7 @@ public class SimulatorSession implements CardSession {
 
     @Override
     public byte[] transmitCommand(byte[] commandAPDU) {
-        if (!locked) {
+        if (!simulator.lock.isHeldByCurrentThread()) {
             throw new IllegalStateException("Session already closed");
         }
         return simulator._transmitCommand(commandAPDU);
@@ -51,8 +58,8 @@ public class SimulatorSession implements CardSession {
 
     @Override
     public String getProtocol() {
-        if (!locked) {
-            throw new IllegalStateException("Incorrect usage outside of connect()");
+        if (!simulator.lock.isHeldByCurrentThread()) {
+            throw new IllegalStateException("Session already closed");
         }
         return protocol;
     }
