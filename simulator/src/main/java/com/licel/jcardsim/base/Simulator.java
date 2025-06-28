@@ -883,7 +883,11 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     public static Simulator makeSimulator(List<InstallSpec> applets) {
         Simulator sim = new Simulator();
         for (InstallSpec applet : applets) {
-            log.info("Installing applet: {} as {} with {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()), Hex.toHexString(applet.getParamters()));
+            if (applet.getParamters().length > 0) {
+                log.info("Installing applet: {} as {} with {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()), Hex.toHexString(applet.getParamters()));
+            } else {
+                log.info("Installing applet: {} as {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()));
+            }
             sim.installApplet(applet.getAID(), applet.getAppletClass(), applet.getParamters());
         }
         return sim;
