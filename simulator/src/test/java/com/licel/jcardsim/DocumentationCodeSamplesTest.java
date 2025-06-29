@@ -141,7 +141,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
         // 5. Send APDU
         CommandAPDU commandAPDU = new CommandAPDU(0x00, 0x01, 0x00, 0x00);
-        ResponseAPDU response = simulator.transmitCommand(commandAPDU);
+        ResponseAPDU response = channel.transmit(commandAPDU);
 
         // 6. Check response status word
         assertEquals(0x9000, response.getSW());

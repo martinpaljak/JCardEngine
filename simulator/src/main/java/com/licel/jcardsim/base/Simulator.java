@@ -27,8 +27,9 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -53,8 +54,10 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     // Used to keep track of the installation parameters during install()/register() callbacks
     private static ThreadLocal<RegisterCallbackOptions> options = new ThreadLocal<>();
 
-    // Guards session access
-    final ReentrantLock lock = new ReentrantLock();
+    // Guards session access.
+    // NOTE: would like to use ReentrantLock but because we have to trigger a timeout from a scheduler
+    // in SimulatorSession due to VSmartCard messaging discrepancies, a Semaphore is currently used instead.
+    final Semaphore lock = new Semaphore(1, true);
 
     // The thread that creates this Simulator instance. Used for assisting warnings.
     final Thread creator = Thread.currentThread();
@@ -172,7 +175,7 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        return _transmitCommand(AIDUtil.select(aid));
+        return _transmitCommand(AIDUtil.select(aid)); // XXX: should either expose selectApplet on session or get rid of it.
     }
 
     public byte[] getATR() {
@@ -377,7 +380,6 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
 
     byte[] _transmitCommand(byte[] command) throws SystemException {
         _makeCurrent();
-        lock.lock();
         try {
             log.trace("APDU: {}", Hex.toHexString(command));
             final ApduCase apduCase = ApduCase.getCase(command);
@@ -492,7 +494,6 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
             return response;
         } finally {
             _releaseCurrent();
-            lock.unlock();
         }
     }
 
@@ -872,11 +873,18 @@ public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRunt
 
     @Override
     public SimulatorSession connect(String protocol) {
-        return new SimulatorSession(this, protocol);
+        // No timeout
+        return connectFor(Duration.ZERO, protocol);
     }
 
     public SimulatorSession connect() {
-        return new SimulatorSession(this, "*");
+        // No timeout, default protocol
+        return connectFor(Duration.ZERO, "*");
+    }
+
+    @Override
+    public SimulatorSession connectFor(Duration timeout, String protocol) {
+        return new SimulatorSession(this, protocol, timeout);
     }
 
     // Called from inside the thread, but exposed for re-usability

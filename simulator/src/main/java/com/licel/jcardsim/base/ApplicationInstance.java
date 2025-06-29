@@ -5,7 +5,7 @@ import javacard.framework.AID;
 import javacard.framework.Applet;
 
 /**
- * Represents an Applet instance
+ * Represents an Applet instance we keep in the virtual "registry"
  */
 public class ApplicationInstance {
     // TODO: track privileges of install
@@ -23,6 +23,8 @@ public class ApplicationInstance {
         if (exposed) {
             return (Applet) instance;
         }
+        // If the class was instantiated in the isolator classloader
+        // class identity would differ. So this proxy helps with "instanceof" etc.
         try {
             return ReflectiveClassProxy.proxy(instance, Applet.class);
         } catch (Exception e) {
@@ -30,6 +32,7 @@ public class ApplicationInstance {
         }
     }
 
+    // FIXME: this is part of the registry as the key.
     public AID getAID() {
         return aid;
     }

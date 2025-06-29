@@ -15,12 +15,37 @@ import java.net.SocketTimeoutException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.time.Duration;
 import java.util.concurrent.Callable;
 
 // Minimal generalization to support multiple adapters
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTCPAdapter.class);
+
+
+    public static class OSDetector {
+
+        public enum OS {
+            WINDOWS, MAC, LINUX, OTHER
+        }
+
+        public static final OS CURRENT_OS = detectOS();
+
+        private static OS detectOS() {
+            String osName = System.getProperty("os.name").toLowerCase();
+
+            if (osName.contains("win")) {
+                return OS.WINDOWS;
+            } else if (osName.contains("mac")) {
+                return OS.MAC;
+            } else if (osName.contains("nux")) {
+                return OS.LINUX;
+            } else {
+                return OS.OTHER;
+            }
+        }
+    }
 
     static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
 
@@ -37,6 +62,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     final protected Simulator sim;
     protected byte[] atr = DEFAULT_ATR;
     protected String protocol = "*";
+    private Duration idleTimeout = Duration.ZERO;
 
     protected AbstractTCPAdapter(Simulator sim) {
        this.sim = sim;
@@ -49,6 +75,11 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     public AbstractTCPAdapter withProtocol(String protocol) {
         this.protocol = protocol;
+        return this;
+    }
+
+    public AbstractTCPAdapter withTimeout(Duration duration) {
+        this.idleTimeout = duration;
         return this;
     }
 
@@ -73,28 +104,34 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     try {
                         RemoteMessage msg = recv(channel);
                         // Silence noisy VSmartCard ATR request.
-                        if (!(this.getClass() == VSmartCardServer.class && msg.getType() == Type.ATR))
+                        if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR))
                             log.info("Processing {}", msg.getType());
                         switch (msg.getType()) {
                             case ATR:
+                                // NOTE: this is spammed by vsmartcard on every second.
+                                // There's no way to indicate "there's no card, thus no ATR"
                                 send(channel, new RemoteMessage(Type.ATR, atr));
                                 break;
                             case RESET:
-                                if (session == null) {
-                                    session = sim.connect(protocol);
+                                // NOTE: on Windows a connection "Starts" with a reset, so we open a connection on demand
+                                if (session == null || session.isClosed()) {
+                                    session = sim.connectFor(idleTimeout, protocol);
                                 }
                                 if (session != null) {
-                                    sim.reset();
+                                    session.reset();
                                 }
                                 send(channel, new RemoteMessage(Type.RESET));
                                 break;
                             case POWERUP:
-                                if (session != null)
+                                // Happens on Linux with vsmartcard
+                                if (session != null) {
                                     log.warn("Session is not null");
-                                session = sim.connect(protocol);
+                                }
+                                session = sim.connectFor(idleTimeout, protocol);
                                 send(channel, new RemoteMessage(Type.POWERUP));
                                 break;
                             case POWERDOWN:
+                                // Happens on mac/linux
                                 if (session != null) {
                                     session.close(true); // FIXME: no reset ?
                                 }
@@ -102,6 +139,10 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 send(channel, new RemoteMessage(Type.POWERDOWN));
                                 break;
                             case APDU:
+                                if (session == null) {
+                                    log.error("No session opened before APDU-s!");
+                                    session = sim.connectFor(idleTimeout, protocol);
+                                }
                                 log.info(">> {}", Hex.toHexString(msg.getPayload()));
                                 byte[] response = session.transmitCommand(msg.getPayload());
                                 log.info("<< {}", Hex.toHexString(response));
@@ -112,7 +153,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                         }
                     } catch (EOFException | ClosedByInterruptException e) {
                         log.info("Peer disconnected");
-                        break; // new socket
+                        break; // new socket or loop end
                     } catch (Exception e) {
                         log.error("Error processing client command: " + e.getMessage(), e);
                         break;

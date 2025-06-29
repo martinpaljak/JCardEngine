@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // Utility class to intercept all "new byte[int]" calls and replace them with "Simulator.allocate(int)"
+// This also sets the magic "jcardsim" flag to true.
 public class NewByteArrayInterceptor extends ClassVisitor {
 
     private static final Logger log = LoggerFactory.getLogger(NewByteArrayInterceptor.class);

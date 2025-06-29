@@ -10,8 +10,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-public class VSmartCardServer extends AbstractTCPAdapter {
-    private static final Logger log = LoggerFactory.getLogger(VSmartCardServer.class);
+public class VSmartCardClient extends AbstractTCPAdapter {
+    private static final Logger log = LoggerFactory.getLogger(VSmartCardClient.class);
 
     // Default values
     public static final int DEFAULT_VSMARTCARD_PORT = 35963;
@@ -32,7 +32,7 @@ public class VSmartCardServer extends AbstractTCPAdapter {
     final String host;
     final int port;
 
-    public VSmartCardServer(String host, Integer port, Simulator sim) {
+    public VSmartCardClient(String host, Integer port, Simulator sim) {
         super(sim);
         this.host = host;
         this.port = port;
@@ -54,13 +54,13 @@ public class VSmartCardServer extends AbstractTCPAdapter {
         ByteBuffer msg;
         switch (message.getType()) {
             case ATR:
-                msg = _send(atr == null ? message.getPayload() : atr);
+                msg = _send(atr);
                 break;
             case APDU:
                 msg = _send(message.getPayload());
                 break;
             default:
-                log.info("Message type ignored: " + message.getType());
+                log.info("Trying to send ignored message: " + message.getType());
                 return;
         }
         log.trace("Sending {}", Hex.toHexString(msg.array()));
@@ -77,7 +77,7 @@ public class VSmartCardServer extends AbstractTCPAdapter {
         ByteBuffer buf = ByteBuffer.allocate(len);
         int read = channel.read(buf);
         if (read == -1) {
-            throw new EOFException("Client gone");
+            throw new EOFException("Peer is gone");
         }
         if (read != len) {
             throw new IOException("Could not read buffer: " + read);
@@ -92,7 +92,7 @@ public class VSmartCardServer extends AbstractTCPAdapter {
 
         short len = hdr.getShort(0);
         if (len < 0) {
-            throw new IOException("Unexpected length: " + len);
+            throw new IOException("Received unexpected length: " + len);
         }
 
         // command
@@ -108,7 +108,7 @@ public class VSmartCardServer extends AbstractTCPAdapter {
                 case 0x04: // ATR
                     return new RemoteMessage(RemoteMessage.Type.ATR);
                 default:
-                    throw new IOException("Unknown command: " + cmd);
+                    throw new IOException("Received unknown command: " + cmd);
             }
         }
         // APDU otherwise

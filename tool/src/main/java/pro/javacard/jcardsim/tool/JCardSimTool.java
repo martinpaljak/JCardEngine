@@ -26,7 +26,7 @@ import org.bouncycastle.util.encoders.Hex;
 import pro.javacard.capfile.CAPFile;
 import pro.javacard.jcardsim.adapters.JCSDKServer;
 import pro.javacard.jcardsim.adapters.AbstractTCPAdapter;
-import pro.javacard.jcardsim.adapters.VSmartCardServer;
+import pro.javacard.jcardsim.adapters.VSmartCardClient;
 import com.licel.jcardsim.base.InstallSpec;
 
 import java.io.File;
@@ -39,6 +39,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,8 +58,8 @@ public class JCardSimTool {
 
     // VSmartCard options
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
-    static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCardServer.DEFAULT_VSMARTCARD_PORT);
-    static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCardServer.DEFAULT_VSMARTCARD_HOST);
+    static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_PORT);
+    static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_HOST);
     static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_VSMARTCARD_PROTOCOL = parser.accepts("vsmartcard-protocol", "VSmartCard protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
@@ -169,7 +170,7 @@ public class JCardSimTool {
             if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST) || options.has(OPT_VSMARTCARD_PROTOCOL) || options.has(OPT_VSMARTCARD_ATR)) {
                 int port = options.valueOf(OPT_VSMARTCARD_PORT);
                 String host = options.valueOf(OPT_VSMARTCARD_HOST);
-                AbstractTCPAdapter adapter = new VSmartCardServer(host, port, sim);
+                AbstractTCPAdapter adapter = new VSmartCardClient(host, port, sim);
                 if (options.has(OPT_ATR)) {
                     adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
                 }
@@ -179,6 +180,7 @@ public class JCardSimTool {
                 if (options.has(OPT_VSMARTCARD_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
                 }
+                adapter = adapter.withTimeout(Duration.ofSeconds(3));
                 System.out.printf("vsmartcard to host %s port %d%n", host, port);
                 adapters.add(adapter);
             }
