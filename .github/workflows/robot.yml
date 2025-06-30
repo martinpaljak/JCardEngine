@@ -3,11 +3,9 @@ name: Build robot
 on:
   push:
     branches:
-      - fork
       - next
   pull_request:
     branches:
-      - fork
       - next
 
 concurrency:

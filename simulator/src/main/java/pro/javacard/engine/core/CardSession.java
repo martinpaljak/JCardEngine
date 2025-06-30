@@ -1,4 +1,4 @@
-package com.licel.jcardsim.base;
+package pro.javacard.engine.core;
 
 // Helps to isolate session towards a shared simulator. Lock is held while the object is not closed.
 public interface CardSession extends CardInterface, AutoCloseable {

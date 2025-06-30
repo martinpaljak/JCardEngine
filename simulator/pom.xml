@@ -4,17 +4,13 @@
 
     <parent>
         <groupId>com.github.martinpaljak</groupId>
-        <artifactId>jcardsim-package</artifactId>
-        <version>25.06.29-SNAPSHOT</version>
+        <artifactId>jcardengine-package</artifactId>
+        <version>25.06.30-SNAPSHOT</version>
     </parent>
-    <artifactId>jcardsim</artifactId>
-    <name>JavaCard Simulator</name>
+    <artifactId>jcardengine</artifactId>
+    <name>JCardEngine - JavaCard Simulator</name>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <netbeans.hint.license>apache20</netbeans.hint.license>
-        <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
-        <asm.version>9.8</asm.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
@@ -43,11 +39,11 @@
             <artifactId>byte-buddy</artifactId>
             <version>1.17.6</version>
         </dependency>
-        <!-- ASM for bytecode processing - not needed by downstreams -->
+        <!-- ASM for bytecode processing -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>${asm.version}</version>
+            <version>9.8</version>
         </dependency>
         <!-- unit tests -->
         <dependency>

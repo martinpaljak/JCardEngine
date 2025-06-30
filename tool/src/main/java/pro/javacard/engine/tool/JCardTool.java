@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package pro.javacard.jcardsim.tool;
+package pro.javacard.engine.tool;
 
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Applet;
@@ -24,9 +24,9 @@ import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.bouncycastle.util.encoders.Hex;
 import pro.javacard.capfile.CAPFile;
-import pro.javacard.jcardsim.adapters.JCSDKServer;
-import pro.javacard.jcardsim.adapters.AbstractTCPAdapter;
-import pro.javacard.jcardsim.adapters.VSmartCardClient;
+import pro.javacard.engine.adapters.JCSDKServer;
+import pro.javacard.engine.adapters.AbstractTCPAdapter;
+import pro.javacard.engine.adapters.VSmartCardClient;
 import com.licel.jcardsim.base.InstallSpec;
 
 import java.io.File;
@@ -45,7 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class JCardSimTool {
+public class JCardTool {
     // While Simulator interface has an ATR interface, we don't really handle it on that level
     // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
     // for adapters.
@@ -95,7 +95,7 @@ public class JCardSimTool {
     }
 
     public static void main(String[] args) {
-        String version = JCardSimTool.class.getPackage().getImplementationVersion();
+        String version = JCardTool.class.getPackage().getImplementationVersion();
 
         try {
             OptionSet options = parser.parse(args);

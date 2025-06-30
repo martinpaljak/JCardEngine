@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package javacard.framework;
+package com.licel.jcardsim.framework;
 
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.OwnerPIN;
+import javacard.framework.PINException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

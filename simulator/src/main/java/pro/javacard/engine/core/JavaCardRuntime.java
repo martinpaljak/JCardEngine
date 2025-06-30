@@ -1,5 +1,6 @@
-package com.licel.jcardsim.base;
+package pro.javacard.engine.core;
 
+import com.licel.jcardsim.base.TransientMemory;
 import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.Shareable;

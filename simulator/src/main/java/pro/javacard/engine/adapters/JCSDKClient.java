@@ -1,6 +1,6 @@
-package pro.javacard.jcardsim.adapters;
+package pro.javacard.engine.adapters;
 
-import com.licel.jcardsim.base.CardInterface;
+import pro.javacard.engine.core.CardInterface;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

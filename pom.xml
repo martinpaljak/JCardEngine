@@ -3,12 +3,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.martinpaljak</groupId>
-    <version>25.06.29-SNAPSHOT</version>
+    <version>25.06.30-SNAPSHOT</version>
     <packaging>pom</packaging>
     <url>https://github.com/martinpaljak/jcardsim</url>
-    <artifactId>jcardsim-package</artifactId>
-    <name>JavaCard simulator project</name>
-    <description>jCardSim is open-source library contains implementation of Java Card API</description>
+    <artifactId>jcardengine-package</artifactId>
+    <name>Java Card Runtime Simulator</name>
+    <description>JCardEngine - JavaCard engine for Java</description>
 
     <developers>
         <developer>
@@ -16,6 +16,7 @@
             <name>Martin Paljak</name>
             <roles>
                 <role>maintainer</role>
+                <role>developer</role>
             </roles>
         </developer>
         <developer>
@@ -37,10 +38,9 @@
     </licenses>
 
     <properties>
-        <project.build.outputTimestamp>2025-06-29T12:06:49Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-06-30T18:42:20Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <asm.version>9.8</asm.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
@@ -64,9 +64,9 @@
     </repositories>
 
     <scm>
-        <connection>scm:git:git@github.com:martinpaljak/jcardsim.git</connection>
-        <developerConnection>scm:git:git@github.com:martinpaljak/jcardsim.git</developerConnection>
-        <url>git@github.com:martinpaljak/jcardsim.git</url>
+        <connection>scm:git:git@github.com:martinpaljak/jcardengine.git</connection>
+        <developerConnection>scm:git:git@github.com:martinpaljak/jcardengine.git</developerConnection>
+        <url>git@github.com:martinpaljak/jcardengine.git</url>
     </scm>
 
     <modules>

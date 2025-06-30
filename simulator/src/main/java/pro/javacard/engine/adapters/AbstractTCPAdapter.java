@@ -1,11 +1,11 @@
-package pro.javacard.jcardsim.adapters;
+package pro.javacard.engine.adapters;
 
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.base.SimulatorSession;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.jcardsim.adapters.RemoteMessage.Type;
+import pro.javacard.engine.adapters.RemoteMessage.Type;
 
 import java.io.EOFException;
 import java.io.IOException;

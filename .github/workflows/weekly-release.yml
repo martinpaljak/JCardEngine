@@ -57,7 +57,7 @@ jobs:
           prerelease: true
           tag_name: v${{ env.VERSION }}
           name: Weekly v${{ env.VERSION }}
-          files: ./tool/target/jcardsim-${{ env.VERSION }}.jar
+          files: ./tool/target/jcard.jar
           fail_on_unmatched_files: true
           body: |
             ## Weekly release v${{ env.VERSION }}

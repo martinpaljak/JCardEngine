@@ -1,5 +1,6 @@
-package javacard.framework;
+package com.licel.jcardsim.framework;
 
+import javacard.framework.Util;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

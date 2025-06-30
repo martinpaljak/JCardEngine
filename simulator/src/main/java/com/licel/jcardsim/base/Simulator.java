@@ -23,6 +23,10 @@ import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.core.CardInterface;
+import pro.javacard.engine.core.CardSession;
+import pro.javacard.engine.core.JavaCardRuntime;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -35,7 +39,7 @@ import java.util.concurrent.Semaphore;
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
  * manipulation MUST happen via these interfaces. Each Simulator is independent (like a single secure element)
  */
-public class Simulator implements CardInterface, JavaCardSimulator, JavaCardRuntime {
+public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
     // default ATR - NXP JCOP 31/36K
