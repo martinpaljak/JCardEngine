@@ -29,13 +29,8 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     // Everything else - command APDU, followed with response APDU.
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
 
-    final String host;
-    final int port;
-
     public VSmartCardClient(String host, Integer port, Simulator sim) {
-        super(sim);
-        this.host = host;
-        this.port = port;
+        super(host, port, sim);
     }
 
     static ByteBuffer _send(byte[] data) throws IOException {

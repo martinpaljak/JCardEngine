@@ -7,7 +7,7 @@ import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.core.CardSession;
+import pro.javacard.engine.core.EngineSession;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,7 +30,7 @@ public class ProtocolTest {
         simulator.selectApplet(aid);
 
         // check interface is T=0 (contacted)
-        try (CardSession conn = simulator.connect("*")) {
+        try (EngineSession conn = simulator.connect("*")) {
             response = conn.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
             assertEquals(APDU.PROTOCOL_T0, response[0]);
             assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
@@ -45,7 +45,7 @@ public class ProtocolTest {
         }
 
         // change protocol
-        try (CardSession conn = simulator.connect("T=CL")) {
+        try (EngineSession conn = simulator.connect("T=CL")) {
             response = conn.transmitCommand(new byte[]{CLA, INS_INFO, 0, 0});
             assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, response[0]);
             assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));

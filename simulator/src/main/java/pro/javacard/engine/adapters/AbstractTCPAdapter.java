@@ -63,9 +63,13 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     protected byte[] atr = DEFAULT_ATR;
     protected String protocol = "*";
     private Duration idleTimeout = Duration.ZERO;
+    protected final String host;
+    protected final int port;
 
-    protected AbstractTCPAdapter(Simulator sim) {
+    protected AbstractTCPAdapter(String host, int port, Simulator sim) {
        this.sim = sim;
+       this.host = host;
+       this.port = port;
     }
 
     public AbstractTCPAdapter withATR(byte[] atr) {
@@ -113,7 +117,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 send(channel, new RemoteMessage(Type.ATR, atr));
                                 break;
                             case RESET:
-                                // NOTE: on Windows a connection "Starts" with a reset, so we open a connection on demand
+                                // NOTE: on Windows and macOS a connection "Starts" with a reset, so we open a connection on demand
                                 if (session == null || session.isClosed()) {
                                     session = sim.connectFor(idleTimeout, protocol);
                                 }
@@ -191,5 +195,10 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         ServerSocketChannel server = ServerSocketChannel.open();
         return server.bind(addr);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s{host=%s port=%d atr=%s protocol=%s}", this.getClass().getSimpleName(), host, port, Hex.toHexString(atr), protocol);
     }
 }

@@ -2,13 +2,13 @@ package com.licel.jcardsim.base;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.core.CardSession;
+import pro.javacard.engine.core.EngineSession;
 
 import java.time.Duration;
 import java.util.concurrent.*;
 
 // Session object lifetime guards the held lock for the simulator
-public class SimulatorSession implements CardSession {
+public class SimulatorSession implements EngineSession {
     private static final Logger log = LoggerFactory.getLogger(SimulatorSession.class);
 
     // XXX: opportunistic locking requires timed release.

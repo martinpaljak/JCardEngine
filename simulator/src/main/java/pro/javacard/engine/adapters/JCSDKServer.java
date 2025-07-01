@@ -34,13 +34,9 @@ public class JCSDKServer extends AbstractTCPAdapter {
     }
 
     ServerSocketChannel server;
-    final int port;
-    final String host;
 
     public JCSDKServer(String host, int port, Simulator sim) {
-        super(sim);
-        this.port = port;
-        this.host = host;
+        super(host, port, sim);
     }
 
     @Override

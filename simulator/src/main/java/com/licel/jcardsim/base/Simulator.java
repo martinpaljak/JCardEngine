@@ -24,7 +24,7 @@ import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.core.CardInterface;
-import pro.javacard.engine.core.CardSession;
+import pro.javacard.engine.core.EngineSession;
 import pro.javacard.engine.core.JavaCardRuntime;
 import pro.javacard.engine.core.JavaCardEngine;
 
@@ -377,7 +377,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
-        try (CardSession session = connect()) {
+        try (EngineSession session = connect()) {
             return session.transmitCommand(command);
         }
     }

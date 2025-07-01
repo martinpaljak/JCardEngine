@@ -46,15 +46,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class JCardTool {
-    // While Simulator interface has an ATR interface, we don't really handle it on that level
+    // While Simulator interface has an ATR method, we don't really handle it on that level
     // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
     // for adapters.
-    static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
+    static final String DEFAULT_ATR_HEX = "3B9F968131FE454F52434C2D4A43332E324750322E3323";
+    static final byte[] DEFAULT_ATR = Hex.decode(DEFAULT_ATR_HEX);
 
     static OptionParser parser = new OptionParser();
 
-    // Main options
+    // Generic options
     static OptionSpec<Void> OPT_HELP = parser.acceptsAll(Arrays.asList("h", "help"), "Show this help").forHelp();
+    static OptionSpec<Void> OPT_VERSION = parser.acceptsAll(Arrays.asList("V", "version"), "Show version");
 
     // VSmartCard options
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
@@ -68,10 +70,10 @@ public class JCardTool {
     static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "port to listen on").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
     static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "host to listen on").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
     static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "ATR to report").withRequiredArg().ofType(String.class);
-    static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "Protocol to use towards simulator").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "Protocol to use towards simulator").withRequiredArg().ofType(String.class).defaultsTo("*");
 
     // Generic ATR override.
-    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
 
     // .cap/.jar files to load
     static OptionSpec<File> toLoad = parser.nonOptions("path to .cap or .jar or classes directory").ofType(File.class);
@@ -83,22 +85,16 @@ public class JCardTool {
     // Class loader for .jar/.cap/classes
     static final AppletClassLoader loader = new AppletClassLoader();
 
-    static byte[] _atr(OptionSet options, OptionSpec<String> arg) {
-        final byte[] atr;
-        if (options.has(arg)) {
-            atr = Hex.decode(options.valueOf(arg));
-        } else {
-            // TODO: $JCARDSIM_ATR
-            atr = options.has(OPT_ATR) ? Hex.decode(options.valueOf(OPT_ATR)) : null;
-        }
-        return atr;
-    }
-
     public static void main(String[] args) {
         String version = JCardTool.class.getPackage().getImplementationVersion();
 
         try {
             OptionSet options = parser.parse(args);
+
+            if (options.has(OPT_VERSION)) {
+                System.out.println("JCardEngine v" + version);
+                return;
+            }
 
             if (options.has(OPT_HELP) || args.length == 0) {
                 parser.printHelpOn(System.out);
@@ -106,8 +102,7 @@ public class JCardTool {
             }
 
             if (options.nonOptionArguments().isEmpty()) {
-                System.err.println("Missing applets");
-                parser.printHelpOn(System.err);
+                System.err.println("Missing applets. Check --help");
                 System.exit(2);
             }
 
@@ -181,7 +176,7 @@ public class JCardTool {
                     adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
                 }
                 adapter = adapter.withTimeout(Duration.ofSeconds(3));
-                System.out.printf("vsmartcard to host %s port %d%n", host, port);
+                System.out.println(adapter.toString());
                 adapters.add(adapter);
             }
 
@@ -199,13 +194,13 @@ public class JCardTool {
                 if (options.has(OPT_JCSDK_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_JCSDK_PROTOCOL));
                 }
-                System.out.printf("jcsdk on host %s port %d%n", host, port);
+                System.out.println(adapter.toString());
                 adapters.add(adapter);
             }
 
             // Trap ctrl-c and similar signals
             Thread shutdownThread = new Thread(() -> {
-                System.err.println("Quitting jcardsim");
+                System.err.println("Quitting JCardEngine");
                 exec.shutdownNow();
             });
 
@@ -224,13 +219,12 @@ public class JCardTool {
                 if (exec.awaitTermination(1, TimeUnit.MINUTES))
                     break;
             }
-            System.out.println("Thank you for using jcardsim " + version + "!");
+            System.out.println("Thank you for using JCardEngine v" + version + "!");
         } catch (OptionException e) {
             System.err.println("Error: " + e.getMessage());
             System.exit(1);
         } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-            e.printStackTrace(System.err);
+            System.err.println(e.getClass().getSimpleName() + ": " + e.getMessage());
             System.exit(2);
         }
     }
