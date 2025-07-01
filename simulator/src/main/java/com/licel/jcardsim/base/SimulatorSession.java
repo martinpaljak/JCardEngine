@@ -69,7 +69,7 @@ public class SimulatorSession implements EngineSession {
         }
         closed = true;
         if (reset) {
-            reset();
+            simulator.reset();
         }
         simulator.lock.release();
         log.info("Unlocked");
