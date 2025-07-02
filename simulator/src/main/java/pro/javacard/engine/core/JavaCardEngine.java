@@ -1,7 +1,6 @@
 package pro.javacard.engine.core;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorSession;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 
@@ -23,6 +22,8 @@ public interface JavaCardEngine {
     EngineSession connect(String protocol);
 
     EngineSession connectFor(Duration duration, String protocol);
+
+    JavaCardEngine exposed(boolean flag);
 
     static JavaCardEngine create() {
         return new Simulator();

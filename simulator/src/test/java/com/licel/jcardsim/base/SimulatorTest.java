@@ -22,7 +22,6 @@ import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.ISO7816;
 import javacard.framework.Util;
-import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.core.JavaCardEngine;

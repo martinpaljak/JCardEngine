@@ -25,7 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.core.CardInterface;
 import pro.javacard.engine.core.EngineSession;
-import pro.javacard.engine.core.JavaCardRuntime;
 import pro.javacard.engine.core.JavaCardEngine;
 
 import java.lang.reflect.Constructor;
@@ -66,6 +65,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     // The thread that creates this Simulator instance. Used for assisting warnings.
     final Thread creator = Thread.currentThread();
+
+    // True if all applets all the time should be installed in exposed mode.
+    private boolean exposed = false;
 
     // Installed applets
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
@@ -157,12 +159,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             log.error("Do not call from a different thread.");
         }
         // TODO: add a feature flag for isolation default
-        return installApplet(aid, appletClass, parameters, false);
+        return installApplet(aid, appletClass, parameters, exposed);
     }
 
     // Wrappers around the main install() method
     public AID installApplet(AID aid, Class<? extends Applet> appletClass) {
-        return installApplet(aid, appletClass, new byte[0], false);
+        return installApplet(aid, appletClass, new byte[0], exposed);
     }
 
     // These load the applet without class isolation, so that internals are exposed to caller.
@@ -892,19 +894,25 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     @Override
-    public SimulatorSession connect(String protocol) {
+    public EngineSession connect(String protocol) {
         // No timeout
         return connectFor(Duration.ZERO, protocol);
     }
 
-    public SimulatorSession connect() {
+    public EngineSession connect() {
         // No timeout, default protocol
         return connectFor(Duration.ZERO, "*");
     }
 
     @Override
-    public SimulatorSession connectFor(Duration timeout, String protocol) {
+    public EngineSession connectFor(Duration timeout, String protocol) {
         return new SimulatorSession(this, protocol, timeout);
+    }
+
+    @Override
+    public JavaCardEngine exposed(boolean flag) {
+        this.exposed = flag;
+        return this;
     }
 
     // Called from inside the thread, but exposed for re-usability

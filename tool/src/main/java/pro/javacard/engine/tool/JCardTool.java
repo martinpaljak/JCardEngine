@@ -15,6 +15,7 @@
  */
 package pro.javacard.engine.tool;
 
+import com.licel.jcardsim.base.InstallSpec;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
@@ -23,11 +24,14 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.bouncycastle.util.encoders.Hex;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.NonBlockingReader;
 import pro.javacard.capfile.CAPFile;
-import pro.javacard.engine.adapters.JCSDKServer;
 import pro.javacard.engine.adapters.AbstractTCPAdapter;
+import pro.javacard.engine.adapters.JCSDKServer;
 import pro.javacard.engine.adapters.VSmartCardClient;
-import com.licel.jcardsim.base.InstallSpec;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -39,6 +43,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.spi.FileSystemProvider;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -49,7 +54,7 @@ public class JCardTool {
     // While Simulator interface has an ATR method, we don't really handle it on that level
     // The only relation would be GPSystem.setATRHistBytes(). So for now the ATR can be set freely
     // for adapters.
-    static final String DEFAULT_ATR_HEX = "3B9F968131FE454F52434C2D4A43332E324750322E3323";
+    static final String DEFAULT_ATR_HEX = "3B80800101";
     static final byte[] DEFAULT_ATR = Hex.decode(DEFAULT_ATR_HEX);
 
     static OptionParser parser = new OptionParser();
@@ -57,6 +62,8 @@ public class JCardTool {
     // Generic options
     static OptionSpec<Void> OPT_HELP = parser.acceptsAll(Arrays.asList("h", "help"), "Show this help").forHelp();
     static OptionSpec<Void> OPT_VERSION = parser.acceptsAll(Arrays.asList("V", "version"), "Show version");
+    static OptionSpec<Void> OPT_CONTROL = parser.acceptsAll(Arrays.asList("c", "control"), "Start control interface");
+    static OptionSpec<Void> OPT_EXPOSED = parser.acceptsAll(Arrays.asList("exposed"), "Use exposed mode");
 
     // VSmartCard options
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
@@ -157,7 +164,10 @@ public class JCardTool {
             }
 
             // Set up simulator. Right now a sample thingy
-            Simulator sim = Simulator.makeSimulator(spec);
+            JavaCardEngine sim = JavaCardEngine.create().exposed(true);
+            for (InstallSpec s: spec) {
+                sim.installApplet(s.getAID(), s.getAppletClass(), s.getParamters());
+            }
             ExecutorService exec = Executors.newFixedThreadPool(3);
 
             List<AbstractTCPAdapter> adapters = new ArrayList<>();
@@ -175,8 +185,7 @@ public class JCardTool {
                 if (options.has(OPT_VSMARTCARD_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
                 }
-                adapter = adapter.withTimeout(Duration.ofSeconds(3));
-                System.out.println(adapter.toString());
+                adapter = adapter.withTimeout(Duration.ofSeconds(1));
                 adapters.add(adapter);
             }
 
@@ -194,13 +203,12 @@ public class JCardTool {
                 if (options.has(OPT_JCSDK_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_JCSDK_PROTOCOL));
                 }
-                System.out.println(adapter.toString());
                 adapters.add(adapter);
             }
 
             // Trap ctrl-c and similar signals
             Thread shutdownThread = new Thread(() -> {
-                System.err.println("Quitting JCardEngine");
+                System.err.println("Ctrl-C, quitting JCardEngine");
                 exec.shutdownNow();
             });
 
@@ -210,8 +218,34 @@ public class JCardTool {
             }
 
             Runtime.getRuntime().addShutdownHook(shutdownThread);
-            // This blocks until all are done, unless ctrl-c is hit
-            exec.invokeAll(adapters);
+            if (options.has(OPT_CONTROL)) {
+                adapters.forEach(exec::submit);
+
+                // This seems to be the trick to keep ctrl-c working with keypress detection
+                TerminalBuilder tb = TerminalBuilder.builder().nativeSignals(false);
+                try (Terminal terminal = tb.build()) {
+                    terminal.enterRawMode();
+                    NonBlockingReader reader = terminal.reader();
+                    while (!Thread.currentThread().isInterrupted()) {
+                        int c = reader.read();
+                        if (c == 27 || c == 113) {
+                            // esc or q
+                            System.err.println("Quit.");
+                            break;
+                        } else if (c == 116) {
+                            // tap
+                            System.err.println("Triggering a fresh tap: boop!");
+                            adapters.forEach(AbstractTCPAdapter::tap);
+                        } else {
+                            // print help
+                            System.err.println("Press 't' to trigger tap, 'q' or Esc to quit.");
+                        }
+                    }
+                }
+            } else {
+                // This blocks until all are done, unless ctrl-c is hit
+                exec.invokeAll(adapters);
+            }
 
             Runtime.getRuntime().removeShutdownHook(shutdownThread);
             exec.shutdownNow();
@@ -219,7 +253,7 @@ public class JCardTool {
                 if (exec.awaitTermination(1, TimeUnit.MINUTES))
                     break;
             }
-            System.out.println("Thank you for using JCardEngine v" + version + "!");
+            System.err.println("Thank you for using JCardEngine v" + version + "!");
         } catch (OptionException e) {
             System.err.println("Error: " + e.getMessage());
             System.exit(1);

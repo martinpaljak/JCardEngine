@@ -38,7 +38,7 @@ jobs:
         run: ./mvnw -T1C -B -U verify
 
       - name: Get SHA-256 of JAR
-        run: echo "JARSUM=$(shasum -a 256 --tag ./tool/target/jcardsim-${{ env.VERSION }}.jar)" >> "$GITHUB_ENV"
+        run: echo "JARSUM=$(shasum -a 256 --tag ./tool/target/jcard.jar)" >> "$GITHUB_ENV"
 
       - name: Set SSH key
         uses: webfactory/ssh-agent@v0.9.1

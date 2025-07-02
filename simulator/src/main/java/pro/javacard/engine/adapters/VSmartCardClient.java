@@ -1,6 +1,5 @@
 package pro.javacard.engine.adapters;
 
-import com.licel.jcardsim.base.Simulator;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +33,10 @@ public class VSmartCardClient extends AbstractTCPAdapter {
         super(host, port, sim);
     }
 
+    public VSmartCardClient(JavaCardEngine sim) {
+        super(DEFAULT_VSMARTCARD_HOST, DEFAULT_VSMARTCARD_PORT, sim);
+    }
+
     static ByteBuffer _send(byte[] data) throws IOException {
         if (data.length > Short.MAX_VALUE)
             throw new IllegalArgumentException("Too big payload");
@@ -56,7 +59,7 @@ public class VSmartCardClient extends AbstractTCPAdapter {
                 msg = _send(message.getPayload());
                 break;
             default:
-                log.info("Trying to send ignored message: " + message.getType());
+                log.trace("Trying to send ignored message: " + message.getType());
                 return;
         }
         log.trace("Sending {}", Hex.toHexString(msg.array()));

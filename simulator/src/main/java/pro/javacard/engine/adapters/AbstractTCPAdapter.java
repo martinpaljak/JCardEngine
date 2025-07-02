@@ -1,7 +1,5 @@
 package pro.javacard.engine.adapters;
 
-import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorSession;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,13 +16,13 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.concurrent.Callable;
 
 // Minimal generalization to support multiple adapters
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
-    private static final Logger log = LoggerFactory.getLogger(AbstractTCPAdapter.class);
-
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     public static class OSDetector {
 
@@ -65,17 +63,33 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     protected byte[] atr = DEFAULT_ATR;
     protected String protocol = "*";
     private Duration idleTimeout = Duration.ZERO;
-    protected final String host;
-    protected final int port;
+    protected String host;
+    protected int port;
+    private volatile Thread thread;
+    private volatile boolean tap;
 
     protected AbstractTCPAdapter(String host, int port, JavaCardEngine sim) {
-       this.sim = sim;
-       this.host = host;
-       this.port = port;
+        this.sim = sim;
+        this.host = host;
+        this.port = port;
+    }
+
+    protected AbstractTCPAdapter(JavaCardEngine sim) {
+        this.sim = sim;
     }
 
     public AbstractTCPAdapter withATR(byte[] atr) {
         this.atr = atr.clone();
+        return this;
+    }
+
+    public AbstractTCPAdapter withPort(int port) {
+        this.port = port;
+        return this;
+    }
+
+    public AbstractTCPAdapter withHost(String host) {
+        this.host = host;
         return this;
     }
 
@@ -89,9 +103,17 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
         return this;
     }
 
+    // Safe to call from any thread.
+    public void tap() {
+        log.info("Triggering tap");
+        this.tap = true;
+        thread.interrupt();
+    }
+
     @Override
     public Boolean call() {
         Thread.currentThread().setName(this.getClass().getSimpleName());
+        this.thread = Thread.currentThread();
         // Start listening or do other setup.
         try {
             start();
@@ -108,11 +130,12 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                 EngineSession session = null;
                 // Many messages.
                 while (!Thread.currentThread().isInterrupted()) {
+                    //log.trace("Message tap: {}", tap);
                     try {
                         RemoteMessage msg = recv(channel);
                         // Silence noisy VSmartCard ATR request.
                         if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR))
-                            log.info("Processing {}", msg.getType());
+                            log.trace("Processing {}", msg.getType());
                         switch (msg.getType()) {
                             case ATR:
                                 // NOTE: this is spammed by vsmartcard on every second.
@@ -150,8 +173,16 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                     log.error("No session opened before APDU-s!");
                                     session = sim.connectFor(idleTimeout, protocol);
                                 }
-                                log.info(">> {}", Hex.toHexString(msg.getPayload()));
-                                byte[] response = session.transmitCommand(msg.getPayload());
+                                byte[] cmd = msg.getPayload();
+                                if (Arrays.equals(cmd, Hex.decode("ffca000000")) && protocol.equals("T=CL")) {
+                                    log.info("Intercepting GET UID");
+                                    // NOTE: Normally it is the task of a reader to fetch the UID from the card
+                                    // TODO: parametrize
+                                    send(channel, new RemoteMessage(Type.APDU, Hex.decode("88F24AB73D915E9000")));
+                                    break;
+                                }
+                                log.info(">> {}", Hex.toHexString(cmd));
+                                byte[] response = session.transmitCommand(cmd);
                                 log.info("<< {}", Hex.toHexString(response));
                                 send(channel, new RemoteMessage(Type.APDU, response));
                                 break;
@@ -160,6 +191,17 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                         }
                     } catch (EOFException | ClosedByInterruptException e) {
                         log.info("Peer disconnected");
+                        if (Thread.interrupted()) {
+                            if (tap) {
+                                log.info("Processing tap");
+                                tap = false;
+                                sim.reset();
+                            } else {
+                                // Interrupted, but no tap -> done
+                                log.info("Interrupted, closing");
+                                return false;
+                            }
+                        }
                         break; // new socket or loop end
                     } catch (Exception e) {
                         log.error("Error processing client command: " + e.getMessage(), e);
@@ -167,9 +209,26 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     }
                 }
             } catch (ClosedByInterruptException e) {
-                log.info("Shutting down. Bye!");
-                // Ctrl-C/Orderly shutdown of listening socket
-                return true;
+                if (Thread.interrupted()) {
+                    if (tap) {
+                        log.info("Processing tap");
+                        tap = false;
+                        sim.reset();
+                        // Re-open listening socket
+                        try {
+                            start();
+                        } catch (IOException e2) {
+                            log.error("Could not restart: " + e2.getMessage(), e2);
+                            throw new RuntimeException("Could not restart a remote protocol adapter: " + e2.getMessage(), e2);
+                        }
+                        // Continue servig clients
+                        continue;
+                    } else {
+                        log.info("Shutting down. Bye!");
+                        // Ctrl-C/Orderly shutdown of listening socket
+                        return true;
+                    }
+                }
             } catch (SocketException | SocketTimeoutException e) {
                 log.error("Connection error: {}", e.getClass().getSimpleName());
                 log.trace("Exception", e);
@@ -178,7 +237,9 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                 log.error("I/O error: {}", e.getClass().getSimpleName());
                 log.trace("Exception", e);
             }
+            log.trace("Adapter loop done");
         }
+        log.info("Adapter thread done");
         return true;
     }
 

@@ -361,10 +361,8 @@ public class JCSystemProxy {
         switch (memoryType) {
             case JCSystem.MEMORY_TYPE_PERSISTENT:
                 return Simulator.current().getAvailablePersistentMemory();
-
             case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
                 return Simulator.current().getAvailableTransientResetMemory();
-
             case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
                 return Simulator.current().getAvailableTransientDeselectMemory();
             default:

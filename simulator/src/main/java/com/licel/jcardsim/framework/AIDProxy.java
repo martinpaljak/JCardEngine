@@ -15,7 +15,6 @@
  */
 package com.licel.jcardsim.framework;
 
-import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.SystemException;
 import javacard.framework.Util;

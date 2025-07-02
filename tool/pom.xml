@@ -48,6 +48,11 @@
             <version>9.8</version>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.30.0</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -18,10 +18,9 @@ package com.licel.jcardsim.framework;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.*;
 
-import java.util.function.BiConsumer;
-
 /**
  * ProxyClass for <code>AppletProxy</code>
+ *
  * @see Applet
  */
 public class AppletProxy {
@@ -73,10 +72,11 @@ public class AppletProxy {
      * <li><em>Exceptions thrown by this method after successful installation are caught
      * by the Java Card runtime environment and processed by the Installer.</em>
      * </ul>
-     * @param bArray the array containing installation parameters
+     *
+     * @param bArray  the array containing installation parameters
      * @param bOffset the starting offset in bArray
      * @param bLength the length in bytes of the parameter data in bArray
-     * The maximum value of bLength is 127.
+     *                The maximum value of bLength is 127.
      * @throws ISOException if the install method failed
      */
     public static void install(byte bArray[], short bOffset, byte bLength)
@@ -105,6 +105,7 @@ public class AppletProxy {
      * <p>
      * The implementation of this method provided by
      * <code>Applet</code> class returns <code>true</code>.<p>
+     *
      * @return <code>true</code> to indicate success, <code>false</code> otherwise
      */
     public boolean select() {
@@ -152,9 +153,10 @@ public class AppletProxy {
      * Entry Point Objects and can be accessed from any applet context.
      * References to these permanent objects can be stored and re-used.</em>
      * </ul>
+     *
      * @param clientAID the <code>AID</code> object of the client applet
      * @param parameter optional parameter byte. The parameter byte may be used by the client to specify
-     * which shareable interface object is being requested.
+     *                  which shareable interface object is being requested.
      * @return the shareable interface object or <code>null</code>
      */
     public Shareable getShareableInterfaceObject(AID clientAID, byte parameter) {
@@ -173,11 +175,12 @@ public class AppletProxy {
      * item in the </em><code>applets[]</code><em> item of the </em><code>applet_component</code><em>, as documented in Section 6.5
      * Applet Component in the Virtual Machine Specification for the Java Card Platform.</em>
      * </ul>
+     *
      * @throws SystemException with the following reason codes:<ul>
-     * <li><code>SystemException.ILLEGAL_AID</code> if the <code>Applet</code> subclass AID bytes are in use or
-     * if the applet instance has previously successfully registered with the Java Card runtime environment via one of the
-     * <code>register()</code> methods or if a Java Card runtime environment initiated <code>install()</code> method execution is not in progress.
-     * </ul>
+     *                         <li><code>SystemException.ILLEGAL_AID</code> if the <code>Applet</code> subclass AID bytes are in use or
+     *                         if the applet instance has previously successfully registered with the Java Card runtime environment via one of the
+     *                         <code>register()</code> methods or if a Java Card runtime environment initiated <code>install()</code> method execution is not in progress.
+     *                         </ul>
      */
     protected final void register() throws SystemException {
         Simulator.current().register(this);
@@ -193,32 +196,34 @@ public class AppletProxy {
      * <li><em>The implementation may require that the instance AID bytes specified are the same as that
      * supplied in the install parameter data. An ILLEGAL_AID exception may be thrown otherwise.</em>
      * </ul>
-     * @param bArray the byte array containing the AID bytes
+     *
+     * @param bArray  the byte array containing the AID bytes
      * @param bOffset the start of AID bytes in bArray
      * @param bLength the length of the AID bytes in bArray
      * @throws SystemException with the following reason code:<ul>
-     *<li><code>SystemException.ILLEGAL_VALUE</code> if the <code>bLength</code> parameter is
-     *less than <code>5</code> or greater than <code>16</code>.
-     *<li><code>SystemException.ILLEGAL_AID</code> if the specified instance AID bytes are in use or
-     *if the applet instance has previously successfully registered with the Java Card runtime environment via one of the
-     *<code>register()</code> methods or if a Java Card runtime environment-initiated <code>install()</code> method execution is not in progress.
-     *</ul>
+     *                         <li><code>SystemException.ILLEGAL_VALUE</code> if the <code>bLength</code> parameter is
+     *                         less than <code>5</code> or greater than <code>16</code>.
+     *                         <li><code>SystemException.ILLEGAL_AID</code> if the specified instance AID bytes are in use or
+     *                         if the applet instance has previously successfully registered with the Java Card runtime environment via one of the
+     *                         <code>register()</code> methods or if a Java Card runtime environment-initiated <code>install()</code> method execution is not in progress.
+     *                         </ul>
      */
     protected final void register(byte bArray[], short bOffset, byte bLength) throws SystemException {
         if (bLength < 5 || bLength > 16) {
             throw new SystemException(SystemException.ILLEGAL_VALUE);
         }
-       Simulator.current().register(this,  bArray,  bOffset,  bLength);
+        Simulator.current().register(this, bArray, bOffset, bLength);
     }
 
     /**
      * This method is used by the applet <code>process()</code> method to distinguish
      * the SELECT APDU command which selected <code>this</code> applet, from all other
      * other SELECT APDU commands which may relate to file or internal applet state selection.
+     *
      * @return <code>true</code> if <code>this</code> applet is being selected
      */
     protected final boolean selectingApplet() {
         return Simulator.current().isAppletSelecting(this);
     }
-    
+
 }

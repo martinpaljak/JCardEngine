@@ -29,4 +29,9 @@
         </Or>
         <Bug pattern="CT_CONSTRUCTOR_THROW,HSM_HIDING_METHOD,EI_EXPOSE_REP,EQ_ALWAYS_FALSE,HE_INHERITS_EQUALS_USE_HASHCODE"/>
     </Match>
+    <!-- False positive -->
+    <Match>
+        <Class name="pro.javacard.engine.adapters.AbstractTCPAdapter"/>
+        <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
+    </Match>
 </FindBugsFilter>

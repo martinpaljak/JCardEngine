@@ -16,7 +16,7 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorSession;
+import pro.javacard.engine.core.EngineSession;
 
 import javax.smartcardio.*;
 import java.nio.ByteBuffer;
@@ -49,7 +49,7 @@ public class CardSimulator extends Simulator {
      * @return ResponseAPDU
      */
     public ResponseAPDU transmitCommand(CommandAPDU commandApdu) {
-        try (SimulatorSession session = connect()) {
+        try (EngineSession session = connect()) {
             return new ResponseAPDU(session.transmitCommand(commandApdu.getBytes()));
         }
     }
@@ -146,7 +146,7 @@ public class CardSimulator extends Simulator {
         private volatile String protocol = "T=0";
         //private volatile byte protocolByte = 0;
         private volatile CardState state = CardState.Connected;
-        private SimulatorSession session = null;
+        private EngineSession session = null;
 
         CardImpl() {
             this.basicChannel = new CardChannelImpl(this, 0);

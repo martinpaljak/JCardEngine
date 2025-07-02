@@ -1,6 +1,5 @@
 package pro.javacard.engine.adapters;
 
-import com.licel.jcardsim.base.Simulator;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +37,10 @@ public class JCSDKServer extends AbstractTCPAdapter {
 
     public JCSDKServer(String host, int port, JavaCardEngine sim) {
         super(host, port, sim);
+    }
+
+    public JCSDKServer(JavaCardEngine sim) {
+        super(DEFAULT_JCSDK_HOST, DEFAULT_JCSDK_PORT, sim);
     }
 
     @Override

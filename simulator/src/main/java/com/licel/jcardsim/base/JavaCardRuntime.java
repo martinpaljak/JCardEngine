@@ -1,11 +1,10 @@
-package pro.javacard.engine.core;
+package com.licel.jcardsim.base;
 
-import com.licel.jcardsim.base.TransientMemory;
 import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.Shareable;
 
-// The interface of the simulator towards JC implementation classes inside jcardsim itself
+// The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
 
     AID getAID();

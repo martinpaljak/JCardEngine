@@ -18,6 +18,9 @@ JAVA21 ?= /Library/Java/JavaVirtualMachines/$(JDK)-21.jdk/Contents/Home
 test:
 	./mvnw clean verify
 
+fast:
+	JAVA_HOME=$(JAVA11) ./mvnw -Dmaven.test.skip=true -Dspotbugs.skip=true clean package
+
 fastinstall:
 	./mvnw -Dmaven.test.skip=true install
 
