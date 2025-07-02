@@ -23,7 +23,7 @@ public class IsolatingClassLoader extends URLClassLoader {
     // Explicitly isolate from classpath
     public void isolate(String... packages) {
         for (String s : packages) {
-            log.info("Isolating {}", s);
+            log.trace("Isolating {}", s);
             mocks.add(s);
         }
     }
@@ -47,10 +47,10 @@ public class IsolatingClassLoader extends URLClassLoader {
         if (isolate(name)) {
             Class<?> clazz = findLoadedClass(name);
             if (clazz == null) {
-                log.info("{} isolating {}", System.identityHashCode(this), name);
+                log.trace("{} isolating {}", System.identityHashCode(this), name);
                 clazz = findClass(name);
             } else {
-                log.info("{} re-using  {}", System.identityHashCode(this), name);
+                log.trace("{} re-using  {}", System.identityHashCode(this), name);
             }
             if (resolve) {
                 resolveClass(clazz);

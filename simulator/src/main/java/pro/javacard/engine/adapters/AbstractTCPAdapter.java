@@ -6,6 +6,8 @@ import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.adapters.RemoteMessage.Type;
+import pro.javacard.engine.core.EngineSession;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -59,14 +61,14 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     public abstract SocketChannel getSocket() throws IOException;
 
-    final protected Simulator sim;
+    final protected JavaCardEngine sim;
     protected byte[] atr = DEFAULT_ATR;
     protected String protocol = "*";
     private Duration idleTimeout = Duration.ZERO;
     protected final String host;
     protected final int port;
 
-    protected AbstractTCPAdapter(String host, int port, Simulator sim) {
+    protected AbstractTCPAdapter(String host, int port, JavaCardEngine sim) {
        this.sim = sim;
        this.host = host;
        this.port = port;
@@ -102,7 +104,8 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
             try {
                 // New client.
                 SocketChannel channel = getSocket();
-                SimulatorSession session = null;
+                log.info("Serving peer {}", channel.getRemoteAddress());
+                EngineSession session = null;
                 // Many messages.
                 while (!Thread.currentThread().isInterrupted()) {
                     try {
@@ -180,7 +183,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     }
 
     // Connect to remote server
-    protected static SocketChannel connect(String host, Integer port) throws IOException {
+    public static SocketChannel connect(String host, Integer port) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         SocketChannel sc = SocketChannel.open();
         sc.socket().connect(addr, 3000); // TODO: tunable
@@ -191,7 +194,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     }
 
     // Start a local server
-    protected static ServerSocketChannel start(String host, Integer port) throws IOException {
+    public static ServerSocketChannel start(String host, Integer port) throws IOException {
         InetSocketAddress addr = new InetSocketAddress(host, port);
         ServerSocketChannel server = ServerSocketChannel.open();
         return server.bind(addr);

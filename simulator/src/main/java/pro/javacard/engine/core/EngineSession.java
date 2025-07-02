@@ -9,4 +9,6 @@ public interface EngineSession extends CardInterface, AutoCloseable {
     default void close() {
         close(false);
     }
+
+    boolean isClosed();
 }

@@ -26,7 +26,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -73,7 +75,6 @@ public class JavaCardApiProcessor {
         proxyExceptionClass(buildDir, "javacardx.framework.util.UtilException");
         proxyExceptionClass(buildDir, "javacardx.biometry.BioException");
         proxyExceptionClass(buildDir, "javacardx.framework.string.StringException");
-
     }
 
     public static void proxyClass(File buildDir, String proxyClassFile, String targetClassFile, boolean skipConstructor) throws IOException {
@@ -178,6 +179,16 @@ public class JavaCardApiProcessor {
 
         @Override
         public void visitEnd() {
+            // ASM for adding the body to constructor and static throwIt, resulting in:
+            // public class YourClassName extends YourSuperClass {
+            //    public YourClassName(short value) {
+            //        super(value);
+            //    }
+            //    public static void throwIt(short value) {
+            //        throw new YourClassName(value);
+            //    }
+            //}
+
             MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, "<init>", "(S)V", null, null);
             mv.visitCode();
             mv.visitVarInsn(ALOAD, 0);
@@ -244,10 +255,10 @@ public class JavaCardApiProcessor {
         @Override
         public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
             if (cnMethods.containsKey(name + desc) || ((access & (ACC_PUBLIC | ACC_PROTECTED)) == 0)) {
-                System.out.println("Use proxy method:    " + cname + "::" + name + desc);
+                //System.out.println("Use proxy method:    " + cname + "::" + name + desc);
                 return null;
             }
-            System.out.println("Use original method: " + cname + "::" + name + desc);
+            System.err.println("TODO: Uses original method: " + cname + "::" + name + desc);
             return super.visitMethod(access, name, desc, signature, exceptions);
         }
 

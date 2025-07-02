@@ -4,6 +4,7 @@ import com.licel.jcardsim.base.Simulator;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -29,7 +30,7 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     // Everything else - command APDU, followed with response APDU.
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
 
-    public VSmartCardClient(String host, Integer port, Simulator sim) {
+    public VSmartCardClient(String host, Integer port, JavaCardEngine sim) {
         super(host, port, sim);
     }
 

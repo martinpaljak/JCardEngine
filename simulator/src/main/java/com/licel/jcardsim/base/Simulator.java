@@ -29,6 +29,7 @@ import pro.javacard.engine.core.JavaCardRuntime;
 import pro.javacard.engine.core.JavaCardEngine;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -298,15 +299,15 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      * @param aid applet <code>AID</code>
      * @return Applet or null
      */
-    protected Applet getApplet(AID aid) {
-        // FIXME: this should NOT be called with null.
-        //Objects.requireNonNull(aid);
-        if (aid == null) {
-            return null;
-        }
+    @Override
+    public Applet getApplet(AID aid) {
+        Objects.requireNonNull(aid);
         ApplicationInstance a = lookupApplet(aid);
-        if (a == null) return null;
-        else return a.getApplet();
+        if (a == null) {
+            return null;
+        } else {
+            return a.getApplet();
+        }
     }
 
     /**
@@ -395,9 +396,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             final AID newAid;
             // check if there is an applet to be selected
             if (!apduCase.isExtended() && isAppletSelectionApdu(command)) {
-                log.info("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
+                log.trace("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
                 newAid = findAppletForSelectApdu(command, apduCase);
-                log.info("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
+                log.trace("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
                 // Nothing currently selected
                 if (currentAID == null) {
                     // No applet found
@@ -447,7 +448,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             try {
                 if (selecting) {
                     currentAID = newAid; // so that JCSystem.getAID() would return the right thing
-                    log.info("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
+                    log.trace("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
                     boolean success;
                     try {
                         success = applet.select();
@@ -551,7 +552,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     private void deselect(ApplicationInstance app) {
-        log.info("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
+        log.trace("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
         try {
             Applet applet = app.getApplet();
             applet.deselect();
@@ -583,13 +584,17 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     /**
      * powerdown/powerup
      */
+    @Override
     public void reset() {
+        // FIXME: lock
+        //lock.acquireUninterruptibly();
         Arrays.fill(responseBuffer, (byte) 0);
         transactionDepth = 0;
         responseBufferSize = 0;
         currentAID = null;
         previousAID = null;
         transientMemory.clearOnReset();
+        //lock.release();
     }
 
     @Override
@@ -778,6 +783,17 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 installMethod = klass.getMethod("install", byte[].class, short.class, byte.class);
             } catch (NoSuchMethodException e) {
                 throw new IllegalArgumentException("Class does not provide install method");
+            }
+
+            // Check for magic field
+            // TODO: same feature flag as for bytecode change
+            try {
+                Field magic = klass.getField("jcardengine");
+                magic.setBoolean(null, true);
+            } catch (NoSuchFieldException e ) {
+                // Nothing.
+            } catch (IllegalAccessException e) {
+                log.warn("Could not set magic field: {}", e.getMessage());
             }
 
             // Construct _actual_ install parameters

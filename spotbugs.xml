@@ -4,7 +4,7 @@
     <!-- Ignore unavoidable things in sample applets-->
     <Match>
         <Package name="com.licel.jcardsim.samples"/>
-        <Bug pattern="CT_CONSTRUCTOR_THROW,ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/>
+        <Bug pattern="CT_CONSTRUCTOR_THROW,ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD,MS_SHOULD_BE_FINAL"/>
     </Match>
     <!-- Applet.install() is designed like this -->
     <Match>

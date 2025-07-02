@@ -113,10 +113,10 @@ public final class ByteContainer {
      * @param length length of data in byte array
      */
     public void setBytes(byte[] buff, short offset, short length) {
-        if (data != null && this.length < length) {
+        if (data != null && data.length < length) {
             log.error("ATTENTION! container size is smaller than data: {}/{} vs {}", this.length, data.length, length);
         }
-        if (data == null || this.length != length) {
+        if (data == null || data.length != length) {
             // XXX: this "leaks"
             switch (memoryType) {
                 case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:

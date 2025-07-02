@@ -68,6 +68,7 @@ public class HelloWorldApplet extends Applet {
     private byte[] initParamsBytes;
     private final byte[] transientMemory;
     private static final short LENGTH_ECHO_BYTES = 256;
+    public static boolean jcardengine = false;
 
     /**
      * Only this class's install method should create the applet object.
@@ -102,6 +103,11 @@ public class HelloWorldApplet extends Applet {
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
         new HelloWorldApplet(bArray, bOffset, bLength);
+    }
+
+    @Override
+    public boolean select() {
+        return jcardengine;
     }
 
     /**

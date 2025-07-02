@@ -28,7 +28,7 @@ public class SimulatorSession implements EngineSession {
     private final String protocol;
     final Thread owner;
     SimulatorSession(Simulator simulator, String protocol, Duration timeout) {
-        log.info("Acquiring lock ...");
+        log.trace("Acquiring lock ...");
         this.simulator = simulator;
         simulator.lock.acquireUninterruptibly();
         idleTimeout = timeout;
@@ -40,7 +40,7 @@ public class SimulatorSession implements EngineSession {
         simulator.changeProtocol(protocol);
         this.protocol = protocol;
         this.owner = Thread.currentThread();
-        log.info("Locked");
+        log.trace("Locked");
     }
 
     private void scheduleTimeout() {
@@ -72,7 +72,7 @@ public class SimulatorSession implements EngineSession {
             simulator.reset();
         }
         simulator.lock.release();
-        log.info("Unlocked");
+        log.trace("Unlocked");
     }
 
     @Override
@@ -108,6 +108,7 @@ public class SimulatorSession implements EngineSession {
         return protocol;
     }
 
+    @Override
     public boolean isClosed() {
         return closed;
     }

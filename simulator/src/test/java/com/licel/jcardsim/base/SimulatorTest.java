@@ -25,6 +25,7 @@ import javacard.framework.Util;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import javax.smartcardio.ResponseAPDU;
 
@@ -157,6 +158,18 @@ public class SimulatorTest {
         instance1.deleteApplet(TEST_APPLET_AID);
         assertFalse(instance1.selectApplet(TEST_APPLET_AID));
         assertFalse(instance2.selectApplet(TEST_APPLET_AID));
+    }
+
+    @Test
+    public void testMagicField() {
+        JavaCardEngine sim = JavaCardEngine.create();
+        HelloWorldApplet.jcardengine = false; // other tests also load the same applet in exposed mode.
+        assertFalse(HelloWorldApplet.jcardengine);
+        sim.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, new byte[0]);
+        assertFalse(HelloWorldApplet.jcardengine);
+        sim.deleteApplet(TEST_APPLET_AID);
+        sim.installExposedApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, new byte[0]);
+        assertTrue(HelloWorldApplet.jcardengine);
     }
 
     @Test

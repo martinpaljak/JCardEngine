@@ -28,12 +28,12 @@ public class NewByteArrayInterceptor extends ClassVisitor {
     @Override
     public FieldVisitor visitField(int access, String name, String descriptor,
                                    String signature, Object value) {
-        // Check if this is a "public static boolean jcardsim" field
-        if (name.equals("jcardsim") &&
+        // Check if this is a "public static boolean jcardengine" field
+        if (name.equals("jcardengine") &&
                 descriptor.equals("Z") &&
                 (access & Opcodes.ACC_PUBLIC) != 0 &&
                 (access & Opcodes.ACC_STATIC) != 0) {
-            log.info("Setting magic jcardsim field to true");
+            log.info("Setting magic jcardengine field to true");
             // Force the value to true (represented as 1 for boolean)
             return super.visitField(access, name, descriptor, signature, 1);
         }

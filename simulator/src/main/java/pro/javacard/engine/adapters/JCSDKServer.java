@@ -4,6 +4,7 @@ import com.licel.jcardsim.base.Simulator;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.core.JavaCardEngine;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -35,7 +36,7 @@ public class JCSDKServer extends AbstractTCPAdapter {
 
     ServerSocketChannel server;
 
-    public JCSDKServer(String host, int port, Simulator sim) {
+    public JCSDKServer(String host, int port, JavaCardEngine sim) {
         super(host, port, sim);
     }
 
