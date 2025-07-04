@@ -12,6 +12,7 @@ import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.core.EngineSession;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,7 +29,7 @@ public class SymmetricCipherAppletTest {
         AID appletAID = AIDUtil.create(appletAIDStr);
         sim.installApplet(appletAID, SymmetricCipherApplet.class);
         sim.selectApplet(appletAID);
-        try (SimulatorSession instance = sim.connect()) {
+        try (EngineSession instance = sim.connect()) {
 
             // 1. Send C-APDU to set AES key
             // Create C-APDU to send 128-bit AES key in CData
@@ -125,7 +126,7 @@ public class SymmetricCipherAppletTest {
         sim.installApplet(appletAID, SymmetricCipherApplet.class);
         sim.selectApplet(appletAID);
 
-        try (SimulatorSession instance = sim.connect()) {
+        try (EngineSession instance = sim.connect()) {
             // 1. Send C-APDU to set DES key
             // Create C-APDU to send DES3_3KEY in CData
             byte[] key = Hex.decode(SymmetricCipherImplTest.DES3_KEY);

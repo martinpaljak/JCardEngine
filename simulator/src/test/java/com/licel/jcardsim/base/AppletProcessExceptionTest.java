@@ -27,6 +27,7 @@ import javacardx.framework.string.StringException;
 import javacardx.framework.tlv.TLVException;
 import javacardx.framework.util.UtilException;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.core.EngineSession;
 
 import javax.smartcardio.ResponseAPDU;
 
@@ -52,7 +53,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testCryptoException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test CryptoException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_CRYPTO_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -128,7 +129,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testAPDUException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test APDUException.ILLEGAL_USE without try catch
             byte[] apdu = new byte[]{CLA_APDU_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -232,7 +233,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testSystemException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test SystemException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_SYSTEM_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -322,7 +323,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testServiceException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test ServiceException.ILLEGAL_PARAM without try catch
             byte[] apdu = new byte[]{CLA_SERVICE_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -426,7 +427,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testBioException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test BioException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_BIO_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -502,7 +503,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testBio1toNException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test Bio1toNException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_BIO_1_TO_N_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -606,7 +607,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testExternalException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test ExternalException.NO_SUCH_SUBSYSTEM without try catch
             byte[] apdu = new byte[]{CLA_EXTERNAL_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -654,7 +655,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testPINException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test PINException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_PIN_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -688,7 +689,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testStringException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test StringException.UNSUPPORTED_ENCODING without try catch
             byte[] apdu = new byte[]{CLA_STRING_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -736,7 +737,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testTLVException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test TLVException.INVALID_PARAM without try catch
             byte[] apdu = new byte[]{CLA_TLV_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -889,7 +890,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testTransactionException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test TransactionException.IN_PROGRESS without try catch
             byte[] apdu = new byte[]{CLA_TRANSACTION_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -965,7 +966,7 @@ public class AppletProcessExceptionTest {
 
     @Test
     public void testUtilException() {
-        try (SimulatorSession instance = getReadySimulator()) {
+        try (EngineSession instance = getReadySimulator()) {
 
             // Test UtilException.ILLEGAL_VALUE without try catch
             byte[] apdu = new byte[]{CLA_UTIL_EXCEPTION, INS_JUST_THROW, 0, 0};
@@ -997,7 +998,7 @@ public class AppletProcessExceptionTest {
         }
     }
 
-    private SimulatorSession getReadySimulator() {
+    private EngineSession getReadySimulator() {
         Simulator instance = new Simulator();
         AID appletAID = AIDUtil.create(appletAIDStr);
 
