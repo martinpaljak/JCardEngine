@@ -165,7 +165,7 @@ public class JCardTool {
 
             // Set up simulator. Right now a sample thingy
             JavaCardEngine sim = JavaCardEngine.create().exposed(true);
-            for (InstallSpec s: spec) {
+            for (InstallSpec s : spec) {
                 sim.installApplet(s.getAID(), s.getAppletClass(), s.getParamters());
             }
             ExecutorService exec = Executors.newFixedThreadPool(3);
@@ -220,7 +220,7 @@ public class JCardTool {
             Runtime.getRuntime().addShutdownHook(shutdownThread);
             if (options.has(OPT_CONTROL)) {
                 adapters.forEach(exec::submit);
-
+                boolean connected = true;
                 // This seems to be the trick to keep ctrl-c working with keypress detection
                 TerminalBuilder tb = TerminalBuilder.builder().nativeSignals(false);
                 try (Terminal terminal = tb.build()) {
@@ -233,12 +233,19 @@ public class JCardTool {
                             System.err.println("Quit.");
                             break;
                         } else if (c == 116) {
-                            // tap
+                            // 't' tap/reset
                             System.err.println("Triggering a fresh tap: boop!");
                             adapters.forEach(AbstractTCPAdapter::tap);
+                        } else if (c == 99) {
+                            // 'c' for connection state
+                            connected = !connected;
+                            boolean finalConnected = connected;
+                            System.err.println(String.format("%s the card", connected ? "Connecting" : "Disconnecting"));
+                            adapters.forEach(a -> a.connected(finalConnected));
                         } else {
                             // print help
-                            System.err.println("Press 't' to trigger tap, 'q' or Esc to quit.");
+                            System.err.println("Unknown key: " + c);
+                            System.err.println("Press 't' to trigger tap, 'c' to toggle connection, 'q' or Esc to quit.");
                         }
                     }
                 }

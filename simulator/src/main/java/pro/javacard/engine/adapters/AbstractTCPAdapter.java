@@ -18,39 +18,23 @@ import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 
 // Minimal generalization to support multiple adapters
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    public static class OSDetector {
-
-        public enum OS {
-            WINDOWS, MAC, LINUX, OTHER
-        }
-
-        public static final OS CURRENT_OS = detectOS();
-
-        private static OS detectOS() {
-            String osName = System.getProperty("os.name").toLowerCase();
-
-            if (osName.contains("win")) {
-                return OS.WINDOWS;
-            } else if (osName.contains("mac")) {
-                return OS.MAC;
-            } else if (osName.contains("nux")) {
-                return OS.LINUX;
-            } else {
-                return OS.OTHER;
-            }
-        }
-    }
-
-    static final byte[] DEFAULT_ATR = Hex.decode("3B9F968131FE454F52434C2D4A43332E324750322E3323");
+    static final byte[] DEFAULT_ATR = Hex.decode("3B80800101");
 
     public void start() throws IOException {
         // No special steps needed for clients.
+    }
+
+    public enum AdapterState {
+        CONNECTED, DISCONNECTED, RESET, SHUTDOWN
     }
 
     public abstract RemoteMessage recv(SocketChannel channel) throws IOException;
@@ -65,8 +49,12 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     private Duration idleTimeout = Duration.ZERO;
     protected String host;
     protected int port;
-    private volatile Thread thread;
-    private volatile boolean tap;
+
+    private volatile Thread thread; // Used to interrupt the adapter
+    private AdapterState currentState = AdapterState.CONNECTED;
+
+    private final AtomicReference<AdapterState> targetState = new AtomicReference<>(null);
+    private final Semaphore semaphore = new Semaphore(1);
 
     protected AbstractTCPAdapter(String host, int port, JavaCardEngine sim) {
         this.sim = sim;
@@ -106,136 +94,143 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     // Safe to call from any thread.
     public void tap() {
         log.info("Triggering tap");
-        this.tap = true;
+        // indicate disconnect
+        if (!targetState.compareAndSet(null, AdapterState.RESET)) {
+            throw new IllegalStateException("Can't trigger reset!");
+        }
+        // interrupt thread
         thread.interrupt();
+        // Wait until processed
+        semaphore.acquireUninterruptibly();
+    }
+
+    public void connected(boolean flag) {
+        targetState.compareAndSet(null, flag ? AdapterState.CONNECTED : AdapterState.DISCONNECTED);
+        thread.interrupt();
+        // Wait until processed
+        semaphore.acquireUninterruptibly();
     }
 
     @Override
     public Boolean call() {
-        Thread.currentThread().setName(this.getClass().getSimpleName());
         this.thread = Thread.currentThread();
-        // Start listening or do other setup.
-        try {
-            start();
-        } catch (IOException e) {
-            log.error("Could not start: " + e.getMessage(), e);
-            throw new RuntimeException("Could not start a remote protocol adapter: " + e.getMessage(), e);
-        }
+        this.thread.setName(this.getClass().getSimpleName());
+
         // Loop many clients / broken sessions
         while (!Thread.currentThread().isInterrupted()) {
-            try {
-                // New client.
-                SocketChannel channel = getSocket();
-                log.info("Serving peer {}", channel.getRemoteAddress());
-                EngineSession session = null;
-                // Many messages.
-                while (!Thread.currentThread().isInterrupted()) {
-                    //log.trace("Message tap: {}", tap);
+            switch (currentState) {
+                case DISCONNECTED:
+                    sim.reset();
                     try {
-                        RemoteMessage msg = recv(channel);
-                        // Silence noisy VSmartCard ATR request.
-                        if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR))
-                            log.trace("Processing {}", msg.getType());
-                        switch (msg.getType()) {
-                            case ATR:
-                                // NOTE: this is spammed by vsmartcard on every second.
-                                // There's no way to indicate "there's no card, thus no ATR"
-                                send(channel, new RemoteMessage(Type.ATR, atr));
-                                break;
-                            case RESET:
-                                // NOTE: on Windows and macOS a connection "Starts" with a reset, so we open a connection on demand
-                                if (session == null || session.isClosed()) {
-                                    session = sim.connectFor(idleTimeout, protocol);
-                                }
-                                if (session != null) {
-                                    session.reset();
-                                }
-                                send(channel, new RemoteMessage(Type.RESET));
-                                break;
-                            case POWERUP:
-                                // Happens on Linux with vsmartcard
-                                if (session != null) {
-                                    log.warn("Session is not null");
-                                }
-                                session = sim.connectFor(idleTimeout, protocol);
-                                send(channel, new RemoteMessage(Type.POWERUP));
-                                break;
-                            case POWERDOWN:
-                                // Happens on mac/linux
-                                if (session != null) {
-                                    session.close(true); // FIXME: no reset ?
-                                }
-                                session = null;
-                                send(channel, new RemoteMessage(Type.POWERDOWN));
-                                break;
-                            case APDU:
-                                if (session == null) {
-                                    log.error("No session opened before APDU-s!");
-                                    session = sim.connectFor(idleTimeout, protocol);
-                                }
-                                byte[] cmd = msg.getPayload();
-                                if (Arrays.equals(cmd, Hex.decode("ffca000000")) && protocol.equals("T=CL")) {
-                                    log.info("Intercepting GET UID");
-                                    // NOTE: Normally it is the task of a reader to fetch the UID from the card
-                                    // TODO: parametrize
-                                    send(channel, new RemoteMessage(Type.APDU, Hex.decode("88F24AB73D915E9000")));
-                                    break;
-                                }
-                                log.info(">> {}", Hex.toHexString(cmd));
-                                byte[] response = session.transmitCommand(cmd);
-                                log.info("<< {}", Hex.toHexString(response));
-                                send(channel, new RemoteMessage(Type.APDU, response));
-                                break;
-                            default:
-                                log.warn("Unhandled message type: " + msg.getType());
-                        }
-                    } catch (EOFException | ClosedByInterruptException e) {
-                        log.info("Peer disconnected");
-                        if (Thread.interrupted()) {
-                            if (tap) {
-                                log.info("Processing tap");
-                                tap = false;
-                                sim.reset();
-                            } else {
-                                // Interrupted, but no tap -> done
-                                log.info("Interrupted, closing");
-                                return false;
-                            }
-                        }
-                        break; // new socket or loop end
-                    } catch (Exception e) {
-                        log.error("Error processing client command: " + e.getMessage(), e);
-                        break;
+                        Thread.sleep(Long.MAX_VALUE);
+                    } catch (InterruptedException e) {
+                        log.debug("State changed, checking new state");
+                        AdapterState target = targetState.getAndSet(null);
+                        this.currentState = (target == null) ? AdapterState.SHUTDOWN : target;
+                        semaphore.release();
                     }
-                }
-            } catch (ClosedByInterruptException e) {
-                if (Thread.interrupted()) {
-                    if (tap) {
-                        log.info("Processing tap");
-                        tap = false;
-                        sim.reset();
-                        // Re-open listening socket
+                    continue;
+                case SHUTDOWN:
+                    // Ctrl-C/Orderly shutdown of listening socket
+                    log.info("Shutting down. Bye!");
+                    return true;
+                case RESET:
+                    sim.reset();
+                    this.currentState = AdapterState.CONNECTED;
+                    continue;
+                case CONNECTED:
+                    try {
+                        // Start listening or do other setup.
                         try {
                             start();
-                        } catch (IOException e2) {
-                            log.error("Could not restart: " + e2.getMessage(), e2);
-                            throw new RuntimeException("Could not restart a remote protocol adapter: " + e2.getMessage(), e2);
+                        } catch (IOException e) {
+                            log.error("Could not start: " + e.getMessage(), e);
+                            throw new RuntimeException("Could not start a remote protocol adapter: " + e.getMessage(), e);
                         }
-                        // Continue servig clients
-                        continue;
-                    } else {
-                        log.info("Shutting down. Bye!");
-                        // Ctrl-C/Orderly shutdown of listening socket
-                        return true;
+                        // New client.
+                        SocketChannel channel = getSocket();
+                        log.info("Serving peer {}", channel.getRemoteAddress());
+                        EngineSession session = null;
+                        // Many messages while connected
+                        while (!Thread.currentThread().isInterrupted() && this.currentState == AdapterState.CONNECTED) {
+                            try {
+                                RemoteMessage msg = recv(channel);
+                                // Silence noisy VSmartCard ATR request.
+                                if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR))
+                                    log.trace("Processing {}", msg.getType());
+                                switch (msg.getType()) {
+                                    case ATR:
+                                        // NOTE: this is spammed by vsmartcard on every second.
+                                        // There's no way to indicate "there's no card, thus no ATR"
+                                        send(channel, new RemoteMessage(Type.ATR, atr));
+                                        break;
+                                    case RESET:
+                                        // NOTE: on Windows and macOS a connection "Starts" with a reset, so we open a connection on demand
+                                        if (session == null || session.isClosed()) {
+                                            session = sim.connectFor(idleTimeout, protocol);
+                                        }
+                                        if (session != null) {
+                                            session.reset();
+                                        }
+                                        send(channel, new RemoteMessage(Type.RESET));
+                                        break;
+                                    case POWERUP:
+                                        // Happens on Linux with vsmartcard
+                                        if (session != null) {
+                                            log.warn("Session is not null");
+                                        }
+                                        session = sim.connectFor(idleTimeout, protocol);
+                                        send(channel, new RemoteMessage(Type.POWERUP));
+                                        break;
+                                    case POWERDOWN:
+                                        // Happens on mac/linux
+                                        if (session != null) {
+                                            session.close(true); // FIXME: no reset ?
+                                        }
+                                        session = null;
+                                        send(channel, new RemoteMessage(Type.POWERDOWN));
+                                        break;
+                                    case APDU:
+                                        if (session == null) {
+                                            log.error("No session opened before APDU-s!");
+                                            session = sim.connectFor(idleTimeout, protocol);
+                                        }
+                                        byte[] cmd = msg.getPayload();
+                                        if (Arrays.equals(cmd, Hex.decode("FFCA000000")) && protocol.equals("T=CL")) {
+                                            log.info("Intercepting GET UID");
+                                            // NOTE: Normally it is the task of a reader driver to fetch the UID from the card
+                                            // As we have basic virtual adapters, must intercept this ourselves.
+                                            // TODO: parametrize
+                                            send(channel, new RemoteMessage(Type.APDU, Hex.decode("040102039000")));
+                                            break;
+                                        }
+                                        log.info(">> {}", Hex.toHexString(cmd));
+                                        byte[] response = session.transmitCommand(cmd);
+                                        log.info("<< {}", Hex.toHexString(response));
+                                        send(channel, new RemoteMessage(Type.APDU, response));
+                                        break;
+                                    default:
+                                        log.warn("Unhandled message type: " + msg.getType());
+                                }
+                            } catch (EOFException e) {
+                                log.info("Peer disconnected");
+                                break; // new socket or loop end
+                            }
+                        }
+                    } catch (ClosedByInterruptException e) {
+                        if (Thread.interrupted()) {
+                            AdapterState target = targetState.getAndSet(null);
+                            this.currentState = (target == null) ? AdapterState.SHUTDOWN : target;
+                            semaphore.release();
+                        }
+                    } catch (SocketException | SocketTimeoutException e) {
+                        log.error("Connection error: {}", e.getClass().getSimpleName());
+                        log.trace("Exception", e);
+                        return false;
+                    } catch (IOException e) {
+                        log.error("I/O error: {}", e.getClass().getSimpleName());
+                        log.trace("Exception", e);
                     }
-                }
-            } catch (SocketException | SocketTimeoutException e) {
-                log.error("Connection error: {}", e.getClass().getSimpleName());
-                log.trace("Exception", e);
-                return false;
-            } catch (IOException e) {
-                log.error("I/O error: {}", e.getClass().getSimpleName());
-                log.trace("Exception", e);
             }
             log.trace("Adapter loop done");
         }
