@@ -1,7 +1,6 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.base.Simulator;
-import com.licel.jcardsim.base.SimulatorSession;
 import com.licel.jcardsim.samples.SymmetricCipherApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;

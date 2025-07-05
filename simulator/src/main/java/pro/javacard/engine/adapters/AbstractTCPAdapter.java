@@ -18,11 +18,10 @@ import java.nio.channels.SocketChannel;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 
-// Minimal generalization to support multiple adapters
+// Minimal generalization to support multiple adapters and both servers and clients
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
@@ -105,12 +104,15 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     }
 
     public void connected(boolean flag) {
-        targetState.compareAndSet(null, flag ? AdapterState.CONNECTED : AdapterState.DISCONNECTED);
+        if (!targetState.compareAndSet(null, flag ? AdapterState.CONNECTED : AdapterState.DISCONNECTED)) {
+            throw new IllegalStateException("Can't toggle state!");
+        }
         thread.interrupt();
         // Wait until processed
         semaphore.acquireUninterruptibly();
     }
 
+    // Returns true if closed normally, false on errors
     @Override
     public Boolean call() {
         this.thread = Thread.currentThread();

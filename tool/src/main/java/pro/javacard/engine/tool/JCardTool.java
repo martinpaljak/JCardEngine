@@ -16,7 +16,6 @@
 package pro.javacard.engine.tool;
 
 import com.licel.jcardsim.base.InstallSpec;
-import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
 import joptsimple.OptionException;
@@ -84,7 +83,7 @@ public class JCardTool {
     // .cap/.jar files to load
     static OptionSpec<File> toLoad = parser.nonOptions("path to .cap or .jar or classes directory").ofType(File.class);
 
-    static OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Applet to install").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_APPLET = parser.accepts("applet", "Applet class to install").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_PARAMS = parser.accepts("params", "Installation parameters").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_AID = parser.accepts("aid", "Applet AID").withRequiredArg().ofType(String.class);
 

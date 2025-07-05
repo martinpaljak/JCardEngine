@@ -128,6 +128,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // When applet code calls back for the internal facade of the simulator,
     // return _this_ instance. This usually happens via JCSystem.* calls.
     // and is the mirror of current()
+    // These are public so that tests that do not follow the convention can run with
+    // minimal modification. TODO: make not public
     public void _makeCurrent() {
         currentSimulator.set(this);
     }
@@ -148,7 +150,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public static JavaCardRuntime current() {
         Simulator currentInstance = currentSimulator.get();
         if (currentInstance == null) {
-            throw new AssertionError("No current Simulator instance");
+            throw new IllegalStateException("No current Engine instance");
         }
         return currentInstance;
     }
@@ -158,22 +160,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
-        // TODO: add a feature flag for isolation default
         return installApplet(aid, appletClass, parameters, exposed);
-    }
-
-    // Wrappers around the main install() method
-    public AID installApplet(AID aid, Class<? extends Applet> appletClass) {
-        return installApplet(aid, appletClass, new byte[0], exposed);
     }
 
     // These load the applet without class isolation, so that internals are exposed to caller.
     public AID installExposedApplet(AID aid, Class<? extends Applet> appletClass, byte[] params) {
         return installApplet(aid, appletClass, params, true);
-    }
-
-    public AID installExposedApplet(AID aid, Class<? extends Applet> appletClass) {
-        return installApplet(aid, appletClass, new byte[0], true);
     }
 
     public boolean selectApplet(AID aid) throws SystemException {
@@ -792,7 +784,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             try {
                 Field magic = klass.getField("jcardengine");
                 magic.setBoolean(null, true);
-            } catch (NoSuchFieldException e ) {
+            } catch (NoSuchFieldException e) {
                 // Nothing.
             } catch (IllegalAccessException e) {
                 log.warn("Could not set magic field: {}", e.getMessage());
@@ -894,17 +886,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     @Override
-    public EngineSession connect(String protocol) {
-        // No timeout
-        return connectFor(Duration.ZERO, protocol);
-    }
-
-    public EngineSession connect() {
-        // No timeout, default protocol
-        return connectFor(Duration.ZERO, "*");
-    }
-
-    @Override
     public EngineSession connectFor(Duration timeout, String protocol) {
         return new SimulatorSession(this, protocol, timeout);
     }
@@ -920,19 +901,4 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         this.classLoader = new IsolatingClassLoader(loader);
         return this;
     }
-
-    // Called from inside the thread, but exposed for re-usability
-    public static Simulator makeSimulator(List<InstallSpec> applets) {
-        Simulator sim = new Simulator();
-        for (InstallSpec applet : applets) {
-            if (applet.getParamters().length > 0) {
-                log.info("Installing applet: {} as {} with {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()), Hex.toHexString(applet.getParamters()));
-            } else {
-                log.info("Installing applet: {} as {}", applet.getAppletClass().getSimpleName(), AIDUtil.toString(applet.getAID()));
-            }
-            sim.installApplet(applet.getAID(), applet.getAppletClass(), applet.getParamters());
-        }
-        return sim;
-    }
-
 }

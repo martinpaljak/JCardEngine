@@ -11,7 +11,15 @@ import java.time.Duration;
 public interface JavaCardEngine {
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
 
+    default AID installApplet(AID aid, Class<? extends Applet> appletClass) {
+        return installApplet(aid, appletClass, new byte[0]);
+    }
+
     AID installExposedApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
+
+    default AID installExposedApplet(AID aid, Class<? extends Applet> appletClass) {
+        return installExposedApplet(aid, appletClass, new byte[0]);
+    }
 
     void deleteApplet(AID aid);
 
@@ -19,7 +27,13 @@ public interface JavaCardEngine {
 
     void reset();
 
-    EngineSession connect(String protocol);
+    default EngineSession connect() {
+        return connectFor(Duration.ZERO, "*");
+    }
+
+    default EngineSession connect(String protocol) {
+        return connectFor(Duration.ZERO, protocol);
+    }
 
     EngineSession connectFor(Duration duration, String protocol);
 
