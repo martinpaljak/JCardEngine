@@ -16,7 +16,7 @@
 package com.licel.jcardsim.smartcardio;
 
 import com.licel.jcardsim.base.Simulator;
-import pro.javacard.engine.core.EngineSession;
+import pro.javacard.engine.EngineSession;
 
 import javax.smartcardio.*;
 import java.nio.ByteBuffer;
@@ -161,6 +161,7 @@ public class CardSimulator extends Simulator {
             }
         }
 
+        @SuppressWarnings("deprecation")
         @Override
         public ATR getATR() {
             return new ATR(CardSimulator.this.getATR());

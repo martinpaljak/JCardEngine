@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package pro.javacard.engine.core;
+package com.licel.jcardsim.base;
 
 /**
  * Basic SmartCard Interface.
@@ -26,13 +26,6 @@ public interface CardInterface {
      * Powerdown/Powerup
      */
     void reset();
-
-    /**
-     * Returns ATR
-     *
-     * @return ATR bytes
-     */
-    byte[] getATR();
 
     /**
      * Transmit APDU to previous selected applet

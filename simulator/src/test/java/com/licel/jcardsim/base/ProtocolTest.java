@@ -7,7 +7,7 @@ import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.core.EngineSession;
+import pro.javacard.engine.EngineSession;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

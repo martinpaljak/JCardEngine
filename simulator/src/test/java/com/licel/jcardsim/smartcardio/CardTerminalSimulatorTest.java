@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class CardTerminalSimulatorTest {
-    private static final ATR ETALON_ATR = new ATR(Hex.decode("3BFA1800008131FE454A434F5033315632333298"));
+    private static final ATR ETALON_ATR = new ATR(Hex.decode("3B80800101"));
     private static final String TEST_APPLET_AID = "010203040506070809";
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
 

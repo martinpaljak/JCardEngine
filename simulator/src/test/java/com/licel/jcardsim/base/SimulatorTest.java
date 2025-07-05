@@ -24,15 +24,13 @@ import javacard.framework.ISO7816;
 import javacard.framework.Util;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.core.JavaCardEngine;
+import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.ResponseAPDU;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SimulatorTest {
-
-    private static final byte[] ETALON_ATR = Hex.decode("3BFA1800008131FE454A434F5033315632333298");
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode("010203040506070809");
     private static final Class<? extends Applet> TEST_APPLET_CLASS = HelloWorldApplet.class;
     private static final AID TEST_APPLET_AID = new AID(TEST_APPLET_AID_BYTES, (short) 0, (byte) TEST_APPLET_AID_BYTES.length);
@@ -121,16 +119,6 @@ public class SimulatorTest {
         instance.reset();
         // after reset installed applets not deleted
         assertTrue(instance.selectApplet(TEST_APPLET_AID));
-    }
-
-    /**
-     * Test of getATR method, of class Simulator.
-     */
-    @Test
-    public void testGetATR() {
-        Simulator instance = new Simulator();
-        byte[] result = instance.getATR();
-        assertArrayEquals(ETALON_ATR, result);
     }
 
     /**

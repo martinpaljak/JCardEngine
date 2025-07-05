@@ -27,7 +27,7 @@ import javacardx.framework.string.StringException;
 import javacardx.framework.tlv.TLVException;
 import javacardx.framework.util.UtilException;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.core.EngineSession;
+import pro.javacard.engine.EngineSession;
 
 import javax.smartcardio.ResponseAPDU;
 

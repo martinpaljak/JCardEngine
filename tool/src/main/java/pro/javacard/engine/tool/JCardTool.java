@@ -30,7 +30,7 @@ import pro.javacard.capfile.CAPFile;
 import pro.javacard.engine.adapters.AbstractTCPAdapter;
 import pro.javacard.engine.adapters.JCSDKServer;
 import pro.javacard.engine.adapters.VSmartCardClient;
-import pro.javacard.engine.core.JavaCardEngine;
+import pro.javacard.engine.JavaCardEngine;
 
 import java.io.File;
 import java.io.FileNotFoundException;

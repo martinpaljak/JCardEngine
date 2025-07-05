@@ -13,37 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package pro.javacard.engine.adapters;
+package pro.javacard.engine;
 
-// Essentially simple tagged byte array.
-public class RemoteMessage {
-    public enum Type {
-        POWERUP,
-        POWERDOWN,
-        RESET,
-        ATR,
-        APDU,
-        ERROR
-    }
+import com.licel.jcardsim.base.CardInterface;
 
-    byte[] payload;
-    Type type;
+// Helps to isolate session towards a shared simulator. Lock is held while the object is not closed.
+public interface EngineSession extends CardInterface, AutoCloseable {
 
-    public RemoteMessage(Type type, byte[] payload) {
-        this.payload = payload.clone();
-        this.type = type;
-    }
+    // Reset boolean controls runtime reset
+    void close(boolean reset);
 
-    public RemoteMessage(Type type) {
-        this.type = type;
-        this.payload = null;
-    }
+    boolean isClosed();
 
-    public Type getType() {
-        return type;
-    }
-
-    public byte[] getPayload() {
-        return payload.clone();
+    @Override
+    default void close() {
+        close(false);
     }
 }

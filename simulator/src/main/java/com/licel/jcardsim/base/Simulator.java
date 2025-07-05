@@ -23,9 +23,8 @@ import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.core.CardInterface;
-import pro.javacard.engine.core.EngineSession;
-import pro.javacard.engine.core.JavaCardEngine;
+import pro.javacard.engine.EngineSession;
+import pro.javacard.engine.JavaCardEngine;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -42,10 +41,9 @@ import java.util.concurrent.Semaphore;
 public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime {
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
-    // default ATR - NXP JCOP 31/36K
-    public static final String DEFAULT_ATR = "3BFA1800008131FE454A434F5033315632333298";
-    // ATR system property name
-    public static final String ATR_SYSTEM_PROPERTY = "com.licel.jcardsim.card.ATR";
+    // default ATR - dummy minimal
+    public static final String DEFAULT_ATR = "3B80800101";
+
     // If the simulator exposes object deletion support TODO: property
     public static final boolean OBJECT_DELETION_SUPPORTED = false;
 
@@ -179,7 +177,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     public byte[] getATR() {
         // FIXME: remove from this layer unless GPSystem.setATRHistBytes gets implemented
-        return Hex.decode(System.getProperty(ATR_SYSTEM_PROPERTY, DEFAULT_ATR));
+        return Hex.decode(DEFAULT_ATR);
     }
 
     // Convert the string based protocol into internal protocol byte used by JC

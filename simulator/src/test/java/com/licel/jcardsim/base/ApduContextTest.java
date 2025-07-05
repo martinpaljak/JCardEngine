@@ -5,7 +5,7 @@ import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.core.EngineSession;
+import pro.javacard.engine.EngineSession;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
