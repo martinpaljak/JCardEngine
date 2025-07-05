@@ -77,8 +77,9 @@ public class JCardTool {
     static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "JCSDK ATR").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
     static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "JCSDK protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
-    // Generic ATR override.
+    // Generic override.
     static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
+    static OptionSpec<String> OPT_PROTOCOL = parser.accepts("protocol", "Protocol to use").withRequiredArg().ofType(String.class).defaultsTo("T=1");
 
     // .cap/.jar files to load
     static OptionSpec<File> toLoad = parser.nonOptions("path to .cap or .jar or classes directory").ofType(File.class);
@@ -164,10 +165,10 @@ public class JCardTool {
                 System.exit(1);
             }
 
-
             for (InstallSpec s : spec) {
                 sim.installApplet(s.getAID(), s.getAppletClass(), s.getParamters());
             }
+
             ExecutorService exec = Executors.newFixedThreadPool(3);
 
             List<AbstractTCPAdapter> adapters = new ArrayList<>();
@@ -182,10 +183,13 @@ public class JCardTool {
                 if (options.has(OPT_VSMARTCARD_ATR)) {
                     adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_VSMARTCARD_ATR)));
                 }
+                if (options.has(OPT_PROTOCOL)) {
+                    adapter = adapter.withProtocol(options.valueOf(OPT_PROTOCOL));
+                }
                 if (options.has(OPT_VSMARTCARD_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
                 }
-                adapter = adapter.withTimeout(Duration.ofSeconds(1));
+                adapter = adapter.withTimeout(Duration.ofSeconds(1)); // FIXME: parameter
                 adapters.add(adapter);
             }
 
@@ -199,6 +203,9 @@ public class JCardTool {
                 }
                 if (options.has(OPT_JCSDK_ATR)) {
                     adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_JCSDK_ATR)));
+                }
+                if (options.has(OPT_PROTOCOL)) {
+                    adapter = adapter.withProtocol(options.valueOf(OPT_PROTOCOL));
                 }
                 if (options.has(OPT_JCSDK_PROTOCOL)) {
                     adapter = adapter.withProtocol(options.valueOf(OPT_JCSDK_PROTOCOL));
