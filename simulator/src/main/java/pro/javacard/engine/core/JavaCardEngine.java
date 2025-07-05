@@ -25,6 +25,8 @@ public interface JavaCardEngine {
 
     JavaCardEngine exposed(boolean flag);
 
+    JavaCardEngine withClassLoader(ClassLoader parent);
+
     static JavaCardEngine create() {
         return new Simulator();
     }

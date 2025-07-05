@@ -34,6 +34,7 @@ public class IsolatingClassLoader extends URLClassLoader {
         String classpath = System.getProperty("java.class.path");
         for (String path : classpath.split(System.getProperty("path.separator"))) {
             try {
+                log.trace("Adding {}", path);
                 addURL(Paths.get(path).toUri().toURL());
             } catch (Exception e) {
                 log.warn("Could not load {}: {}", path, e.getMessage(), e);

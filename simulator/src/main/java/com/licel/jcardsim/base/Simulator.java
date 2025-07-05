@@ -53,10 +53,10 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     private static final ThreadLocal<Simulator> currentSimulator = new ThreadLocal<>();
 
     // Isolates loaded applet classes to this simulator instance
-    private final IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
+    private IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
 
     // Used to keep track of the installation parameters during install()/register() callbacks
-    private static ThreadLocal<RegisterCallbackOptions> options = new ThreadLocal<>();
+    private static final ThreadLocal<RegisterCallbackOptions> options = new ThreadLocal<>();
 
     // Guards session access.
     // NOTE: would like to use ReentrantLock but because we have to trigger a timeout from a scheduler
@@ -912,6 +912,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public JavaCardEngine exposed(boolean flag) {
         this.exposed = flag;
+        return this;
+    }
+
+    @Override
+    public JavaCardEngine withClassLoader(ClassLoader loader) {
+        this.classLoader = new IsolatingClassLoader(loader);
         return this;
     }
 

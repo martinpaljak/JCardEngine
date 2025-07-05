@@ -69,15 +69,15 @@ public class JCardTool {
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
     static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_PORT);
     static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_HOST);
-    static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class);
+    static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
     static OptionSpec<String> OPT_VSMARTCARD_PROTOCOL = parser.accepts("vsmartcard-protocol", "VSmartCard protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
     // Oracle options
     static OptionSpec<Void> OPT_JCSDK = parser.accepts("jcsdk", "Run a JCSDK server");
-    static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "port to listen on").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
-    static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "host to listen on").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
-    static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "ATR to report").withRequiredArg().ofType(String.class);
-    static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "Protocol to use towards simulator").withRequiredArg().ofType(String.class).defaultsTo("*");
+    static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "JCSDK port").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
+    static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "JCSDK host").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
+    static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "JCSDK ATR").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
+    static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "JCSDK protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
     // Generic ATR override.
     static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_ATR_HEX);
@@ -115,6 +115,9 @@ public class JCardTool {
 
             Set<String> availableApplets = new TreeSet<>();
             Map<String, byte[]> defaultAID = new HashMap<>();
+
+            // Set up simulator. Right now a sample thingy
+            JavaCardEngine sim = JavaCardEngine.create().exposed(options.has(OPT_EXPOSED)).withClassLoader(loader);
 
             // Load non-options as applets & classes
             for (File f : options.valuesOf(toLoad)) {
@@ -163,8 +166,7 @@ public class JCardTool {
                 System.exit(1);
             }
 
-            // Set up simulator. Right now a sample thingy
-            JavaCardEngine sim = JavaCardEngine.create().exposed(true);
+
             for (InstallSpec s : spec) {
                 sim.installApplet(s.getAID(), s.getAppletClass(), s.getParamters());
             }
@@ -244,7 +246,7 @@ public class JCardTool {
                             adapters.forEach(a -> a.connected(finalConnected));
                         } else {
                             // print help
-                            System.err.println("Unknown key: " + c);
+                            //System.err.println("Unknown key: " + c);
                             System.err.println("Press 't' to trigger tap, 'c' to toggle connection, 'q' or Esc to quit.");
                         }
                     }
@@ -263,6 +265,9 @@ public class JCardTool {
             System.err.println("Thank you for using JCardEngine v" + version + "!");
         } catch (OptionException e) {
             System.err.println("Error: " + e.getMessage());
+            System.exit(1);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getClass().getSimpleName() + ": " + e.getMessage());
             System.exit(1);
         } catch (Exception e) {
             System.err.println(e.getClass().getSimpleName() + ": " + e.getMessage());
