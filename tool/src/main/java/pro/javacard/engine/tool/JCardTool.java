@@ -43,7 +43,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.spi.FileSystemProvider;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -63,7 +62,6 @@ public class JCardTool {
     static OptionSpec<Void> OPT_HELP = parser.acceptsAll(Arrays.asList("h", "help"), "Show this help").forHelp();
     static OptionSpec<Void> OPT_VERSION = parser.acceptsAll(Arrays.asList("V", "version"), "Show version");
     static OptionSpec<Void> OPT_CONTROL = parser.acceptsAll(Arrays.asList("c", "control"), "Start control interface");
-    static OptionSpec<Void> OPT_EXPOSED = parser.acceptsAll(Arrays.asList("exposed"), "Use exposed mode");
 
     // VSmartCard options
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
@@ -117,7 +115,7 @@ public class JCardTool {
             Map<String, byte[]> defaultAID = new HashMap<>();
 
             // Set up simulator. Right now a sample thingy
-            JavaCardEngine sim = JavaCardEngine.create().exposed(options.has(OPT_EXPOSED)).withClassLoader(loader);
+            JavaCardEngine sim = JavaCardEngine.create().withClassLoader(loader);
 
             // Load non-options as applets & classes
             for (File f : options.valuesOf(toLoad)) {
