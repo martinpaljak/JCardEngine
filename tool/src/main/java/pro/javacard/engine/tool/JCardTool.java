@@ -84,8 +84,7 @@ public class JCardTool {
     static final AppletClassLoader loader = new AppletClassLoader();
 
 
-    static AbstractTCPAdapter configureVSmartCard(Supplier<EngineSession> sim, OptionSet options) {
-        AbstractTCPAdapter adapter = new VSmartCardClient(sim); // TODO: parameter for timeout
+    static AbstractTCPAdapter configureVSmartCard(AbstractTCPAdapter adapter, OptionSet options) {
         adapter = adapter.withHost(options.valueOf(OPT_VSMARTCARD_HOST));
         adapter = adapter.withPort(options.valueOf(OPT_VSMARTCARD_PORT));
         if (options.has(OPT_ATR)) {
@@ -123,11 +122,11 @@ public class JCardTool {
             List<AbstractTCPAdapter> adapters = new ArrayList<>();
 
             if (options.has(OPT_PASSTHROUGH_HOST)) {
-                JCSDKClient upstream = new JCSDKClient(options.valueOf(OPT_PASSTHROUGH_HOST), 9025);
-                AbstractTCPAdapter adapter = configureVSmartCard(upstream, options);
+                JCSDKClient upstream = new JCSDKClient(options.valueOf(OPT_PASSTHROUGH_HOST), options.valueOf(OPT_JCSDK_PORT));
+                AbstractTCPAdapter adapter = new VSmartCardClient(upstream);
+                adapter = configureVSmartCard(adapter, options);
                 adapters.add(adapter);
             } else {
-
                 Set<String> availableApplets = new TreeSet<>();
                 Map<String, byte[]> defaultAID = new HashMap<>();
 
@@ -188,14 +187,7 @@ public class JCardTool {
                 if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST) || options.has(OPT_VSMARTCARD_PROTOCOL) || options.has(OPT_VSMARTCARD_ATR)) {
                     String protocol = options.has(OPT_VSMARTCARD_PROTOCOL) ? options.valueOf(OPT_VSMARTCARD_PROTOCOL) : options.valueOf(OPT_PROTOCOL);
                     AbstractTCPAdapter adapter = new VSmartCardClient(() -> sim.connectFor(Duration.ofSeconds(1), protocol)); // TODO: parameter for timeout
-                    adapter = adapter.withHost(options.valueOf(OPT_VSMARTCARD_HOST));
-                    adapter = adapter.withPort(options.valueOf(OPT_VSMARTCARD_PORT));
-                    if (options.has(OPT_ATR)) {
-                        adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
-                    }
-                    if (options.has(OPT_VSMARTCARD_ATR)) {
-                        adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_VSMARTCARD_ATR)));
-                    }
+                    adapter = configureVSmartCard(adapter, options);
                     adapters.add(adapter);
                 }
 
