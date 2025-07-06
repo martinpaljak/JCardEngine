@@ -28,6 +28,7 @@ import java.util.Arrays;
 
 /**
  * Implementation for <code>APDU</code>
+ *
  * @see APDUProxy
  */
 public class APDUProxy {
@@ -100,6 +101,7 @@ public class APDUProxy {
      * See <em>Runtime
      * Specification for the Java Card Platform</em>, section 6.2.2 for details.
      * </ul>
+     *
      * @return byte array containing the APDU buffer
      */
     public byte[] getBuffer() {
@@ -119,6 +121,7 @@ public class APDUProxy {
      * <li><em>On </em><code>receiveBytes()</code><em> the </em><code>bOff</code><em> param
      * should account for this potential blocksize.</em>
      * </ul>
+     *
      * @return incoming block size setting
      * @see #receiveBytes(short)
      */
@@ -138,6 +141,7 @@ public class APDUProxy {
      * <li><em>On </em><code>setOutgoingLength()</code><em> the </em><code>len</code><em> param
      * should account for this potential blocksize.</em>
      * </ul>
+     *
      * @return outgoing block size setting
      * @see #setOutgoingLength(short)
      */
@@ -148,19 +152,21 @@ public class APDUProxy {
     /**
      * Returns the ISO 7816 transport protocol type, T=1 or T=0 in the low nibble
      * and the transport media in the upper nibble in use.
+     *
      * @return he protocol media and type in progress
      * Valid nibble codes are listed in PROTOCOL_ .. constants above.
      * @see <CODE>PROTOCOL_T0</CODE>
      */
     public static byte getProtocol() {
         APDU apdu = Simulator.current().getCurrentAPDU();
-        return (byte)((short[])getFieldInternal(apdu,"ramVars"))[ACTIVE_PROTOCOL];
+        return (byte) ((short[]) getFieldInternal(apdu, "ramVars"))[ACTIVE_PROTOCOL];
     }
 
     /**
      * Returns the Node Address byte (NAD) in T=1 protocol, and 0
      * in T=0 protocol.
      * This may be used as additional information to maintain multiple contexts.
+     *
      * @return NAD transport byte as defined in ISO 7816-3
      */
     public byte getNAD() {
@@ -188,11 +194,12 @@ public class APDUProxy {
      * <li><em>This method sets the state of the </em><code>APDU</code><em> object to
      * </em><code>STATE_OUTGOING</code><em>.</em>
      * </ul>
+     *
      * @return Le, the expected length of response
      * @throws APDUException with the following reason codes:<ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if this method, or <code>setOutgoingNoChaining()</code> method already invoked.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.
-     * </ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if this method, or <code>setOutgoingNoChaining()</code> method already invoked.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
+     *                       </ul>
      */
     public short setOutgoing()
             throws APDUException {
@@ -230,12 +237,12 @@ public class APDUProxy {
      * <li><em>This method sets the state of the </em><code>APDU</code><em> object to
      * </em><code>STATE_OUTGOING</code><em>.</em>
      * </ul>
-     * 
+     *
      * @return Le, the expected length of response data
      * @throws APDUException with the following reason codes:<ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if this method, or <code>setOutgoingNoChaining()</code> method already invoked.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.
-     * </ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if this method, or <code>setOutgoingNoChaining()</code> method already invoked.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
+     *                       </ul>
      */
     public short setOutgoingNoChaining()
             throws APDUException {
@@ -257,25 +264,25 @@ public class APDUProxy {
      * <code>APDU</code> object to
      * <code>STATE_OUTGOING_LENGTH_KNOWN</code>.</em>
      * </ul>
-     * <P>
+     * <p>
      *
      * @param len the length of response data
-     * @throws APDUException with the following reason codes:<ul> 
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> not called 
-     * or if <code>setOutgoingAndSend()</code> already invoked, or this method already invoked. 
-     * <li><code>APDUException.BAD_LENGTH</code> if any one of the following is true:<ul>
-     * <li><code>len</code> is negative.
-     * <li><code>len</code> is greater than 256 and the currently selected applet does not implement the <code>javacardx.apdu.ExtendedLength</code> interface. 
-     * <li>T=0 protocol is in use, non BLOCK CHAINED data transfer is requested and len is greater than 256. 
-     * <li>T=1 protocol is in use, non BLOCK CHAINED data transfer is requested and len is greater than (IFSD-2), where IFSD is the Outgoing Block Size. The -2 accounts for the status bytes in T=1.
-     * </ul>
-     * <li><code>APDUException.NO_T0_GETRESPONSE</code> if T=0 protocol is in use and the CAD does not respond to <code>(ISO7816.SW_BYTES_REMAINING_00+count)</code> response status 
-     * with GET RESPONSE command on the same origin logical channel number as that of the current APDU command. 
-     * <li><code>APDUException.NO_T0_REISSUE</code> if T=0 protocol 
-     * is in use and the CAD does not respond to <code>(ISO7816.SW_CORRECT_LENGTH_00+count)</code> response status by re-issuing same APDU command on the same origin 
-     * logical channel number as that of the current APDU command with the corrected length. 
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.
-     * </ul>
+     * @throws APDUException with the following reason codes:<ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> not called
+     *                       or if <code>setOutgoingAndSend()</code> already invoked, or this method already invoked.
+     *                       <li><code>APDUException.BAD_LENGTH</code> if any one of the following is true:<ul>
+     *                       <li><code>len</code> is negative.
+     *                       <li><code>len</code> is greater than 256 and the currently selected applet does not implement the <code>javacardx.apdu.ExtendedLength</code> interface.
+     *                       <li>T=0 protocol is in use, non BLOCK CHAINED data transfer is requested and len is greater than 256.
+     *                       <li>T=1 protocol is in use, non BLOCK CHAINED data transfer is requested and len is greater than (IFSD-2), where IFSD is the Outgoing Block Size. The -2 accounts for the status bytes in T=1.
+     *                       </ul>
+     *                       <li><code>APDUException.NO_T0_GETRESPONSE</code> if T=0 protocol is in use and the CAD does not respond to <code>(ISO7816.SW_BYTES_REMAINING_00+count)</code> response status
+     *                       with GET RESPONSE command on the same origin logical channel number as that of the current APDU command.
+     *                       <li><code>APDUException.NO_T0_REISSUE</code> if T=0 protocol
+     *                       is in use and the CAD does not respond to <code>(ISO7816.SW_CORRECT_LENGTH_00+count)</code> response status by re-issuing same APDU command on the same origin
+     *                       logical channel number as that of the current APDU command with the corrected length.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
+     *                       </ul>
      * @see #getOutBlockSize()
      */
     public void setOutgoingLength(short len)
@@ -308,9 +315,9 @@ public class APDUProxy {
         if (pre != 0) {
             ramVars[PRE_READ_LENGTH] = 0;
             if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE]= javacard.framework.APDU.STATE_FULL_INCOMING;
+                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
             } else {
-                ramVars[CURRENT_STATE]= javacard.framework.APDU.STATE_PARTIAL_INCOMING;
+                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_PARTIAL_INCOMING;
             }
             return pre;
         }
@@ -319,13 +326,13 @@ public class APDUProxy {
             remainingBytes -= len;
             ramVars[REMAINING_BYTES] = remainingBytes;
             if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE]= javacard.framework.APDU.STATE_FULL_INCOMING;
+                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
             } else {
                 ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_PARTIAL_INCOMING;
             }
             return len;
         } else {
-            ramVars[CURRENT_STATE]= javacard.framework.APDU.STATE_FULL_INCOMING;
+            ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
             return 0;
         }
     }
@@ -353,16 +360,17 @@ public class APDUProxy {
      * <li><em>This method sets the state of the <code>APDU</code> object to
      * <code>STATE_FULL_INCOMING</code> if all incoming bytes are received.</em>
      * </ul>
+     *
      * @return number of data bytes read. The Le byte, if any, is not included in the count.
      * Returns 0 if no bytes are available.
      * @throws APDUException with the following reason codes:
-     * <ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> already invoked or
-     * if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.
-     *  <li><code>APDUException.T1_IFD_ABORT</code> if T=1 protocol is in use and the CAD sends
-     * in an ABORT S-Block command to abort the data transfer.
-     * </ul>
+     *                       <ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> already invoked or
+     *                       if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
+     *                        <li><code>APDUException.T1_IFD_ABORT</code> if T=1 protocol is in use and the CAD sends
+     *                       in an ABORT S-Block command to abort the data transfer.
+     *                       </ul>
      */
     public short setIncomingAndReceive()
             throws APDUException {
@@ -428,24 +436,25 @@ public class APDUProxy {
      * <li><em>This method sets the state of the <code>APDU</code> object to
      * <code>STATE_FULL_OUTGOING</code> if all outgoing bytes have been sent.</em>
      * </ul>
+     *
      * @param outData the source data byte array
-     * @param bOff the offset into OutData array
-     * @param len the byte length of the data to send
-     * @throws APDUException with the following reason codes:
-     * <ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoingLength()</code> not called
-     * or <code>setOutgoingAndSend()</code> previously invoked
-     * or response byte count exceeded or if <code>APDUException.NO_T0_GETRESPONSE</code> or
-     * <code>APDUException.NO_T0_REISSUE</code> or <code>APDUException.NO_T0_REISSUE</code>
-     * previously thrown.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.
-     * <li><code>APDUException.NO_T0_GETRESPONSE</code> if T=0 protocol is in use and
-     * CAD does not respond to <code>(ISO7816.SW_BYTES_REMAINING_00+count)</code> response status
-     * with GET RESPONSE command on the same origin logical channel number as that of the current
-     * APDU command.
-     * <li><code>APDUException.T1_IFD_ABORT</code> if T=1 protocol is in use and the CAD sends
-     * in an ABORT S-Block command to abort the data transfer.
-     * </ul>
+     * @param bOff    the offset into OutData array
+     * @param len     the byte length of the data to send
+     * @throws APDUException     with the following reason codes:
+     *                           <ul>
+     *                           <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoingLength()</code> not called
+     *                           or <code>setOutgoingAndSend()</code> previously invoked
+     *                           or response byte count exceeded or if <code>APDUException.NO_T0_GETRESPONSE</code> or
+     *                           <code>APDUException.NO_T0_REISSUE</code> or <code>APDUException.NO_T0_REISSUE</code>
+     *                           previously thrown.
+     *                           <li><code>APDUException.IO_ERROR</code> on I/O error.
+     *                           <li><code>APDUException.NO_T0_GETRESPONSE</code> if T=0 protocol is in use and
+     *                           CAD does not respond to <code>(ISO7816.SW_BYTES_REMAINING_00+count)</code> response status
+     *                           with GET RESPONSE command on the same origin logical channel number as that of the current
+     *                           APDU command.
+     *                           <li><code>APDUException.T1_IFD_ABORT</code> if T=1 protocol is in use and the CAD sends
+     *                           in an ABORT S-Block command to abort the data transfer.
+     *                           </ul>
      * @throws SecurityException if the <code>outData</code> array is not accessible in the caller's context
      * @see #setOutgoing()
      * @see #setOutgoingNoChaining()
@@ -457,8 +466,8 @@ public class APDUProxy {
             if (len < sendLength) {
                 sendLength = len;
             }
-            Util.arrayCopy(outData, bOff, buffer, (short) 0, (short)sendLength);
-            sendBytes((short) 0, (short)sendLength);
+            Util.arrayCopy(outData, bOff, buffer, (short) 0, (short) sendLength);
+            sendBytes((short) 0, (short) sendLength);
             len -= sendLength;
             bOff += sendLength;
         }
@@ -480,14 +489,15 @@ public class APDUProxy {
      * <li><em>This method sets the state of the <code>APDU</code> object to
      * <code>STATE_FULL_OUTGOING</code>.</em>
      * </ul>
+     *
      * @param bOff the offset into APDU buffer
-     * @param len the bytelength of the data to send
+     * @param len  the bytelength of the data to send
      * @throws APDUException ith the following reason codes:
-     * <ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoing()</code>
-     * or <code>setOutgoingAndSend()</code> previously invoked
-     * or response byte count exceeded.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
+     *                       <ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoing()</code>
+     *                       or <code>setOutgoingAndSend()</code> previously invoked
+     *                       or response byte count exceeded.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
     public void setOutgoingAndSend(short bOff, short len)
             throws APDUException {
@@ -501,17 +511,18 @@ public class APDUProxy {
      * <CODE>APDU</CODE> object. It is used by the <CODE>BasicService</CODE> class to help
      * services collaborate in the processing of an incoming APDU command.
      * Valid codes are listed in STATE_ .. constants above.
-     * @see APDU#STATE_INITIAL
+     *
      * @return the current processing state of the APDU
+     * @see APDU#STATE_INITIAL
      */
     public byte getCurrentState() {
         return (byte) ramVars[CURRENT_STATE];
     }
 
     /**
-     * This method is called during the <code>Applet.process(APDU)</code> method 
-     * to obtain a reference to the current APDU object. 
-     * This method can only be called in the context of the currently selected applet.  
+     * This method is called during the <code>Applet.process(APDU)</code> method
+     * to obtain a reference to the current APDU object.
+     * This method can only be called in the context of the currently selected applet.
      * <p>Note:
      * <ul>
      * <li><em>Do not call this method directly or indirectly from within a method
@@ -519,43 +530,45 @@ public class APDUProxy {
      * APDU object and APDU buffer are reserved for use by RMIService. Remote
      * method parameter data may become corrupted.</em>
      * </ul>
+     *
      * @return the current <CODE>APDU</CODE> object being processed
      * @throws SecurityException if
-     * <ul>
-     * <li>the current context is not the context of the currently selected applet instance or
-     * <li>this method was not called, directly or indirectly, from the applet's
-     * process method (called directly by the Java Card runtime environment), or
-     * <li>the method is called during applet installation or deletion.
-     * </ul>
+     *                           <ul>
+     *                           <li>the current context is not the context of the currently selected applet instance or
+     *                           <li>this method was not called, directly or indirectly, from the applet's
+     *                           process method (called directly by the Java Card runtime environment), or
+     *                           <li>the method is called during applet installation or deletion.
+     *                           </ul>
      */
     public static javacard.framework.APDU getCurrentAPDU()
             throws SecurityException {
         javacard.framework.APDU currentAPDU = Simulator.current().getCurrentAPDU();
-        
-        if (!((boolean[])getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
+
+        if (!((boolean[]) getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
         }
         return currentAPDU;
     }
 
     /**
-     * This method is called during the <code>Applet.process(APDU)</code> method 
-     * to obtain a reference to the current APDU object. 
-     * This method can only be called in the context of the currently selected applet.  
+     * This method is called during the <code>Applet.process(APDU)</code> method
+     * to obtain a reference to the current APDU object.
+     * This method can only be called in the context of the currently selected applet.
      * <p>Note:<ul>
      * <li><em>Do not call this method directly or indirectly from within a method
      * invoked remotely via Java Card RMI method invocation from the client. The
      * <CODE>APDU</CODE> object and APDU buffer are reserved for use by <CODE>RMIService</CODE>. Remote
      * method parameter data may become corrupted.</em>
      * </ul>
+     *
      * @return the APDU buffer of the <CODE>APDU</CODE> object being processed
      * @throws SecurityException if
-     * <ul>
-     * <li>the current context is not the context of the currently selected applet or
-     * <li>this method was not called, directly or indirectly, from the applet's
-     * process method (called directly by the Java Card runtime environment), or
-     * <li>the method is called during applet installation or deletion.
-     * </ul>
+     *                           <ul>
+     *                           <li>the current context is not the context of the currently selected applet or
+     *                           <li>this method was not called, directly or indirectly, from the applet's
+     *                           process method (called directly by the Java Card runtime environment), or
+     *                           <li>the method is called during applet installation or deletion.
+     *                           </ul>
      */
     public static byte[] getCurrentAPDUBuffer()
             throws SecurityException {
@@ -564,17 +577,18 @@ public class APDUProxy {
 
     /**
      * Returns the logical channel number associated with the current <CODE>APDU</CODE> command
-     * based on the CLA byte. A number in the range 0-19 based on the CLA byte encoding 
-     * is returned if the command contains logical channel encoding. 
+     * based on the CLA byte. A number in the range 0-19 based on the CLA byte encoding
+     * is returned if the command contains logical channel encoding.
      * If the command does not contain logical channel information, 0 is returned.
      * See <em>Runtime
      * Specification for the Java Card Platform</em>, section
      * 4.3 for encoding details.
+     *
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
     public static byte getCLAChannel() {
         javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
-        return (byte)((short[])getFieldInternal(apdu,"ramVars"))[LOGICAL_CHN];
+        return (byte) ((short[]) getFieldInternal(apdu, "ramVars"))[LOGICAL_CHN];
     }
 
     /**
@@ -587,15 +601,16 @@ public class APDUProxy {
      * by sending a T=1 protocol request for wait time extension(see ISO 7816-3).</em>
      * <li><em>If the implementation uses an automatic timer mechanism instead, this method may do nothing.</em>
      * </ul>
+     *
      * @throws APDUException with the following reason codes:
-     * <ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoingNoChaining()</code> previously invoked.
-     * <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
+     *                       <ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoingNoChaining()</code> previously invoked.
+     *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
     public static void waitExtension()
             throws APDUException {
         javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
-        boolean[] apduFlags = (boolean[])getFieldInternal(apdu, "flags");
+        boolean[] apduFlags = (boolean[]) getFieldInternal(apdu, "flags");
         if (!apduFlags[ACCESS_ALLOWED_FLAG] || apduFlags[NO_CHAINING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
@@ -608,6 +623,7 @@ public class APDUProxy {
      * that the
      * <code>APDU</code> is the first or part of a chain of commands.
      * See Runtime Environment Specification for the Java Card Platform, section 4.3 for encoding details.
+     *
      * @return <code>true</code> if this APDU is not the last APDU of a command chain, <code>false</code> otherwise.
      * @since 2.2.2
      */
@@ -625,6 +641,7 @@ public class APDUProxy {
      * is in bits (b4,b3) for commands with origin channel numbers 0-3, and in bit
      * b6 for origin channel numbers 4-19.
      * See Runtime Environment Specification for the Java Card Platform, section 4.3 for encoding details.
+     *
      * @return <code>true</code> if the secure messaging bit(s) is(are) nonzero, <code>false</code> otherwise
      * @since 2.2.2
      */
@@ -642,12 +659,13 @@ public class APDUProxy {
      * <code>0</code>, indicates that the
      * <code>APDU</code>
      * is an interindustry command.
+     *
      * @return <code>true</code> if this APDU CLA byte corresponds to an interindustry command, <code>false</code> otherwise.
      * @since 2.2.2
      */
     @SuppressWarnings("unused")
     public boolean isISOInterindustryCLA() {
-        return (buffer[ISO7816.OFFSET_CLA]& 0x80) != 0x80;
+        return (buffer[ISO7816.OFFSET_CLA] & 0x80) != 0x80;
     }
 
     /**
@@ -655,11 +673,12 @@ public class APDUProxy {
      * whenever inbound data processing methods can be invoked during case 1, 3 or 4
      * processing. It is most useful for an extended length enabled applet to avoid
      * parsing the variable length Lc format in the APDU header.
+     *
      * @return the incoming byte length indicated by the Lc field in the APDU header. Return 0 if no incoming data (Case 1)
      * @throws APDUException with the following reason codes:<ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> not called
-     * or if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
-     * </ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> not called
+     *                       or if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
+     *                       </ul>
      * @see #getOffsetCdata()
      * @since 2.2.2
      */
@@ -679,9 +698,9 @@ public class APDUProxy {
      *
      * @return the offset within the APDU buffer for incoming command data from the previous call to <code>setIncomingAndReceive()</code> method. The value returned is either 5 (Lc is 1 byte), or 7 (when Lc is 3 bytes)
      * @throws APDUException with the following reason codes:<ul>
-     * <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> not called 
-     * or if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
-     * </ul>
+     *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setIncomingAndReceive()</code> not called
+     *                       or if <code>setOutgoing()</code> or <code>setOutgoingNoChaining()</code> previously invoked.
+     *                       </ul>
      * @see #getIncomingLength()
      * @since 2.2.2
      */
@@ -713,7 +732,9 @@ public class APDUProxy {
         Arrays.fill(buffer, (byte) 0);
         Arrays.fill(ramVars, (short) 0);
         System.arraycopy(inputBuffer, 0, buffer, 0, inputBuffer.length);
-        for(byte i=0;i<flags.length;i++) {flags[i]=false;}
+        for (byte i = 0; i < flags.length; i++) {
+            flags[i] = false;
+        }
 
         flags[ACCESS_ALLOWED_FLAG] = true;
         ramVars[ACTIVE_PROTOCOL] = protocol;
@@ -758,15 +779,15 @@ public class APDUProxy {
         ramVars[LC] = ramVars[REMAINING_BYTES] = lc;
         ramVars[LE] = le;
     }
-    
-    private static Object getFieldInternal(APDU apdu, String fieldName){
+
+    private static Object getFieldInternal(APDU apdu, String fieldName) {
         try {
             Field f = APDU.class.getDeclaredField(fieldName);
             f.setAccessible(true);
             return f.get(apdu);
-        } catch (Exception e){
+        } catch (Exception e) {
             throw new RuntimeException("Internal reflection error", e);
         }
     }
-    
+
 }
