@@ -27,7 +27,6 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.NonBlockingReader;
 import pro.javacard.capfile.CAPFile;
-import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.adapters.AbstractTCPAdapter;
 import pro.javacard.engine.adapters.JCSDKClient;
@@ -42,7 +41,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 public class JCardTool {
     static OptionParser parser = new OptionParser();

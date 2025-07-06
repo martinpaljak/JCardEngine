@@ -73,6 +73,8 @@ public class JavaCardApiProcessor {
         proxyExceptionClass(buildDir, "javacardx.framework.util.UtilException");
         proxyExceptionClass(buildDir, "javacardx.biometry.BioException");
         proxyExceptionClass(buildDir, "javacardx.framework.string.StringException");
+        // Global Platform
+        proxyClass(buildDir, "pro.javacard.engine.globalplatform.GPSystemProxy", "org.globalplatform.GPSystem", false);
     }
 
     public static void proxyClass(File buildDir, String proxyClassFile, String targetClassFile, boolean skipConstructor) throws IOException {

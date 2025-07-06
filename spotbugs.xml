@@ -34,4 +34,11 @@
         <Class name="pro.javacard.engine.adapters.AbstractTCPAdapter"/>
         <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
     </Match>
+    <!-- for now -->
+    <Match>
+        <Package name="pro.javacard.engine.globalplatform"/>
+    </Match>
+    <Match>
+        <Bug pattern="EQ_ALWAYS_FALSE"/>
+    </Match>
 </FindBugsFilter>

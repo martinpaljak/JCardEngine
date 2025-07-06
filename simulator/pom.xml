@@ -12,6 +12,7 @@
 
     <properties>
         <javacard.version>3.0.5</javacard.version>
+        <globalplatform.version>1.6</globalplatform.version>
     </properties>
 
     <dependencies>
@@ -20,6 +21,12 @@
             <groupId>oracle.javacard</groupId>
             <artifactId>api_classic</artifactId>
             <version>${javacard.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.globalplatform</groupId>
+            <artifactId>api</artifactId>
+            <version>${globalplatform.version}</version>
             <scope>provided</scope>
         </dependency>
         <!-- Mandatory deps -->
@@ -45,6 +52,12 @@
             <artifactId>asm-commons</artifactId>
             <version>9.8</version>
         </dependency>
+        <!-- Global Platform support FIXME: plaintext key should be in library -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>gptool</artifactId>
+            <version>24.10.16-SNAPSHOT</version>
+        </dependency>
         <!-- unit tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -69,6 +82,7 @@
                 <version>3.1.4</version>
                 <executions>
                     <execution>
+                        <id>javacard-api</id>
                         <phase>initialize</phase>
                         <goals>
                             <goal>install-file</goal>
@@ -81,6 +95,20 @@
                             <file>sdks/jc320v25.0_kit/lib/api_classic-3.0.5.jar</file>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>globalplatform-api</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.globalplatform</groupId>
+                            <artifactId>api</artifactId>
+                            <version>${globalplatform.version}</version>
+                            <packaging>jar</packaging>
+                            <file>gpapi-globalplatform.jar</file>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <!-- Extract java card API classes -->
@@ -90,6 +118,7 @@
                 <version>3.8.1</version>
                 <executions>
                     <execution>
+                        <id>javacard-api</id>
                         <phase>process-classes</phase>
                         <goals>
                             <goal>unpack</goal>
@@ -104,7 +133,26 @@
                                     <overWrite>true</overWrite>
                                     <outputDirectory>${project.build.directory}/classes</outputDirectory>
                                     <includes>**/*.class</includes>
-                                    <excludes>**/java/**/*.class</excludes>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>globalplatform-api</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.globalplatform</groupId>
+                                    <artifactId>api</artifactId>
+                                    <version>${globalplatform.version}</version>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                                    <includes>**/*.class</includes>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
