@@ -38,9 +38,6 @@ public final class JCSDKServer extends AbstractTCPAdapter {
     public static final int DEFAULT_JCSDK_PORT = 9025;
     public static final String DEFAULT_JCSDK_HOST = "0.0.0.0";
 
-    int port = DEFAULT_JCSDK_PORT;
-    String host = DEFAULT_JCSDK_HOST;
-
     static ByteBuffer format(byte code, byte[] data) {
         ByteBuffer buffer = ByteBuffer.allocate(4 + data.length);
         buffer.putInt(data.length);
@@ -56,6 +53,8 @@ public final class JCSDKServer extends AbstractTCPAdapter {
 
     public JCSDKServer(Supplier<EngineSession> sim) {
         super(sim);
+        host = DEFAULT_JCSDK_HOST;
+        port = DEFAULT_JCSDK_PORT;
     }
 
     @Override

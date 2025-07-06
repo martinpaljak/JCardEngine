@@ -33,9 +33,6 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     public static final int DEFAULT_VSMARTCARD_PORT = 35963;
     public static final String DEFAULT_VSMARTCARD_HOST = "127.0.0.1";
 
-    int port = DEFAULT_VSMARTCARD_PORT;
-    String host = DEFAULT_VSMARTCARD_HOST;
-
     // Protocol:
     // We are a client, connecting to vpcd server
     // Server initiates messaging, to which we answer
@@ -49,6 +46,8 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
     public VSmartCardClient(Supplier<EngineSession> sim) {
         super(sim);
+        port = DEFAULT_VSMARTCARD_PORT;
+        host = DEFAULT_VSMARTCARD_HOST;
     }
 
     static ByteBuffer _send(byte[] data) throws IOException {
