@@ -18,9 +18,8 @@ package pro.javacard.engine.adapters;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.adapters.RemoteMessage.Type;
 import pro.javacard.engine.EngineSession;
-import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.adapters.RemoteMessage.Type;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -30,20 +29,21 @@ import java.net.SocketTimeoutException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 // Minimal generalization to support multiple adapters and both servers and clients
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
-    static final byte[] DEFAULT_ATR = Hex.decode("3B80800101");
+    public static final String DEFAULT_ATR_HEX = "3B80800101";
+    static final byte[] DEFAULT_ATR = Hex.decode(DEFAULT_ATR_HEX);
 
-    public void start() throws IOException {
+    protected void start() throws IOException {
         // No special steps needed for clients.
     }
 
@@ -51,16 +51,15 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
         CONNECTED, DISCONNECTED, RESET, SHUTDOWN
     }
 
-    public abstract RemoteMessage recv(SocketChannel channel) throws IOException;
+    protected abstract RemoteMessage recv(SocketChannel channel) throws IOException;
 
-    public abstract void send(SocketChannel channel, RemoteMessage message) throws IOException;
+    protected abstract void send(SocketChannel channel, RemoteMessage message) throws IOException;
 
-    public abstract SocketChannel getSocket() throws IOException;
+    protected abstract SocketChannel getSocket() throws IOException;
 
-    final protected JavaCardEngine sim;
+    final protected Supplier<EngineSession> sim;
     protected byte[] atr = DEFAULT_ATR;
     protected String protocol = "*";
-    private Duration idleTimeout = Duration.ZERO;
     protected String host;
     protected int port;
 
@@ -70,13 +69,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     private final AtomicReference<AdapterState> targetState = new AtomicReference<>(null);
     private final Semaphore semaphore = new Semaphore(1);
 
-    protected AbstractTCPAdapter(String host, int port, JavaCardEngine sim) {
-        this.sim = sim;
-        this.host = host;
-        this.port = port;
-    }
-
-    protected AbstractTCPAdapter(JavaCardEngine sim) {
+    protected AbstractTCPAdapter(Supplier<EngineSession> sim) {
         this.sim = sim;
     }
 
@@ -92,16 +85,6 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     public AbstractTCPAdapter withHost(String host) {
         this.host = host;
-        return this;
-    }
-
-    public AbstractTCPAdapter withProtocol(String protocol) {
-        this.protocol = protocol;
-        return this;
-    }
-
-    public AbstractTCPAdapter withTimeout(Duration duration) {
-        this.idleTimeout = duration;
         return this;
     }
 
@@ -133,11 +116,16 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
         this.thread = Thread.currentThread();
         this.thread.setName(this.getClass().getSimpleName());
 
+        EngineSession session = null;
+
         // Loop many clients / broken sessions
         while (!Thread.currentThread().isInterrupted()) {
             switch (currentState) {
                 case DISCONNECTED:
-                    sim.reset();
+                    if (session != null) {
+                        session.close(true);
+                        session = null;
+                    }
                     try {
                         Thread.sleep(Long.MAX_VALUE);
                     } catch (InterruptedException e) {
@@ -152,7 +140,10 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     log.info("Shutting down. Bye!");
                     return true;
                 case RESET:
-                    sim.reset();
+                    if (session != null) {
+                        session.close(true);
+                        session = null;
+                    }
                     this.currentState = AdapterState.CONNECTED;
                     continue;
                 case CONNECTED:
@@ -167,7 +158,6 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                         // New client.
                         SocketChannel channel = getSocket();
                         log.info("Serving peer {}", channel.getRemoteAddress());
-                        EngineSession session = null;
                         // Many messages while connected
                         while (!Thread.currentThread().isInterrupted() && this.currentState == AdapterState.CONNECTED) {
                             try {
@@ -183,12 +173,10 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                         break;
                                     case RESET:
                                         // NOTE: on Windows and macOS a connection "Starts" with a reset, so we open a connection on demand
-                                        if (session == null || session.isClosed()) {
-                                            session = sim.connectFor(idleTimeout, protocol);
-                                        }
                                         if (session != null) {
-                                            session.reset();
+                                            session.close(true);
                                         }
+                                        session = sim.get();
                                         send(channel, new RemoteMessage(Type.RESET));
                                         break;
                                     case POWERUP:
@@ -196,7 +184,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                         if (session != null) {
                                             log.warn("Session is not null");
                                         }
-                                        session = sim.connectFor(idleTimeout, protocol);
+                                        session = sim.get();
                                         send(channel, new RemoteMessage(Type.POWERUP));
                                         break;
                                     case POWERDOWN:
@@ -210,7 +198,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                     case APDU:
                                         if (session == null) {
                                             log.error("No session opened before APDU-s!");
-                                            session = sim.connectFor(idleTimeout, protocol);
+                                            session = sim.get();
                                         }
                                         byte[] cmd = msg.getPayload();
                                         if (Arrays.equals(cmd, Hex.decode("FFCA000000")) && protocol.equals("T=CL")) {

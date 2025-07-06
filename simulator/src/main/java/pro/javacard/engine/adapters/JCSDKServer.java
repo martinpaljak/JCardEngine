@@ -18,15 +18,16 @@ package pro.javacard.engine.adapters;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.function.Supplier;
 
-public class JCSDKServer extends AbstractTCPAdapter {
+public final class JCSDKServer extends AbstractTCPAdapter {
     // Protocol: clients (like PC/SC adapter or javax.smartcardio library)
     // connect to us.
     // Protocol: uint32 followed with payload.
@@ -36,6 +37,9 @@ public class JCSDKServer extends AbstractTCPAdapter {
 
     public static final int DEFAULT_JCSDK_PORT = 9025;
     public static final String DEFAULT_JCSDK_HOST = "0.0.0.0";
+
+    int port = DEFAULT_JCSDK_PORT;
+    String host = DEFAULT_JCSDK_HOST;
 
     static ByteBuffer format(byte code, byte[] data) {
         ByteBuffer buffer = ByteBuffer.allocate(4 + data.length);
@@ -50,21 +54,17 @@ public class JCSDKServer extends AbstractTCPAdapter {
 
     ServerSocketChannel server;
 
-    public JCSDKServer(String host, int port, JavaCardEngine sim) {
-        super(host, port, sim);
-    }
-
-    public JCSDKServer(JavaCardEngine sim) {
-        super(DEFAULT_JCSDK_HOST, DEFAULT_JCSDK_PORT, sim);
+    public JCSDKServer(Supplier<EngineSession> sim) {
+        super(sim);
     }
 
     @Override
-    public void start() throws IOException {
+    protected void start() throws IOException {
         server = start(host, port);
     }
 
     @Override
-    public RemoteMessage recv(SocketChannel channel) throws IOException {
+    protected RemoteMessage recv(SocketChannel channel) throws IOException {
         log.trace("Trying to read header ...");
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
@@ -90,18 +90,18 @@ public class JCSDKServer extends AbstractTCPAdapter {
     }
 
     @Override
-    public void send(SocketChannel channel, RemoteMessage message) throws IOException {
+    protected void send(SocketChannel channel, RemoteMessage message) throws IOException {
         log.info("Sending " + message.getType());
         switch (message.getType()) {
             case APDU:
                 channel.write(format((byte) 0x00, message.getPayload()));
                 break;
             case ATR:
-                channel.write(format((byte) 0xF0, atr == null ? message.getPayload() : atr));
+                channel.write(format((byte) 0xF0, atr));
                 break;
             case POWERDOWN:
-                //channel.close();
                 // Do nothing
+                channel.close();
                 break;
             default:
                 log.warn("Unknown message for protocol: " + message.getType());
@@ -109,7 +109,7 @@ public class JCSDKServer extends AbstractTCPAdapter {
     }
 
     @Override
-    public SocketChannel getSocket() throws IOException {
+    protected SocketChannel getSocket() throws IOException {
         return server.accept();
     }
 }

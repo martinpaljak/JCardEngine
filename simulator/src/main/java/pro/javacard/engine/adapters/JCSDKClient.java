@@ -18,29 +18,32 @@ package pro.javacard.engine.adapters;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.licel.jcardsim.base.CardInterface;
+import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.function.Supplier;
 
 // Reverse of the server
-public class JCSDKClient implements CardInterface {
+public class JCSDKClient implements Supplier<EngineSession>, EngineSession {
     private static final Logger log = LoggerFactory.getLogger(JCSDKClient.class);
 
-    final int port;
     final String host;
-    SocketChannel channel;
+    final int port;
+    private SocketChannel channel;
     private byte[] atr;
+
+    private boolean closed;
 
     public JCSDKClient(String host, int port) {
         this.port = port;
         this.host = host;
     }
 
-    RemoteMessage recv(SocketChannel channel) throws IOException {
+    static RemoteMessage recv(SocketChannel channel) throws IOException {
         log.trace("Trying to read header ...");
         ByteBuffer hdr = ByteBuffer.allocate(4);
         int len = channel.read(hdr);
@@ -52,35 +55,43 @@ public class JCSDKClient implements CardInterface {
         log.info("Received {}", Hex.toHexString(hdr.array()));
         switch (b1) {
             case (byte) 0xF0:
-                return new RemoteMessage(RemoteMessage.Type.ATR);
-            case (byte) 0xFE:
-                return new RemoteMessage(RemoteMessage.Type.POWERDOWN);
+                int atrlen = hdr.getShort(2);
+                ByteBuffer atr = ByteBuffer.allocate(atrlen);
+                channel.read(atr);
+                return new RemoteMessage(RemoteMessage.Type.ATR, atr.array());
             case 0x00:
                 int cmdlen = hdr.getInt(0);
                 ByteBuffer cmd = ByteBuffer.allocate(cmdlen);
-                channel.read(cmd);
+                do {
+                    channel.read(cmd);
+                    log.trace("Read {} out of {}", cmd.position(), cmd.limit());
+                } while (cmd.position() < cmd.limit());
                 return new RemoteMessage(RemoteMessage.Type.APDU, cmd.array());
             default:
                 throw new IOException("Unknown command header: %s" + Hex.toHexString(hdr.array()));
         }
     }
 
-    RemoteMessage send(SocketChannel channel, RemoteMessage message) throws IOException {
+    static RemoteMessage send(SocketChannel channel, RemoteMessage message) throws IOException {
         log.info("Sending " + message.getType());
         switch (message.getType()) {
             case APDU:
                 channel.write(JCSDKServer.format((byte) 0x00, message.getPayload()));
                 break;
             case ATR:
-                channel.write(JCSDKServer.format((byte) 0xF0, message.getPayload()));
+                channel.write(JCSDKServer.format((byte) 0xF0, new byte[0]));
                 break;
             case POWERDOWN:
                 channel.write(JCSDKServer.format((byte) 0xFE, new byte[0]));
-                break;
+                channel.close();
+                // Server also closes connection after it.
+                return null;
             default:
                 log.warn("Unknown message for protocol: " + message.getType());
         }
-        return recv(channel);
+        RemoteMessage received = recv(channel);
+        log.trace("Received {}: {}", received.getType(), Hex.toHexString(received.getPayload()));
+        return received;
     }
 
     public SocketChannel getSocket() throws IOException {
@@ -89,6 +100,7 @@ public class JCSDKClient implements CardInterface {
 
     @Override
     public void reset() {
+        // Deprecated
         try {
             send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
             this.atr = send(this.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();
@@ -116,5 +128,37 @@ public class JCSDKClient implements CardInterface {
     @Override
     public String getProtocol() {
         return "T=1"; // FIXME
+    }
+
+    @Override
+    public EngineSession get() {
+        try {
+            JCSDKClient connection = new JCSDKClient(host, port);
+            connection.channel = AbstractTCPAdapter.connect(host, port);
+            connection.atr = send(connection.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();
+            return connection;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public void close(boolean reset) {
+        log.trace("Closing connection");
+        try {
+            if (reset) {
+                send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
+            }
+            closed = true;
+            this.channel.close();
+        } catch (IOException e) {
+            log.error("Could not send POWERDOWN", e);
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed;
     }
 }

@@ -18,23 +18,27 @@ package pro.javacard.engine.adapters;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.function.Supplier;
 
-public class VSmartCardClient extends AbstractTCPAdapter {
+public final class VSmartCardClient extends AbstractTCPAdapter {
     private static final Logger log = LoggerFactory.getLogger(VSmartCardClient.class);
 
     // Default values
     public static final int DEFAULT_VSMARTCARD_PORT = 35963;
     public static final String DEFAULT_VSMARTCARD_HOST = "127.0.0.1";
 
+    int port = DEFAULT_VSMARTCARD_PORT;
+    String host = DEFAULT_VSMARTCARD_HOST;
+
     // Protocol:
     // We are a client, connecting to vpcd server
-    // Server initiates communication, to which we answer
+    // Server initiates messaging, to which we answer
     // messages are uint16, followed with payload
     // command messages are of length 1, where commands are:
     // 0x00 - power off (no response)
@@ -43,13 +47,8 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     // 0x04 - get ATR . replied with 0xXXYY length + atr
     // Everything else - command APDU, followed with response APDU.
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
-
-    public VSmartCardClient(String host, Integer port, JavaCardEngine sim) {
-        super(host, port, sim);
-    }
-
-    public VSmartCardClient(JavaCardEngine sim) {
-        super(DEFAULT_VSMARTCARD_HOST, DEFAULT_VSMARTCARD_PORT, sim);
+    public VSmartCardClient(Supplier<EngineSession> sim) {
+        super(sim);
     }
 
     static ByteBuffer _send(byte[] data) throws IOException {
@@ -63,7 +62,7 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     }
 
     @Override
-    public void send(SocketChannel channel, RemoteMessage message) throws IOException {
+    protected void send(SocketChannel channel, RemoteMessage message) throws IOException {
         log.trace("Sending {}", message.getType());
         ByteBuffer msg;
         switch (message.getType()) {
@@ -82,7 +81,7 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     }
 
     @Override
-    public SocketChannel getSocket() throws IOException {
+    protected SocketChannel getSocket() throws IOException {
         return AbstractTCPAdapter.connect(host, port);
     }
 
@@ -101,7 +100,7 @@ public class VSmartCardClient extends AbstractTCPAdapter {
     }
 
     @Override
-    public RemoteMessage recv(SocketChannel channel) throws IOException {
+    protected RemoteMessage recv(SocketChannel channel) throws IOException {
         ByteBuffer hdr = _read(channel, 2);
 
         short len = hdr.getShort(0);
