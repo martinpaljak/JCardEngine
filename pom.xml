@@ -47,11 +47,11 @@
     <!-- Default is publishing to private Maven repo on mvn.javacard.pro -->
     <distributionManagement>
         <repository>
-            <id>javacard</id>
+            <id>javacard-pro</id>
             <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/</url>
         </repository>
         <snapshotRepository>
-            <id>javacard</id>
+            <id>javacard-pro-snapshots</id>
             <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/SNAPSHOTS</url>
         </snapshotRepository>
     </distributionManagement>
@@ -60,6 +60,10 @@
         <repository>
             <id>javacard-pro</id>
             <url>https://mvn.javacard.pro/maven/</url>
+        </repository>
+        <repository>
+            <id>javacard-pro-snapshots</id>
+            <url>https://mvn.javacard.pro/maven/SNAPSHOTS/</url>
         </repository>
     </repositories>
 
