@@ -62,7 +62,9 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
 
     @Override
     protected void send(SocketChannel channel, RemoteMessage message) throws IOException {
-        log.trace("Sending {}", message.getType());
+        if (message.getType() != RemoteMessage.Type.ATR) {
+            log.trace("Sending {}", message.getType());
+        }
         ByteBuffer msg;
         switch (message.getType()) {
             case ATR:
@@ -75,7 +77,9 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
                 log.trace("Trying to send ignored message: " + message.getType());
                 return;
         }
-        log.trace("Sending {}", Hex.toHexString(msg.array()));
+        if (message.getType() != RemoteMessage.Type.ATR) {
+            log.trace("Sending {}", Hex.toHexString(msg.array()));
+        }
         channel.write(msg);
     }
 
@@ -85,7 +89,7 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     }
 
     ByteBuffer _read(SocketChannel channel, int len) throws IOException {
-        log.trace("Waiting for input ...");
+        //log.trace("Waiting for input ...");
         ByteBuffer buf = ByteBuffer.allocate(len);
         int read = channel.read(buf);
         if (read == -1) {

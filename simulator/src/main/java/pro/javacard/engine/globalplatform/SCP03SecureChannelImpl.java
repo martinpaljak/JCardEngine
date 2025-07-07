@@ -41,10 +41,9 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     @Override
     public short processSecurity(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
-        if (apdu.getCurrentState() != APDU.STATE_FULL_INCOMING) {
+        // Or not STATE_FULL_INCOMING
+        if (apdu.getCurrentState() == APDU.STATE_INITIAL) {
             apdu.setIncomingAndReceive();
-        } else {
-            log.warn("Already full incoming");
         }
 
         PlaintextKeys keys = PlaintextKeys.defaultKey();
