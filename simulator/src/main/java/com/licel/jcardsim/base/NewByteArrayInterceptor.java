@@ -23,15 +23,31 @@ import org.slf4j.LoggerFactory;
 // This also sets the magic "jcardengine" flag to true.
 public class NewByteArrayInterceptor extends ClassVisitor {
 
+    // Custom ClassWriter that uses the correct ClassLoader
+    private static class CustomClassWriter extends ClassWriter {
+        private final ClassLoader classLoader;
+
+        public CustomClassWriter(ClassReader classReader, int flags, ClassLoader classLoader) {
+            super(classReader, flags);
+            this.classLoader = classLoader;
+        }
+
+        @Override
+        protected ClassLoader getClassLoader() {
+            return classLoader != null ? classLoader : super.getClassLoader();
+        }
+    }
+
     private static final Logger log = LoggerFactory.getLogger(NewByteArrayInterceptor.class);
 
     public NewByteArrayInterceptor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
     }
 
-    public static byte[] transform(byte[] classBytes) {
+    public static byte[] transform(byte[] classBytes, ClassLoader classLoader) {
         ClassReader classReader = new ClassReader(classBytes);
-        ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES);
+        // NOTE: java.lang.ClassCircularityError if COMPUTE_FRAMES
+        ClassWriter classWriter = new CustomClassWriter(classReader, ClassWriter.COMPUTE_MAXS, classLoader);
         NewByteArrayInterceptor interceptor = new NewByteArrayInterceptor(classWriter);
 
         classReader.accept(interceptor, 0);

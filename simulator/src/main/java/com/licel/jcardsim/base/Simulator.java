@@ -473,6 +473,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                     } else {
                         log.error("Exception in process(): {}", e.getClass().getSimpleName(), e);
                     }
+                    log.trace("Trace", e);
                 }
             } finally {
                 selecting = false;

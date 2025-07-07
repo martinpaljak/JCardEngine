@@ -15,6 +15,9 @@
  */
 package pro.javacard.engine.tool;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -28,6 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 class AppletClassLoader extends URLClassLoader {
+    private static final Logger log = LoggerFactory.getLogger(AppletClassLoader.class);
+
     AppletClassLoader() {
         super(new URL[0], AppletClassLoader.class.getClassLoader());
     }
@@ -55,6 +60,7 @@ class AppletClassLoader extends URLClassLoader {
         }
         // Add to classpath here, so that locateApplets would have access to loaded classes.
         addURL(tmp.toUri().toURL());
+        log.trace("adding {}", tmp);
         return locateApplets(tmp, this);
     }
 
@@ -78,5 +84,11 @@ class AppletClassLoader extends URLClassLoader {
                     }
                 });
         return applets;
+    }
+
+    @Override
+    public Class<?> loadClass(String name) throws ClassNotFoundException {
+        log.trace("loadClass {}", name);
+        return super.loadClass(name);
     }
 }

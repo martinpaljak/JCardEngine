@@ -41,7 +41,11 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     @Override
     public short processSecurity(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        if (apdu.getCurrentState() != APDU.STATE_FULL_INCOMING) {
+            apdu.setIncomingAndReceive();
+        } else {
+            log.warn("Already full incoming");
+        }
 
         PlaintextKeys keys = PlaintextKeys.defaultKey();
         keys.diversify(GPSecureChannelVersion.SCP.SCP03, kdd);
@@ -57,6 +61,7 @@ public class SCP03SecureChannelImpl implements SecureChannel {
             System.arraycopy(resp, 0, buffer, ISO7816.OFFSET_CDATA, resp.length);
             return (short) resp.length;
         } else if (buffer[ISO7816.OFFSET_INS] == (byte) 0x82) {
+            //state = SecureChannel.C_DECRYPTION | SecureChannel.C_MAC | SecureChannel.AUTHENTICATED;
             state = SecureChannel.AUTHENTICATED;
             return 0;
         } else {
@@ -74,6 +79,7 @@ public class SCP03SecureChannelImpl implements SecureChannel {
 
     @Override
     public short unwrap(byte[] bytes, short i, short i1) throws ISOException {
+        log.warn("No unwrap implemented for SCP03SecureChannelImpl");
         ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         return 0;
     }

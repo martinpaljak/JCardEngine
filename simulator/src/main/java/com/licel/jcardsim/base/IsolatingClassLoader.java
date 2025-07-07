@@ -100,7 +100,7 @@ public class IsolatingClassLoader extends URLClassLoader {
                 }
 
                 // Transform the class to intercept byte array allocations
-                byte[] transformedBytes = NewByteArrayInterceptor.transform(classBytes);
+                byte[] transformedBytes = NewByteArrayInterceptor.transform(classBytes, this);
                 return defineClass(name, transformedBytes, 0, transformedBytes.length, IsolatingClassLoader.class.getProtectionDomain());
             } catch (Exception e) {
                 throw new ClassNotFoundException("Failed to load and transform class: " + name, e);
