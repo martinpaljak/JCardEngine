@@ -18,6 +18,7 @@ package com.licel.jcardsim.base;
 import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.Shareable;
+import pro.javacard.engine.globalplatform.GlobalPlatform;
 
 // The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
@@ -67,4 +68,7 @@ public interface JavaCardRuntime {
 
     // Callback from Applet.register()
     void register(Object instance, byte[] buffer, short offset, byte len);
+
+    // Registry and secure channel
+    GlobalPlatform getGlobalPlatform();
 }

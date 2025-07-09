@@ -38,7 +38,7 @@ import java.util.function.Supplier;
 // Minimal generalization to support multiple adapters and both servers and clients
 public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
-    private final Logger log = LoggerFactory.getLogger(this.getClass());
+    private final Logger log = LoggerFactory.getLogger(AbstractTCPAdapter.class);
 
     public static final String DEFAULT_ATR_HEX = "3B80800101";
     static final byte[] DEFAULT_ATR = Hex.decode(DEFAULT_ATR_HEX);
@@ -108,6 +108,12 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
         thread.interrupt();
         // Wait until processed
         semaphore.acquireUninterruptibly();
+    }
+
+    public void shutdown() {
+        log.trace("Shutting down adapter...");
+        targetState.set(AdapterState.SHUTDOWN);
+        thread.interrupt();
     }
 
     // Returns true if closed normally, false on errors
@@ -196,8 +202,8 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                         send(channel, new RemoteMessage(Type.POWERDOWN));
                                         break;
                                     case APDU:
-                                        if (session == null) {
-                                            log.error("No session opened before APDU-s!");
+                                        if (session == null || session.isClosed()) {
+                                            log.warn("No session opened before APDU-s!");
                                             session = sim.get();
                                         }
                                         byte[] cmd = msg.getPayload();
@@ -225,8 +231,9 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     } catch (ClosedByInterruptException e) {
                         if (Thread.interrupted()) {
                             AdapterState target = targetState.getAndSet(null);
+                            log.trace("interrupted with {}", target);
                             this.currentState = (target == null) ? AdapterState.SHUTDOWN : target;
-                            semaphore.release();
+                            semaphore.release(); // harmless on shutdown
                         }
                     } catch (SocketException | SocketTimeoutException e) {
                         log.error("Connection error: {}", e.getClass().getSimpleName());
@@ -235,6 +242,8 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     } catch (IOException e) {
                         log.error("I/O error: {}", e.getClass().getSimpleName());
                         log.trace("Exception", e);
+                    } catch (Exception e) {
+                        log.error("Unhandled exception in adapter process", e);
                     }
             }
             log.trace("Adapter loop done");

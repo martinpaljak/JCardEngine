@@ -15,12 +15,11 @@
  */
 package pro.javacard.engine.globalplatform;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import org.globalplatform.*;
 
 public class GPSystemProxy {
-    static SecureChannel sc = new SCP03SecureChannelImpl();
-    static CVM gpin = new GlobalPINImpl();
 
     public static byte getCardContentState() {
         return 0;
@@ -32,13 +31,13 @@ public class GPSystemProxy {
 
     public static CVM getCVM(byte bCVMIdentifier) {
         if (bCVMIdentifier == GPSystem.CVM_GLOBAL_PIN) {
-            return gpin;
+            return Simulator.current().getGlobalPlatform().getGlobalPIN();
         }
         return null;
     }
 
     public static SecureChannel getSecureChannel() {
-        return sc;
+        return Simulator.current().getGlobalPlatform().getSecureChannel();
     }
 
     public static GPRegistryEntry getRegistryEntry(AID reqAID) {

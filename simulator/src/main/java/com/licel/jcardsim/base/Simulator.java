@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.globalplatform.GlobalPlatform;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -67,7 +68,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // True if all applets all the time should be installed in exposed mode.
     private boolean exposed = false;
 
-    // Installed applets
+    // Installed applets. TODO: ApplicationInstance to GPRegistryEntry
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
 
     // APDU class is final in JC API, this is a reset method.
@@ -79,6 +80,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     // Transient memory
     protected final TransientMemory transientMemory;
+    // Global Platform support for registry and secure channel
+    private final GlobalPlatform globalPlatform;
     // APDU instance for short APDU-s
     protected final APDU shortAPDU;
     // APDU instance for extended APDU-s
@@ -104,6 +107,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     public Simulator() throws RuntimeException {
         this.transientMemory = new TransientMemory();
+        this.globalPlatform = new GlobalPlatform();
+
         // XXX: smell
         try {
             // The APDU implementation in JC API is final, so this is a hack to
@@ -587,12 +592,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         currentAID = null;
         previousAID = null;
         transientMemory.clearOnReset();
+        globalPlatform.reset();
         //lock.release();
     }
 
     @Override
     public TransientMemory getTransientMemory() {
         return transientMemory;
+    }
+
+    @Override
+    public GlobalPlatform getGlobalPlatform() {
+        return globalPlatform;
     }
 
     protected void resetAPDU(APDU apdu, ApduCase apduCase, byte[] buffer) {

@@ -34,10 +34,11 @@
         <Class name="pro.javacard.engine.adapters.AbstractTCPAdapter"/>
         <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
     </Match>
-    <!-- for now -->
     <Match>
-        <Package name="pro.javacard.engine.globalplatform"/>
+        <Class name="pro.javacard.engine.globalplatform.GlobalPINImpl"/>
+        <Bug pattern="MS_SHOULD_BE_FINAL"/>
     </Match>
+    <!-- Mystery from GP API ? -->
     <Match>
         <Bug pattern="EQ_ALWAYS_FALSE"/>
     </Match>

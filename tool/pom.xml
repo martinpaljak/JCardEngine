@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.github.martinpaljak</groupId>
-        <version>25.07.07-SNAPSHOT</version>
+        <version>25.07.09-SNAPSHOT</version>
         <artifactId>jcardengine-package</artifactId>
     </parent>
     <artifactId>jcard-tool</artifactId>
@@ -97,6 +97,7 @@
                                         <exclude>META-INF/MANIFEST.MF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/versions/9/OSGI-INF/MANIFEST.MF</exclude>
                                         <exclude>**/module-info.class</exclude>
                                     </excludes>
                                 </filter>
