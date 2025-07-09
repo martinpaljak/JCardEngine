@@ -732,6 +732,7 @@ public class APDUProxy {
      * clear internal state of the APDU
      * called by SimulatorRuntime via reflection
      */
+    // FIXME: remove weird reflection use
     private void internalReset(byte protocol, int apduCase, byte[] inputBuffer) {
         if (inputBuffer == null) {
             flags[ACCESS_ALLOWED_FLAG] = false;
@@ -790,6 +791,7 @@ public class APDUProxy {
         ramVars[LE] = le;
     }
 
+    // FIXME: remove the weird reflection thingy and have a "interface state" object at sim
     private static Object getFieldInternal(APDU apdu, String fieldName) {
         try {
             Field f = APDU.class.getDeclaredField(fieldName);

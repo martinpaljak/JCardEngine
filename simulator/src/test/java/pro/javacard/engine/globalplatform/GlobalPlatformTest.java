@@ -1,0 +1,90 @@
+/*
+ * Copyright 2025 Martin Paljak
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package pro.javacard.engine.globalplatform;
+
+import apdu4j.core.*;
+import com.licel.jcardsim.utils.AIDUtil;
+import javacard.framework.AID;
+import javacard.framework.ISO7816;
+import org.bouncycastle.util.encoders.Hex;
+import org.junit.jupiter.api.Test;
+import pro.javacard.engine.EngineSession;
+import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.gp.GPCrypto;
+import pro.javacard.gp.GPSecureChannelVersion;
+import pro.javacard.gp.GPSession;
+import pro.javacard.gptool.keys.PlaintextKeys;
+
+import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class GlobalPlatformTest {
+
+    @Test
+    public void testSecureChannel() throws Exception {
+        JavaCardEngine sim = JavaCardEngine.create();
+
+        AID appletAID = AIDUtil.create("010203040506070809");
+        sim.installApplet(appletAID, GlobalPlatformTestApplet.class); // coverage!
+
+        PlaintextKeys pk = PlaintextKeys.defaultKey();
+        try (EngineSession instance = sim.connect()) {
+            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            ResponseAPDU get_nok = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
+            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
+
+            GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
+            gp.openSecureChannel(pk, GPSecureChannelVersion.valueOf(3), GPCrypto.random(16), EnumSet.of(GPSession.APDUMode.ENC));
+            ResponseAPDU set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, "Hello, World!".getBytes(StandardCharsets.UTF_8)));
+            assertEquals(0x9000, set.getSW());
+            ResponseAPDU get = gp.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
+            assertEquals(0x9000, get.getSW());
+            assertArrayEquals("Hello, World!".getBytes(StandardCharsets.UTF_8), get.getData());
+
+            ResponseAPDU get_mem = bibo.transmit(new CommandAPDU(0x00, 0x07, 0x00, 0x00, 256));
+            assertEquals(0x9000, get_mem.getSW());
+            assertEquals(6, get_mem.getData().length);
+        }
+    }
+
+    public static class SimulatorBIBO implements BIBO {
+        final EngineSession sim;
+
+        public SimulatorBIBO(EngineSession sim) {
+            this.sim = sim;
+        }
+
+        @Override
+        public byte[] transceive(byte[] bytes) throws BIBOException {
+            System.out.println(">> " + Hex.toHexString(bytes));
+            byte[] response = sim.transmitCommand(bytes);
+            System.out.println("<< " + Hex.toHexString(response));
+            return response;
+        }
+
+        @Override
+        public void close() {
+            sim.close();
+        }
+
+        public static APDUBIBO wrap(EngineSession s) {
+            return new APDUBIBO(new SimulatorBIBO(s));
+        }
+    }
+}

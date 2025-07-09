@@ -16,6 +16,7 @@
 package pro.javacard.engine.globalplatform;
 
 import org.globalplatform.CVM;
+import org.globalplatform.GPSystem;
 import org.globalplatform.SecureChannel;
 
 public class GlobalPlatform {
@@ -32,5 +33,9 @@ public class GlobalPlatform {
 
     public CVM getGlobalPIN() {
         return gpin;
+    }
+
+    public byte getCardState() {
+        return GPSystem.CARD_SECURED;
     }
 }

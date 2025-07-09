@@ -26,7 +26,7 @@ public class GPSystemProxy {
     }
 
     public static byte getCardState() {
-        return 0;
+        return Simulator.current().getGlobalPlatform().getCardState();
     }
 
     public static CVM getCVM(byte bCVMIdentifier) {

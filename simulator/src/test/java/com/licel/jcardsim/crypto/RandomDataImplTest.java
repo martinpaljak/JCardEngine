@@ -19,6 +19,8 @@ import javacard.framework.Util;
 import javacard.security.RandomData;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -119,5 +121,6 @@ public class RandomDataImplTest {
 
         short len = rnd.nextBytes(data, (short) 0, (short)data.length);
         assertEquals(4, len);
+        assertFalse(Arrays.equals(new byte[4], data));
     }
 }

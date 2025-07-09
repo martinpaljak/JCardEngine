@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>25.07.09-SNAPSHOT</version>
+        <version>25.07.10-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
@@ -184,15 +184,32 @@
                 </configuration>
             </plugin>
             <!-- Make Jacoco report -->
-            <!--plugin>
+            <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
+                <configuration>
+                    <excludes>
+                        <exclude>java/lang/**</exclude>
+                        <exclude>java/rmi/**</exclude>
+                        <exclude>java/io/**</exclude>
+                        <exclude>javacard/framework/service/**</exclude>
+                        <exclude>javacardx/biometry/**</exclude>
+                        <exclude>javacardx/biometry1toN/**</exclude>
+                        <exclude>javacardx/external/**</exclude>
+                        <exclude>javacardx/apdu/util/**</exclude>
+                        <exclude>javacardx/framework/util/**</exclude>
+                        <exclude>javacardx/framework/math/**</exclude>
+                        <exclude>javacardx/framework/string/**</exclude>
+                        <exclude>javacardx/framework/tlv/**</exclude>
+                        <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>agent</id>
-                        <! NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent >
-                        <phase>pre-integration-test</phase>
+                        <!-- NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent -->
+                        <phase>test-compile</phase>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
@@ -204,9 +221,10 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
-                    <! Set current baseline for minimums >
+                    <!-- Set current baseline for minimums -->
                     <execution>
                         <id>check</id>
+                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
@@ -220,7 +238,7 @@
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.50</minimum>
                                         </limit>
-                                        <! this makes sense the way javacard.* is amended in bytecode >
+                                        <!-- this makes sense the way javacard.* is amended in bytecode -->
                                         <limit>
                                             <counter>INSTRUCTION</counter>
                                             <value>COVEREDRATIO</value>
@@ -232,7 +250,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin-->
+            </plugin>
             <!-- Run tests, so that the classes have already been processed with proxy code -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
