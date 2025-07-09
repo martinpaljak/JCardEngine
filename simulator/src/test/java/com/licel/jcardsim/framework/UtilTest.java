@@ -28,9 +28,7 @@ public class UtilTest {
      */
     @Test
     public void testArrayFillNonAtomic() {
-        System.out.println("arrayFillNonAtomic");
         byte[] etalonArray = new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0};
-        System.out.println(etalonArray.length);
         byte[] bArray = new byte[16];
         short bOff = 8;
         short bLen = 7;

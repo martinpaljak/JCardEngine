@@ -17,6 +17,8 @@ package com.licel.jcardsim.crypto;
 
 import javacard.security.CryptoException;
 import javacard.security.RandomData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static javacard.security.RandomData.*;
 
@@ -27,6 +29,7 @@ import static javacard.security.RandomData.*;
  */
 @SuppressWarnings("deprecation")
 public class RandomDataProxy {
+
     /**
      * Creates a <code>RandomData</code> instance of the selected algorithm.
      * The pseudo random <code>RandomData</code> instance's seed is initialized to a internal default value.
@@ -52,5 +55,43 @@ public class RandomDataProxy {
                 break;
         }
         return instance;
+    }
+
+    public static final class OneShot extends RandomData {
+        private static final Logger log = LoggerFactory.getLogger(OneShot.class);
+        private RandomData rnd;
+
+        private OneShot() {
+            log.debug("RandomData.OneShot");
+        }
+        public static RandomDataProxy.OneShot open(byte algorithm) {
+            RandomDataProxy.OneShot one = new RandomDataProxy.OneShot();
+            one.rnd = RandomData.getInstance(algorithm);
+            return one;
+        }
+
+        @Override
+        public short nextBytes(byte[] buffer, short offset, short length) {
+            return rnd.nextBytes(buffer, offset, length);
+        }
+
+        @Override
+        public void setSeed(byte[] buffer, short offset, short length) {
+            rnd.setSeed(buffer, offset, length);
+        }
+
+        @Override
+        public byte getAlgorithm() {
+            return rnd.getAlgorithm();
+        }
+
+        @Override
+        public void generateData(byte[] buffer, short offset, short length) {
+            rnd.generateData(buffer, offset, length);
+        }
+
+        public void close() {
+            rnd = null;
+        }
     }
 }

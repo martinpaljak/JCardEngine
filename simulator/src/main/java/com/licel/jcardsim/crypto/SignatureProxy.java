@@ -15,8 +15,8 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.security.CryptoException;
-import javacard.security.Signature;
+import javacard.security.*;
+import javacardx.crypto.Cipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +79,7 @@ public class SignatureProxy {
                 try {
                     instance = new AsymmetricSignatureImpl(algorithm);
                 } catch (Exception e) {
-                    log.error("getInstance of assymetric algo: " + algorithm + " is NOT OK! : {}", e.getClass().getSimpleName());
+                    log.error("getInstance of asymmetric algo: " + algorithm + " is NOT OK! : {}", e.getClass().getSimpleName());
                     CryptoException.throwIt(CryptoException.INVALID_INIT);
                 }
                 break;
@@ -112,7 +112,115 @@ public class SignatureProxy {
 
     public static final Signature getInstance(byte messageDigestAlgorithm, byte cipherAlgorithm,
                                               byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
-        return new AsymmetricSignatureImpl(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
+
+        // TODO: codify the mapping against BC
+        switch (cipherAlgorithm) {
+            case Signature.SIG_CIPHER_AES_CMAC128:
+                if (messageDigestAlgorithm != MessageDigest.ALG_NULL)
+                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                if (paddingAlgorithm != Cipher.PAD_ISO9797_M2)
+                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                return new SymmetricSignatureImpl(Signature.ALG_AES_CMAC_128); // FIXME: need padding
+            case Signature.SIG_CIPHER_ECDSA:
+                switch (messageDigestAlgorithm) {
+                    case MessageDigest.ALG_SHA_256:
+                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_256);
+                    case MessageDigest.ALG_SHA_384:
+                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_384);
+                    case MessageDigest.ALG_SHA_512:
+                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_512);
+                    default:
+                        CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                }
+            default:
+                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        // Not reached
+        log.error("Not reachable.");
+        return null;
     }
 
+    public static final class OneShot extends Signature {
+        private static final Logger log = LoggerFactory.getLogger(OneShot.class);
+        private Signature signature;
+
+        private OneShot() {
+            log.debug("Signature.OneShot");
+        }
+
+        public static SignatureProxy.OneShot open(byte messageDigestAlgorithm, byte cipherAlgorithm, byte paddingAlgorithm) {
+            SignatureProxy.OneShot one = new SignatureProxy.OneShot();
+            one.signature = Signature.getInstance(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm, false);
+            return one;
+        }
+
+        @Override
+        public void init(Key key, byte b) throws CryptoException {
+            signature.init(key, b);
+        }
+
+        @Override
+        public void init(Key key, byte b, byte[] bytes, short i, short i1) throws CryptoException {
+            signature.init(key, b, bytes, i, i1);
+        }
+
+        @Override
+        public void setInitialDigest(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
+            signature.setInitialDigest(bytes, i, i1, bytes1, i2, i3);
+        }
+
+        @Override
+        public byte getAlgorithm() {
+            return signature.getAlgorithm();
+        }
+
+        @Override
+        public byte getMessageDigestAlgorithm() {
+            return signature.getMessageDigestAlgorithm();
+        }
+
+        @Override
+        public byte getCipherAlgorithm() {
+            return signature.getCipherAlgorithm();
+        }
+
+        @Override
+        public byte getPaddingAlgorithm() {
+            return signature.getPaddingAlgorithm();
+        }
+
+        @Override
+        public short getLength() throws CryptoException {
+            return signature.getLength();
+        }
+
+        @Override
+        public void update(byte[] bytes, short i, short i1) throws CryptoException {
+            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+        }
+
+        @Override
+        public short sign(byte[] bytes, short i, short i1, byte[] bytes1, short i2) throws CryptoException {
+            return signature.sign(bytes, i, i1, bytes1, i2);
+        }
+
+        @Override
+        public short signPreComputedHash(byte[] bytes, short i, short i1, byte[] bytes1, short i2) throws CryptoException {
+            return signature.signPreComputedHash(bytes, i, i1, bytes1, i2);
+        }
+
+        @Override
+        public boolean verify(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
+            return signature.verify(bytes, i, i1, bytes1, i2, i3);
+        }
+
+        @Override
+        public boolean verifyPreComputedHash(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
+            return signature.verifyPreComputedHash(bytes, i, i1, bytes1, i2, i3);
+        }
+
+        public void close() {
+            signature = null;
+        }
+    }
 }

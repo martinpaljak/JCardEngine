@@ -119,7 +119,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             shortAPDU = (APDU) ctor.newInstance(false);
             extendedAPDU = (APDU) ctor.newInstance(true);
 
-            apduPrivateResetMethod = APDU.class.getDeclaredMethod("internalReset", byte.class, ApduCase.class, byte[].class);
+            apduPrivateResetMethod = APDU.class.getDeclaredMethod("internalReset", byte.class, int.class, byte[].class);
             apduPrivateResetMethod.setAccessible(true);
         } catch (Exception e) {
             throw new RuntimeException("Internal reflection error", e);
@@ -384,7 +384,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         _makeCurrent();
         try {
             log.trace("APDU: {}", Hex.toHexString(command));
-            final ApduCase apduCase = ApduCase.getCase(command);
+            final int apduCase = APDUHelper.getAPDUCase(command);
             final byte[] theSW = new byte[2];
             byte[] response;
 
@@ -392,7 +392,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             final Applet applet;
             final AID newAid;
             // check if there is an applet to be selected
-            if (!apduCase.isExtended() && isAppletSelectionApdu(command)) {
+            if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
                 log.trace("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
                 newAid = findAppletForSelectApdu(command, apduCase);
                 log.trace("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
@@ -429,7 +429,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 newAid = null;
             }
 
-            if (apduCase.isExtended()) {
+            if (APDUHelper.isExtendedAPDU(apduCase)) {
                 if (applet instanceof ExtendedLength) {
                     usingExtendedAPDUs = true;
                 } else {
@@ -482,7 +482,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 }
             } finally {
                 selecting = false;
-                resetAPDU(apdu, null, null);
+                resetAPDU(apdu, 0, null);
             }
 
             // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
@@ -523,8 +523,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         return false;
     }
 
-    protected AID findAppletForSelectApdu(byte[] selectApdu, ApduCase apduCase) {
-        if (apduCase == ApduCase.Case1 || apduCase == ApduCase.Case2) {
+    protected AID findAppletForSelectApdu(byte[] selectApdu, int apduCase) {
+        if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
             // on a regular Smartcard we would select the CardManager applet
             // in this case we just select the first applet
             // XXX: does not belong here
@@ -606,7 +606,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         return globalPlatform;
     }
 
-    protected void resetAPDU(APDU apdu, ApduCase apduCase, byte[] buffer) {
+    protected void resetAPDU(APDU apdu, int apduCase, byte[] buffer) {
         try {
             apduPrivateResetMethod.invoke(apdu, currentProtocol, apduCase, buffer);
         } catch (Exception e) {
@@ -627,8 +627,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     private void changeProtocol(byte protocol) {
         this.currentProtocol = protocol;
-        resetAPDU(shortAPDU, null, null);
-        resetAPDU(extendedAPDU, null, null);
+        resetAPDU(shortAPDU, 0, null);
+        resetAPDU(extendedAPDU, 0, null);
     }
 
     @Override
@@ -702,24 +702,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     @Override
     public short getAvailablePersistentMemory() {
-        return Short.MAX_VALUE;
-    }
-
-    /**
-     * @return The current implementation always returns 32767
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
-     */
-    @Override
-    public short getAvailableTransientResetMemory() {
-        return Short.MAX_VALUE;
-    }
-
-    /**
-     * @return The current implementation always returns 32767
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
-     */
-    @Override
-    public short getAvailableTransientDeselectMemory() {
         return Short.MAX_VALUE;
     }
 

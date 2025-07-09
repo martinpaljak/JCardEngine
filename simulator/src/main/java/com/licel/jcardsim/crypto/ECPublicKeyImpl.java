@@ -30,7 +30,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
  */
 public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
 
-    protected ByteContainer w = new ByteContainer();
+    protected ByteContainer w;
 
     /**
      * Construct not-initialized ecc public key
@@ -38,8 +38,9 @@ public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
      * @param keySize key size it bits
      * @see javacard.security.KeyBuilder
      */
-    public ECPublicKeyImpl(byte keyType, short keySize) {
-        super(keyType, keySize);
+    public ECPublicKeyImpl(byte keyType, short keySize, byte memoryType) {
+        super(keyType, keySize, memoryType);
+        w = new ByteContainer(memoryType);
     }
 
     /**

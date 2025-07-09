@@ -38,12 +38,12 @@ import java.security.SecureRandom;
  * @see ECKey
  */
 public abstract class ECKeyImpl extends KeyImpl implements ECKey {
-
-    protected ByteContainer a = new ByteContainer();
-    protected ByteContainer b = new ByteContainer();
-    protected ByteContainer g = new ByteContainer();
-    protected ByteContainer r = new ByteContainer();
-    protected ByteContainer fp = new ByteContainer();
+    // TODO: consider final, re-allication should not happen
+    protected ByteContainer a;
+    protected ByteContainer b;
+    protected ByteContainer g;
+    protected ByteContainer r;
+    protected ByteContainer fp;
     protected short k;
     protected short e1;
     protected short e2;
@@ -58,9 +58,16 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
      * @see KeyPair
      * @see KeyBuilder
      */
-    public ECKeyImpl(byte keyType, short keySize) {
+    public ECKeyImpl(byte keyType, short keySize, byte memoryType) {
         this.size = keySize;
         this.type = keyType;
+
+        a = new ByteContainer(memoryType);
+        b = new ByteContainer(memoryType);
+        g = new ByteContainer(memoryType);
+        r = new ByteContainer(memoryType);
+        fp = new ByteContainer(memoryType);
+
         setDomainParameters(getDefaultsDomainParameters(type, size));
     }
 
@@ -77,6 +84,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
         type = isPrivate ? (isF2M ? KeyBuilder.TYPE_EC_F2M_PRIVATE : KeyBuilder.TYPE_EC_FP_PRIVATE)
                 : (isF2M ? KeyBuilder.TYPE_EC_F2M_PUBLIC : KeyBuilder.TYPE_EC_FP_PUBLIC);
         size = (short) parameters.getParameters().getCurve().getFieldSize();
+
         setDomainParameters(parameters.getParameters());
     }
 

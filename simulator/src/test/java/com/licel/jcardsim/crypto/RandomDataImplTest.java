@@ -19,7 +19,7 @@ import javacard.framework.Util;
 import javacard.security.RandomData;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test for <code>RandomDataImpl</code>
@@ -110,5 +110,14 @@ public class RandomDataImplTest {
         instance = RandomData.getInstance(RandomData.ALG_KEYGENERATION);
         instance.setSeed(buffer, (short) 0, (short) buffer.length);
         instance.generateData(buffer, (short) 0, (short) buffer.length);
+    }
+    @Test
+    public void testOneShot() {
+        RandomData.OneShot rnd = RandomData.OneShot.open(RandomData.ALG_TRNG);
+        assertNotNull(rnd);
+        byte[] data = new byte[4];
+
+        short len = rnd.nextBytes(data, (short) 0, (short)data.length);
+        assertEquals(4, len);
     }
 }

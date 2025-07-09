@@ -362,13 +362,18 @@ public class JCSystemProxy {
             case JCSystem.MEMORY_TYPE_PERSISTENT:
                 return Simulator.current().getAvailablePersistentMemory();
             case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                return Simulator.current().getAvailableTransientResetMemory();
+                return Simulator.current().getTransientMemory().getAvailableTransientResetMemory();
             case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
-                return Simulator.current().getAvailableTransientDeselectMemory();
+                return Simulator.current().getTransientMemory().getAvailableTransientDeselectMemory();
             default:
                 SystemException.throwIt(SystemException.ILLEGAL_VALUE);
                 return 0;
         }
+    }
+
+    public static void getAvailableMemory(short[] buffer, short offset, byte memoryType) {
+        buffer[offset] = 0x0000;
+        buffer[offset + 1] = getAvailableMemory(memoryType);
     }
 
     /**

@@ -28,6 +28,7 @@ import org.bouncycastle.crypto.macs.CBCBlockCipherMac;
 import org.bouncycastle.crypto.macs.CMac;
 import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.crypto.macs.ISO9797Alg3Mac;
+import org.bouncycastle.crypto.paddings.BlockCipherPadding;
 import org.bouncycastle.crypto.paddings.ISO7816d4Padding;
 import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
@@ -42,13 +43,16 @@ import org.bouncycastle.crypto.params.ParametersWithIV;
 public class SymmetricSignatureImpl extends Signature {
     
     Mac engine;
+    // TODO: add padding for flexible instantiation
+    // BlockCipherPadding padding;
+
     byte algorithm;
     boolean isInitialized;
     
     public SymmetricSignatureImpl(byte algorithm) {
         this.algorithm = algorithm;
     }
-    
+
     public void init(Key theKey, byte theMode) throws CryptoException {
         init(theKey, theMode, null, (short) 0, (short) 0);
     }
@@ -155,8 +159,7 @@ public class SymmetricSignatureImpl extends Signature {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
-        if ((algorithm == ALG_DES_MAC8_NOPAD || algorithm == ALG_DES_MAC4_NOPAD)
-            && ((inLength % 8) != 0)) {
+        if ((algorithm == ALG_DES_MAC8_NOPAD || algorithm == ALG_DES_MAC4_NOPAD) && ((inLength % 8) != 0)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         engine.update(inBuff, inOffset, inLength);
@@ -169,8 +172,7 @@ public class SymmetricSignatureImpl extends Signature {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
-        if ((algorithm == ALG_DES_MAC8_NOPAD || algorithm == ALG_DES_MAC4_NOPAD)
-            && ((inLength % 8) != 0)) {
+        if ((algorithm == ALG_DES_MAC8_NOPAD || algorithm == ALG_DES_MAC4_NOPAD) && ((inLength % 8) != 0)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         engine.update(inBuff, inOffset, inLength);

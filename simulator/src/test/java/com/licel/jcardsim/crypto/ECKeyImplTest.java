@@ -16,6 +16,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.JCSystem;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.math.ec.ECCurve;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.security.SecureRandom;
 
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -38,19 +40,19 @@ public class ECKeyImplTest extends SimulatorCoreTest {
         System.out.println("getKeyGenerationParameters");
         SecureRandom rnd = new SecureRandom();
         // public
-        ECKeyImpl instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.LENGTH_EC_F2M_193);
+        ECKeyImpl instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.LENGTH_EC_F2M_193, JCSystem.MEMORY_TYPE_PERSISTENT);
         ECKeyGenerationParameters result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.F2m);
-        instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_192);
+        assertInstanceOf(ECCurve.F2m.class, result.getDomainParameters().getCurve());
+        instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_192, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.Fp);
+        assertInstanceOf(ECCurve.Fp.class, result.getDomainParameters().getCurve());
         //private
-        instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_F2M_PRIVATE, KeyBuilder.LENGTH_EC_F2M_193);
+        instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_F2M_PRIVATE, KeyBuilder.LENGTH_EC_F2M_193, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.F2m);
-        instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_192);
+        assertInstanceOf(ECCurve.F2m.class, result.getDomainParameters().getCurve());
+        instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_192, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.Fp);
+        assertInstanceOf(ECCurve.Fp.class, result.getDomainParameters().getCurve());
     }
 
 }

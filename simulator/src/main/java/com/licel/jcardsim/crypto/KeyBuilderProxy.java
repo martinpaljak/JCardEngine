@@ -15,33 +15,40 @@
  */
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ProxyClass for <code>KeyBuilder</code>
+ *
  * @see KeyBuilder
  */
 public class KeyBuilderProxy {
+    private static final Logger log = LoggerFactory.getLogger(KeyBuilderProxy.class);
+
     /**
      * Creates uninitialized cryptographic keys for signature and cipher algorithms. Only instances created
      * by this method may be the key objects used to initialize instances of
      * <code>Signature</code>, <code>Cipher</code> and <code>KeyPair</code>.
      * Note that the object returned must be cast to their appropriate key type interface.
-     * @param keyType the type of key to be generated. Valid codes listed in TYPE.. constants.
-     * See {@link KeyBuilder#TYPE_DES_TRANSIENT_RESET}.
-     * @param keyLength the key size in bits. The valid key bit lengths are key type dependent. Some common
-     * key lengths are listed above above in the LENGTH_.. constants.
-     * See {@link KeyBuilder#LENGTH_DES}.
+     *
+     * @param keyType       the type of key to be generated. Valid codes listed in TYPE.. constants.
+     *                      See {@link KeyBuilder#TYPE_DES_TRANSIENT_RESET}.
+     * @param keyLength     the key size in bits. The valid key bit lengths are key type dependent. Some common
+     *                      key lengths are listed above above in the LENGTH_.. constants.
+     *                      See {@link KeyBuilder#LENGTH_DES}.
      * @param keyEncryption if <code>true</code> this boolean requests a key implementation
-     * which implements the <code>javacardx.crypto.KeyEncryption</code> interface.
-     * The key implementation returned may implement the <code>javacardx.crypto.KeyEncryption</code>
-     * interface even when this parameter is <code>false</code>.
+     *                      which implements the <code>javacardx.crypto.KeyEncryption</code> interface.
+     *                      The key implementation returned may implement the <code>javacardx.crypto.KeyEncryption</code>
+     *                      interface even when this parameter is <code>false</code>.
      * @return the key object instance of the requested key type, length and encrypted access
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
-     * associated with the specified type, size of key and key encryption interface is not supported.</ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
+     *                         associated with the specified type, size of key and key encryption interface is not supported.</ul>
      */
     public static Key buildKey(byte keyType, short keyLength, boolean keyEncryption)
             throws CryptoException {
@@ -81,17 +88,17 @@ public class KeyBuilderProxy {
 
             // ecc
             case KeyBuilder.TYPE_EC_F2M_PUBLIC:
-                key = new ECPublicKeyImpl(keyType, keyLength);
+                key = new ECPublicKeyImpl(keyType, keyLength, JCSystem.MEMORY_TYPE_PERSISTENT);
                 break;
             case KeyBuilder.TYPE_EC_F2M_PRIVATE:
-                key = new ECPrivateKeyImpl(keyType, keyLength);
+                key = new ECPrivateKeyImpl(keyType, keyLength, JCSystem.MEMORY_TYPE_PERSISTENT);
                 break;
 
             case KeyBuilder.TYPE_EC_FP_PUBLIC:
-                key = new ECPublicKeyImpl(keyType, keyLength);
+                key = new ECPublicKeyImpl(keyType, keyLength, JCSystem.MEMORY_TYPE_PERSISTENT);
                 break;
             case KeyBuilder.TYPE_EC_FP_PRIVATE:
-                key = new ECPrivateKeyImpl(keyType, keyLength);
+                key = new ECPrivateKeyImpl(keyType, keyLength, JCSystem.MEMORY_TYPE_PERSISTENT);
                 break;
 
             // aes
@@ -110,14 +117,14 @@ public class KeyBuilderProxy {
             case KeyBuilder.TYPE_HMAC:
                 key = new SymmetricKeyImpl(keyType, keyLength);
                 break;
-                
+
             // dh
             case KeyBuilder.TYPE_DH_PUBLIC_TRANSIENT_RESET:
             case KeyBuilder.TYPE_DH_PUBLIC_TRANSIENT_DESELECT:
             case KeyBuilder.TYPE_DH_PUBLIC:
                 key = new DHPublicKeyImpl(keyLength);
                 break;
-                
+
             case KeyBuilder.TYPE_DH_PRIVATE_TRANSIENT_RESET:
             case KeyBuilder.TYPE_DH_PRIVATE_TRANSIENT_DESELECT:
             case KeyBuilder.TYPE_DH_PRIVATE:
@@ -139,5 +146,42 @@ public class KeyBuilderProxy {
         }
         return key;
     }
-    
+
+
+    public static Key buildKey(byte algorithmicKeyType, byte keyMemoryType, short keyLength, boolean keyEncryption) throws CryptoException {
+        if (keyEncryption) {
+            log.error("No keyEncryption");
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        Key key = null;
+        switch (algorithmicKeyType) {
+            case KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS:
+                key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, keyLength, keyMemoryType);
+                break;
+            default:
+                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                break;
+        }
+        return key;
+    }
+
+    public static Key buildKeyWithSharedDomain(byte algorithmicKeyType, byte keyMemoryType, Key domainParameters, boolean keyEncryption) throws CryptoException {
+        Key key = null;
+        // FIXME: hardcoded length
+
+        switch (algorithmicKeyType) {
+            case KeyBuilder.ALG_TYPE_EC_FP_PRIVATE:
+                key = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_256, keyMemoryType);
+                break;
+            case KeyBuilder.ALG_TYPE_EC_FP_PUBLIC:
+            case KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS:
+                key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, keyMemoryType);
+                break;
+            default:
+                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                break;
+        }
+        return key;
+    }
+
 }

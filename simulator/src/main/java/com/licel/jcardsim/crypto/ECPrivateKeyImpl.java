@@ -28,7 +28,7 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
  */
 public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
 
-    protected ByteContainer s = new ByteContainer();
+    protected ByteContainer s;
 
     /**
      * Construct not-initialized ecc private key
@@ -37,8 +37,9 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
      *
      * @see javacard.security.KeyBuilder
      */
-    public ECPrivateKeyImpl(byte keyType, short keySize) {
-        super(keyType, keySize);
+    public ECPrivateKeyImpl(byte keyType, short keySize, byte memoryType) {
+        super(keyType, keySize, memoryType);
+        s = new ByteContainer(memoryType);
     }
 
     /**

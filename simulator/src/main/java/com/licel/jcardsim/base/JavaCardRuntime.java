@@ -53,10 +53,6 @@ public interface JavaCardRuntime {
 
     short getAvailablePersistentMemory();
 
-    short getAvailableTransientResetMemory();
-
-    short getAvailableTransientDeselectMemory();
-
     Shareable getSharedObject(AID serverAID, byte parameter);
 
     boolean isObjectDeletionSupported();

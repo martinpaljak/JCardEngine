@@ -52,10 +52,12 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
     Digest digest;
     boolean isImplicitTrailer;
 
+    // FIXME: this is BS.
     public AsymmetricSignatureImpl(byte algorithm) {
         this(algorithm, (byte) 0, (byte) 0);
     }
 
+    // FIXME: this is BS
     public AsymmetricSignatureImpl(byte algorithm, byte cipherAlgorithm, byte paddingAlgorithm) {
         this.algorithm = algorithm;
         isImplicitTrailer = false;
@@ -168,6 +170,7 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
             default:
+                log.warn("Algorithm {} not available", algorithm);
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
         }

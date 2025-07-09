@@ -19,6 +19,7 @@ import javacard.framework.TransactionException;
 
 /**
  * ProxyClass for <code>Util</code>
+ *
  * @see javacard.framework.Util
  */
 public class UtilProxy {
@@ -50,18 +51,19 @@ public class UtilProxy {
      *     If the commit capacity is exceeded, no copy is performed and a </em><code>TransactionException</code><em>
      *     exception is thrown.</em></li>
      * </ul>
-     * @param src source byte array
-     * @param srcOff offset within source byte array to start copy from
-     * @param dest destination byte array
+     *
+     * @param src     source byte array
+     * @param srcOff  offset within source byte array to start copy from
+     * @param dest    destination byte array
      * @param destOff offset within destination byte array to start copy into
-     * @param length byte length to be copied
+     * @param length  byte length to be copied
      * @return destOff+length
      * @throws ArrayIndexOutOfBoundsException if copying would cause access of data outside array bounds
-     * @throws NullPointerException if either <code>src</code> or <code>dest</code> is <code>null</code>
-     * @throws TransactionException if copying would cause the commit capacity to be exceeded
+     * @throws NullPointerException           if either <code>src</code> or <code>dest</code> is <code>null</code>
+     * @throws TransactionException           if copying would cause the commit capacity to be exceeded
      * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
-    public static final short arrayCopy(byte src[], short srcOff, byte dest[], short destOff, short length)
+    public static short arrayCopy(byte[] src, short srcOff, byte[] dest, short destOff, short length)
             throws ArrayIndexOutOfBoundsException, NullPointerException, TransactionException {
         System.arraycopy(src, srcOff, dest, destOff, length);
         return (short) (destOff + length);
@@ -96,31 +98,31 @@ public class UtilProxy {
      * <li><em>If power is lost during the copy operation and the destination array is persistent,
      * a partially changed destination array could result.</em>
      * <li><em>The copy </em><code>length</code><em> parameter is not constrained by the atomic commit capacity limitations.</em></ul>
-     * @param src source byte array
-     * @param srcOff offset within source byte array to start copy from
-     * @param dest destination byte array
+     *
+     * @param src     source byte array
+     * @param srcOff  offset within source byte array to start copy from
+     * @param dest    destination byte array
      * @param destOff offset within destination byte array to start copy into
-     * @param length byte length to be copied
+     * @param length  byte length to be copied
      * @return destOff+length
      * @throws ArrayIndexOutOfBoundsException if copying would cause access of data outside array bounds
-     * @throws NullPointerException if either <code>src</code> or <code>dest</code> is <code>null</code>
-     * @throws TransactionException if copying would cause the commit capacity to be exceeded
+     * @throws NullPointerException           if either <code>src</code> or <code>dest</code> is <code>null</code>
+     * @throws TransactionException           if copying would cause the commit capacity to be exceeded
      * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
-    public static final short arrayCopyNonAtomic(byte src[], short srcOff, byte dest[], short destOff, short length)
+    public static short arrayCopyNonAtomic(byte[] src, short srcOff, byte[] dest, short destOff, short length)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
-        System.arraycopy(src, srcOff, dest, destOff, length);
-        return (short) (destOff + length);
+        return arrayCopy(src, srcOff, dest, destOff, length);
     }
 
     /**
      * Fills the byte array (non-atomically) beginning at the specified position,
      * for the specified length with the specified byte value.
-     *  <p>This method does not use the transaction facility during the fill operation even if
+     * <p>This method does not use the transaction facility during the fill operation even if
      * a transaction is in progress. Thus, this
      * method is suitable for use only when the contents of the byte array can be left in
      * a partially filled state in the event of a power loss in the middle of the fill operation.
-     *  <p>
+     * <p>
      * Note:<ul>
      * <li><em>If </em><code>bOff</code><em> or </em><code>bLen</code><em> parameter
      * is negative an </em><code>ArrayIndexOutOfBoundsException</code><em> exception is thrown.</em>
@@ -131,16 +133,17 @@ public class UtilProxy {
      * <li><em>If power is lost during the copy operation and the byte array is persistent,
      * a partially changed byte array could result.</em>
      * <li><em>The </em><code>bLen</code><em> parameter is not constrained by the atomic commit capacity limitations.</em></ul>
+     *
      * @param bArray the byte array
-     * @param bOff offset within byte array to start filling bValue into
-     * @param bLen byte length to be filled
+     * @param bOff   offset within byte array to start filling bValue into
+     * @param bLen   byte length to be filled
      * @param bValue the value to fill the byte array with
      * @return bOff+bLen
      * @throws ArrayIndexOutOfBoundsException if the fill operation would cause access of data outside array bounds
-     * @throws NullPointerException if bArray is <code>null</code>
+     * @throws NullPointerException           if bArray is <code>null</code>
      * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
-    public static final short arrayFillNonAtomic(byte bArray[], short bOff, short bLen, byte bValue)
+    public static short arrayFillNonAtomic(byte[] bArray, short bOff, short bLen, byte bValue)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
         byte tester = bArray[bOff];
         if (bLen < 0) {
@@ -152,6 +155,11 @@ public class UtilProxy {
         }
         // after loop bOff = bOff + bLen
         return bOff;
+    }
+
+    public static short arrayFill(byte[] bArray, short bOff, short bLen, byte bValue)
+            throws ArrayIndexOutOfBoundsException, NullPointerException {
+        return arrayFillNonAtomic(bArray, bOff, bLen, bValue);
     }
 
     /**
@@ -169,25 +177,27 @@ public class UtilProxy {
      * <li><em>If </em><code>src</code><em> or </em><code>dest</code><em> parameter is </em><code>null</code><em>
      * a </em><code>NullPointerException</code><em> exception is thrown.</em>
      * </ul>
-     * @param src source byte array
-     * @param srcOff offset within source byte array to start compare
-     * @param dest destination byte array
+     *
+     * @param src     source byte array
+     * @param srcOff  offset within source byte array to start compare
+     * @param dest    destination byte array
      * @param destOff offset within destination byte array to start compare
-     * @param length byte length to be compared
+     * @param length  byte length to be compared
      * @return the result of the comparison as follows:<ul>
      * <li> <code>0</code> if identical</li>
      * <li> <code>-1</code> if the first miscomparing byte in source array is less than that in destination array</li>
      * <li> <code>1</code> if the first miscomparing byte in source array is greater that that in destination array</li>
      * </ul>
      * @throws ArrayIndexOutOfBoundsException if comparing all bytes would cause access of data outside array bounds
-     * @throws NullPointerException if either <code>src</code> or <code>dest</code> is <code>null</code>
+     * @throws NullPointerException           if either <code>src</code> or <code>dest</code> is <code>null</code>
      */
-    public static final byte arrayCompare(byte src[], short srcOff, byte dest[], short destOff, short length)
+    public static byte arrayCompare(byte[] src, short srcOff, byte[] dest, short destOff, short length)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
         if (length < 0) {
             throw new ArrayIndexOutOfBoundsException();
         }
         if (length != 0) {
+            // Trigger array bounds if offset is outside of margins
             byte tester = src[(srcOff + length) - 1];
             tester = dest[(destOff + length) - 1];
         }
@@ -198,36 +208,38 @@ public class UtilProxy {
                 return (byte) (thisSrc >= thisDest ? 1 : -1);
             }
         }
-
         return 0;
     }
 
     /**
      * Concatenates the two parameter bytes to form a short value.
+     *
      * @param b1 the first byte ( high order byte )
      * @param b2 the second byte ( low order byte )
      * @return the short value the concatenated result
      */
-    public static final short makeShort(byte b1, byte b2) {
+    public static short makeShort(byte b1, byte b2) {
         return (short) (((short) b1 << 8) + ((short) b2 & 0xff));
     }
 
     /**
      * Concatenates two bytes in a byte array to form a short value.
+     *
      * @param bArray byte array
-     * @param bOff offset within byte array containing first byte (the high order byte)
+     * @param bOff   offset within byte array containing first byte (the high order byte)
      * @return the short value the concatenated result
      * @throws ArrayIndexOutOfBoundsException if the <CODE>bOff</CODE> parameter is negative or if <CODE>bOff+2</CODE> is greater than the length of <code>bArray</code>
-     * @throws NullPointerException if the <CODE>bArray</CODE> parameter is <CODE>null</CODE>
+     * @throws NullPointerException           if the <CODE>bArray</CODE> parameter is <CODE>null</CODE>
      */
-    public static final short getShort(byte bArray[], short bOff) throws ArrayIndexOutOfBoundsException, NullPointerException {
+    public static short getShort(byte[] bArray, short bOff) throws ArrayIndexOutOfBoundsException, NullPointerException {
         return (short) (((short) bArray[bOff] << 8) + ((short) bArray[bOff + 1] & 0xff));
     }
 
     /**
      * Deposits the short value as two successive bytes at the specified offset in the byte array.
+     *
      * @param bArray byte array
-     * @param bOff offset within byte array to deposit the first byte (the high order byte)
+     * @param bOff   offset within byte array to deposit the first byte (the high order byte)
      * @param sValue the short value to set into array.
      * @return <code>bOff+2</code>
      * <p>Note:<ul>
@@ -235,16 +247,16 @@ public class UtilProxy {
      * If the commit capacity is exceeded, no operation is performed and a </em><code>TransactionException</code><em>
      * exception is thrown.</em></li></ul>
      * @throws ArrayIndexOutOfBoundsException if the <CODE>bOff</CODE> parameter is negative or if <CODE>bOff+2</CODE> is greater than the length of <code>bArray</code>
-     * of <CODE>bArray</CODE>
-     * @throws NullPointerException if the <CODE>bArray</CODE> parameter is <CODE>null</CODE>
-     * @throws TransactionException if the operation would cause the commit capacity to be exceeded
+     *                                        of <CODE>bArray</CODE>
+     * @throws NullPointerException           if the <CODE>bArray</CODE> parameter is <CODE>null</CODE>
+     * @throws TransactionException           if the operation would cause the commit capacity to be exceeded
      * @see javacard.framework.JCSystem#getUnusedCommitCapacity()
      */
-    public static final short setShort(byte bArray[], short bOff, short sValue)
+    public static short setShort(byte[] bArray, short bOff, short sValue)
             throws TransactionException, ArrayIndexOutOfBoundsException, NullPointerException {
         bArray[bOff] = (byte) (sValue >> 8);
         bArray[bOff + 1] = (byte) sValue;
         return (short) (bOff + 2);
     }
-    
+
 }

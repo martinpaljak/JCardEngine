@@ -15,7 +15,7 @@
  */
 package com.licel.jcardsim.framework;
 
-import com.licel.jcardsim.base.ApduCase;
+import com.licel.jcardsim.base.APDUHelper;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.APDU;
@@ -90,7 +90,7 @@ public class APDUProxy {
         buffer = new byte[extended ? BUFFER_EXTENDED_SIZE : BUFFER_SIZE];
         ramVars = new short[RAM_VARS_LENGTH];
         flags = new boolean[FLAGS_LENGTH];
-        internalReset(javacard.framework.APDU.PROTOCOL_T0, ApduCase.Case1, null);
+        internalReset(APDU.PROTOCOL_T0, 0, null);
     }
 
     /**
@@ -126,7 +126,7 @@ public class APDUProxy {
      * @see #receiveBytes(short)
      */
     public static short getInBlockSize() {
-        return (getProtocol() & javacard.framework.APDU.PROTOCOL_T1) == javacard.framework.APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_IBS;
+        return (getProtocol() & APDU.PROTOCOL_T1) == APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_IBS;
     }
 
     /**
@@ -146,14 +146,14 @@ public class APDUProxy {
      * @see #setOutgoingLength(short)
      */
     public static short getOutBlockSize() {
-        return (getProtocol() & javacard.framework.APDU.PROTOCOL_T1) == javacard.framework.APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_OBS;
+        return (getProtocol() & APDU.PROTOCOL_T1) == APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_OBS;
     }
 
     /**
      * Returns the ISO 7816 transport protocol type, T=1 or T=0 in the low nibble
      * and the transport media in the upper nibble in use.
      *
-     * @return he protocol media and type in progress
+     * @return the protocol media and type in progress
      * Valid nibble codes are listed in PROTOCOL_ .. constants above.
      * @see <CODE>PROTOCOL_T0</CODE>
      */
@@ -207,7 +207,7 @@ public class APDUProxy {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         flags[OUTGOING_FLAG] = true;
-        ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_OUTGOING;
+        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING;
         return ramVars[LE];
     }
 
@@ -251,7 +251,7 @@ public class APDUProxy {
         }
         flags[OUTGOING_FLAG] = true;
         flags[NO_CHAINING_FLAG] = true;
-        ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_OUTGOING;
+        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING;
         return ramVars[LE];
     }
 
@@ -298,7 +298,7 @@ public class APDUProxy {
             APDUException.throwIt(APDUException.BAD_LENGTH);
         }
         flags[OUTGOING_LEN_SET_FLAG] = true;
-        ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_OUTGOING_LENGTH_KNOWN;
+        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING_LENGTH_KNOWN;
         ramVars[LR] = len;
     }
 
@@ -315,9 +315,9 @@ public class APDUProxy {
         if (pre != 0) {
             ramVars[PRE_READ_LENGTH] = 0;
             if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
+                ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
             } else {
-                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_PARTIAL_INCOMING;
+                ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_INCOMING;
             }
             return pre;
         }
@@ -326,13 +326,13 @@ public class APDUProxy {
             remainingBytes -= len;
             ramVars[REMAINING_BYTES] = remainingBytes;
             if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
+                ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
             } else {
-                ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_PARTIAL_INCOMING;
+                ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_INCOMING;
             }
             return len;
         } else {
-            ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_INCOMING;
+            ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
             return 0;
         }
     }
@@ -403,9 +403,9 @@ public class APDUProxy {
 
         Lr -= len;
         if (Lr == 0) {
-            ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_FULL_OUTGOING;
+            ramVars[CURRENT_STATE] = APDU.STATE_FULL_OUTGOING;
         } else {
-            ramVars[CURRENT_STATE] = javacard.framework.APDU.STATE_PARTIAL_OUTGOING;
+            ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_OUTGOING;
         }
 
         ramVars[LR] = Lr;
@@ -540,9 +540,9 @@ public class APDUProxy {
      *                           <li>the method is called during applet installation or deletion.
      *                           </ul>
      */
-    public static javacard.framework.APDU getCurrentAPDU()
+    public static APDU getCurrentAPDU()
             throws SecurityException {
-        javacard.framework.APDU currentAPDU = Simulator.current().getCurrentAPDU();
+        APDU currentAPDU = Simulator.current().getCurrentAPDU();
 
         if (!((boolean[]) getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
@@ -587,7 +587,7 @@ public class APDUProxy {
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
     public static byte getCLAChannel() {
-        javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
+        APDU apdu = Simulator.current().getCurrentAPDU();
         return (byte) ((short[]) getFieldInternal(apdu, "ramVars"))[LOGICAL_CHN];
     }
 
@@ -609,7 +609,7 @@ public class APDUProxy {
      */
     public static void waitExtension()
             throws APDUException {
-        javacard.framework.APDU apdu = Simulator.current().getCurrentAPDU();
+        APDU apdu = Simulator.current().getCurrentAPDU();
         boolean[] apduFlags = (boolean[]) getFieldInternal(apdu, "flags");
         if (!apduFlags[ACCESS_ALLOWED_FLAG] || apduFlags[NO_CHAINING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
@@ -630,6 +630,16 @@ public class APDUProxy {
     @SuppressWarnings("unused")
     public boolean isCommandChainingCLA() {
         return (buffer[ISO7816.OFFSET_CLA] & 0x10) == 0x10;
+    }
+
+    /**
+     * Returns whether the current APDU command CLA byte is valid. The CLA byte is invalid if the CLA bits (b8,b7,b6) is %b001, which is a CLA encoding reserved for future use(RFU), or if CLA is 0xFF which is an invalid value as defined in the ISO 7816-4:2013 specification.
+     * See Runtime Environment Specification, Java Card Platform, Classic Edition, section 4.3 for encoding details.
+     *
+     * @return true if this APDU CLA byte is valid, false otherwise.
+     */
+    public boolean isValidCLA() {
+        return buffer[ISO7816.OFFSET_CLA] != (byte) 0xFF && (buffer[ISO7816.OFFSET_CLA] & 0xE0) != 0x20;
     }
 
     /**
@@ -722,7 +732,7 @@ public class APDUProxy {
      * clear internal state of the APDU
      * called by SimulatorRuntime via reflection
      */
-    private void internalReset(byte protocol, ApduCase apduCase, byte[] inputBuffer) {
+    private void internalReset(byte protocol, int apduCase, byte[] inputBuffer) {
         if (inputBuffer == null) {
             flags[ACCESS_ALLOWED_FLAG] = false;
             ramVars[ACTIVE_PROTOCOL] = protocol;
@@ -742,35 +752,35 @@ public class APDUProxy {
         final short lc;
         final short le;
         switch (apduCase) {
-            case Case2: {
+            case APDUHelper.CASE2: {
                 lc = (short) 0;
                 final byte leByte = buffer[ISO7816.OFFSET_LC];
                 le = leByte == 0 ? 256 : (short) (0xFF & leByte);
                 break;
             }
-            case Case2Extended:
+            case APDUHelper.CASE2_EXTENDED:
                 lc = (short) 0;
                 le = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
                 break;
-            case Case3:
+            case APDUHelper.CASE3:
                 lc = (short) (0xFF & buffer[ISO7816.OFFSET_LC]);
                 le = (short) 0;
                 break;
-            case Case3Extended:
+            case APDUHelper.CASE3_EXTENDED:
                 lc = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
                 le = (short) 0;
                 break;
-            case Case4: {
+            case APDUHelper.CASE4: {
                 lc = (short) (0xFF & buffer[ISO7816.OFFSET_LC]);
                 final byte leByte = buffer[ISO7816.OFFSET_CDATA + lc];
                 le = leByte == 0 ? 256 : (short) (0xFF & leByte);
                 break;
             }
-            case Case4Extended:
+            case APDUHelper.CASE4_EXTENDED:
                 lc = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
                 le = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 3 + lc);
                 break;
-            case Case1:
+            case APDUHelper.CASE1:
             default:
                 lc = (short) 0;
                 le = (short) 0;

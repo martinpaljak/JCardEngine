@@ -35,7 +35,6 @@ public class SignatureProxyTest {
 
     @Test
     public void testSupportSignatureForJavaCardv3_0_5() throws ClassNotFoundException {
-
         ArrayList<Field> signature_alg_fields = new ArrayList<>();
 
         for (Field field : Class.forName("javacard.security.Signature").getDeclaredFields()) {
@@ -50,9 +49,8 @@ public class SignatureProxyTest {
             try {
                 Signature sig = Signature.getInstance(alg_field.getByte(null), false);
             } catch (Throwable ex) {
-                System.out.println("Signature algorithm " + alg_field.getName() + " has not been implemented yet!!!");
+                System.err.println(alg_field.getName() + " is not implemented.");
             }
         }
-
     }
 }
