@@ -29,7 +29,16 @@ public final class GlobalPlatformTestApplet extends Applet {
         short offset = bOffset;
         offset += (short) (bArray[offset] + 1); // instance AID
         offset += (short) (bArray[offset] + 1); // privileges - expect none
-        new GlobalPlatformTestApplet(bArray, (short) (offset + 1), bArray[offset]).register(bArray, (short) (bOffset + 1), bArray[bOffset]);
+        GlobalPlatformTestApplet applet = new GlobalPlatformTestApplet(bArray, (short) (offset + 1), bArray[offset]);
+        applet.register(bArray, (short) (bOffset + 1), bArray[bOffset]);
+        try {
+            // Second register must throw
+            applet.register();
+        } catch (SystemException e) {
+            if (e.getReason() != SystemException.ILLEGAL_AID) {
+                throw e;
+            }
+        }
     }
 
 
@@ -80,8 +89,24 @@ public final class GlobalPlatformTestApplet extends Applet {
 
             switch (buffer[ISO7816.OFFSET_INS]) {
                 case 0x42:
-                    if (len < 7 || len > 0x7f)
+                    len = sec.decryptData(buffer, apdu.getOffsetCdata(), len);
+                    len = unpad80(buffer, apdu.getOffsetCdata(), len);
+                    if (len < 7 || len > 0x7f) {
                         ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    }
+
+                    try {
+                        JCSystem.abortTransaction();
+                        ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                    } catch (TransactionException e) {
+                        // Ignore
+                    }
+                    try {
+                        JCSystem.commitTransaction();
+                        ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                    } catch (TransactionException e) {
+                        // Ignore
+                    }
                     try {
                         JCSystem.beginTransaction();
                         try {
@@ -129,6 +154,18 @@ public final class GlobalPlatformTestApplet extends Applet {
                 default:
                     ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
             }
+        }
+    }
+
+    static short unpad80(byte[] text, short off, short len) {
+        short offset = (short) (off + len - 1);
+        for (; offset > off && text[offset] == 0; --offset) {
+        }
+        if (text[offset] != -128) {
+            SystemException.throwIt(SystemException.ILLEGAL_VALUE);
+            return 0;
+        } else {
+            return (short) (offset - off);
         }
     }
 }
