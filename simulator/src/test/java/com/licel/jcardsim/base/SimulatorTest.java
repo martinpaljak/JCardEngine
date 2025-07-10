@@ -16,10 +16,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.CommandAPDU;
-import com.licel.jcardsim.samples.AppletWithNoInstallMethod;
-import com.licel.jcardsim.samples.AppletWithRegisterInProcess;
-import com.licel.jcardsim.samples.HelloWorldApplet;
-import com.licel.jcardsim.samples.TestResponseDataAndStatusWordApplet;
+import com.licel.jcardsim.samples.*;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
@@ -235,13 +232,31 @@ public class SimulatorTest {
 
     @Test
     public void testInstallAndRegisterMisbehaves() {
+        byte[] select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes();
         JavaCardEngine sim = JavaCardEngine.create();
+        assertThrows(IllegalArgumentException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
         assertThrows(SystemException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
-
         sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
         try (EngineSession session = sim.connect()) {
-            byte[] result = session.transmitCommand(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes());
+            byte[] result = session.transmitCommand(select);
             assertArrayEquals(Hex.decode("6f00"), result);
         }
+        sim.deleteApplet(TEST_APPLET_AID);
+        sim.installApplet(TEST_APPLET_AID, AppletThrowsInSelect.class);
+        try (EngineSession session = sim.connect()) {
+            byte[] result = session.transmitCommand(select);
+            assertArrayEquals(Hex.decode("6999"), result);
+        }
+
+        sim.deleteApplet(TEST_APPLET_AID);
+        sim.installApplet(TEST_APPLET_AID, AppletThrowsInUninstall.class);
+        try (EngineSession session = sim.connect()) {
+            byte[] result = session.transmitCommand(select);
+            assertArrayEquals(Hex.decode("9000"), result);
+            // random select - processed by the applet
+            result = session.transmitCommand(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256).getBytes());
+            assertArrayEquals(Hex.decode("9001"), result);
+        }
+        sim.deleteApplet(TEST_APPLET_AID);
     }
 }
