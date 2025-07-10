@@ -768,6 +768,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             try {
                 installMethod = klass.getMethod("install", byte[].class, short.class, byte.class);
             } catch (NoSuchMethodException e) {
+                // NOTE: there is empty implementation in framework.Applet
                 throw new IllegalArgumentException("Class does not provide install method");
             }
 

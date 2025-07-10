@@ -47,6 +47,12 @@ public final class GlobalPlatformTestApplet extends Applet {
 
     @Override
     public boolean select() {
+        // NOTE: these are redundant in real life, as OPEN would not allow to select such applet.
+        // Here only for test coverage
+        if (GPSystem.getCardState() != GPSystem.CARD_SECURED)
+            return false;
+        if (GPSystem.getCardContentState() != GPSystem.APPLICATION_SELECTABLE)
+            return false;
         return true;
     }
 
@@ -77,6 +83,14 @@ public final class GlobalPlatformTestApplet extends Applet {
                     if (len < 7 || len > 0x7f)
                         ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                     try {
+                        JCSystem.beginTransaction();
+                        try {
+                            JCSystem.beginTransaction();
+                            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                        } catch (TransactionException e) {
+                            JCSystem.abortTransaction();
+                        }
+                        // Start a new transaction
                         JCSystem.beginTransaction();
                         Util.arrayCopy(buffer, ISO7816.OFFSET_CDATA, data, (short) 1, len);
                         data[0] = (byte) len;

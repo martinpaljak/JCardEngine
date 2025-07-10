@@ -15,15 +15,16 @@
  */
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
+import com.licel.jcardsim.samples.AppletWithNoInstallMethod;
+import com.licel.jcardsim.samples.AppletWithRegisterInProcess;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.samples.TestResponseDataAndStatusWordApplet;
 import com.licel.jcardsim.utils.AIDUtil;
-import javacard.framework.AID;
-import javacard.framework.Applet;
-import javacard.framework.ISO7816;
-import javacard.framework.Util;
+import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.ResponseAPDU;
@@ -230,5 +231,17 @@ public class SimulatorTest {
         responseApdu = new ResponseAPDU(response);
         assertEquals(0, responseApdu.getData().length);
         assertEquals(0x6985, (short) responseApdu.getSW());
+    }
+
+    @Test
+    public void testInstallAndRegisterMisbehaves() {
+        JavaCardEngine sim = JavaCardEngine.create();
+        assertThrows(SystemException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
+
+        sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
+        try (EngineSession session = sim.connect()) {
+            byte[] result = session.transmitCommand(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes());
+            assertArrayEquals(Hex.decode("6f00"), result);
+        }
     }
 }

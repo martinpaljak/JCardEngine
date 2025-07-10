@@ -19,6 +19,7 @@ import org.globalplatform.CVM;
 
 public class GlobalPINImpl implements CVM {
 
+    // public for introspection
     public static boolean submitted = false;
     public static boolean verified = false;
     public static boolean active = false;

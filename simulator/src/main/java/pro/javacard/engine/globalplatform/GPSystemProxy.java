@@ -22,7 +22,7 @@ import org.globalplatform.*;
 public class GPSystemProxy {
 
     public static byte getCardContentState() {
-        return 0;
+        return getRegistryEntry(null).getState();
     }
 
     public static byte getCardState() {
@@ -41,6 +41,10 @@ public class GPSystemProxy {
     }
 
     public static GPRegistryEntry getRegistryEntry(AID reqAID) {
+        if (reqAID == null) {
+            // TODO: return "this applet"
+            return new RegistryEntry();
+        }
         return null;
     }
 
@@ -49,7 +53,7 @@ public class GPSystemProxy {
     }
 
     public static boolean lockCard() {
-        return false;
+        return Simulator.current().getGlobalPlatform().lockCard();
     }
 
     public static boolean setATRHistBytes(byte[] baBuffer, short sOffset, byte bLength) {
@@ -61,6 +65,6 @@ public class GPSystemProxy {
     }
 
     public static boolean terminateCard() {
-        return false;
+        return Simulator.current().getGlobalPlatform().terminateCard();
     }
 }

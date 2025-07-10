@@ -23,6 +23,8 @@ public class GlobalPlatform {
     private final SCP03SecureChannelImpl sc = new SCP03SecureChannelImpl();
     private final GlobalPINImpl gpin = new GlobalPINImpl();
 
+    private byte card_state = GPSystem.CARD_SECURED;
+
     public SecureChannel getSecureChannel() {
         return sc;
     }
@@ -36,6 +38,18 @@ public class GlobalPlatform {
     }
 
     public byte getCardState() {
-        return GPSystem.CARD_SECURED;
+        return card_state;
+    }
+
+    public boolean lockCard() {
+        // The OPEN shall check that the Application invoking this method has the Card Lock Privilege. If not, the transition shall be rejected.
+        card_state = GPSystem.CARD_LOCKED;
+        return false;
+    }
+
+    public boolean terminateCard() {
+        // The OPEN shall check that the Application invoking this method has the Card Terminate Privilege. If not, the transition shall be rejected.
+        card_state = GPSystem.CARD_TERMINATED;
+        return false;
     }
 }
