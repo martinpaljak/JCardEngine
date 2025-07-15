@@ -22,7 +22,7 @@ fast:
 	JAVA_HOME=$(JAVA11) ./mvnw -Dmaven.test.skip=true -Dspotbugs.skip=true clean package
 
 fastinstall:
-	./mvnw -Dmaven.test.skip=true install
+	./mvnw -Dmaven.test.skip=true -Djacoco.skip=true clean install
 
 today:
 	# for a dirty tree, set the date to today

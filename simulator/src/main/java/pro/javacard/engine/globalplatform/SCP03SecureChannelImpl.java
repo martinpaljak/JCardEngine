@@ -39,7 +39,7 @@ import java.util.Objects;
 
 public class SCP03SecureChannelImpl implements SecureChannel {
     private static final Logger log = LoggerFactory.getLogger(SCP03SecureChannelImpl.class);
-    private static final boolean s16 = true;
+    private static final boolean s16 = false; // TODO: dynamic support for both, or tunable
     private final byte[] KVN = new byte[]{(byte) 0xFF};
     private final byte[] SCP = new byte[]{0x03, 0x70 | (s16 ? 0x01 : 0x00)};
 
@@ -125,6 +125,7 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     }
 
     void process_mac(byte[] buffer, int offset, int length) {
+        // FIXME: handle chaining
         try {
             final int maclen = s16 ? 16 : 8;
             byte[] mac = Arrays.copyOfRange(buffer, offset + length - maclen, offset + length);

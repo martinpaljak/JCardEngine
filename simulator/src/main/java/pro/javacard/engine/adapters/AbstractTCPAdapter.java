@@ -124,6 +124,14 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
         EngineSession session = null;
 
+        // Start listening or do other setup.
+        try {
+            start();
+        } catch (Exception e) {
+            log.error("Could not start: " + e.getMessage(), e);
+            this.currentState = AdapterState.SHUTDOWN;
+        }
+
         // Loop many clients / broken sessions
         while (!Thread.currentThread().isInterrupted()) {
             switch (currentState) {
@@ -154,13 +162,6 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                     continue;
                 case CONNECTED:
                     try {
-                        // Start listening or do other setup.
-                        try {
-                            start();
-                        } catch (IOException e) {
-                            log.error("Could not start: " + e.getMessage(), e);
-                            throw new RuntimeException("Could not start a remote protocol adapter: " + e.getMessage(), e);
-                        }
                         // New client.
                         SocketChannel channel = getSocket();
                         log.info("Serving peer {}", channel.getRemoteAddress());

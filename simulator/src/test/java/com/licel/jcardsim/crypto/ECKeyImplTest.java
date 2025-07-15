@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import java.security.SecureRandom;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for <code>ECKeyImplTest</code>.

@@ -1,6 +1,9 @@
 package com.licel.jcardsim.samples;
 
-import javacard.framework.*;
+import javacard.framework.APDU;
+import javacard.framework.Applet;
+import javacard.framework.ISOException;
+import javacard.framework.SystemException;
 
 public class AppletThrowsInSelect extends Applet {
 

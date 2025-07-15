@@ -15,7 +15,10 @@
  */
 package com.licel.jcardsim.crypto;
 
-import javacard.security.*;
+import javacard.security.CryptoException;
+import javacard.security.Key;
+import javacard.security.MessageDigest;
+import javacard.security.Signature;
 import javacardx.crypto.Cipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
