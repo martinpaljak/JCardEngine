@@ -50,7 +50,7 @@ public class GlobalPlatformTest {
             assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
 
             GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
-            gp.openSecureChannel(pk, GPSecureChannelVersion.valueOf(3), GPCrypto.random(16), EnumSet.of(GPSession.APDUMode.ENC));
+            gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
             byte[] cgram = pk.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), null);
             ResponseAPDU set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
             assertEquals(0x9000, set.getSW());
