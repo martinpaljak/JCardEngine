@@ -168,6 +168,7 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
         return key.isInitialized();
     }
 
+    @Override
     public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         return null;
     }

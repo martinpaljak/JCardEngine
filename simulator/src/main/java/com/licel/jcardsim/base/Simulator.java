@@ -266,7 +266,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                     ((AppletEvent) applet).uninstall();
                 } catch (Exception e) {
                     // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
-                    log.warn("Applet.uninstall() failed", e);
+                    log_exception(e, "Applet.uninstall() failed");
                 }
             }
 
@@ -372,7 +372,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                     try {
                         success = applet.select();
                     } catch (Exception e) {
-                        log.error("Exception in Applet.select(): {}", e.getMessage(), e);
+                        log_exception(e, "Exception in Applet.select()");
                         success = false;
                     }
                     if (!success) {
@@ -392,12 +392,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 if (e instanceof ISOException) {
                     Util.setShort(theSW, (short) 0, ((ISOException) e).getReason());
                 } else {
-                    if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
-                        log.error("Exception in process(): {}", e.getClass().getName());
-                    } else {
-                        log.error("Exception in process(): {}", e.getClass().getSimpleName(), e);
-                    }
-                    log.trace("Trace", e);
+                    log_exception(e, "Exception in process()");
                 }
             } finally {
                 selecting = false;
@@ -416,6 +411,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             return response;
         } finally {
             _releaseCurrent();
+        }
+    }
+
+    static void log_exception(Throwable e, String message) {
+        if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
+            if (log.isTraceEnabled()) {
+                log.error("{}: {}", message, e.getClass().getName(), e);
+            } else {
+                log.error("{}: {}", message, e.getClass().getName());
+            }
+        } else {
+            log.error("{}: {}", message, e.getClass().getSimpleName(), e);
         }
     }
 
@@ -474,7 +481,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             Applet applet = app.getApplet();
             applet.deselect();
         } catch (Exception e) {
-            log.warn("Applet.deselect() failed", e);
+            log_exception(e, "Exception in Applet.deselect()");
             // ignore all
         }
 

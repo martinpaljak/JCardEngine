@@ -18,6 +18,9 @@ package com.licel.jcardsim.samples;
 import javacard.framework.*;
 import javacard.security.MessageDigest;
 import javacardx.apdu.ExtendedLength;
+import org.bouncycastle.util.encoders.Hex;
+
+import java.util.Arrays;
 
 
 /**
@@ -55,15 +58,6 @@ public class Sha1Applet extends Applet implements ExtendedLength {
 
     public void process(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-
-        final short readCount = apdu.setIncomingAndReceive();
-        final short lc = apdu.getIncomingLength();
-        final short offsetCData = apdu.getOffsetCdata();
-        short read = readCount;
-        while (read < lc) {
-            read += apdu.receiveBytes(read);
-        }
-
         if (selectingApplet()) {
             return;
         }
@@ -72,9 +66,20 @@ public class Sha1Applet extends Applet implements ExtendedLength {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
 
+        short readCount = apdu.setIncomingAndReceive();
+        final short lc = apdu.getIncomingLength();
+        final short offsetCData = apdu.getOffsetCdata();
+
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_DIGEST:
-                short len = digest.doFinal(buffer, offsetCData, lc, lastDigest, (short) 0);
+                digest.update(buffer, offsetCData, readCount);
+                short bytesLeft = (short) (lc - readCount);
+                while (bytesLeft > 0) {
+                    readCount = apdu.receiveBytes(offsetCData);
+                    bytesLeft -= readCount;
+                    digest.update(buffer, offsetCData, readCount);
+                }
+                short len = digest.doFinal(buffer, offsetCData, (short) 0, lastDigest, (short) 0);
                 Util.arrayCopy(lastDigest, (short) 0, buffer, (short) 0, len);
                 apdu.setOutgoingAndSend((short) 0, len);
                 break;

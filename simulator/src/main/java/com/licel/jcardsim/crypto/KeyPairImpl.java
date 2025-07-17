@@ -81,8 +81,7 @@ public final class KeyPairImpl {
      * @see javacard.security.ECKey
      * @see javacard.security.DSAKey
      */
-    public final void genKeyPair()
-            throws CryptoException {
+    public void genKeyPair() throws CryptoException {
         initEngine();
         createKeys();
         AsymmetricCipherKeyPair kp = engine.generateKeyPair();
@@ -122,8 +121,7 @@ public final class KeyPairImpl {
      * @see javacardx.crypto.KeyEncryption
      * @see javacardx.crypto.Cipher
      */
-    public KeyPairImpl(byte algorithm, short keyLength)
-            throws CryptoException {
+    public KeyPairImpl(byte algorithm, short keyLength) throws CryptoException {
         this.algorithm = algorithm;
         this.keyLength = keyLength;
         createKeys();

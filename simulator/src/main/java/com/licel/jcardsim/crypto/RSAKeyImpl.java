@@ -107,8 +107,7 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      */
     public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (!isPrivate && exponent.isInitialized()) {
-            return new RSAKeyGenerationParameters(exponent.getBigInteger(),
-                    rnd, size, 80);
+            return new RSAKeyGenerationParameters(exponent.getBigInteger(), rnd, size, 80);
         }
         return getDefaultKeyGenerationParameters(size, rnd);
     }
@@ -122,7 +121,6 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      * @return parameters for use with BouncyCastle API
      */
     static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {
-        return new RSAKeyGenerationParameters(new BigInteger("10001", 16),
-                rnd, keySize, 80);
+        return new RSAKeyGenerationParameters(new BigInteger("10001", 16), rnd, keySize, 80);
     }
 }

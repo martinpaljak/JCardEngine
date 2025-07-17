@@ -74,9 +74,9 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
     /**
      * Construct and initialize ecc key with ECKeyParameters. Use in KeyPairImpl
      *
+     * @param parameters key params from BouncyCastle API
      * @see KeyPair
      * @see ECKeyParameters
-     * @param parameters key params from BouncyCastle API
      */
     public ECKeyImpl(ECKeyParameters parameters) {
         boolean isPrivate = parameters.isPrivate();
@@ -103,7 +103,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
     protected boolean isDomainParametersInitialized() {
         return (a.isInitialized() && b.isInitialized() && g.isInitialized() && r.isInitialized()
                 && isKInitialized && (fp.isInitialized() || k != 0));
-    }    
+    }
 
     public void setFieldFP(byte[] buffer, short offset, short length) throws CryptoException {
         fp.setBytes(buffer, offset, length);
@@ -234,8 +234,8 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
      * <code>ECKeyGenerationParameters</code>
      *
      * @param algorithm
-     * @param keySize key size in bits
-     * @param rnd Secure Random Generator
+     * @param keySize   key size in bits
+     * @param rnd       Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
     static KeyGenerationParameters getDefaultKeyGenerationParameters(byte algorithm, short keySize, SecureRandom rnd) {
@@ -292,6 +292,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
                 x9params.getG(), // G
                 x9params.getN(), x9params.getH(), x9params.getSeed());
     }
+
     public void copyDomainParametersFrom(ECKey eckey) throws CryptoException {
         throw new UnsupportedOperationException("Not supported yet.");
     }

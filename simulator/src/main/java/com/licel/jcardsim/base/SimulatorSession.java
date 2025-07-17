@@ -41,6 +41,7 @@ public class SimulatorSession implements EngineSession {
     // The useful fields
     private final Simulator simulator;
     private final String protocol;
+    private final byte protocol_byte;
     final Thread owner;
 
     SimulatorSession(Simulator simulator, String protocol, Duration timeout) {
@@ -53,6 +54,7 @@ public class SimulatorSession implements EngineSession {
         }
         this.protocol = protocol;
         this.owner = Thread.currentThread();
+        protocol_byte = APDUHelper.getProtocolByte(protocol);
         log.trace("Locked");
     }
 
@@ -94,8 +96,7 @@ public class SimulatorSession implements EngineSession {
             throw new IllegalStateException("Session already closed");
         }
         refreshTimeout(); // Extend for another period before auto-close
-        // XXX: single parse for string
-        return simulator._transmitCommand(APDUHelper.getProtocolByte(protocol), commandAPDU);
+        return simulator._transmitCommand(protocol_byte, commandAPDU);
     }
 
     @Override

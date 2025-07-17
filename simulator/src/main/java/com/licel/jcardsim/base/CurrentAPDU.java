@@ -20,7 +20,6 @@ import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.APDU;
 import javacard.framework.APDUException;
 import javacard.framework.ISO7816;
-import javacard.framework.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,19 +28,20 @@ import java.util.Arrays;
 
 // Responsible for all APDU related IO aspects and state holding.
 public class CurrentAPDU {
-    // buffer size
-    private static final short BUFFER_SIZE = 261;
-    // buffer size (extended APDU) + (CLA,INS,P1,P2,0,Lc_Hi,Lc_Low,CData,Le_Hi,Le_Lo)
-    private static final int BUFFER_EXTENDED_SIZE = Short.MAX_VALUE + 10;
+    private static final Logger log = LoggerFactory.getLogger(CurrentAPDU.class);
+
+    // APDU buffer size
+    private static final short APDU_BUFFER_SIZE = 261;
+
     // input block size, for T0 protocol = 1
-    private static final short T0_IBS = 1;
+    public static final short T0_IBS = 1;
     // output block size, for T0 protocol = 258
-    private static final short T0_OBS = 258;
+    public static final short T0_OBS = 258;
     // block size, for T1 protocol
-    private static final short T1_BLOCK_SIZE = 254;
+    public static final short T1_BLOCK_SIZE = 254;
     // NAD, for T0 protocol = 9
     private static final byte T0_NAD = 0;
-    private static final Logger log = LoggerFactory.getLogger(CurrentAPDU.class);
+
     // transient array to store variables
     private short[] ramVars;
     // LE variable offset in ramVars
@@ -49,46 +49,29 @@ public class CurrentAPDU {
     // LR variable offset in ramVars
     private static final byte LR = 1;
     // LC variable offset in ramVars
-    private static final byte LC = 3;
-    // PRE_READ_LENGTH variable offset in ramVars
-    private static final byte PRE_READ_LENGTH = 4;
-    // CURRENT_STATE variable offset in ramVars
-    private static final byte CURRENT_STATE = 5;
-    // LOGICAL_CHN variable offset in ramVars
-    private static final byte LOGICAL_CHN = 6;
-    // ACTIVE_PROTOCOL variable offset in ramVars
-    private static final byte ACTIVE_PROTOCOL = 7;
-    // REMAINING_BYTES variable offset in ramVars
-    private static final byte REMAINING_BYTES = 8;
+    private static final byte LC = 2;
     // total length ramVars
-    private static final byte RAM_VARS_LENGTH = 9;
-    // transient array to store boolean flags
-    public final boolean[] flags;
-    // outgoingFlag;
-    private static final byte OUTGOING_FLAG = 0;
-    // outgoingLenSetFlag;
-    private static final byte OUTGOING_LEN_SET_FLAG = 1;
-    // noChainingFlag;
-    private static final byte NO_CHAINING_FLAG = 2;
-    // incomingFlag;
-    private static final byte INCOMING_FLAG = 3;
-    // notGetResponseFlag;
-    private static final byte NO_GET_RESPONSE_FLAG = 4;
-    // accessAllowedFlag;
-    private static final byte ACCESS_ALLOWED_FLAG = 5;
-    // total length flags
-    private static final byte FLAGS_LENGTH = 6;
-    // APDU input buffer FIXME: make it final and fix buffer use assumptions
-    private byte[] buffer;
-    // extended APDU flag
+    private static final byte RAM_VARS_LENGTH = 3;
+
+    private int current_pos = 0; // NOTE: must be int or will overflow due to header
+    private short remaining_bytes = 0;
+    private byte protocol = APDU.PROTOCOL_T0;
+    private byte state = APDU.STATE_INITIAL;
+
+    // APDU input buffer
+    private final byte[] apdu_buffer;
+    // Incoming buffer from where receiveBytes copies from
+    private byte[] incoming_buffer;
+    // Extended APDU flag
     private boolean extended;
-    // APDU class instance (Current APDU)
+    // If current APDU is available (via process())
+    private boolean available = false;
+    // APDU class instance (Current APDU for simulator)
     private final APDU apdu;
 
     CurrentAPDU() {
-        buffer = new byte[BUFFER_SIZE];
+        apdu_buffer = new byte[APDU_BUFFER_SIZE];
         ramVars = new short[RAM_VARS_LENGTH];
-        flags = new boolean[FLAGS_LENGTH];
 
         // Create the APDU instance
         try {
@@ -112,7 +95,7 @@ public class CurrentAPDU {
      * @return byte array containing the APDU buffer
      */
     public byte[] getBuffer() {
-        return buffer;
+        return apdu_buffer;
     }
 
     /**
@@ -165,7 +148,7 @@ public class CurrentAPDU {
      * @see <CODE>PROTOCOL_T0</CODE>
      */
     public byte getProtocol() {
-        return (byte) ramVars[ACTIVE_PROTOCOL];
+        return protocol;
     }
 
     /**
@@ -208,11 +191,10 @@ public class CurrentAPDU {
      *                       </ul>
      */
     public short setOutgoing() throws APDUException {
-        if (flags[OUTGOING_FLAG]) {
+        if (state > APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        flags[OUTGOING_FLAG] = true;
-        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING;
+        state = APDU.STATE_OUTGOING;
         return ramVars[LE];
     }
 
@@ -250,12 +232,10 @@ public class CurrentAPDU {
      *                       </ul>
      */
     public short setOutgoingNoChaining() throws APDUException {
-        if (flags[OUTGOING_FLAG]) {
+        if (state >= APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        flags[OUTGOING_FLAG] = true;
-        flags[NO_CHAINING_FLAG] = true;
-        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING;
+        state = APDU.STATE_OUTGOING;
         return ramVars[LE];
     }
 
@@ -291,53 +271,40 @@ public class CurrentAPDU {
      */
     public void setOutgoingLength(short len) throws APDUException {
         final short max = extended ? Short.MAX_VALUE : T0_OBS;
-        if (!flags[OUTGOING_FLAG]) {
-            APDUException.throwIt(APDUException.ILLEGAL_USE);
-        }
-        if (flags[OUTGOING_LEN_SET_FLAG]) {
+        if (state >= APDU.STATE_OUTGOING_LENGTH_KNOWN) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         if (len > max || len < 0) {
             APDUException.throwIt(APDUException.BAD_LENGTH);
         }
-        flags[OUTGOING_LEN_SET_FLAG] = true;
-        ramVars[CURRENT_STATE] = APDU.STATE_OUTGOING_LENGTH_KNOWN;
+        state = APDU.STATE_OUTGOING_LENGTH_KNOWN;
         ramVars[LR] = len;
     }
 
     public short receiveBytes(short bOff) throws APDUException {
-        // FIXME: assumes bytes are already fully copied to the APDU buffer
-        // by reset(), and that buffer size is huge when using extended APDU-s
-        // Store reference to input and actually copy bytes.
-        if (!flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
+        if (state == APDU.STATE_FULL_INCOMING)
+            return 0;
+        if (state > APDU.STATE_FULL_INCOMING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        short remainingBytes = ramVars[REMAINING_BYTES];
-        if (bOff < 0 || remainingBytes >= 1 && (bOff + 1) > buffer.length) {
+        if (bOff < 0 || remaining_bytes >= 1 && (bOff + 1) > apdu_buffer.length) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
         }
-        short pre = (short) (ramVars[PRE_READ_LENGTH] & 0xff);
-        if (pre != 0) {
-            ramVars[PRE_READ_LENGTH] = 0;
-            if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
+        if (remaining_bytes != 0) {
+            short chunklen = (short) (apdu_buffer.length - bOff);
+            if (remaining_bytes < chunklen)
+                chunklen = remaining_bytes;
+            remaining_bytes -= chunklen;
+            System.arraycopy(incoming_buffer, current_pos, apdu_buffer, bOff, chunklen);
+            current_pos += chunklen;
+            if (remaining_bytes == 0) {
+                state = APDU.STATE_FULL_INCOMING;
             } else {
-                ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_INCOMING;
+                state = APDU.STATE_PARTIAL_INCOMING;
             }
-            return pre;
-        }
-        if (remainingBytes != 0) {
-            short len = getIncomingLength();
-            remainingBytes -= len;
-            ramVars[REMAINING_BYTES] = remainingBytes;
-            if (remainingBytes == 0) {
-                ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
-            } else {
-                ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_INCOMING;
-            }
-            return len;
+            return chunklen;
         } else {
-            ramVars[CURRENT_STATE] = APDU.STATE_FULL_INCOMING;
+            state = APDU.STATE_FULL_INCOMING;
             return 0;
         }
     }
@@ -378,21 +345,19 @@ public class CurrentAPDU {
      *                       </ul>
      */
     public short setIncomingAndReceive() throws APDUException {
-        if (ramVars[PRE_READ_LENGTH] == 0) {
-            if (flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
-                APDUException.throwIt(APDUException.ILLEGAL_USE);
-            }
-            flags[INCOMING_FLAG] = true;
+        if (state != APDU.STATE_INITIAL) {
+            APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        return receiveBytes(getOffsetCdata());
+        // NOTE: getOffsetCdata check state.
+        return receiveBytes(extended ? ISO7816.OFFSET_EXT_CDATA : ISO7816.OFFSET_CDATA);
     }
 
     public void sendBytes(short bOff, short len) throws APDUException {
         final short max = extended ? Short.MAX_VALUE : T0_OBS;
-        if (bOff < 0 || len < 0 || (short) (bOff + len) > max) {
+        if (bOff < 0 || len < 0 || (short) (bOff + len) > apdu_buffer.length) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
         }
-        if (!flags[OUTGOING_LEN_SET_FLAG] || flags[NO_GET_RESPONSE_FLAG]) {
+        if (state < APDU.STATE_OUTGOING_LENGTH_KNOWN) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         if (len == 0) {
@@ -402,13 +367,13 @@ public class CurrentAPDU {
         if (len > Lr) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        Simulator.current().sendAPDU(buffer, bOff, len);
+        Simulator.current().sendAPDU(apdu_buffer, bOff, len);
 
         Lr -= len;
         if (Lr == 0) {
-            ramVars[CURRENT_STATE] = APDU.STATE_FULL_OUTGOING;
+            state = APDU.STATE_FULL_OUTGOING;
         } else {
-            ramVars[CURRENT_STATE] = APDU.STATE_PARTIAL_OUTGOING;
+            state = APDU.STATE_PARTIAL_OUTGOING;
         }
 
         ramVars[LR] = Lr;
@@ -463,12 +428,12 @@ public class CurrentAPDU {
      * @see #setOutgoingNoChaining()
      */
     public void sendBytesLong(byte[] outData, short bOff, short len) throws APDUException, SecurityException {
-        int sendLength = buffer.length;
+        int sendLength = apdu_buffer.length;
         while (len > 0) {
             if (len < sendLength) {
                 sendLength = len;
             }
-            Util.arrayCopy(outData, bOff, buffer, (short) 0, (short) sendLength);
+            System.arraycopy(outData, bOff, apdu_buffer, 0, sendLength);
             sendBytes((short) 0, (short) sendLength);
             len -= sendLength;
             bOff += sendLength;
@@ -517,7 +482,7 @@ public class CurrentAPDU {
      * @see APDU#STATE_INITIAL
      */
     public byte getCurrentState() {
-        return (byte) ramVars[CURRENT_STATE];
+        return state;
     }
 
     /**
@@ -542,7 +507,7 @@ public class CurrentAPDU {
      *                           </ul>
      */
     public APDU getCurrentAPDU() throws SecurityException {
-        if (!flags[ACCESS_ALLOWED_FLAG]) {
+        if (!available) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
         }
         return apdu;
@@ -561,7 +526,8 @@ public class CurrentAPDU {
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
     public byte getCLAChannel() {
-        return (byte) ramVars[LOGICAL_CHN];
+        // FIXME: look at CLA
+        return (byte) 0;
     }
 
     /**
@@ -581,9 +547,7 @@ public class CurrentAPDU {
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
     public void waitExtension() throws APDUException {
-        if (!flags[ACCESS_ALLOWED_FLAG] || flags[NO_CHAINING_FLAG]) {
-            APDUException.throwIt(APDUException.ILLEGAL_USE);
-        }
+        // Do nothing.
     }
 
     /**
@@ -599,7 +563,7 @@ public class CurrentAPDU {
      */
     @SuppressWarnings("unused")
     public boolean isCommandChainingCLA() {
-        return (buffer[ISO7816.OFFSET_CLA] & 0x10) == 0x10;
+        return (apdu_buffer[ISO7816.OFFSET_CLA] & 0x10) == 0x10;
     }
 
     /**
@@ -609,7 +573,7 @@ public class CurrentAPDU {
      * @return true if this APDU CLA byte is valid, false otherwise.
      */
     public boolean isValidCLA() {
-        return buffer[ISO7816.OFFSET_CLA] != (byte) 0xFF && (buffer[ISO7816.OFFSET_CLA] & 0xE0) != 0x20;
+        return apdu_buffer[ISO7816.OFFSET_CLA] != (byte) 0xFF && (apdu_buffer[ISO7816.OFFSET_CLA] & 0xE0) != 0x20;
     }
 
     /**
@@ -626,7 +590,7 @@ public class CurrentAPDU {
      * @since 2.2.2
      */
     public boolean isSecureMessagingCLA() {
-        return (buffer[ISO7816.OFFSET_CLA] & 0x40) == 0x40 ? (buffer[ISO7816.OFFSET_CLA] & 0x20) == 0x20 : (buffer[ISO7816.OFFSET_CLA] & 0x0C) != 0;
+        return (apdu_buffer[ISO7816.OFFSET_CLA] & 0x40) == 0x40 ? (apdu_buffer[ISO7816.OFFSET_CLA] & 0x20) == 0x20 : (apdu_buffer[ISO7816.OFFSET_CLA] & 0x0C) != 0;
     }
 
     /**
@@ -642,7 +606,7 @@ public class CurrentAPDU {
      * @since 2.2.2
      */
     public boolean isISOInterindustryCLA() {
-        return (buffer[ISO7816.OFFSET_CLA] & 0x80) != 0x80;
+        return (apdu_buffer[ISO7816.OFFSET_CLA] & 0x80) != 0x80;
     }
 
     /**
@@ -660,7 +624,7 @@ public class CurrentAPDU {
      * @since 2.2.2
      */
     public short getIncomingLength() {
-        if (!flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
+        if (state != APDU.STATE_PARTIAL_INCOMING && state != APDU.STATE_FULL_INCOMING) {
             throw new APDUException(APDUException.ILLEGAL_USE);
         }
         return ramVars[LC];
@@ -682,77 +646,67 @@ public class CurrentAPDU {
      * @since 2.2.2
      */
     public short getOffsetCdata() {
-        if (!flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
-            throw new APDUException(APDUException.ILLEGAL_USE);
+        if (state <= APDU.STATE_INITIAL || state > APDU.STATE_FULL_INCOMING) {
+            APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        return internalGetOffsetCdata();
+        return extended ? ISO7816.OFFSET_EXT_CDATA : ISO7816.OFFSET_CDATA;
     }
 
-    private short internalGetOffsetCdata() {
-        if (extended) {
-            return ISO7816.OFFSET_CDATA + 2;
-        }
-        return ISO7816.OFFSET_CDATA;
-    }
-
-    public void disable() {
-        flags[ACCESS_ALLOWED_FLAG] = false;
+    // Called by Simulator after process() invocation
+    void disable() {
+        available = false;
     }
 
     /**
      * clear internal state of the APDU
      */
-    public void reset(byte protocol, byte[] inputBuffer) {
-        // FIXME: assumes input buffer and apdu buffer match in size.
-        Arrays.fill(buffer, (byte) 0);
-
-        if (inputBuffer.length > BUFFER_SIZE) {
-            buffer = new byte[BUFFER_EXTENDED_SIZE];
-        }
-
+    void reset(byte protocol, byte[] inputBuffer) {
+        Arrays.fill(apdu_buffer, (byte) 0);
         Arrays.fill(ramVars, (short) 0);
-        System.arraycopy(inputBuffer, 0, buffer, 0, inputBuffer.length);
+        incoming_buffer = inputBuffer.clone();
 
-        for (byte i = 0; i < flags.length; i++) {
-            flags[i] = false;
-        }
-
-        flags[ACCESS_ALLOWED_FLAG] = true;
-        ramVars[ACTIVE_PROTOCOL] = protocol;
-
+        // Reset state
+        state = APDU.STATE_INITIAL;
+        this.protocol = protocol;
+        available = true; // make available as current APDU
         int apduCase = APDUHelper.getAPDUCase(inputBuffer);
         extended = APDUHelper.isExtendedAPDU(apduCase);
+
+        // Copy header
+        // XXX: it shows how simulator messes with transport layering
+        System.arraycopy(incoming_buffer, 0, apdu_buffer, 0, apduCase == APDUHelper.CASE1 ? 4 : (extended ? 7 : 5));
+        current_pos = (short) (extended ? 7 : 5);
 
         final short lc;
         final short le;
         switch (apduCase) {
             case APDUHelper.CASE2: {
                 lc = (short) 0;
-                final byte leByte = buffer[ISO7816.OFFSET_LC];
+                final byte leByte = incoming_buffer[ISO7816.OFFSET_LC];
                 le = leByte == 0 ? 256 : (short) (0xFF & leByte);
                 break;
             }
             case APDUHelper.CASE2_EXTENDED:
                 lc = (short) 0;
-                le = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
+                le = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
                 break;
             case APDUHelper.CASE3:
-                lc = (short) (0xFF & buffer[ISO7816.OFFSET_LC]);
+                lc = (short) (0xFF & incoming_buffer[ISO7816.OFFSET_LC]);
                 le = (short) 0;
                 break;
             case APDUHelper.CASE3_EXTENDED:
-                lc = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
+                lc = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
                 le = (short) 0;
                 break;
             case APDUHelper.CASE4: {
-                lc = (short) (0xFF & buffer[ISO7816.OFFSET_LC]);
-                final byte leByte = buffer[ISO7816.OFFSET_CDATA + lc];
+                lc = (short) (0xFF & incoming_buffer[ISO7816.OFFSET_LC]);
+                final byte leByte = incoming_buffer[ISO7816.OFFSET_CDATA + lc];
                 le = leByte == 0 ? 256 : (short) (0xFF & leByte);
                 break;
             }
             case APDUHelper.CASE4_EXTENDED:
-                lc = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 1);
-                le = ByteUtil.getShort(buffer, ISO7816.OFFSET_LC + 3 + lc);
+                lc = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
+                le = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 3 + lc);
                 break;
             case APDUHelper.CASE1:
             default:
@@ -760,7 +714,7 @@ public class CurrentAPDU {
                 le = (short) 0;
                 break;
         }
-        ramVars[LC] = ramVars[REMAINING_BYTES] = lc;
+        ramVars[LC] = remaining_bytes = lc;
         ramVars[LE] = le;
     }
 

@@ -18,6 +18,7 @@ package com.licel.jcardsim.samples;
 
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
+import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Applet for testing the extended APDU cases.
@@ -73,13 +74,17 @@ public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
     private void processCommand(APDU apdu) {
 
         byte[] buffer = apdu.getBuffer();
-
         short readCount = apdu.setIncomingAndReceive();
         short Lc = apdu.getIncomingLength();
+        byte[] CDataBytes = JCSystem.makeTransientByteArray(Lc, JCSystem.CLEAR_ON_DESELECT);
         short offsetCData = apdu.getOffsetCdata();
-        short read = readCount;
-        while (read < Lc) {
-            read += apdu.receiveBytes(read);
+        short pos = Util.arrayCopyNonAtomic(buffer, offsetCData, CDataBytes, (short) 0, readCount);
+
+        short bytesLeft = (short) (Lc - readCount);
+        while (bytesLeft > 0) {
+            bytesLeft -= readCount;
+            readCount = apdu.receiveBytes(offsetCData);
+            pos = Util.arrayCopyNonAtomic(buffer, offsetCData, CDataBytes, pos, readCount);
         }
 
         short Ne = apdu.setOutgoing();
@@ -91,8 +96,6 @@ public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
             }
             ISOException.throwIt(ISO7816.SW_COMMAND_NOT_ALLOWED);
         } else {
-            byte[] CDataBytes = JCSystem.makeTransientByteArray(read, JCSystem.CLEAR_ON_DESELECT);
-            Util.arrayCopyNonAtomic(buffer, offsetCData, CDataBytes, (short) 0, readCount);
             if (CDataBytes.length == 1) {
                 if (CDataBytes[0] == 0) {
                     send0x5aData(apdu, Ne);

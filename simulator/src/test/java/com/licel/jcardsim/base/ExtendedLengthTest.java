@@ -187,25 +187,4 @@ public class ExtendedLengthTest {
         assertEquals(0x9000, responseApdu.getSW());
         assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
     }
-
-    @Test
-    public void testExtendedApduEcho() {
-        byte[] input = new byte[Short.MAX_VALUE - 2];
-        Arrays.fill(input, (byte) 0x41);
-
-        Simulator instance = prepareSimulator();
-
-        ByteBuffer inputApdu = ByteBuffer.wrap(new byte[input.length + 7]);
-        inputApdu.put(CLA);
-        inputApdu.put(INS_ECHO);
-        inputApdu.put(P1);
-        inputApdu.put(P2);
-        inputApdu.put((byte) 0).putShort((short) input.length); // Lc
-        inputApdu.put(input);
-
-        byte[] result = instance.transmitCommand(inputApdu.array());
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(input), Arrays.toString(responseApdu.getData()));
-    }
 }

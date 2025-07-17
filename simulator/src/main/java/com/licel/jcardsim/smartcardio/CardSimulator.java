@@ -161,7 +161,6 @@ public class CardSimulator extends Simulator {
             }
         }
 
-        @SuppressWarnings("deprecation")
         @Override
         public ATR getATR() {
             return new ATR(CardSimulator.this.getATR());
