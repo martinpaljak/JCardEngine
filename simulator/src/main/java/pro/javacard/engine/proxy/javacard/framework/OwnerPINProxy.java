@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.framework;
+package pro.javacard.engine.proxy.javacard.framework;
 
 import javacard.framework.JCSystem;
 import javacard.framework.PIN;

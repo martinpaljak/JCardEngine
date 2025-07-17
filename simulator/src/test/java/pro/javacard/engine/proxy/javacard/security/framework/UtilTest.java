@@ -1,4 +1,4 @@
-package com.licel.jcardsim.framework;
+package pro.javacard.engine.proxy.javacard.security.framework;
 
 import javacard.framework.Util;
 import org.junit.jupiter.api.Test;

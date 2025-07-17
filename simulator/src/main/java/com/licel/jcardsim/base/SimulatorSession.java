@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Martin Paljak
+ * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ public class SimulatorSession implements EngineSession {
     private final Simulator simulator;
     private final String protocol;
     final Thread owner;
+
     SimulatorSession(Simulator simulator, String protocol, Duration timeout) {
         log.trace("Acquiring lock ...");
         this.simulator = simulator;
@@ -50,9 +51,6 @@ public class SimulatorSession implements EngineSession {
         if (!idleTimeout.isZero()) {
             scheduleTimeout();
         }
-        // The protocol will be active for the whole session.
-        // XXX: verify before locking, so that it would not throw
-        simulator.changeProtocol(protocol);
         this.protocol = protocol;
         this.owner = Thread.currentThread();
         log.trace("Locked");
@@ -91,20 +89,13 @@ public class SimulatorSession implements EngineSession {
     }
 
     @Override
-    public void reset() {
-        if (closed) {
-            throw new IllegalStateException("Session already closed");
-        }
-        simulator.reset();
-    }
-
-    @Override
     public byte[] transmitCommand(byte[] commandAPDU) {
         if (closed) {
             throw new IllegalStateException("Session already closed");
         }
         refreshTimeout(); // Extend for another period before auto-close
-        return simulator._transmitCommand(commandAPDU);
+        // XXX: single parse for string
+        return simulator._transmitCommand(APDUHelper.getProtocolByte(protocol), commandAPDU);
     }
 
     @Override

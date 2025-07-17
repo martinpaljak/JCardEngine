@@ -16,7 +16,6 @@
 package com.licel.jcardsim.base;
 
 import javacard.framework.AID;
-import javacard.framework.APDU;
 import javacard.framework.Shareable;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
 
@@ -35,7 +34,7 @@ public interface JavaCardRuntime {
 
     TransientMemory getTransientMemory();
 
-    APDU getCurrentAPDU();
+    CurrentAPDU getCurrentAPDU();
 
     byte getAssignedChannel();
 

@@ -27,7 +27,6 @@ import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -46,7 +45,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public static final String DEFAULT_ATR = "3B80800101";
 
     // If the simulator exposes object deletion support TODO: property
-    public static final boolean OBJECT_DELETION_SUPPORTED = false;
+    public static final boolean OBJECT_DELETION_SUPPORTED = true;
 
     // Used to set the current simulator instance when two different simulators are run inside a single thread.
     private static final ThreadLocal<Simulator> currentSimulator = new ThreadLocal<>();
@@ -71,8 +70,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Installed applets. TODO: ApplicationInstance to GPRegistryEntry
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
 
-    // APDU class is final in JC API, this is a reset method.
-    protected final Method apduPrivateResetMethod;
     // Outbound transfer buffer
     protected final byte[] responseBuffer = new byte[Short.MAX_VALUE + 2];
     // Outbound transfer buffer length
@@ -82,22 +79,15 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     protected final TransientMemory transientMemory;
     // Global Platform support for registry and secure channel
     private final GlobalPlatform globalPlatform;
-    // APDU instance for short APDU-s
-    protected final APDU shortAPDU;
-    // APDU instance for extended APDU-s
-    protected final APDU extendedAPDU;
+    // Handles APDU state and IO
+    private final CurrentAPDU currentAPDU;
+
     // Current applet context AID - FIXME: not correct
     protected AID currentAID;
     // Previously selected applet context - FIXME: not correct
     protected AID previousAID;
     // If applet selection is ongoing - FIXME: refactor
     protected boolean selecting = false;
-    // If extended APDU-s are in use
-    protected boolean usingExtendedAPDUs = false;
-    // Current protocol
-    protected byte currentProtocol = APDU.PROTOCOL_T0;
-    // current protocol FIXME: doubled
-    private String protocol = "T=0";
 
     // transaction depth
     protected byte transactionDepth = 0;
@@ -108,24 +98,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public Simulator() throws RuntimeException {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = new GlobalPlatform();
-
-        // XXX: smell
-        try {
-            // The APDU implementation in JC API is final, so this is a hack to
-            // have a custom constructor for different types of APDU-s in APDUProxy
-            Constructor<?> ctor = APDU.class.getDeclaredConstructors()[0];
-            ctor.setAccessible(true);
-
-            shortAPDU = (APDU) ctor.newInstance(false);
-            extendedAPDU = (APDU) ctor.newInstance(true);
-
-            apduPrivateResetMethod = APDU.class.getDeclaredMethod("internalReset", byte.class, int.class, byte[].class);
-            apduPrivateResetMethod.setAccessible(true);
-        } catch (Exception e) {
-            throw new RuntimeException("Internal reflection error", e);
-        }
-        // XXX: triggers reflective call into APDU instances.
-        changeProtocol(protocol);
+        this.currentAPDU = new CurrentAPDU();
     }
 
     // When applet code calls back for the internal facade of the simulator,
@@ -141,6 +114,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         currentSimulator.remove();
     }
 
+    public CurrentAPDU getCurrentAPDU() {
+        return currentAPDU;
+    }
 
     /**
      * Get the currently active Simulator instance
@@ -177,63 +153,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        return _transmitCommand(AIDUtil.select(aid)); // XXX: should either expose selectApplet on session or get rid of it.
+        return _transmitCommand(APDU.PROTOCOL_T0, AIDUtil.select(aid)); // FIXME: should either expose selectApplet on session or get rid of it.
     }
 
     public byte[] getATR() {
         // FIXME: remove from this layer unless GPSystem.setATRHistBytes gets implemented
         return Hex.decode(DEFAULT_ATR);
     }
-
-    // Convert the string based protocol into internal protocol byte used by JC
-    private static byte getProtocolByte(String protocol) {
-        Objects.requireNonNull(protocol, "protocol");
-        String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
-        byte protocolByte;
-
-        if (p.equals("T=0") || p.equals("*")) {
-            protocolByte = APDU.PROTOCOL_T0;
-        } else if (p.equals("T=1")) {
-            protocolByte = APDU.PROTOCOL_T1;
-        } else if (p.equals("T=CL,TYPE_A,T1") || p.equals("T=CL")) {
-            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
-            protocolByte |= APDU.PROTOCOL_T1;
-        } else if (p.equals("T=CL,TYPE_B,T1")) {
-            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
-            protocolByte |= APDU.PROTOCOL_T1;
-        } else {
-            throw new IllegalArgumentException("Unknown protocol: " + protocol);
-        }
-        return protocolByte;
-    }
-
-    /**
-     * Switch protocol
-     * <p>
-     * Supported protocols are:
-     * <ul>
-     *     <li><code>T=0</code> (alias: <code>*</code>)</li>
-     *     <li><code>T=1</code></li>
-     *     <li><code>T=CL, TYPE_A, T1</code></li>
-     *     <li><code>T=CL, TYPE_B, T1</code></li>
-     * </ul>
-     *
-     * @param protocol protocol to use
-     * @throws java.lang.IllegalArgumentException for unknown protocols
-     */
-    void changeProtocol(String protocol) {
-        changeProtocol(getProtocolByte(protocol));
-        this.protocol = protocol;
-    }
-
-    /**
-     * @return the current protocol string
-     * @see #changeProtocol(String)
-     */
-    public String getProtocol() {
-        return protocol;
-    }
-
 
     /**
      * @return current applet context AID or null
@@ -380,7 +306,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
     }
 
-    byte[] _transmitCommand(byte[] command) throws SystemException {
+    byte[] _transmitCommand(byte protocol, byte[] command) throws SystemException {
         _makeCurrent();
         try {
             log.trace("APDU: {}", Hex.toHexString(command));
@@ -430,18 +356,14 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
 
             if (APDUHelper.isExtendedAPDU(apduCase)) {
-                if (applet instanceof ExtendedLength) {
-                    usingExtendedAPDUs = true;
-                } else {
+                if (!(applet instanceof ExtendedLength)) {
                     Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
                     return theSW;
                 }
-            } else {
-                usingExtendedAPDUs = false;
             }
 
             responseBufferSize = 0;
-            APDU apdu = getCurrentAPDU();
+            APDU apdu = currentAPDU.getAPDU();
             try {
                 if (selecting) {
                     currentAID = newAid; // so that JCSystem.getAID() would return the right thing
@@ -462,10 +384,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                         throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
                     }
                 }
-
-                // set apdu
-                resetAPDU(apdu, apduCase, command);
-
+                currentAPDU.reset(protocol, command);
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
             } catch (Throwable e) {
@@ -482,7 +401,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 }
             } finally {
                 selecting = false;
-                resetAPDU(apdu, 0, null);
+                currentAPDU.disable(); // APDU.getCurrentAPDU() will not be available
             }
 
             // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
@@ -576,6 +495,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     @Override
     public void sendAPDU(byte[] buffer, short bOff, short len) {
+        // FIXME: assumptions on APDU buffer size.
         responseBufferSize = Util.arrayCopyNonAtomic(buffer, bOff, responseBuffer, responseBufferSize, len);
     }
 
@@ -606,33 +526,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         return globalPlatform;
     }
 
-    protected void resetAPDU(APDU apdu, int apduCase, byte[] buffer) {
-        try {
-            apduPrivateResetMethod.invoke(apdu, currentProtocol, apduCase, buffer);
-        } catch (Exception e) {
-            throw new RuntimeException("Internal reflection error", e);
-        }
-    }
-
-    @Override
-    public APDU getCurrentAPDU() {
-        return usingExtendedAPDUs ? extendedAPDU : shortAPDU;
-    }
-
-    /**
-     * Change protocol
-     *
-     * @param protocol protocol bits
-     * @see javacard.framework.APDU#getProtocol()
-     */
-    private void changeProtocol(byte protocol) {
-        this.currentProtocol = protocol;
-        resetAPDU(shortAPDU, 0, null);
-        resetAPDU(extendedAPDU, 0, null);
-    }
-
     @Override
     public byte getAssignedChannel() {
+        // TODO: MultiSelectable
         return 0; // basic channel
     }
 

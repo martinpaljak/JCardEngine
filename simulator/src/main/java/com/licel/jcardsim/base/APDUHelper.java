@@ -1,4 +1,5 @@
 /*
+ * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
  * Copyright 2014 Robert Bachmann
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +16,11 @@
  */
 package com.licel.jcardsim.base;
 
+import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import javacard.framework.Util;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -110,5 +113,27 @@ public final class APDUHelper {
                 throw new IllegalArgumentException("Invalid C-APDU: Lc or Le is invalid");
             }
         }
+    }
+
+    // Convert the string based protocol into internal protocol byte used by JC
+    public static byte getProtocolByte(String protocol) {
+        Objects.requireNonNull(protocol, "protocol");
+        String p = protocol.toUpperCase(Locale.ENGLISH).replace(" ", "");
+        byte protocolByte;
+
+        if (p.equals("T=0") || p.equals("*")) {
+            protocolByte = APDU.PROTOCOL_T0;
+        } else if (p.equals("T=1")) {
+            protocolByte = APDU.PROTOCOL_T1;
+        } else if (p.equals("T=CL,TYPE_A,T1") || p.equals("T=CL")) {
+            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A;
+            protocolByte |= APDU.PROTOCOL_T1;
+        } else if (p.equals("T=CL,TYPE_B,T1")) {
+            protocolByte = APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B;
+            protocolByte |= APDU.PROTOCOL_T1;
+        } else {
+            throw new IllegalArgumentException("Unknown protocol: " + protocol);
+        }
+        return protocolByte;
     }
 }

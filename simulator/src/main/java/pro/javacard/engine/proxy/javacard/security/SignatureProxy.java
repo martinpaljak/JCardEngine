@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.crypto;
+package pro.javacard.engine.proxy.javacard.security;
 
+import com.licel.jcardsim.crypto.AsymmetricSignatureImpl;
+import com.licel.jcardsim.crypto.SymmetricSignatureImpl;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.MessageDigest;

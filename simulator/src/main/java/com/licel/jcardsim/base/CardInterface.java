@@ -23,11 +23,6 @@ package com.licel.jcardsim.base;
 public interface CardInterface {
 
     /**
-     * Powerdown/Powerup
-     */
-    void reset();
-
-    /**
      * Transmit APDU to previous selected applet
      *
      * @param commandAPDU command apdu
@@ -37,6 +32,4 @@ public interface CardInterface {
      */
     byte[] transmitCommand(byte[] commandAPDU);
 
-
-    String getProtocol();
 }

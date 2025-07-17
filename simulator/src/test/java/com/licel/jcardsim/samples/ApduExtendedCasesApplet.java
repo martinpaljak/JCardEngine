@@ -21,7 +21,7 @@ import javacardx.apdu.ExtendedLength;
 
 /**
  * Applet for testing the extended APDU cases.
- *
+ * <p>
  * Especial for zero-value of byte at Le/Lc position (offset = 4 ).
  *
  * <p>Supported only single APDU format:</p>
@@ -41,32 +41,28 @@ public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
     private static final byte P1 = (byte) 0;
     private static final byte P2 = (byte) 0;
 
-    protected ApduExtendedCasesApplet(){
-        register();
-    }
-
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new ApduExtendedCasesApplet();
+        new ApduExtendedCasesApplet().register();
     }
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if(selectingApplet()) {
+        if (selectingApplet()) {
             return;
         }
 
         byte[] buffer = apdu.getBuffer();
 
-        if( buffer[ISO7816.OFFSET_CLA] != CLA){
+        if (buffer[ISO7816.OFFSET_CLA] != CLA) {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
-        if( (buffer[ISO7816.OFFSET_P1] != P1) || (buffer[ISO7816.OFFSET_P2] != P2)  ){
+        if ((buffer[ISO7816.OFFSET_P1] != P1) || (buffer[ISO7816.OFFSET_P2] != P2)) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
         }
 
-        switch(buffer[ISO7816.OFFSET_INS]){
-            case INS :
+        switch (buffer[ISO7816.OFFSET_INS]) {
+            case INS:
                 processCommand(apdu);
                 break;
             default:
@@ -74,7 +70,7 @@ public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
         }
     }
 
-    private void processCommand(APDU apdu){
+    private void processCommand(APDU apdu) {
 
         byte[] buffer = apdu.getBuffer();
 
@@ -82,47 +78,42 @@ public class ApduExtendedCasesApplet extends Applet implements ExtendedLength {
         short Lc = apdu.getIncomingLength();
         short offsetCData = apdu.getOffsetCdata();
         short read = readCount;
-        while(read < Lc) {
+        while (read < Lc) {
             read += apdu.receiveBytes(read);
         }
 
         short Ne = apdu.setOutgoing();
 
-        if( Lc == 0 ){
-            if( Ne > 0 ){
+        if (Lc == 0) {
+            if (Ne > 0) {
                 send0x5aData(apdu, Ne);
                 return;
             }
-
             ISOException.throwIt(ISO7816.SW_COMMAND_NOT_ALLOWED);
-        }
-        else{
+        } else {
             byte[] CDataBytes = JCSystem.makeTransientByteArray(read, JCSystem.CLEAR_ON_DESELECT);
             Util.arrayCopyNonAtomic(buffer, offsetCData, CDataBytes, (short) 0, readCount);
-            if( CDataBytes.length == 1 ){
-                if(CDataBytes[0] == 0){
+            if (CDataBytes.length == 1) {
+                if (CDataBytes[0] == 0) {
                     send0x5aData(apdu, Ne);
-                }
-                else{
+                } else {
                     ISOException.throwIt(ISO7816.SW_COMMAND_NOT_ALLOWED);
                 }
-            }
-            else{
-                if(Ne > 0){
+            } else {
+                if (Ne > 0) {
                     // Check content
-                    for(short i = 0; i < Lc; i++){
-                        if(CDataBytes[i] != 0x5a){
+                    for (short i = 0; i < Lc; i++) {
+                        if (CDataBytes[i] != 0x5a) {
                             ISOException.throwIt(ISO7816.SW_DATA_INVALID);
                         }
                     }
                     // Echo data back
                     apdu.setOutgoingLength(Ne);
                     apdu.sendBytesLong(CDataBytes, (short) 0, Ne);
-                }
-                else{
+                } else {
                     // Check content
-                    for(short i = 0; i < Lc; i++){
-                        if(CDataBytes[i] != 0x5a){
+                    for (short i = 0; i < Lc; i++) {
+                        if (CDataBytes[i] != 0x5a) {
                             ISOException.throwIt(ISO7816.SW_DATA_INVALID);
                         }
                     }

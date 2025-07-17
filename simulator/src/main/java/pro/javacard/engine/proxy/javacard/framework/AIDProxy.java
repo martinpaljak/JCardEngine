@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.framework;
+package pro.javacard.engine.proxy.javacard.framework;
 
 import javacard.framework.AID;
 import javacard.framework.SystemException;
@@ -28,7 +28,7 @@ import java.util.Objects;
  * @see javacard.framework.AID
  */
 public class AIDProxy {
-    byte aid[];
+    byte[] aid;
 
     /**
      * The Java Card runtime environment uses this constructor to create a new <code>AID</code> instance
@@ -46,7 +46,7 @@ public class AIDProxy {
      * @throws ArrayIndexOutOfBoundsException if the offset parameter or length parameter is negative or if offset+length is greater than the length of the bArray parameter
      * @throws SecurityException              if the <code>bArray</code> array is not accessible in the caller's context
      */
-    public AIDProxy(byte bArray[], short offset, byte length)
+    public AIDProxy(byte[] bArray, short offset, byte length)
             throws SystemException, NullPointerException, ArrayIndexOutOfBoundsException, SecurityException {
         if (length < 5 || length > 16) {
             SystemException.throwIt(SystemException.ILLEGAL_VALUE);
@@ -66,7 +66,7 @@ public class AIDProxy {
      * @throws SecurityException              if the <code>dest</code> array is not accessible in the caller's context
      */
 
-    public final byte getBytes(byte dest[], short offset)
+    public final byte getBytes(byte[] dest, short offset)
             throws NullPointerException, ArrayIndexOutOfBoundsException, SecurityException {
         Util.arrayCopy(aid, (short) 0, dest, offset, (short) aid.length);
         return (byte) aid.length;
@@ -122,7 +122,7 @@ public class AIDProxy {
      *                                        if <code>offset+length</code> is greater than the length of the <code>bArray</code> parameter
      * @throws SecurityException              if the <code>bArray</code> array is not accessible in the caller's context
      */
-    public final boolean equals(byte bArray[], short offset, byte length)
+    public final boolean equals(byte[] bArray, short offset, byte length)
             throws ArrayIndexOutOfBoundsException, SecurityException {
         return length == aid.length && Util.arrayCompare(bArray, offset, aid, (short) 0, length) == 0;
     }
@@ -145,7 +145,7 @@ public class AIDProxy {
      *                                        if <code>offset+length</code> is greater than the length of the <code>bArray</code> parameter
      * @throws SecurityException              if the <code>bArray</code> array is not accessible in the caller's context
      */
-    public final boolean partialEquals(byte bArray[], short offset, byte length)
+    public final boolean partialEquals(byte[] bArray, short offset, byte length)
             throws ArrayIndexOutOfBoundsException, SecurityException {
         if (length > aid.length) {
             return false;
@@ -196,7 +196,7 @@ public class AIDProxy {
      *                                        <code>dest</code> array
      * @throws SecurityException              if the <code>dest</code> array is not accessible in the caller's context
      */
-    public final byte getPartialBytes(short aidOffset, byte dest[], short oOffset, byte oLength)
+    public final byte getPartialBytes(short aidOffset, byte[] dest, short oOffset, byte oLength)
             throws NullPointerException, ArrayIndexOutOfBoundsException, SecurityException {
         short copyLen = oLength;
         if (oLength == 0) {

@@ -98,9 +98,8 @@ public class JCSDKClient implements Supplier<EngineSession>, EngineSession {
         return AbstractTCPAdapter.connect(host, port);
     }
 
-    @Override
     public void reset() {
-        // Deprecated
+        // FIXME: Deprecated
         try {
             send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
             this.atr = send(this.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();

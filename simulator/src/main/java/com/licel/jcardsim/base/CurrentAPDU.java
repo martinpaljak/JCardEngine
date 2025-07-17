@@ -1,4 +1,5 @@
 /*
+ * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
  * Copyright 2015 Licel Corporation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.framework;
+package com.licel.jcardsim.base;
 
-import com.licel.jcardsim.base.APDUHelper;
-import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.APDU;
 import javacard.framework.APDUException;
 import javacard.framework.ISO7816;
 import javacard.framework.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.Constructor;
 import java.util.Arrays;
 
-/**
- * Implementation for <code>APDU</code>
- *
- * @see APDUProxy
- */
-public class APDUProxy {
+// Responsible for all APDU related IO aspects and state holding.
+public class CurrentAPDU {
     // buffer size
     private static final short BUFFER_SIZE = 261;
     // buffer size (extended APDU) + (CLA,INS,P1,P2,0,Lc_Hi,Lc_Low,CData,Le_Hi,Le_Lo)
@@ -44,6 +41,7 @@ public class APDUProxy {
     private static final short T1_BLOCK_SIZE = 254;
     // NAD, for T0 protocol = 9
     private static final byte T0_NAD = 0;
+    private static final Logger log = LoggerFactory.getLogger(CurrentAPDU.class);
     // transient array to store variables
     private short[] ramVars;
     // LE variable offset in ramVars
@@ -65,7 +63,7 @@ public class APDUProxy {
     // total length ramVars
     private static final byte RAM_VARS_LENGTH = 9;
     // transient array to store boolean flags
-    private boolean[] flags;
+    public final boolean[] flags;
     // outgoingFlag;
     private static final byte OUTGOING_FLAG = 0;
     // outgoingLenSetFlag;
@@ -80,17 +78,26 @@ public class APDUProxy {
     private static final byte ACCESS_ALLOWED_FLAG = 5;
     // total length flags
     private static final byte FLAGS_LENGTH = 6;
-    // APDU input buffer
-    private final byte[] buffer;
+    // APDU input buffer FIXME: make it final and fix buffer use assumptions
+    private byte[] buffer;
     // extended APDU flag
-    private final boolean extended;
+    private boolean extended;
+    // APDU class instance (Current APDU)
+    private final APDU apdu;
 
-    APDUProxy(boolean extended) {
-        this.extended = extended;
-        buffer = new byte[extended ? BUFFER_EXTENDED_SIZE : BUFFER_SIZE];
+    CurrentAPDU() {
+        buffer = new byte[BUFFER_SIZE];
         ramVars = new short[RAM_VARS_LENGTH];
         flags = new boolean[FLAGS_LENGTH];
-        internalReset(APDU.PROTOCOL_T0, 0, null);
+
+        // Create the APDU instance
+        try {
+            Constructor<APDU> ctor = APDU.class.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            this.apdu = ctor.newInstance();
+        } catch (Exception e) {
+            throw new Error("Could not set up simulator");
+        }
     }
 
     /**
@@ -125,7 +132,7 @@ public class APDUProxy {
      * @return incoming block size setting
      * @see #receiveBytes(short)
      */
-    public static short getInBlockSize() {
+    public short getInBlockSize() {
         return (getProtocol() & APDU.PROTOCOL_T1) == APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_IBS;
     }
 
@@ -145,7 +152,7 @@ public class APDUProxy {
      * @return outgoing block size setting
      * @see #setOutgoingLength(short)
      */
-    public static short getOutBlockSize() {
+    public short getOutBlockSize() {
         return (getProtocol() & APDU.PROTOCOL_T1) == APDU.PROTOCOL_T1 ? T1_BLOCK_SIZE : T0_OBS;
     }
 
@@ -157,9 +164,8 @@ public class APDUProxy {
      * Valid nibble codes are listed in PROTOCOL_ .. constants above.
      * @see <CODE>PROTOCOL_T0</CODE>
      */
-    public static byte getProtocol() {
-        APDU apdu = Simulator.current().getCurrentAPDU();
-        return (byte) ((short[]) getFieldInternal(apdu, "ramVars"))[ACTIVE_PROTOCOL];
+    public byte getProtocol() {
+        return (byte) ramVars[ACTIVE_PROTOCOL];
     }
 
     /**
@@ -201,8 +207,7 @@ public class APDUProxy {
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
      *                       </ul>
      */
-    public short setOutgoing()
-            throws APDUException {
+    public short setOutgoing() throws APDUException {
         if (flags[OUTGOING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
@@ -244,8 +249,7 @@ public class APDUProxy {
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.
      *                       </ul>
      */
-    public short setOutgoingNoChaining()
-            throws APDUException {
+    public short setOutgoingNoChaining() throws APDUException {
         if (flags[OUTGOING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
@@ -285,8 +289,7 @@ public class APDUProxy {
      *                       </ul>
      * @see #getOutBlockSize()
      */
-    public void setOutgoingLength(short len)
-            throws APDUException {
+    public void setOutgoingLength(short len) throws APDUException {
         final short max = extended ? Short.MAX_VALUE : T0_OBS;
         if (!flags[OUTGOING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
@@ -302,8 +305,10 @@ public class APDUProxy {
         ramVars[LR] = len;
     }
 
-    public short receiveBytes(short bOff)
-            throws APDUException {
+    public short receiveBytes(short bOff) throws APDUException {
+        // FIXME: assumes bytes are already fully copied to the APDU buffer
+        // by reset(), and that buffer size is huge when using extended APDU-s
+        // Store reference to input and actually copy bytes.
         if (!flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
@@ -372,8 +377,7 @@ public class APDUProxy {
      *                       in an ABORT S-Block command to abort the data transfer.
      *                       </ul>
      */
-    public short setIncomingAndReceive()
-            throws APDUException {
+    public short setIncomingAndReceive() throws APDUException {
         if (ramVars[PRE_READ_LENGTH] == 0) {
             if (flags[INCOMING_FLAG] || flags[OUTGOING_FLAG]) {
                 APDUException.throwIt(APDUException.ILLEGAL_USE);
@@ -383,8 +387,7 @@ public class APDUProxy {
         return receiveBytes(getOffsetCdata());
     }
 
-    public void sendBytes(short bOff, short len)
-            throws APDUException {
+    public void sendBytes(short bOff, short len) throws APDUException {
         final short max = extended ? Short.MAX_VALUE : T0_OBS;
         if (bOff < 0 || len < 0 || (short) (bOff + len) > max) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
@@ -459,8 +462,7 @@ public class APDUProxy {
      * @see #setOutgoing()
      * @see #setOutgoingNoChaining()
      */
-    public void sendBytesLong(byte outData[], short bOff, short len)
-            throws APDUException, SecurityException {
+    public void sendBytesLong(byte[] outData, short bOff, short len) throws APDUException, SecurityException {
         int sendLength = buffer.length;
         while (len > 0) {
             if (len < sendLength) {
@@ -499,8 +501,7 @@ public class APDUProxy {
      *                       or response byte count exceeded.
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
-    public void setOutgoingAndSend(short bOff, short len)
-            throws APDUException {
+    public void setOutgoingAndSend(short bOff, short len) throws APDUException {
         setOutgoing();
         setOutgoingLength(len);
         sendBytes(bOff, len);
@@ -540,40 +541,13 @@ public class APDUProxy {
      *                           <li>the method is called during applet installation or deletion.
      *                           </ul>
      */
-    public static APDU getCurrentAPDU()
-            throws SecurityException {
-        APDU currentAPDU = Simulator.current().getCurrentAPDU();
-
-        if (!((boolean[]) getFieldInternal(currentAPDU, "flags"))[ACCESS_ALLOWED_FLAG]) {
+    public APDU getCurrentAPDU() throws SecurityException {
+        if (!flags[ACCESS_ALLOWED_FLAG]) {
             throw new SecurityException("getCurrentAPDU must not be called outside of Applet#process()");
         }
-        return currentAPDU;
+        return apdu;
     }
 
-    /**
-     * This method is called during the <code>Applet.process(APDU)</code> method
-     * to obtain a reference to the current APDU object.
-     * This method can only be called in the context of the currently selected applet.
-     * <p>Note:<ul>
-     * <li><em>Do not call this method directly or indirectly from within a method
-     * invoked remotely via Java Card RMI method invocation from the client. The
-     * <CODE>APDU</CODE> object and APDU buffer are reserved for use by <CODE>RMIService</CODE>. Remote
-     * method parameter data may become corrupted.</em>
-     * </ul>
-     *
-     * @return the APDU buffer of the <CODE>APDU</CODE> object being processed
-     * @throws SecurityException if
-     *                           <ul>
-     *                           <li>the current context is not the context of the currently selected applet or
-     *                           <li>this method was not called, directly or indirectly, from the applet's
-     *                           process method (called directly by the Java Card runtime environment), or
-     *                           <li>the method is called during applet installation or deletion.
-     *                           </ul>
-     */
-    public static byte[] getCurrentAPDUBuffer()
-            throws SecurityException {
-        return getCurrentAPDU().getBuffer();
-    }
 
     /**
      * Returns the logical channel number associated with the current <CODE>APDU</CODE> command
@@ -586,9 +560,8 @@ public class APDUProxy {
      *
      * @return logical channel number, if present, within the CLA byte, 0 otherwise
      */
-    public static byte getCLAChannel() {
-        APDU apdu = Simulator.current().getCurrentAPDU();
-        return (byte) ((short[]) getFieldInternal(apdu, "ramVars"))[LOGICAL_CHN];
+    public byte getCLAChannel() {
+        return (byte) ramVars[LOGICAL_CHN];
     }
 
     /**
@@ -607,11 +580,8 @@ public class APDUProxy {
      *                       <li><code>APDUException.ILLEGAL_USE</code> if <code>setOutgoingNoChaining()</code> previously invoked.
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
-    public static void waitExtension()
-            throws APDUException {
-        APDU apdu = Simulator.current().getCurrentAPDU();
-        boolean[] apduFlags = (boolean[]) getFieldInternal(apdu, "flags");
-        if (!apduFlags[ACCESS_ALLOWED_FLAG] || apduFlags[NO_CHAINING_FLAG]) {
+    public void waitExtension() throws APDUException {
+        if (!flags[ACCESS_ALLOWED_FLAG] || flags[NO_CHAINING_FLAG]) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
     }
@@ -655,10 +625,8 @@ public class APDUProxy {
      * @return <code>true</code> if the secure messaging bit(s) is(are) nonzero, <code>false</code> otherwise
      * @since 2.2.2
      */
-    @SuppressWarnings("unused")
     public boolean isSecureMessagingCLA() {
         return (buffer[ISO7816.OFFSET_CLA] & 0x40) == 0x40 ? (buffer[ISO7816.OFFSET_CLA] & 0x20) == 0x20 : (buffer[ISO7816.OFFSET_CLA] & 0x0C) != 0;
-
     }
 
     /**
@@ -673,7 +641,6 @@ public class APDUProxy {
      * @return <code>true</code> if this APDU CLA byte corresponds to an interindustry command, <code>false</code> otherwise.
      * @since 2.2.2
      */
-    @SuppressWarnings("unused")
     public boolean isISOInterindustryCLA() {
         return (buffer[ISO7816.OFFSET_CLA] & 0x80) != 0x80;
     }
@@ -728,27 +695,33 @@ public class APDUProxy {
         return ISO7816.OFFSET_CDATA;
     }
 
+    public void disable() {
+        flags[ACCESS_ALLOWED_FLAG] = false;
+    }
+
     /**
      * clear internal state of the APDU
-     * called by SimulatorRuntime via reflection
      */
-    // FIXME: remove weird reflection use
-    private void internalReset(byte protocol, int apduCase, byte[] inputBuffer) {
-        if (inputBuffer == null) {
-            flags[ACCESS_ALLOWED_FLAG] = false;
-            ramVars[ACTIVE_PROTOCOL] = protocol;
-            return;
+    public void reset(byte protocol, byte[] inputBuffer) {
+        // FIXME: assumes input buffer and apdu buffer match in size.
+        Arrays.fill(buffer, (byte) 0);
+
+        if (inputBuffer.length > BUFFER_SIZE) {
+            buffer = new byte[BUFFER_EXTENDED_SIZE];
         }
 
-        Arrays.fill(buffer, (byte) 0);
         Arrays.fill(ramVars, (short) 0);
         System.arraycopy(inputBuffer, 0, buffer, 0, inputBuffer.length);
+
         for (byte i = 0; i < flags.length; i++) {
             flags[i] = false;
         }
 
         flags[ACCESS_ALLOWED_FLAG] = true;
         ramVars[ACTIVE_PROTOCOL] = protocol;
+
+        int apduCase = APDUHelper.getAPDUCase(inputBuffer);
+        extended = APDUHelper.isExtendedAPDU(apduCase);
 
         final short lc;
         final short le;
@@ -791,15 +764,7 @@ public class APDUProxy {
         ramVars[LE] = le;
     }
 
-    // FIXME: remove the weird reflection thingy and have a "interface state" object at sim
-    private static Object getFieldInternal(APDU apdu, String fieldName) {
-        try {
-            Field f = APDU.class.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            return f.get(apdu);
-        } catch (Exception e) {
-            throw new RuntimeException("Internal reflection error", e);
-        }
+    public APDU getAPDU() {
+        return apdu;
     }
-
 }

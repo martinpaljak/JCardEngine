@@ -25,11 +25,12 @@ public class ApduContextTest {
             exceptionInInstall = false;
             exceptionInDeselect = false;
             exceptionInUninstall = false;
+            exceptionIllegalUse1 = false;
+            exceptionIllegalUse2 = false;
 
             try {
                 APDU.getCurrentAPDU();
-            }
-            catch (SecurityException se) {
+            } catch (SecurityException se) {
                 exceptionInInstall = true;
             }
 
@@ -40,8 +41,7 @@ public class ApduContextTest {
         public boolean select() {
             try {
                 APDU.getCurrentAPDU();
-            }
-            catch (SecurityException se) {
+            } catch (SecurityException se) {
                 exceptionInSelect = true;
             }
             return true;
@@ -53,15 +53,13 @@ public class ApduContextTest {
             try {
                 apdu.getIncomingLength();
                 exceptionIllegalUse1 = false;
-            }
-            catch (APDUException e) {
+            } catch (APDUException e) {
                 exceptionIllegalUse1 = e.getReason() == APDUException.ILLEGAL_USE;
             }
             try {
                 apdu.getOffsetCdata();
                 exceptionIllegalUse2 = false;
-            }
-            catch (APDUException e) {
+            } catch (APDUException e) {
                 exceptionIllegalUse2 = e.getReason() == APDUException.ILLEGAL_USE;
             }
             apdu.setIncomingAndReceive();
@@ -73,8 +71,7 @@ public class ApduContextTest {
         public void deselect() {
             try {
                 APDU.getCurrentAPDU();
-            }
-            catch (SecurityException se) {
+            } catch (SecurityException se) {
                 exceptionInDeselect = true;
             }
         }
@@ -82,8 +79,7 @@ public class ApduContextTest {
         public void uninstall() {
             try {
                 APDU.getCurrentAPDU();
-            }
-            catch (SecurityException se) {
+            } catch (SecurityException se) {
                 exceptionInUninstall = true;
             }
         }

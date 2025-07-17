@@ -13,8 +13,8 @@
     </Match>
     <!-- Reflection use in constructor results in throw -->
     <Match>
-        <Class name="com.licel.jcardsim.base.Simulator"/>
-        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+        <Class name="com.licel.jcardsim.base.CurrentAPDU"/>
+        <Bug pattern="CT_CONSTRUCTOR_THROW,EI_EXPOSE_REP"/>
     </Match>
     <!-- Allocation inside constructor with JCSystem.make* -->
     <Match>

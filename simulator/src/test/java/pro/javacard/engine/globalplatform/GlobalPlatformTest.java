@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.gp.GPCrypto;
-import pro.javacard.gp.GPSecureChannelVersion;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gptool.keys.PlaintextKeys;
 

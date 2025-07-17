@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package pro.javacard.engine.globalplatform;
+package pro.javacard.engine.proxy.org.globalplatform;
 
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import org.globalplatform.*;
+import pro.javacard.engine.globalplatform.RegistryEntry;
 
 public class GPSystemProxy {
 

@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.crypto;
+package pro.javacard.engine.proxy.javacard.security;
 
+import com.licel.jcardsim.crypto.*;
 import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * ProxyClass for <code>KeyBuilder</code>
@@ -28,7 +27,6 @@ import org.slf4j.LoggerFactory;
  * @see KeyBuilder
  */
 public class KeyBuilderProxy {
-    private static final Logger log = LoggerFactory.getLogger(KeyBuilderProxy.class);
 
     /**
      * Creates uninitialized cryptographic keys for signature and cipher algorithms. Only instances created
@@ -52,6 +50,9 @@ public class KeyBuilderProxy {
      */
     public static Key buildKey(byte keyType, short keyLength, boolean keyEncryption)
             throws CryptoException {
+        if (keyEncryption) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         Key key = null;
         switch (keyType) {
             // des
@@ -150,7 +151,6 @@ public class KeyBuilderProxy {
 
     public static Key buildKey(byte algorithmicKeyType, byte keyMemoryType, short keyLength, boolean keyEncryption) throws CryptoException {
         if (keyEncryption) {
-            log.error("No keyEncryption");
             CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
         Key key = null;
@@ -166,6 +166,9 @@ public class KeyBuilderProxy {
     }
 
     public static Key buildKeyWithSharedDomain(byte algorithmicKeyType, byte keyMemoryType, Key domainParameters, boolean keyEncryption) throws CryptoException {
+        if (keyEncryption) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         Key key = null;
         // FIXME: hardcoded length
 

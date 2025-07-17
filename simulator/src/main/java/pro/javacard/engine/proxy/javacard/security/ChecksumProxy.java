@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.crypto;
+package pro.javacard.engine.proxy.javacard.security;
 
+import com.licel.jcardsim.crypto.CRC16;
+import com.licel.jcardsim.crypto.CRC32;
 import javacard.security.Checksum;
 import javacard.security.CryptoException;
 

@@ -44,24 +44,25 @@ public class JavaCardApiProcessor {
         // NOTE: resorting to string here is intentional, as the transformation fscks up the class directory (proxies are removed)
         // This makes IDE very unhappy when running tests. Alternative: don't delete proxies (but removing them from dist would mean they all should live
         // in a separate package)
-        proxyClass(buildDir, "com.licel.jcardsim.framework.AIDProxy", "javacard.framework.AID", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.APDUProxy", "javacard.framework.APDU", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.AppletProxy", "javacard.framework.Applet", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.JCSystemProxy", "javacard.framework.JCSystem", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.UtilProxy", "javacard.framework.Util", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.OwnerPINProxy", "javacard.framework.OwnerPIN", false);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.ChecksumProxy", "javacard.security.Checksum", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.CipherProxy", "javacardx.crypto.Cipher", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.KeyAgreementProxy", "javacard.security.KeyAgreement", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.KeyPairProxy", "javacard.security.KeyPair", false);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.KeyBuilderProxy", "javacard.security.KeyBuilder", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.MessageDigestProxy", "javacard.security.MessageDigest", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.RandomDataProxy", "javacard.security.RandomData", true);
-        proxyClass(buildDir, "com.licel.jcardsim.crypto.SignatureProxy", "javacard.security.Signature", true);
-        proxyClass(buildDir, "pro.javacard.engine.xsecurity.SensitiveResultProxy", "javacardx.security.SensitiveResult", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.AIDProxy", "javacard.framework.AID", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.APDUProxy", "javacard.framework.APDU", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.AppletProxy", "javacard.framework.Applet", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.JCSystemProxy", "javacard.framework.JCSystem", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.UtilProxy", "javacard.framework.Util", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.OwnerPINProxy", "javacard.framework.OwnerPIN", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.ChecksumProxy", "javacard.security.Checksum", true);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyAgreementProxy", "javacard.security.KeyAgreement", true);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyPairProxy", "javacard.security.KeyPair", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyBuilderProxy", "javacard.security.KeyBuilder", true);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.MessageDigestProxy", "javacard.security.MessageDigest", true);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.RandomDataProxy", "javacard.security.RandomData", true);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.SignatureProxy", "javacard.security.Signature", true);
 
-        proxyClass(buildDir, "com.licel.jcardsim.framework.CardExceptionProxy", "javacard.framework.CardException", false);
-        proxyClass(buildDir, "com.licel.jcardsim.framework.CardRuntimeExceptionProxy", "javacard.framework.CardRuntimeException", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.CardExceptionProxy", "javacard.framework.CardException", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.CardRuntimeExceptionProxy", "javacard.framework.CardRuntimeException", false);
+
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacardx.security.SensitiveResultProxy", "javacardx.security.SensitiveResult", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacardx.crypto.CipherProxy", "javacardx.crypto.Cipher", true);
 
 
         proxyExceptionClass(buildDir, "javacard.framework.APDUException");
@@ -80,7 +81,7 @@ public class JavaCardApiProcessor {
         proxyExceptionClass(buildDir, "javacardx.framework.string.StringException");
 
         // Global Platform
-        proxyClass(buildDir, "pro.javacard.engine.globalplatform.GPSystemProxy", "org.globalplatform.GPSystem", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.org.globalplatform.GPSystemProxy", "org.globalplatform.GPSystem", false);
     }
 
     public static void proxyClass(File buildDir, Class<?> proxyClass, Class<?> targetClass, boolean skipConstructor) throws IOException {
