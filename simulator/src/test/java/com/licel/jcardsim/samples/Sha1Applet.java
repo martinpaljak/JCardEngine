@@ -18,9 +18,6 @@ package com.licel.jcardsim.samples;
 import javacard.framework.*;
 import javacard.security.MessageDigest;
 import javacardx.apdu.ExtendedLength;
-import org.bouncycastle.util.encoders.Hex;
-
-import java.util.Arrays;
 
 
 /**

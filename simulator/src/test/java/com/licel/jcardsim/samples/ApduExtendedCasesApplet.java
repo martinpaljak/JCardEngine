@@ -18,7 +18,6 @@ package com.licel.jcardsim.samples;
 
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
-import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Applet for testing the extended APDU cases.
