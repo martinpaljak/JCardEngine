@@ -19,7 +19,7 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test for <code>RSAPrivateCrtKeyImpl</code>
@@ -39,14 +39,14 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testIsInitialized() {
-        System.out.println("isInitialized");
         RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short)2048);
         short compLen = (short) Hex.decode(P).length;
         key.setP(Hex.decode(P), (short)0, compLen);
         key.setQ(Hex.decode(Q), (short)0, compLen);
         key.setDP1(Hex.decode(DP), (short)0, compLen);
         key.setDQ1(Hex.decode(DQ), (short)0, compLen);
+        assertFalse(key.isInitialized());
         key.setPQ(Hex.decode(PQ), (short)0, compLen);
-        assertEquals(true, key.isInitialized());
+        assertTrue(key.isInitialized());
     }
 }

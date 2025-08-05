@@ -20,30 +20,49 @@ import javacard.framework.Util;
 import javacard.security.*;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test for <code>KeyPairImpl</code>
  */
 public class KeyPairImplTest extends SimulatorCoreTest {
 
-    static final short[] RSA_SIZES = new short[]{KeyBuilder.LENGTH_RSA_512,
-            KeyBuilder.LENGTH_RSA_736, KeyBuilder.LENGTH_RSA_768, KeyBuilder.LENGTH_RSA_896,
-            KeyBuilder.LENGTH_RSA_1024, KeyBuilder.LENGTH_RSA_1280, KeyBuilder.LENGTH_RSA_1536,
-            KeyBuilder.LENGTH_RSA_1984, KeyBuilder.LENGTH_RSA_2048};
-    static final short[] ECF2M_SIZES = new short[]{KeyBuilder.LENGTH_EC_F2M_113,
-            KeyBuilder.LENGTH_EC_F2M_131, KeyBuilder.LENGTH_EC_F2M_163, KeyBuilder.LENGTH_EC_F2M_193
+    static final short[] RSA_SIZES = new short[]{
+            KeyBuilder.LENGTH_RSA_512,
+            KeyBuilder.LENGTH_RSA_736,
+            KeyBuilder.LENGTH_RSA_768,
+            KeyBuilder.LENGTH_RSA_896,
+            KeyBuilder.LENGTH_RSA_1024,
+            KeyBuilder.LENGTH_RSA_1280,
+            KeyBuilder.LENGTH_RSA_1536,
+            KeyBuilder.LENGTH_RSA_1984,
+            KeyBuilder.LENGTH_RSA_2048,
+            KeyBuilder.LENGTH_RSA_3072,
+            KeyBuilder.LENGTH_RSA_4096
     };
-    static final short[] ECFP_SIZES = new short[]{KeyBuilder.LENGTH_EC_FP_112,
-            KeyBuilder.LENGTH_EC_FP_128, KeyBuilder.LENGTH_EC_FP_160, KeyBuilder.LENGTH_EC_FP_192
+    static final short[] ECF2M_SIZES = new short[]{
+            KeyBuilder.LENGTH_EC_F2M_113,
+            KeyBuilder.LENGTH_EC_F2M_131,
+            KeyBuilder.LENGTH_EC_F2M_163,
+            KeyBuilder.LENGTH_EC_F2M_193
     };
-    static final short[] DSA_SIZES = new short[]{KeyBuilder.LENGTH_DSA_512,
-            KeyBuilder.LENGTH_DSA_768, KeyBuilder.LENGTH_DSA_1024
+    static final short[] ECFP_SIZES = new short[]{
+            KeyBuilder.LENGTH_EC_FP_112,
+            KeyBuilder.LENGTH_EC_FP_128,
+            KeyBuilder.LENGTH_EC_FP_160,
+            KeyBuilder.LENGTH_EC_FP_192,
+            KeyBuilder.LENGTH_EC_FP_256,
+            KeyBuilder.LENGTH_EC_FP_384,
+            KeyBuilder.LENGTH_EC_FP_521
     };
-    static final short[] DH_SIZES = new short[]{KeyBuilder.LENGTH_DH_1024, DHKeyImpl.LENGTH_DH_1536,
+    static final short[] DSA_SIZES = new short[]{
+            KeyBuilder.LENGTH_DSA_512,
+            KeyBuilder.LENGTH_DSA_768,
+            KeyBuilder.LENGTH_DSA_1024
+    };
+    static final short[] DH_SIZES = new short[]{
+            KeyBuilder.LENGTH_DH_1024,
+            DHKeyImpl.LENGTH_DH_1536,
             KeyBuilder.LENGTH_DH_2048
     };
 
@@ -64,8 +83,8 @@ public class KeyPairImplTest extends SimulatorCoreTest {
             instance = new KeyPair(algo, RSA_SIZES[i]);
             // https://github.com/licel/jcardsim/issues/42
             PublicKey publicKey = instance.getPublic();
-            assertTrue(publicKey != null);
-            assertEquals(true, publicKey instanceof RSAPublicKey);
+            assertNotNull(publicKey);
+            assertInstanceOf(RSAPublicKey.class, publicKey);
             ((RSAPublicKey) publicKey).setExponent(customExp, (short) 0, (short) customExp.length);
             instance.genKeyPair();
             short expSize = ((RSAPublicKey) publicKey).getExponent(expBuf, (short) 0);
@@ -81,7 +100,6 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairRSA() {
-        System.out.println("genKeyPair RSA");
         KeyPairImpl instance = null;
         short offset = 10;
         byte[] publicExponent = new byte[3];
@@ -91,14 +109,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
             instance = new KeyPairImpl(KeyPair.ALG_RSA, RSA_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof RSAPublicKey);
+            assertInstanceOf(RSAPublicKey.class, publicKey);
             // https://code.google.com/p/jcardsim/issues/detail?id=14
             short publicExponentSize = ((RSAPublicKey) publicKey).getExponent(publicExponentArray, offset);
             assertEquals(etalonExponent.length, publicExponentSize);
             ((RSAPublicKey) publicKey).getExponent(publicExponent, (short) 0);
-            assertEquals(true, Arrays.equals(publicExponent, etalonExponent));
+            assertArrayEquals(publicExponent, etalonExponent);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof RSAPrivateKey);
+            assertInstanceOf(RSAPrivateKey.class, privateKey);
         }
     }
 
@@ -109,8 +127,6 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairRSAWithCustomPublicExponent() {
-        System.out.println("genKeyPair RSA(Custom Public Exponent)");
-        // DON'T USE THIS PUBLIC EXPONENT IN THE REAL APPLICATION
         byte[] customExponent = new byte[]{(byte) 0x03};
         RSAPublicKey publicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
         KeyPair instance = new KeyPair(publicKey, null);
@@ -119,7 +135,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
         publicKey = (RSAPublicKey) instance.getPublic();
         byte[] generatedExponent = new byte[customExponent.length];
         publicKey.getExponent(generatedExponent, (short) 0);
-        assertEquals(Arrays.equals(customExponent, generatedExponent), true);
+        assertArrayEquals(customExponent, generatedExponent);
         customExponent = new byte[]{(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05};
         publicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
         instance = new KeyPair(publicKey, null);
@@ -128,7 +144,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
         publicKey = (RSAPublicKey) instance.getPublic();
         generatedExponent = new byte[customExponent.length];
         publicKey.getExponent(generatedExponent, (short) 0);
-        assertEquals(Arrays.equals(customExponent, generatedExponent), true);
+        assertArrayEquals(customExponent, generatedExponent);
     }
 
     /**
@@ -138,7 +154,6 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairECWithCustomDomainParameters() {
-        System.out.println("genKeyPair EC (Custom Domain Parameters)");
         KeyPair instance = new KeyPair(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_193);
         instance.genKeyPair();
         ECPublicKey ecPublicKey = (ECPublicKey) instance.getPublic();
@@ -149,7 +164,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
         byte[] a1 = new byte[266];
         ecPublicKey.getA(a, (short) 0);
         ecPublicKey1.getA(a1, (short) 0);
-        assertEquals(Arrays.equals(a, a1), true);
+        assertArrayEquals(a, a1);
     }
 
     /**
@@ -159,15 +174,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairRSACrt() {
-        System.out.println("genKeyPair RSA_CRT");
         KeyPairImpl instance = null;
         for (int i = 0; i < RSA_SIZES.length; i++) {
             instance = new KeyPairImpl(KeyPair.ALG_RSA_CRT, RSA_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof RSAPublicKey);
+            assertInstanceOf(RSAPublicKey.class, publicKey);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof RSAPrivateCrtKey);
+            assertInstanceOf(RSAPrivateCrtKey.class, privateKey);
         }
     }
 
@@ -178,15 +192,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairECF2M() {
-        System.out.println("genKeyPair EC_F2M");
         KeyPairImpl instance = null;
         for (int i = 0; i < ECF2M_SIZES.length; i++) {
             instance = new KeyPairImpl(KeyPair.ALG_EC_F2M, ECF2M_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof ECPublicKey);
+            assertInstanceOf(ECPublicKey.class, publicKey);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof ECPrivateKey);
+            assertInstanceOf(ECPrivateKey.class, privateKey);
         }
     }
 
@@ -197,15 +210,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairECFP() {
-        System.out.println("genKeyPair EC_FP");
         KeyPairImpl instance = null;
         for (int i = 0; i < ECFP_SIZES.length; i++) {
             instance = new KeyPairImpl(KeyPair.ALG_EC_FP, ECFP_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof ECPublicKey);
+            assertInstanceOf(ECPublicKey.class, publicKey);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof ECPrivateKey);
+            assertInstanceOf(ECPrivateKey.class, privateKey);
         }
     }
 
@@ -216,15 +228,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairDSA() {
-        System.out.println("genKeyPair DSA");
         KeyPairImpl instance = null;
         for (int i = 0; i < DSA_SIZES.length; i++) {
             instance = new KeyPairImpl(KeyPair.ALG_DSA, DSA_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof DSAPublicKey);
+            assertInstanceOf(DSAPublicKey.class, publicKey);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof DSAPrivateKey);
+            assertInstanceOf(DSAPrivateKey.class, privateKey);
         }
     }
 
@@ -234,15 +245,14 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testGenKeyPairDH() {
-        System.out.println("genKeyPair DH");
         KeyPairImpl instance = null;
         for (int i = 0; i < DH_SIZES.length; i++) {
             instance = new KeyPairImpl(KeyPair.ALG_DH, DH_SIZES[i]);
             instance.genKeyPair();
             PublicKey publicKey = instance.getPublic();
-            assertEquals(true, publicKey instanceof DHPublicKey);
+            assertInstanceOf(DHPublicKey.class, publicKey);
             PrivateKey privateKey = instance.getPrivate();
-            assertEquals(true, privateKey instanceof DHPrivateKey);
+            assertInstanceOf(DHPrivateKey.class, privateKey);
         }
     }
 }
