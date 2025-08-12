@@ -17,6 +17,12 @@ package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.*;
+
+import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
+import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +42,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
     // etalon msg
     String MESSAGE = "C46A3D01F5494013F9DFF3C5392C64";
     // signatures from card
-    final static String[] RSA_SIGNATURES = new String[]{
+    final static String[] RSA_SIGNATURES = new String[] {
             // ALG_RSA_SHA_ISO9796
             "389629B307B396FB2BCE1379DD950A5D21B052169FB8789E3A5483FDBE85B5B9B1AC92C50FD8D38F829D5565024506D69FC0A3DAF99BE379F62BE7BAC14C64DA100301CE96A9202151F1F227CB9AC492573BDFED0209CA6DCB19099B907E8C54FFF8A6C7919F892242A720E6A9113D5C9DDADF2E6FA0903CD35A88B48ACC4E62",
             // ALG_RSA_SHA_PKCS1
@@ -63,7 +69,8 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         publicKey.setModulus(modulus, (short) 0, (short) modulus.length);
         publicKey.setExponent(exponent, (short) 0, (short) exponent.length);
 
-        RSAPublicKey publicKey2048 = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_2048, false);
+        RSAPublicKey publicKey2048 = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC,
+                KeyBuilder.LENGTH_RSA_2048, false);
         byte[] modulus2048 = Hex.decode(RSA_2048_MODULUS);
         publicKey2048.setModulus(modulus2048, (short) 0, (short) modulus2048.length);
         publicKey2048.setExponent(exponent, (short) 0, (short) exponent.length);
@@ -88,49 +95,52 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
     @Test
     public void testSelfSignVerifyRSASHA1() {
         System.out.println("self test sign/verify rsa SHA1");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_PKCS1);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_PKCS1, null);
     }
 
     @Test
     public void testSelfSignVerifyRSASHA224() {
         System.out.println("self test sign/verify rsa SHA-224");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_224_PKCS1);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_224_PKCS1, null);
     }
 
     @Test
     public void testSelfSignVerifyRSASHA256() {
         System.out.println("self test sign/verify rsa SHA-256");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1, null);
     }
 
     @Test
     public void testSelfSignVerifyRSASHA384() {
         System.out.println("self test sign/verify rsa SHA-384");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_384_PKCS1);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_384_PKCS1, null);
     }
 
     @Test
     public void testSelfSignVerifyRSASHA512() {
         System.out.println("self test sign/verify rsa SHA-512");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_512_PKCS1);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_512_PKCS1, null);
     }
 
     @Test
     public void testSelfPrecompSignVerifyRSASHA1() {
         System.out.println("self test precomputed sign/verify rsa SHA1");
-        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_PKCS1, MessageDigest.ALG_SHA);
+        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_PKCS1,
+                MessageDigest.ALG_SHA);
     }
 
     @Test
     public void testSelfPrecompSignVerifyRSASHA256() {
         System.out.println("self test precomputed sign/verify rsa SHA-256");
-        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1, MessageDigest.ALG_SHA_256);
+        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1,
+                MessageDigest.ALG_SHA_256);
     }
 
     @Test
     public void testSelfPrecompSignVerifyRSASHA256_PSS() {
         System.out.println("self test precomputed sign/verify rsa SHA-256 PSS");
-        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1_PSS, MessageDigest.ALG_SHA_256);
+        testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1_PSS,
+                MessageDigest.ALG_SHA_256);
     }
 
     /**
@@ -140,68 +150,79 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
     public void testSelfSignVerifyECDSASHA1() {
         System.out.println("self test sign/verify ecdsa SHA1");
         // ecf2m keys
-        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA);
+        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA, null);
         // ecfp keys
-        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA);
+        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA, null);
     }
 
     @Test
     public void testSelfSignVerifyECDSASHA224() {
         System.out.println("self test sign/verify ecdsa SHA-224");
         // ecf2m keys
-        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_224);
+        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_224, null);
         // ecfp keys
-        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_224);
+        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_224, null);
     }
 
     @Test
     public void testSelfSignVerifyECDSASHA256() {
         System.out.println("self test sign/verify ecdsa SHA-256");
         // ecf2m keys
-        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_256);
+        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_256, null);
         // ecfp keys
-        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_256);
+        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_256, null);
     }
 
     @Test
     public void testSelfSignVerifyECDSASHA384() {
         System.out.println("self test sign/verify ecdsa SHA-384");
         // ecf2m keys
-        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_384);
+        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_384, null);
         // ecfp keys
-        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_384);
+        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_384, null);
     }
 
     @Test
     public void testSelfSignVerifyECDSASHA512() {
         System.out.println("self test sign/verify ecdsa SHA-512");
         // ecf2m keys
-        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_512);
+        testSelfSignVerify(KeyPair.ALG_EC_F2M, KeyBuilder.LENGTH_EC_F2M_113, Signature.ALG_ECDSA_SHA_512, null);
         // ecfp keys
-        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_512);
+        testSelfSignVerify(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_112, Signature.ALG_ECDSA_SHA_512, null);
+    }
+
+    @Test
+    public void testSelfSignVerifyECDSA_Brainpool_SHA2() {
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 160, Signature.ALG_ECDSA_SHA_256, "brainpoolP160r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 192, Signature.ALG_ECDSA_SHA_256, "brainpoolP192r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 224, Signature.ALG_ECDSA_SHA_256, "brainpoolP224r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 256, Signature.ALG_ECDSA_SHA_256, "brainpoolP256r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 320, Signature.ALG_ECDSA_SHA_384, "brainpoolP320r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 384, Signature.ALG_ECDSA_SHA_384, "brainpoolP384r1");
+        testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 512, Signature.ALG_ECDSA_SHA_512, "brainpoolP512r1");
     }
 
     @Test
     public void testSelfSignVerifyDSA_SHA() {
         System.out.println("self test sign/verify DSA SHA");
 
-        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_512, Signature.ALG_DSA_SHA);
-        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_768, Signature.ALG_DSA_SHA);
-        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_1024, Signature.ALG_DSA_SHA);
+        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_512, Signature.ALG_DSA_SHA, null);
+        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_768, Signature.ALG_DSA_SHA, null);
+        testSelfSignVerify(KeyPair.ALG_DSA, KeyBuilder.LENGTH_DSA_1024, Signature.ALG_DSA_SHA, null);
     }
 
     @Test
     public void testSelfSignVerifyRSA_MD5_PKCS1_PSS() {
         System.out.println("self test sign/verify RSA MD5 PKCS1 PSS");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, Signature.ALG_RSA_MD5_PKCS1_PSS);
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, Signature.ALG_RSA_MD5_PKCS1_PSS);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, Signature.ALG_RSA_MD5_PKCS1_PSS, null);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, Signature.ALG_RSA_MD5_PKCS1_PSS, null);
     }
 
     @Test
     public void testSelfSignVerifyRSA_RIPEMD160_PKCS1_PSS() {
         System.out.println("self test sign/verify RSA RIPEMD160 PKCS1 PSS");
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS);
-        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS, null);
+        testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS, null);
     }
 
     /**
@@ -212,17 +233,29 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
      * @param signAlg - signature algorithm
      */
     @SuppressWarnings("deprecation") // random
-    private void testSelfSignVerify(byte keyAlg, short keySize, byte signAlg) {
+    private void testSelfSignVerify(byte keyAlg, short keySize, byte signAlg, String initParams) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);
-        kp.genKeyPair();
         PrivateKey privateKey = kp.getPrivate();
         PublicKey publicKey = kp.getPublic();
+
+        // brainpools need to be initialized separately
+        if (initParams != null && initParams.startsWith("brainpool")) {
+            X9ECParameters x9params = TeleTrusTNamedCurves.getByName(initParams);
+            ECDomainParameters params = new ECDomainParameters(
+                    x9params.getCurve(),
+                    x9params.getG(), // G
+                    x9params.getN(), x9params.getH(), x9params.getSeed());
+            ((ECKeyImpl) publicKey).setDomainParameters(params);
+            ((ECKeyImpl) privateKey).setDomainParameters(params);
+        }
+        kp.genKeyPair();
+
         // init engine
         Signature signEngine = Signature.getInstance(signAlg, false);
         signEngine.init(privateKey, Signature.MODE_SIGN);
-        // sign length + extra space
-        byte[] signature = new byte[128 + 10];
+        // ASN.1 DER-encoded signature length + extra space
+        byte[] signature = new byte[140 + 10];
         byte[] msg = new byte[65];
         RandomData rnd = RandomData.getInstance(RandomData.ALG_PSEUDO_RANDOM);
         rnd.generateData(msg, (short) 0, (short) msg.length);
@@ -258,18 +291,19 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         byte[] msg = new byte[65];
         RandomData rnd = RandomData.getInstance(RandomData.ALG_PSEUDO_RANDOM);
         rnd.generateData(msg, (short) 0, (short) msg.length);
-        //precompute digest for msg
+        // precompute digest for msg
         MessageDigestImpl digestEngine = new MessageDigestImpl(digestAlgo);
         byte[] msgDigest = new byte[digestEngine.getLength()];
         digestEngine.doFinal(msg, (short) 0, (short) msg.length, msgDigest, (short) 0);
-        //sign orig message and verify using verifyPreComputedHash
+        // sign orig message and verify using verifyPreComputedHash
         short signLen = signEngine.sign(msg, (short) 0, (short) msg.length, signature, (short) 10);
         // issue https://code.google.com/p/jcardsim/issues/detail?id=14
         assertTrue(signLen <= signEngine.getLength());
         Signature verifyPrecompEngine = Signature.getInstance(signAlg, false);
         testEnginePrecompVerify(verifyPrecompEngine, publicKey, msgDigest, signature, (short) 10, signLen);
-        //signPreComputedHash and verify using verify method
-        short signPrecompLen = signPrecompEngine.signPreComputedHash(msgDigest, (short) 0, (short) msgDigest.length, signature, (short) 10);
+        // signPreComputedHash and verify using verify method
+        short signPrecompLen = signPrecompEngine.signPreComputedHash(msgDigest, (short) 0, (short) msgDigest.length,
+                signature, (short) 10);
         assertTrue(signPrecompLen <= signPrecompEngine.getLength());
         Signature verifyEngine = Signature.getInstance(signAlg, false);
         testEngineVerify(verifyEngine, publicKey, msg, signature, (short) 10, signPrecompLen);
@@ -286,7 +320,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
      * @param etalonSign etalon signature bytes
      */
     private void testEngineVerify(Signature engine, PublicKey publicKey,
-                                  byte[] etalonMsg, byte[] etalonSign, short etalonSignOffset) {
+            byte[] etalonMsg, byte[] etalonSign, short etalonSignOffset) {
         testEngineVerify(engine, publicKey, etalonMsg, etalonSign, etalonSignOffset, (short) etalonSign.length);
     }
 
@@ -301,9 +335,10 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
      * @param etalonSign etalon signature bytes
      */
     private void testEngineVerify(Signature engine, PublicKey publicKey,
-                                  byte[] etalonMsg, byte[] etalonSign, short etalonSignOffset, short etalonSignLength) {
+            byte[] etalonMsg, byte[] etalonSign, short etalonSignOffset, short etalonSignLength) {
         engine.init(publicKey, Signature.MODE_VERIFY);
-        boolean result = engine.verify(etalonMsg, (short) 0, (short) etalonMsg.length, etalonSign, etalonSignOffset, (short) (etalonSignLength != 0 ? etalonSignLength : etalonSign.length));
+        boolean result = engine.verify(etalonMsg, (short) 0, (short) etalonMsg.length, etalonSign, etalonSignOffset,
+                (short) (etalonSignLength != 0 ? etalonSignLength : etalonSign.length));
         assertEquals(true, result);
     }
 
@@ -317,7 +352,8 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
      * @param msgDigest  precomputed hash value
      * @param etalonSign etalon signature bytes
      */
-    private void testEnginePrecompVerify(Signature engine, PublicKey publicKey, byte[] msgDigest, byte[] etalonSign, short etalonSignOffset, short etalonSignLength) {
+    private void testEnginePrecompVerify(Signature engine, PublicKey publicKey, byte[] msgDigest, byte[] etalonSign,
+            short etalonSignOffset, short etalonSignLength) {
         engine.init(publicKey, Signature.MODE_VERIFY);
         boolean result = engine.verifyPreComputedHash(msgDigest, (short) 0, (short) msgDigest.length,
                 etalonSign, etalonSignOffset, (short) (etalonSignLength != 0 ? etalonSignLength : etalonSign.length));
