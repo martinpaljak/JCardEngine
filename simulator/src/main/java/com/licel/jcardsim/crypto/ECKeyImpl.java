@@ -68,7 +68,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
         r = new ByteContainer(memoryType);
         fp = new ByteContainer(memoryType);
 
-        ECDomainParameters defaults = getDefaultsDomainParameters(type, size);
+        ECDomainParameters defaults = getOptionalDomainParameters(type, size);
         if (defaults != null) {
             setDomainParameters(defaults);
         }
@@ -247,16 +247,24 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
     }
 
     /**
-     * Get defaults
+     * Get default
      * <code>ECDomainParameters</code> for EC curve
      * {@link http://www.secg.org/collateral/sec2_final.pdf}
      *
      * @param keyType KeyBuilder.TYPE_*
      * @param keySize key size in bits, e.g. 256, 384 or 521 for Nist
-     * @return parameters for use with BouncyCastle API
+     * @return parameters for use with BouncyCastle API, or null
      * @see ECDomainParameters
      */
     static ECDomainParameters getDefaultsDomainParameters(byte keyType, short keySize) {
+        ECDomainParameters defaults = getOptionalDomainParameters(keyType, keySize);
+        if (defaults == null) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
+        return defaults;
+    }
+
+    static ECDomainParameters getOptionalDomainParameters(byte keyType, short keySize) {
         String curveName = "";
         switch (keySize) {
             case 113:
