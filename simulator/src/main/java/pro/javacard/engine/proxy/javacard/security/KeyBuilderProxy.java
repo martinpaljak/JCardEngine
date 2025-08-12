@@ -158,6 +158,12 @@ public class KeyBuilderProxy {
             case KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS:
                 key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, keyLength, keyMemoryType);
                 break;
+            case KeyBuilder.ALG_TYPE_EC_FP_PUBLIC:
+                key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, keyLength, keyMemoryType);
+                break;
+            case KeyBuilder.ALG_TYPE_EC_FP_PRIVATE:
+                key = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, keyLength, keyMemoryType);
+                break;
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
