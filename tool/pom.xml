@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.github.martinpaljak</groupId>
-        <version>25.08.05-SNAPSHOT</version>
+        <version>25.09.20-SNAPSHOT</version>
         <artifactId>jcardengine-package</artifactId>
     </parent>
     <artifactId>jcard-tool</artifactId>
@@ -39,7 +39,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>capfile</artifactId>
-            <version>24.11.19</version>
+            <version>25.09.20</version>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -51,7 +51,7 @@
         <dependency>
             <groupId>org.jline</groupId>
             <artifactId>jline</artifactId>
-            <version>3.30.4</version>
+            <version>3.30.6</version>
         </dependency>
     </dependencies>
 
@@ -61,7 +61,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.1</version>
                 <configuration>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <finalName>jcard</finalName>

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>25.08.05-SNAPSHOT</version>
+        <version>25.09.20-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
@@ -38,13 +38,13 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.81</version>
+            <version>1.82</version>
         </dependency>
         <!-- Instance proxy for Applets -->
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.17.6</version>
+            <version>1.17.7</version>
         </dependency>
         <!-- ASM for bytecode processing -->
         <dependency>

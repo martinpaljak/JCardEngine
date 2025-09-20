@@ -786,6 +786,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     @Override
     public EngineSession connectFor(Duration timeout, String protocol) {
+        log.info("Connecting for {} with {}", timeout, protocol);
         return new SimulatorSession(this, protocol, timeout);
     }
 
