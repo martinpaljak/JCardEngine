@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.JavaCardEngineException;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
 
 import java.lang.reflect.Field;
@@ -269,7 +270,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                     ((AppletEvent) applet).uninstall();
                 } catch (Exception e) {
                     // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
-                    log_exception(e, "Applet.uninstall() failed");
+                    throw new JavaCardEngineException("uninstall() failed", e);
                 }
             }
 
@@ -704,15 +705,14 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                     ISOException isoex = (ISOException) e.getCause();
                     log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
                 }
-                throw new SystemException(SystemException.ILLEGAL_AID);
+                throw new JavaCardEngineException("Exception in install()", e);
             } catch (Exception e) {
                 log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
                 throw new SystemException(SystemException.ILLEGAL_AID);
-            } finally {
-                if (options.get() != null) {
-                    log.error("install() did not call register()");
-                    SystemException.throwIt(SystemException.ILLEGAL_AID);
-                }
+            }
+            if (options.get() != null) {
+                log.error("install() did not call register()");
+                throw new JavaCardEngineException("install() did not call register()");
             }
             return appletAID;
         } finally {

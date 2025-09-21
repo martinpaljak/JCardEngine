@@ -23,6 +23,7 @@ import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.JavaCardEngineException;
 
 import javax.smartcardio.ResponseAPDU;
 
@@ -234,8 +235,9 @@ public class SimulatorTest {
     public void testInstallAndRegisterMisbehaves() {
         byte[] select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes();
         JavaCardEngine sim = JavaCardEngine.create();
+        // Not installed yet
         assertThrows(IllegalArgumentException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
-        assertThrows(SystemException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
+        assertThrows(JavaCardEngineException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
         sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
         try (EngineSession session = sim.connect()) {
             byte[] result = session.transmitCommand(select);
@@ -257,6 +259,6 @@ public class SimulatorTest {
             result = session.transmitCommand(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256).getBytes());
             assertArrayEquals(Hex.decode("9001"), result);
         }
-        sim.deleteApplet(TEST_APPLET_AID);
+        assertThrows(JavaCardEngineException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
     }
 }
