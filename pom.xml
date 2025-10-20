@@ -101,8 +101,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[11,)</version>
-                                    <message>Project requires a LTS JDK from v11+</message>
+                                    <version>[17,)</version>
+                                    <message>Project requires a LTS JDK from v17+</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.9.11,)</version>
@@ -133,13 +133,13 @@
         </plugins>
         <pluginManagement>
             <plugins>
-                <!-- Target JDK 11 -->
+                <!-- Target JDK 17 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.14.1</version>
                     <configuration>
-                        <release>11</release>
+                        <release>17</release>
                         <compilerArgs>
                             <arg>-Werror</arg>
                             <arg>-Xlint:deprecation</arg>
