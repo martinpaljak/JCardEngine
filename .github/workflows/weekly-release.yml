@@ -15,14 +15,14 @@ jobs:
     name: Weekly Release
     steps:
       - name: Checkout with submodules
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5
         with:
           ref: next
           submodules: true
           fetch-depth: 0 # To make git describe give the intended output
 
       - name: Setup java
-        uses: actions/setup-java@v4.7.0
+        uses: actions/setup-java@v5
         with:
           java-version: 11
           distribution: zulu
@@ -52,7 +52,7 @@ jobs:
         run: ./mvnw -B deploy
 
       - name: Release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.4.1
         with:
           prerelease: true
           tag_name: v${{ env.VERSION }}

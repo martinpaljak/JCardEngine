@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>25.09.20-SNAPSHOT</version>
+        <version>25.10.20-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
@@ -44,25 +44,25 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.17.7</version>
+            <version>1.17.8</version>
         </dependency>
         <!-- ASM for bytecode processing -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>9.8</version>
+            <version>9.9</version>
         </dependency>
-        <!-- Global Platform support FIXME: plaintext key should be in library -->
+        <!-- Global Platform support -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
-            <artifactId>gptool</artifactId>
-            <version>25.07.08-SNAPSHOT</version>
+            <artifactId>globalplatformpro</artifactId>
+            <version>25.10.20</version>
         </dependency>
         <!-- unit tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.13.3</version>
+            <version>6.0.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -79,7 +79,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
-                <version>3.1.4</version>
                 <executions>
                     <execution>
                         <id>javacard-api</id>
@@ -115,7 +114,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.1</version>
                 <executions>
                     <execution>
                         <id>javacard-api</id>
@@ -163,7 +161,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <id>cardApi</id>
@@ -187,7 +184,6 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.13</version>
                 <configuration>
                     <excludes>
                         <exclude>java/lang/**</exclude>
@@ -255,7 +251,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.3</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

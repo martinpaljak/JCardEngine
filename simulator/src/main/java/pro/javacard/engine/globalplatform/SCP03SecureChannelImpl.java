@@ -29,7 +29,7 @@ import pro.javacard.gp.GPCardKeys;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPSecureChannelVersion;
 import pro.javacard.gp.GPUtils;
-import pro.javacard.gptool.keys.PlaintextKeys;
+import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

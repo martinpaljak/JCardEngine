@@ -132,6 +132,7 @@ public class JavaCardApiProcessor {
             }
         }
 
+        @SuppressWarnings("deprecation")
         ClassRemapper ra = new ClassRemapper(cnProxyRemapped, new SimpleRemapper(mapping));
         cnProxy.accept(ra);
 

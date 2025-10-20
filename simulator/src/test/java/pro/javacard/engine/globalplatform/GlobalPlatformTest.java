@@ -25,7 +25,7 @@ import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPSession;
-import pro.javacard.gptool.keys.PlaintextKeys;
+import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
