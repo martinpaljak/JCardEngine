@@ -35,7 +35,7 @@ jobs:
           ./mvnw versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false
 
       - name: Run Maven
-        run: ./mvnw -T1C -B -U verify
+        run: ./mvnw initialize && ./mvnw -T1C -B -U verify
 
       - name: Get SHA-256 of JAR
         run: echo "JARSUM=$(shasum -a 256 --tag ./tool/target/jcard.jar)" >> "$GITHUB_ENV"
