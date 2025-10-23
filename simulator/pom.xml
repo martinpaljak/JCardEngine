@@ -57,6 +57,12 @@
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
             <version>25.10.20</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- unit tests -->
         <dependency>
