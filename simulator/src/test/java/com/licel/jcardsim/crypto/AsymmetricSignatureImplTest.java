@@ -17,12 +17,9 @@ package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.*;
-
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
-import org.bouncycastle.crypto.params.ECPublicKeyParameters;
-import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 

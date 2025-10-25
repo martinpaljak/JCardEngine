@@ -18,6 +18,7 @@ package pro.javacard.engine.proxy.javacard.framework;
 import javacard.framework.AID;
 import javacard.framework.SystemException;
 import javacard.framework.Util;
+import org.bouncycastle.util.encoders.Hex;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -210,6 +211,11 @@ public class AIDProxy {
     @Override
     public int hashCode() {
         return Objects.hash(aid);
+    }
+
+    @Override
+    public String toString() {
+        return Hex.toHexString(aid);
     }
 }
 

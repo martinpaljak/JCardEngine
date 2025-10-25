@@ -38,6 +38,8 @@ public interface JavaCardEngine {
 
     void deleteApplet(AID aid);
 
+    void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass);
+
     Applet getApplet(AID aid);
 
     void reset();

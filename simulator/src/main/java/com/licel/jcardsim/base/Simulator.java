@@ -43,6 +43,10 @@ import java.util.concurrent.Semaphore;
  * manipulation MUST happen via these interfaces. Each Simulator is independent (like a single secure element)
  */
 public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime {
+    static {
+        System.setProperty("org.bouncycastle.rsa.no_lenstra_check", "true");
+    }
+
     private static final Logger log = LoggerFactory.getLogger(Simulator.class);
 
     // default ATR - dummy minimal
@@ -237,6 +241,34 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
     }
 
+
+    public void internalDeleteApplet(AID aid) {
+        log.info("Deleting applet {}", AIDUtil.toString(aid));
+        ApplicationInstance app = lookupApplet(aid);
+
+        if (app == null) {
+            throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
+        }
+
+        Applet applet = app.getApplet();
+
+        // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
+        // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
+        if (applet instanceof AppletEvent) {
+            try {
+                // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
+                // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
+                ((AppletEvent) applet).uninstall();
+            } catch (Exception e) {
+                // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
+                applets.remove(aid);
+                // We delete it, but still throw, so that JavaCardEngine.deleteApplet() could be used for testing
+                throw new JavaCardEngineException("uninstall() failed", e);
+            }
+        }
+        applets.remove(aid);
+    }
+
     /**
      * Delete applet
      *
@@ -252,29 +284,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             if (currentAID != null) {
                 deselect(lookupApplet(currentAID));
             }
-            log.info("Deleting applet {}", AIDUtil.toString(aid));
-            ApplicationInstance app = lookupApplet(aid);
-
-            if (app == null) {
-                throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
-            }
-
-            Applet applet = app.getApplet();
-
-            // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
-            // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
-            if (applet instanceof AppletEvent) {
-                try {
-                    // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
-                    // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
-                    ((AppletEvent) applet).uninstall();
-                } catch (Exception e) {
-                    // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
-                    throw new JavaCardEngineException("uninstall() failed", e);
-                }
-            }
-
-            applets.remove(aid);
+            internalDeleteApplet(aid);
             currentAID = null;
         } finally {
             _releaseCurrent();
@@ -648,6 +658,79 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
     }
 
+    @Override
+    public void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
+        _makeCurrent();
+        try {
+            Simulator.current().getGlobalPlatform().loadClass(packageAid, appletAid, appletClass);
+        } finally {
+            _releaseCurrent();
+        }
+    }
+
+    @Override
+    public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
+        final Class<?> klass;
+
+        if (exposed) {
+            klass = appletClass;
+        } else {
+            // Add explicit isolation for loaded class.
+            classLoader.isolate(appletClass.getPackageName());
+            try {
+                klass = classLoader.loadClass(appletClass.getName());
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+            }
+        }
+
+        // Resolve the install() method
+        Method installMethod;
+        try {
+            installMethod = klass.getMethod("install", byte[].class, short.class, byte.class);
+        } catch (NoSuchMethodException e) {
+            // NOTE: there is empty implementation in framework.Applet
+            throw new IllegalArgumentException("Class does not provide install method");
+        }
+
+        // Check for magic field
+        // TODO: same feature flag as for bytecode change
+        try {
+            Field magic = klass.getField("jcardengine");
+            magic.setBoolean(null, true);
+        } catch (NoSuchFieldException e) {
+            // Nothing.
+        } catch (IllegalAccessException e) {
+            log.warn("Could not set magic field: {}", e.getMessage());
+        }
+
+        // Construct _actual_ install parameters
+        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
+
+        // Set the register() callback options
+        options.set(new RegisterCallbackOptions(appletAID, exposed));
+
+        // Call the install() method.
+        try {
+            installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
+        } catch (InvocationTargetException e) {
+            log.error("Exception in {} install() ", AIDUtil.toString(appletAID), e);
+            if (e.getCause() instanceof ISOException) {
+                ISOException isoex = (ISOException) e.getCause();
+                log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
+            }
+            throw new JavaCardEngineException("Exception in install()", e);
+        } catch (Exception e) {
+            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
+            throw new SystemException(SystemException.ILLEGAL_AID);
+        }
+        if (options.get() != null) {
+            log.error("install() did not call register()");
+            throw new JavaCardEngineException("install() did not call register()");
+        }
+        return appletAID;
+    }
+
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
         _makeCurrent();
         try {
@@ -655,66 +738,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             if (currentAID != null) {
                 deselect(lookupApplet(currentAID));
             }
-
-            final Class<?> klass;
-
-            if (exposed) {
-                klass = appletClass;
-            } else {
-                // Add explicit isolation for loaded class.
-                classLoader.isolate(appletClass.getPackageName());
-                try {
-                    klass = classLoader.loadClass(appletClass.getName());
-                } catch (ClassNotFoundException e) {
-                    throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
-                }
-            }
-
-            // Resolve the install() method
-            Method installMethod;
-            try {
-                installMethod = klass.getMethod("install", byte[].class, short.class, byte.class);
-            } catch (NoSuchMethodException e) {
-                // NOTE: there is empty implementation in framework.Applet
-                throw new IllegalArgumentException("Class does not provide install method");
-            }
-
-            // Check for magic field
-            // TODO: same feature flag as for bytecode change
-            try {
-                Field magic = klass.getField("jcardengine");
-                magic.setBoolean(null, true);
-            } catch (NoSuchFieldException e) {
-                // Nothing.
-            } catch (IllegalAccessException e) {
-                log.warn("Could not set magic field: {}", e.getMessage());
-            }
-
-            // Construct _actual_ install parameters
-            byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
-
-            // Set the register() callback options
-            options.set(new RegisterCallbackOptions(appletAID, exposed));
-
-            // Call the install() method.
-            try {
-                installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
-            } catch (InvocationTargetException e) {
-                log.error("Exception in {} install() ", AIDUtil.toString(appletAID), e);
-                if (e.getCause() instanceof ISOException) {
-                    ISOException isoex = (ISOException) e.getCause();
-                    log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
-                }
-                throw new JavaCardEngineException("Exception in install()", e);
-            } catch (Exception e) {
-                log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
-                throw new SystemException(SystemException.ILLEGAL_AID);
-            }
-            if (options.get() != null) {
-                log.error("install() did not call register()");
-                throw new JavaCardEngineException("install() did not call register()");
-            }
-            return appletAID;
+            return internalInstallApplet(appletAID, appletClass, parameters, exposed);
         } finally {
             memstat();
             _releaseCurrent();

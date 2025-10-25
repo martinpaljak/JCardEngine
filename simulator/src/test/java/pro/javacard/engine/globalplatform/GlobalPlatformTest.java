@@ -29,6 +29,7 @@ import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +39,6 @@ public class GlobalPlatformTest {
     @Test
     public void testSecureChannel() throws Exception {
         JavaCardEngine sim = JavaCardEngine.create();
-
         AID appletAID = AIDUtil.create("010203040506070809");
         sim.installApplet(appletAID, GlobalPlatformTestApplet.class); // coverage!
 
@@ -50,7 +50,7 @@ public class GlobalPlatformTest {
 
             GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
             gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
-            byte[] cgram = pk.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), null);
+            byte[] cgram = pk.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), new byte[]{0x00, 0x00});
             ResponseAPDU set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
             assertEquals(0x9000, set.getSW());
             ResponseAPDU get = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
@@ -63,6 +63,45 @@ public class GlobalPlatformTest {
         }
     }
 
+    @Test
+    public void gpInstallTest() throws Exception {
+        JavaCardEngine sim = JavaCardEngine.create();
+        sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
+
+        AID appletAID = AIDUtil.create("010203040506070809");
+        pro.javacard.capfile.AID jcaid = new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID));
+        sim.loadApplet(appletAID, appletAID, GlobalPlatformTestApplet.class);
+
+        PlaintextKeys pk = PlaintextKeys.defaultKey();
+        try (EngineSession instance = sim.connect()) {
+            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            ResponseAPDU get_nok = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
+            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
+
+            //GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
+            GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(GlobalPlatformApplet.OPEN_AID)));
+            gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
+            gp.installAndMakeSelectable(jcaid, jcaid, jcaid, Set.of(), new byte[4]);
+
+            // Now try talking to that applet
+            // Note: we need a new key object, as the keys get diversified by channel opening
+            PlaintextKeys pk2 = PlaintextKeys.defaultKey();
+
+            gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
+            gp.openSecureChannel(pk2, null, null, EnumSet.of(GPSession.APDUMode.ENC));
+            byte[] cgram = pk2.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), new byte[]{0x00, 0x01});
+            ResponseAPDU set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
+            assertEquals(0x9000, set.getSW());
+            ResponseAPDU get = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
+            assertEquals(0x9000, get.getSW());
+            assertArrayEquals("Hello, World!".getBytes(StandardCharsets.UTF_8), get.getData());
+
+            PlaintextKeys pk3 = PlaintextKeys.defaultKey();
+            gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(GlobalPlatformApplet.OPEN_AID)));
+            gp.openSecureChannel(pk3, null, null, EnumSet.of(GPSession.APDUMode.ENC));
+            gp.deleteAID(jcaid, false);
+        }
+    }
     public static class SimulatorBIBO implements BIBO {
         final EngineSession sim;
 

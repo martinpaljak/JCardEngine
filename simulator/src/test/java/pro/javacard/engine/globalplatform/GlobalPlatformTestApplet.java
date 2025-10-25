@@ -25,7 +25,7 @@ public final class GlobalPlatformTestApplet extends Applet {
 
     byte[] data = new byte[128];
 
-    public static void install(byte bArray[], short bOffset, byte bLength) throws ISOException {
+    public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
         short offset = bOffset;
         offset += (short) (bArray[offset] + 1); // instance AID
         offset += (short) (bArray[offset] + 1); // privileges - expect none

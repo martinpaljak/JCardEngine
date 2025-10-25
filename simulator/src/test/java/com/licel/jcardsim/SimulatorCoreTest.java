@@ -7,6 +7,9 @@ import org.junit.jupiter.api.TestInstance;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class SimulatorCoreTest {
+    static {
+        System.setProperty("org.bouncycastle.rsa.no_lenstra_check", "true");
+    }
     // These tests don't create an explicit Simulator instance
     // but the core requires a Simulator.current() instance to exist
     // for transient memory (mostly), so set one up.
