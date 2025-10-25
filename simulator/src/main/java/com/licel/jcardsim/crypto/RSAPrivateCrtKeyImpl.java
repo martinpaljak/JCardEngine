@@ -133,10 +133,15 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         // modulus = p * q;
-        // FIXME: prior to BC 1.77 the exponent based Lenstra's check was not done.
+        // NOTE: prior to BC 1.77 the exponent based Lenstra's check was not done.
         // See https://github.com/bcgit/bc-java/issues/2104
-        BigInteger exp = exponent.isInitialized() ? exponent.getBigInteger() : reconstructPublicExponent(p.getBigInteger(), q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
+        // FIXME: revert back to old code below, with property set, once BC 1.83 is out
+        // System.setProperty("org.bouncycastle.rsa.no_lenstra_check", "true");
+        // return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), null,
+        //        null, p.getBigInteger(), q.getBigInteger(),
+        //        dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
 
+        BigInteger exp = exponent.isInitialized() ? exponent.getBigInteger() : reconstructPublicExponent(p.getBigInteger(), q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
         return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exp,
                 null, p.getBigInteger(), q.getBigInteger(),
                 dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
