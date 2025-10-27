@@ -208,12 +208,10 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 bytes[offset + ISO7816.OFFSET_LC] = (byte) payload.length; // TODO: extlen
                 // Length of full decrypted APDU (no Le)
                 return (short) (offset + ISO7816.OFFSET_CDATA + payload.length);
-            } else {
-                log.warn("Don't know how to process state {} with {}", String.format("%02x", state), Hex.toHexString(Arrays.copyOfRange(bytes, offset, offset + ISO7816.OFFSET_LC)));
             }
-            log.warn("No unwrap implemented for SCP02SecureChannelImpl");
-            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            return 0;
+            // Was just mac
+            bytes[offset + ISO7816.OFFSET_LC] -= 8;
+            return (short) (offset + ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
         } catch (GeneralSecurityException e) {
             log.error("Decryption failed", e);
             resetSecurity();
