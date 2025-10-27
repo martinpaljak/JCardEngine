@@ -467,11 +467,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     protected AID findAppletForSelectApdu(byte[] selectApdu, int apduCase) {
         if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
-            // on a regular Smartcard we would select the CardManager applet
-            // in this case we just select the first applet
-            // XXX: does not belong here
-            currentAID = null;
-            return null;
+            if (applets.containsKey(GlobalPlatformApplet.OPEN_AID)) {
+                log.info("Selecting OPEN");
+                return GlobalPlatformApplet.OPEN_AID;
+            } else {
+                return null;
+            }
         }
 
         for (AID aid : applets.keySet()) {

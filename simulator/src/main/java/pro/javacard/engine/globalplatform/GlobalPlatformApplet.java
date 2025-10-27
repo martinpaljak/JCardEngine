@@ -17,6 +17,8 @@ package pro.javacard.engine.globalplatform;
 
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
+import com.payneteasy.tlv.BerTag;
+import com.payneteasy.tlv.BerTlvParser;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
 import org.globalplatform.GPSystem;
@@ -86,6 +88,12 @@ public class GlobalPlatformApplet extends Applet {
                 if (appletClass == null) {
                     log.warn("Applet not found");
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                }
+                // Extract application parameters from parameters
+                if (parameters.length > 0) {
+                    var tags = new BerTlvParser().parse(parameters);
+                    var c9 = tags.find(new BerTag(0xC9));
+                    parameters = c9.getBytesValue();
                 }
                 Simulator.current().internalInstallApplet(instanceaid, appletClass, privileges, parameters, true);
                 buffer[0] = 0x00;

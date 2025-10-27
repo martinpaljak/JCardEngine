@@ -78,7 +78,7 @@ public class GlobalPlatformTest {
             assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
 
             //GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
-            GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(GlobalPlatformApplet.OPEN_AID)));
+            GPSession gp = GPSession.discover(bibo);
             gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
             gp.installAndMakeSelectable(jcaid, jcaid, jcaid, Set.of(), new byte[4]);
 
