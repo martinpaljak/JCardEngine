@@ -64,9 +64,8 @@ public class GlobalPlatformTest {
     }
 
     @Test
-    public void gpInstallTest() throws Exception {
+    public void globalPlatformInstallTest() throws Exception {
         JavaCardEngine sim = JavaCardEngine.create();
-        sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
 
         AID appletAID = AIDUtil.create("010203040506070809");
         pro.javacard.capfile.AID jcaid = new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID));

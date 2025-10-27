@@ -27,6 +27,7 @@ import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
+import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -110,7 +111,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     // When applet code calls back for the internal facade of the simulator,
-    // return _this_ instance. This usually happens via JCSystem.* calls.
+    // return _this_ instance. This usually happens via JCSystem.*/GPSystem.* calls.
     // and is the mirror of current()
     // These are public so that tests that do not follow the convention can run with
     // minimal modification. TODO: make not public
@@ -122,6 +123,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         currentSimulator.remove();
     }
 
+    @Override
     public CurrentAPDU getCurrentAPDU() {
         return currentAPDU;
     }
@@ -669,7 +671,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     @Override
-    public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
+    public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed) {
         final Class<?> klass;
 
         if (exposed) {
@@ -705,7 +707,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
 
         // Construct _actual_ install parameters
-        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), parameters);
+        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
 
         // Set the register() callback options
         options.set(new RegisterCallbackOptions(appletAID, exposed));
@@ -738,7 +740,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             if (currentAID != null) {
                 deselect(lookupApplet(currentAID));
             }
-            return internalInstallApplet(appletAID, appletClass, parameters, exposed);
+            return internalInstallApplet(appletAID, appletClass, null, parameters, exposed);
         } finally {
             memstat();
             _releaseCurrent();

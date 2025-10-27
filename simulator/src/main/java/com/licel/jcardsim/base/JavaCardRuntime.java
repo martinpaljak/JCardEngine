@@ -23,7 +23,7 @@ import pro.javacard.engine.globalplatform.GlobalPlatform;
 // The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
 
-    AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed);
+    AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed);
 
     void internalDeleteApplet(AID aid);
 

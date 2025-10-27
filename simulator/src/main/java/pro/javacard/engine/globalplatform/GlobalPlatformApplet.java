@@ -46,7 +46,7 @@ public class GlobalPlatformApplet extends Applet {
     }
 
     byte[] FCI = Hex.decode("6F108408A000000151000000A5049F6501FF");
-    public static AID OPEN_AID = AIDUtil.create("A000000151000000");
+    public static final AID OPEN_AID = AIDUtil.create("A000000151000000");
 
     @Override
     public void process(APDU apdu) throws ISOException {
@@ -79,6 +79,7 @@ public class GlobalPlatformApplet extends Applet {
                 var pkg = AIDUtil.create(cmd.get(0));
                 var app = AIDUtil.create(cmd.get(1));
                 var instanceaid = AIDUtil.create(cmd.get(2));
+                var privileges = cmd.get(3);
                 var parameters = cmd.get(4);
                 var appletClass = Simulator.current().getGlobalPlatform().locateApplet(pkg, app);
 
@@ -86,7 +87,7 @@ public class GlobalPlatformApplet extends Applet {
                     log.warn("Applet not found");
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 }
-                Simulator.current().internalInstallApplet(instanceaid, appletClass, parameters, true);
+                Simulator.current().internalInstallApplet(instanceaid, appletClass, privileges, parameters, true);
                 buffer[0] = 0x00;
                 apdu.setOutgoingAndSend((short) 0, (short) 1);
                 return;

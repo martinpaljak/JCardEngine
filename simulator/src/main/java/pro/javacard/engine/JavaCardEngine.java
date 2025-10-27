@@ -18,6 +18,7 @@ package pro.javacard.engine;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
+import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 
 import java.time.Duration;
 
@@ -59,6 +60,8 @@ public interface JavaCardEngine {
     JavaCardEngine withClassLoader(ClassLoader parent);
 
     static JavaCardEngine create() {
-        return new Simulator();
+        var r = new Simulator();
+        r.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
+        return r;
     }
 }
