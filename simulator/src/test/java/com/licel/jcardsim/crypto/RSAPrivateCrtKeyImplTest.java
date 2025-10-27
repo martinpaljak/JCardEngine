@@ -19,7 +19,8 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for <code>RSAPrivateCrtKeyImpl</code>
