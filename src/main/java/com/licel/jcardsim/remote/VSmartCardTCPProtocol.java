@@ -47,11 +47,6 @@ public class VSmartCardTCPProtocol {
 
     public void connect(String host, int port) throws IOException {
         socket = new Socket(host, port);
-
-        try {
-            TimeUnit.SECONDS.sleep(3);
-        } catch (InterruptedException ignore) {}
-
         dataInput   = socket.getInputStream();
         dataOutput  = socket.getOutputStream();
     }
