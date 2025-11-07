@@ -15,6 +15,7 @@
  */
 package com.licel.jcardsim.base;
 
+import com.licel.jcardsim.samples.GlobalArrayAccess;
 import com.licel.jcardsim.samples.GlobalArrayClientApplet;
 import com.licel.jcardsim.samples.GlobalArrayServerApplet;
 import com.licel.jcardsim.utils.AIDUtil;
@@ -80,7 +81,7 @@ public class GlobalArrayTest {
 
         instance._makeCurrent();
         // Get global array reference from server applet
-        GlobalArrayServerApplet serverApplet = (GlobalArrayServerApplet) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
+        GlobalArrayAccess serverApplet = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
         Object globalArray = serverApplet.getGlobalArrayRef();
         instance._releaseCurrent();
 

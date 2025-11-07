@@ -91,6 +91,8 @@ public class GlobalPlatformTest {
             byte[] cgram = pk2.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), new byte[]{0x00, 0x01});
             ResponseAPDU set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
             assertEquals(0x9000, set.getSW());
+            set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
+            assertEquals(0x9000, set.getSW());
             ResponseAPDU get = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
             assertEquals(0x9000, get.getSW());
             assertArrayEquals("Hello, World!".getBytes(StandardCharsets.UTF_8), get.getData());

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>25.10.21-SNAPSHOT</version>
+        <version>25.11.07-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
@@ -68,7 +68,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>6.0.0</version>
+            <version>6.0.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>

@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.github.martinpaljak</groupId>
-        <version>25.10.21-SNAPSHOT</version>
+        <version>25.11.07-SNAPSHOT</version>
         <artifactId>jcardengine-package</artifactId>
     </parent>
     <artifactId>jcard-tool</artifactId>

@@ -33,10 +33,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -91,10 +88,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Handles APDU state and IO
     private final CurrentAPDU currentAPDU;
 
-    // Current applet context AID - FIXME: not correct
+    // Current applet context AID
     protected AID currentAID;
-    // Previously selected applet context - FIXME: not correct
-    protected AID previousAID;
+
+    // Previously selected applet context stack
+    protected final Deque<AID> contextStack = new ArrayDeque<>();
+
     // If applet selection is ongoing - FIXME: refactor
     protected boolean selecting = false;
 
@@ -217,13 +216,11 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     /**
-     * FIXME: this is bogus
-     *
      * @return previous selected applet context AID or null
      */
     @Override
     public AID getPreviousContextAID() {
-        return previousAID;
+        return contextStack.peek();
     }
 
     /**
@@ -283,7 +280,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
         _makeCurrent(); // We call into applet.
         try {
-            if (currentAID != null) {
+            if (aid.equals(currentAID)) {
                 deselect(lookupApplet(currentAID));
             }
             internalDeleteApplet(aid);
@@ -534,7 +531,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         transactionDepth = 0;
         responseBufferSize = 0;
         currentAID = null;
-        previousAID = null;
+        contextStack.clear();
         transientMemory.clearOnReset();
         globalPlatform.reset();
         //lock.release();
@@ -635,11 +632,17 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public Shareable getSharedObject(AID serverAID, byte parameter) {
         log.info("Getting Shareable from {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
         Applet serverApplet = getApplet(serverAID);
-        if (serverApplet != null) {
-            return serverApplet.getShareableInterfaceObject(getAID(), parameter);
+        if (serverApplet == null) {
+            log.warn("Did not find server AID {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
+            return null;
         }
-        log.warn("Did not find server AID {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
-        return null;
+        var shareable = serverApplet.getShareableInterfaceObject(getAID(), parameter);
+        if (shareable == null) {
+            log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(), AIDUtil.toString(serverAID), System.identityHashCode(this));
+            return null;
+        }
+        // Wrap in context pusher
+        return new Firewall(serverAID, () -> currentAID, n -> currentAID = n, contextStack,  shareable).getShareable();
     }
 
     /**
