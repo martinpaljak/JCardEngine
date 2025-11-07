@@ -255,6 +255,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
         if (applet instanceof AppletEvent) {
             try {
+                currentAID = aid;
                 // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
                 // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
                 ((AppletEvent) applet).uninstall();
@@ -266,6 +267,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
         }
         applets.remove(aid);
+        currentAID = null;
     }
 
     /**

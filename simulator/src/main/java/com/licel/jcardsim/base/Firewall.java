@@ -17,10 +17,13 @@ package com.licel.jcardsim.base;
 
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
+import javacard.framework.CardException;
+import javacard.framework.CardRuntimeException;
 import javacard.framework.Shareable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Collections;
@@ -60,6 +63,7 @@ public class Firewall {
         while (!current.equals(Object.class)) {
             for (var iface : current.getInterfaces()) {
                 if (Shareable.class.isAssignableFrom(iface)) {
+                    log.debug("Adding {}", iface.getName());
                     Collections.addAll(interfaces, current.getInterfaces());
                 }
             }
@@ -75,6 +79,16 @@ public class Firewall {
         try {
             setter.accept(serverAID);
             return method.invoke(shareable, args);
+        } catch (InvocationTargetException e) {
+            var real = e.getTargetException();
+            if (real instanceof CardException ce) {
+                log.info("{} from shareable: {}", real.getClass().getSimpleName(), ce.getReason());
+            } else if (real instanceof CardRuntimeException cre) {
+                log.info("{} from shareable: {}", real.getClass().getSimpleName(), cre.getReason());
+            } else {
+                log.info("{} from shareable", real.getClass().getSimpleName());
+            }
+            throw real;
         } finally {
             setter.accept(stack.pop());
         }
