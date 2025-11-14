@@ -36,6 +36,7 @@ public class GlobalArrayClientApplet extends Applet {
 
     private AID serverAppletAID;
 
+    private byte[] dummy;
     /**
      * This method is called once during applet instantiation process.
      *
@@ -55,6 +56,7 @@ public class GlobalArrayClientApplet extends Applet {
         // Actual parameters
         byte aidLen = bArray[bOffset];
         serverAppletAID = new AID(bArray, (short) (bOffset + 1), aidLen);
+        dummy = new byte[13];
         register();
     }
 

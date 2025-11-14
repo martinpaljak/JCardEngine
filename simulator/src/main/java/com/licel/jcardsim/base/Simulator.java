@@ -35,6 +35,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Semaphore;
+import java.util.stream.Collectors;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -102,6 +103,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     // Number of allocated bytes
     int bytesAllocated;
+
+    // Set of package names for applets, to identify interesting code _before_ register is called.
+    Set<String> interesting = new HashSet<>();
 
     public Simulator() throws RuntimeException {
         this.transientMemory = new TransientMemory();
@@ -718,6 +722,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         // Set the register() callback options
         options.set(new RegisterCallbackOptions(appletAID, exposed));
 
+        interesting.add(klass.getPackageName());
         // Call the install() method.
         try {
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
@@ -731,6 +736,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         } catch (Exception e) {
             log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
             throw new SystemException(SystemException.ILLEGAL_AID);
+        } finally {
+            interesting.clear();
         }
         if (options.get() != null) {
             log.error("install() did not call register()");
@@ -789,6 +796,27 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public static byte[] allocate(int size) {
         Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
         current.bytesAllocated += size;
+        // Get list of applets and their packages
+        var interesting = current.applets
+            .values()
+            .stream()
+            .map(applicationInstance -> applicationInstance.getApplet().getClass().getPackageName())
+            .collect(Collectors.toSet());
+        var check = new HashSet<>(interesting);
+        check.addAll(current.interesting);
+        int i = 0;
+        for (var f : Thread.currentThread().getStackTrace()) {
+            //log.info("{} {} {} {}", f.getClassName(), f.getFileName(), f.getLineNumber(), f.getClassLoaderName());
+            var cn = f.getClassName();
+            if (check.stream().anyMatch(cn::startsWith)) {
+                log.info("Allocating {} in {} at {}:{}", size, f.getClassName(), f.getFileName(), f.getLineNumber());
+                break;
+            }
+            if (i++ > 15) {
+                break;
+            }
+        }
+
         log.trace("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
         return new byte[size];
     }
