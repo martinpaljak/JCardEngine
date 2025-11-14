@@ -15,15 +15,14 @@
  */
 package com.licel.jcardsim.crypto;
 
-import java.security.SecureRandom;
-
-import org.bouncycastle.crypto.KeyGenerationParameters;
-import org.bouncycastle.crypto.params.ECDomainParameters;
-
 import javacard.security.CryptoException;
 import javacard.security.ECKey;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
+import org.bouncycastle.crypto.KeyGenerationParameters;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+
+import java.security.SecureRandom;
 
 /**
  * Base class for

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.base;
+package pro.javacard.engine.core;
 
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.method.MethodDescription;
@@ -29,13 +29,18 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-// Utility class to provide similarly shaped instance for a class from a different classloader.
-// Used to access the isolated applet class via Applet superclass, including any known interfaces for "instanceof"
+/**
+ * Creates a ByteBuddy-based proxy that bridges class loader boundaries by wrapping an instance from one class loader
+ * with a proxy accessible from another. The proxy extends a shared abstract class and dynamically implements all
+ * interfaces visible to both class loaders, delegating all method calls to the original instance via reflection.
+ * <br>
+ * This is used by the engine itself.
+ */
 public class ReflectiveClassProxy {
     private static final Logger log = LoggerFactory.getLogger(ReflectiveClassProxy.class);
 
     // Assumes the abstract class is shared between classloaders
-    public static <T> T proxy(Object targetInstance, Class<T> abstractClass) throws Exception {
+    public static <T> T proxy(Object targetInstance, Class<T> abstractClass) throws ReflectiveOperationException {
         if (!abstractClass.isAssignableFrom(targetInstance.getClass())) {
             String msg = String.format("Target instance of type %s does not extend/implement %s", targetInstance.getClass().getName(), abstractClass.getName());
             throw new IllegalArgumentException(msg);
@@ -89,6 +94,7 @@ public class ReflectiveClassProxy {
                 .intercept(InvocationHandlerAdapter.of((proxy, method, args) -> {
                     try {
                         Method targetMethod = targetClass.getMethod(method.getName(), method.getParameterTypes());
+                        log.info("Invoking {} of {} in {}", method.getName(), targetClass.getName(), targetClass.getClassLoader().getName());
                         return targetMethod.invoke(targetInstance, args);
                     } catch (InvocationTargetException e) {
                         Throwable cause = e.getCause();

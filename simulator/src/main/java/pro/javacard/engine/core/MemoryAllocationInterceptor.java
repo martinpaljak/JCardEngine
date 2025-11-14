@@ -13,45 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.licel.jcardsim.base;
+package pro.javacard.engine.core;
 
-import org.objectweb.asm.*;
+import com.licel.jcardsim.base.Simulator;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // Utility class to intercept all "new byte[int]" calls and replace them with "Simulator.allocate(int)"
 // This also sets the magic "jcardengine" flag to true.
-public class NewByteArrayInterceptor extends ClassVisitor {
+public class MemoryAllocationInterceptor extends ClassVisitor {
+    private static final Logger log = LoggerFactory.getLogger(MemoryAllocationInterceptor.class);
 
-    // Custom ClassWriter that uses the correct ClassLoader
-    private static class CustomClassWriter extends ClassWriter {
-        private final ClassLoader classLoader;
-
-        public CustomClassWriter(ClassReader classReader, int flags, ClassLoader classLoader) {
-            super(classReader, flags);
-            this.classLoader = classLoader;
-        }
-
-        @Override
-        protected ClassLoader getClassLoader() {
-            return classLoader != null ? classLoader : super.getClassLoader();
-        }
-    }
-
-    private static final Logger log = LoggerFactory.getLogger(NewByteArrayInterceptor.class);
-
-    public NewByteArrayInterceptor(ClassVisitor classVisitor) {
+    public MemoryAllocationInterceptor(ClassVisitor classVisitor) {
         super(Opcodes.ASM9, classVisitor);
-    }
-
-    public static byte[] transform(byte[] classBytes, ClassLoader classLoader) {
-        ClassReader classReader = new ClassReader(classBytes);
-        // NOTE: java.lang.ClassCircularityError if COMPUTE_FRAMES
-        ClassWriter classWriter = new CustomClassWriter(classReader, ClassWriter.COMPUTE_MAXS, classLoader);
-        NewByteArrayInterceptor interceptor = new NewByteArrayInterceptor(classWriter);
-
-        classReader.accept(interceptor, 0);
-        return classWriter.toByteArray();
     }
 
     // Feature: set the magic flag in any class to true

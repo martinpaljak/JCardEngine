@@ -1,0 +1,9 @@
+1:
+  FooBar:
+    34: exception
+    72: skip
+    48: mutate
+
+3:
+  FooFoo:
+    34: exception

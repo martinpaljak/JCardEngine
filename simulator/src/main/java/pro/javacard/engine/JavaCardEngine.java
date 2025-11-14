@@ -55,13 +55,22 @@ public interface JavaCardEngine {
 
     EngineSession connectFor(Duration duration, String protocol);
 
-    JavaCardEngine exposed(boolean flag);
-
-    JavaCardEngine withClassLoader(ClassLoader parent);
-
     static JavaCardEngine create() {
-        var r = new Simulator();
-        r.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
-        return r;
+        return new Builder().build();
+    }
+
+    final class Builder {
+        private ClassLoader classLoader = getClass().getClassLoader();
+
+        public Builder withClassLoader(ClassLoader cl) {
+            this.classLoader = cl;
+            return this;
+        }
+
+        public JavaCardEngine build() {
+            var sim = new Simulator(classLoader);
+            sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
+            return sim;
+        }
     }
 }

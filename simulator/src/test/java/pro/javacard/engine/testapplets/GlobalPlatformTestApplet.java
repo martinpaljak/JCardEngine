@@ -13,24 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package pro.javacard.engine.globalplatform;
+package pro.javacard.engine.testapplets;
 
 import javacard.framework.*;
 import org.globalplatform.GPSystem;
 import org.globalplatform.SecureChannel;
+import pro.javacard.engine.testapplets.testlib.TestLibrary;
 
 public final class GlobalPlatformTestApplet extends Applet {
     public static final byte INS_INITIALIZE_UPDATE = 0x50; // GP
     public static final byte INS_EXTERNAL_AUTHENTICATE = ISO7816.INS_EXTERNAL_AUTHENTICATE;
 
     byte[] data = new byte[128];
+    short value = 0;
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
         short offset = bOffset;
         offset += (short) (bArray[offset] + 1); // instance AID
         offset += (short) (bArray[offset] + 1); // privileges - expect none
         GlobalPlatformTestApplet applet = new GlobalPlatformTestApplet(bArray, (short) (offset + 1), bArray[offset]);
+        if (JCSystem.getAID() != null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         applet.register(bArray, (short) (bOffset + 1), bArray[bOffset]);
+        if (JCSystem.getAID() == null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         try {
             // Second register must throw
             applet.register();
@@ -47,6 +55,7 @@ public final class GlobalPlatformTestApplet extends Applet {
             Util.arrayCopy(parameters, parametersOffset, data, (short) 1, parametersLength);
             data[0] = parametersLength;
         }
+        value = TestLibrary.valueHelper();
     }
 
     @Override

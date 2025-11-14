@@ -15,13 +15,11 @@
  */
 package com.licel.jcardsim.base;
 
-import com.licel.jcardsim.samples.GlobalArrayAccess;
 import com.licel.jcardsim.samples.GlobalArrayClientApplet;
 import com.licel.jcardsim.samples.GlobalArrayServerApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -70,54 +68,6 @@ public class GlobalArrayTest {
     }
 
     /**
-     * Test access global byte array by server applet
-     */
-    @Test
-    public void testAccessGlobalArrayByteByServerApplet() {
-        Simulator instance = new Simulator();
-
-        assertTrue(instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class).equals(serverAppletAID));
-        assertEquals(instance.selectApplet(serverAppletAID), true);
-
-        instance._makeCurrent();
-        // Get global array reference from server applet
-        GlobalArrayAccess serverApplet = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
-        Object globalArray = serverApplet.getGlobalArrayRef();
-        instance._releaseCurrent();
-
-        // Check global array must be null, because it has not been created yet
-        assertNull(globalArray);
-
-        // Send C-APDU to create the byte global array for 32-byte size and filled with 0xCC
-        byte[] response1 = instance.transmitCommand(new byte[]{0x10, 0x01, 32, (byte) 0xCC});
-
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response1, (short) 0));
-
-        // Get global array reference and check not null
-        globalArray = serverApplet.getGlobalArrayRef();
-        assertNotNull(globalArray);
-
-        // Check global array content
-        for (byte i = 0; i < 32; i++) {
-            assertEquals((byte) 0xCC, ((byte[]) globalArray)[i]);
-        }
-
-        // Create C-APDU to write 32 test bytes to global array
-        byte[] commandAPDUHeaderWithLc = new byte[]{0x10, 0x02, 0, 0, 32};
-        byte[] sendAPDU = new byte[5 + 32];
-        System.arraycopy(commandAPDUHeaderWithLc, 0, sendAPDU, 0, 5);
-        System.arraycopy(bytesForTest, 0, sendAPDU, 5, 32);
-
-        // Send C-APDU
-        byte[] response2 = instance.transmitCommand(sendAPDU);
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response2, (short) 0));
-        // Check the global array with the writen data
-        assertArrayEquals(bytesForTest, (byte[]) globalArray);
-    }
-
-    /**
      * Test access the global byte array with the client applet
      */
     @Test
@@ -125,8 +75,8 @@ public class GlobalArrayTest {
         Simulator instance = new Simulator();
 
         // Install server and client applet
-        assertEquals(serverAppletAID, instance.installExposedApplet(serverAppletAID, GlobalArrayServerApplet.class));
-        assertEquals(clientAppletAID, instance.installExposedApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar));
+        assertEquals(serverAppletAID, instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class));
+        assertEquals(clientAppletAID, instance.installApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar));
 
         // Select server applet
         assertTrue(instance.selectApplet(serverAppletAID));

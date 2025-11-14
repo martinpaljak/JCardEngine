@@ -18,6 +18,7 @@ package com.licel.jcardsim.base;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.Applet;
+import pro.javacard.engine.core.ReflectiveClassProxy;
 
 /**
  * Represents an Applet instance we keep in the virtual "registry"
@@ -42,7 +43,7 @@ public class ApplicationInstance {
         // class identity would differ. So this proxy helps with "instanceof" etc.
         try {
             return ReflectiveClassProxy.proxy(instance, Applet.class);
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
     }

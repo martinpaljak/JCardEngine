@@ -26,6 +26,9 @@ import org.slf4j.LoggerFactory;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
+import pro.javacard.engine.core.ContextStackProxy;
+import pro.javacard.engine.core.DependencyAnalyzer;
+import pro.javacard.engine.core.IsolatingClassReloader;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
 import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 
@@ -34,7 +37,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.stream.Collectors;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -57,7 +62,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     private static final ThreadLocal<Simulator> currentSimulator = new ThreadLocal<>();
 
     // Isolates loaded applet classes to this simulator instance
-    private IsolatingClassLoader classLoader = new IsolatingClassLoader(getClass().getClassLoader());
+    private final IsolatingClassReloader classLoader;
 
     // Used to keep track of the installation parameters during install()/register() callbacks
     private static final ThreadLocal<RegisterCallbackOptions> options = new ThreadLocal<>();
@@ -69,9 +74,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     // The thread that creates this Simulator instance. Used for assisting warnings.
     final Thread creator = Thread.currentThread();
-
-    // True if all applets all the time should be installed in exposed mode.
-    private boolean exposed = false;
 
     // Installed applets. TODO: ApplicationInstance to GPRegistryEntry
     protected final SortedMap<AID, ApplicationInstance> applets = new TreeMap<>(AIDUtil.comparator());
@@ -88,10 +90,10 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Handles APDU state and IO
     private final CurrentAPDU currentAPDU;
 
-    // Current applet context AID
+    // Currently selected applet
     protected AID currentAID;
 
-    // Previously selected applet context stack
+    // Context stack
     protected final Deque<AID> contextStack = new ArrayDeque<>();
 
     // If applet selection is ongoing - FIXME: refactor
@@ -103,10 +105,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Number of allocated bytes
     int bytesAllocated;
 
-    public Simulator() throws RuntimeException {
+    // Set of package names for applets, to identify interesting code _before_ register is called.
+    Set<String> interesting = new HashSet<>();
+
+    public Simulator(ClassLoader loader) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = new GlobalPlatform();
         this.currentAPDU = new CurrentAPDU();
+        this.classLoader = new IsolatingClassReloader(getClass().getClassLoader());
+    }
+
+    public Simulator() throws RuntimeException {
+        this(Simulator.class.getClassLoader());
     }
 
     // When applet code calls back for the internal facade of the simulator,
@@ -148,7 +158,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
-        return installApplet(aid, appletClass, parameters, exposed);
+        return installApplet(aid, appletClass, parameters, false);
     }
 
     // These load the applet without class isolation, so that internals are exposed to caller.
@@ -175,7 +185,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     @Override
     public AID getAID() {
-        return currentAID;
+        return contextStack.peek();
     }
 
     /**
@@ -220,7 +230,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     @Override
     public AID getPreviousContextAID() {
-        return contextStack.peek();
+        var it = contextStack.iterator();
+        if (it.hasNext()) it.next(); // skip current
+        return it.hasNext() ? it.next() : null;
     }
 
     /**
@@ -255,11 +267,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
         if (applet instanceof AppletEvent) {
             try {
-                currentAID = aid;
+                contextStack.clear();
+                contextStack.push(aid);
                 // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
                 // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
                 ((AppletEvent) applet).uninstall();
             } catch (Exception e) {
+                contextStack.clear();
                 // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
                 applets.remove(aid);
                 // We delete it, but still throw, so that JavaCardEngine.deleteApplet() could be used for testing
@@ -267,7 +281,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
         }
         applets.remove(aid);
-        currentAID = null;
+        contextStack.clear();
     }
 
     /**
@@ -282,11 +296,11 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
         _makeCurrent(); // We call into applet.
         try {
+            // First deselect the applet, if it is currently selected.
             if (aid.equals(currentAID)) {
                 deselect(lookupApplet(currentAID));
             }
             internalDeleteApplet(aid);
-            currentAID = null;
         } finally {
             _releaseCurrent();
         }
@@ -381,25 +395,32 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             APDU apdu = currentAPDU.getAPDU();
             try {
                 if (selecting) {
-                    currentAID = newAid; // so that JCSystem.getAID() would return the right thing
-                    log.trace("Calling Applet.select() of {}", AIDUtil.toString(currentAID));
+                    // First call the select() method
+                    log.trace("Calling Applet.select() of {}", AIDUtil.toString(newAid));
                     boolean success;
                     try {
+                        contextStack.clear();
+                        contextStack.push(newAid);
                         success = applet.select();
                     } catch (Exception e) {
                         log_exception(e, "Exception in Applet.select()");
                         success = false;
+                    } finally {
+                        contextStack.clear();
                     }
                     if (!success) {
-                        log.warn("{} denied selection in Applet.select()", AIDUtil.toString(currentAID));
+                        log.warn("{} denied selection in Applet.select()", AIDUtil.toString(newAid));
                         // If the applet declines to be selected, the Java Card RE returns an APDU response status word of
                         // ISO7816.SW_APPLET_SELECT_FAILED to the CAD. Upon selection failure, the Java Card RE state
                         // is set to indicate that no applet is selected. See Section 4.6 Applet Selection for more details.
                         currentAID = null;
                         throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
+                    } else {
+                        currentAID = newAid;
                     }
                 }
                 currentAPDU.reset(protocol, command);
+                contextStack.push(currentAID);
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
             } catch (Throwable e) {
@@ -412,6 +433,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             } finally {
                 selecting = false;
                 currentAPDU.disable(); // APDU.getCurrentAPDU() will not be available
+                contextStack.clear();
             }
 
             // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
@@ -504,6 +526,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         currentAID = null;
 
         if (getTransactionDepth() != 0) {
+            log.warn("Applet deselected with transactions pending");
             abortTransaction();
         }
         transientMemory.clearOnDeselect();
@@ -644,7 +667,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             return null;
         }
         // Wrap in context pusher
-        return new Firewall(serverAID, () -> currentAID, n -> currentAID = n, contextStack,  shareable).getShareable();
+        return ContextStackProxy.wrap(serverAID, contextStack, shareable);
     }
 
     /**
@@ -680,15 +703,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed) {
         final Class<?> klass;
 
+        log.info("Installing applet class {}, loaded by {}", appletClass.getName(), appletClass.getClassLoader().getName());
+
+        var deps = DependencyAnalyzer.getAllPackages(appletClass);
+        log.debug("Dependencies for {}: {}", appletClass.getSimpleName(), deps);
+
         if (exposed) {
             klass = appletClass;
         } else {
-            // Add explicit isolation for loaded class.
-            classLoader.isolate(appletClass.getPackageName());
             try {
-                klass = classLoader.loadClass(appletClass.getName());
+                klass = classLoader.reloadAndIsolate(appletClass);
             } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName());
+                throw new IllegalArgumentException("Could not (re-)load " + appletClass.getName(), e);
             }
         }
 
@@ -718,8 +744,11 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         // Set the register() callback options
         options.set(new RegisterCallbackOptions(appletAID, exposed));
 
+        interesting.add(klass.getPackageName());
+        boolean from_gp = GlobalPlatformApplet.OPEN_AID.equals(contextStack.peek());
         // Call the install() method.
         try {
+            contextStack.clear(); // It is from JCRE context
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
         } catch (InvocationTargetException e) {
             log.error("Exception in {} install() ", AIDUtil.toString(appletAID), e);
@@ -731,6 +760,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         } catch (Exception e) {
             log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
             throw new SystemException(SystemException.ILLEGAL_AID);
+        } finally {
+            // XXX: this is hacky
+            if (from_gp) {
+                contextStack.clear();
+                contextStack.push(GlobalPlatformApplet.OPEN_AID);
+            }
+            interesting.clear();
         }
         if (options.get() != null) {
             log.error("install() did not call register()");
@@ -766,6 +802,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(instanceAID), System.identityHashCode(this));
 
             applets.put(instanceAID, new ApplicationInstance(instanceAID, instance, options.get().exposed));
+            // Now Applet.getAID() is available.
+            contextStack.clear();
+            contextStack.push(instanceAID);
         } finally {
             options.remove();
         }
@@ -780,25 +819,127 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 SystemException.throwIt(SystemException.ILLEGAL_AID);
             log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(actual), System.identityHashCode(this));
             applets.put(actual, new ApplicationInstance(actual, instance, options.get().exposed));
+            // Now Applet.getAID() is available.
+            contextStack.clear();
+            contextStack.push(actual);
         } finally {
             options.remove();
         }
+    }
+
+    private static final StackWalker STACK_WALKER = StackWalker.getInstance(Set.of(StackWalker.Option.RETAIN_CLASS_REFERENCE));
+
+    private static String computeLocationKey() {
+        Class<?> simulatorClass = Simulator.class;
+
+        return STACK_WALKER.walk(stream ->
+                stream
+                        // Skip frames inside Simulator itself
+                        .filter(f -> !f.getDeclaringClass().equals(simulatorClass))
+                        // Optionally skip low-level infra if desired
+                        .filter(f -> !"java.lang.Thread".equals(f.getClassName()))
+                        .findFirst()
+                        .map(frame -> {
+                            int line = frame.getLineNumber();
+                            if (line <= 0) {
+                                return null;
+                            }
+                            String className = frame.getClassName();
+                            String methodName = frame.getMethodName();
+                            return className + "#" + methodName + ":" + line;
+                        })
+                        .orElse(null)
+        );
     }
 
     // Intercepted from bytecode
     public static byte[] allocate(int size) {
         Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
         current.bytesAllocated += size;
+        // Get list of applets and their packages
+        // FIXME: we get bytebuddy classes.
+        var interesting = current.applets
+                .values()
+                .stream()
+                .map(applicationInstance -> applicationInstance.getApplet().getClass().getPackageName())
+                .collect(Collectors.toSet());
+        var check = new HashSet<>(interesting);
+        check.addAll(current.interesting);
+        int i = 0;
+
+        //log.warn("Called from " + computeLocationKey());
+
+        for (var f : Thread.currentThread().getStackTrace()) {
+            //log.info("{} {} {} {}", f.getClassName(), f.getFileName(), f.getLineNumber(), f.getClassLoaderName());
+            var cn = f.getClassName();
+            if (check.stream().anyMatch(cn::startsWith)) {
+                log.info("Allocating {} in {} at {}:{}", size, f.getClassName(), f.getFileName(), f.getLineNumber());
+                break;
+            }
+            if (i++ > 15) {
+                break;
+            }
+        }
+
         log.trace("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
         return new byte[size];
     }
 
-    // Indicate packages to include in isolated classloader
-    public Simulator isolate(String... packageNames) {
-        classLoader.isolate(packageNames);
-        return this;
+    public void faultyAt(String clazz, int line) {
+        var branches = branch_flips.computeIfAbsent(clazz, k -> new boolean[MAX_LINE_NUMBER]);
+        var switches = switch_flips.computeIfAbsent(clazz, k -> new int[MAX_LINE_NUMBER]);
+
+        branches[line] = true;
+        switches[line] = Short.MAX_VALUE;
     }
 
+    public void faultyAt(Class<?> clazz, int line) {
+        faultyAt(clazz.getName(), line);
+    }
+
+    private static final int MAX_LINE_NUMBER = Short.MAX_VALUE;
+
+    // Per-class boolean arrays for flipping conditionals
+    private final ConcurrentHashMap<String, boolean[]> branch_flips = new ConcurrentHashMap<>();
+
+    // Per-class int arrays for offsetting switch values
+    private final ConcurrentHashMap<String, int[]> switch_flips = new ConcurrentHashMap<>();
+
+    /**
+     * Get the boolean flip array for the calling class (called from static initializer).
+     * Array is indexed by line number.
+     */
+    @SuppressWarnings("unused")
+    public static boolean[] getFaultFlipsArray() {
+        Simulator current = (Simulator)Simulator.current();
+        String className = getCallingClassName();
+        var r = current.branch_flips.computeIfAbsent(className, k -> new boolean[MAX_LINE_NUMBER]);
+        return r;
+    }
+
+    /**
+     * Get the int flip array for the calling class (called from static initializer).
+     * Array is indexed by line number.
+     */
+    public static int[] getFaultIntFlipsArray() {
+        Simulator current = (Simulator)Simulator.current();
+        String className = getCallingClassName();
+        var r = current.switch_flips.computeIfAbsent(className, k -> new int[MAX_LINE_NUMBER]);
+        return r;
+    }
+
+    /**
+     * Get the calling class name using StackWalker.
+     */
+    private static String getCallingClassName() {
+        StackWalker walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+        return walker.walk(frames ->
+                frames.skip(2) // Skip this method and the getFault*Array method
+                        .findFirst()
+                        .map(frame -> frame.getClassName())
+                        .orElse("unknown")
+        );
+    }
 
     private static class RegisterCallbackOptions {
         public final AID aid;
@@ -820,17 +961,5 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public EngineSession connectFor(Duration timeout, String protocol) {
         log.info("Connecting for {} with {}", timeout, protocol);
         return new SimulatorSession(this, protocol, timeout);
-    }
-
-    @Override
-    public JavaCardEngine exposed(boolean flag) {
-        this.exposed = flag;
-        return this;
-    }
-
-    @Override
-    public JavaCardEngine withClassLoader(ClassLoader loader) {
-        this.classLoader = new IsolatingClassLoader(loader);
-        return this;
     }
 }

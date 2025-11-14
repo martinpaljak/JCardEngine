@@ -20,15 +20,14 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 // Use ASM to filter out classes that extend javacard.framework.Applet
 // and have static install(byte[], short, byte) method
-// TODO: bytebuddy
 public class InstallableAppletChecker {
 
     public static boolean isValidApplet(Path classFilePath, ClassLoader cl) {
@@ -38,7 +37,7 @@ public class InstallableAppletChecker {
             reader.accept(visitor, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             return visitor.isValid();
         } catch (IOException e) {
-            throw new RuntimeException("Error reading class file", e);
+            throw new UncheckedIOException("Error reading class file", e);
         }
     }
 
@@ -69,23 +68,13 @@ public class InstallableAppletChecker {
             return hasInstall && extendsApplet();
         }
 
-        private  static byte[] readAllBytes(InputStream inputStream) throws IOException {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            int nRead;
-            byte[] data = new byte[1024];
-            while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
-                buffer.write(data, 0, nRead);
-            }
-            return buffer.toByteArray();
-        }
-
         private boolean extendsApplet() {
             String current = superName;
             while (current != null && !"java/lang/Object".equals(current)) {
                 if ("javacard/framework/Applet".equals(current)) return true;
                 try (InputStream is = cl.getResourceAsStream(current + ".class")) {
                     if (is == null) return false;
-                    current = new ClassReader(readAllBytes(is)).getSuperName();
+                    current = new ClassReader(is.readAllBytes()).getSuperName();
                 } catch (IOException e) {
                     return false;
                 }

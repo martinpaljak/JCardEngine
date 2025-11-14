@@ -18,7 +18,6 @@ package com.licel.jcardsim.crypto;
 import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECPublicKey;
-
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;

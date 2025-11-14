@@ -15,14 +15,17 @@
  */
 package pro.javacard.engine.globalplatform;
 
-import apdu4j.core.*;
+import apdu4j.core.APDUBIBO;
+import apdu4j.core.CommandAPDU;
+import apdu4j.core.ResponseAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.SimulatorBIBO;
+import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPRegistryEntry;
 import pro.javacard.gp.GPSession;
@@ -30,7 +33,6 @@ import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -102,30 +104,6 @@ public class GlobalPlatformTest {
             gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(GlobalPlatformApplet.OPEN_AID)));
             gp.openSecureChannel(pk3, null, null, EnumSet.of(GPSession.APDUMode.ENC));
             gp.deleteAID(jcaid, false);
-        }
-    }
-    public static class SimulatorBIBO implements BIBO {
-        final EngineSession sim;
-
-        public SimulatorBIBO(EngineSession sim) {
-            this.sim = sim;
-        }
-
-        @Override
-        public byte[] transceive(byte[] bytes) throws BIBOException {
-            System.out.println(">> " + Hex.toHexString(bytes));
-            byte[] response = sim.transmitCommand(bytes);
-            System.out.println("<< " + Hex.toHexString(response));
-            return response;
-        }
-
-        @Override
-        public void close() {
-            sim.close();
-        }
-
-        public static APDUBIBO wrap(EngineSession s) {
-            return new APDUBIBO(new SimulatorBIBO(s));
         }
     }
 }

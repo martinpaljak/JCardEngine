@@ -129,7 +129,7 @@ public class JCardTool {
                 Map<String, byte[]> defaultAID = new HashMap<>();
 
                 // Set up simulator. Right now a sample thingy
-                JavaCardEngine sim = JavaCardEngine.create().withClassLoader(loader);
+                JavaCardEngine sim = new JavaCardEngine.Builder().withClassLoader(loader).build();
 
                 // Load non-options as applets & classes
                 for (File f : options.valuesOf(toLoad)) {

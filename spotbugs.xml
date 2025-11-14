@@ -42,4 +42,7 @@
     <Match>
         <Bug pattern="EQ_ALWAYS_FALSE"/>
     </Match>
+    <Match>
+        <Class name="pro.javacard.engine.testapplets.FaultApplet"/>
+    </Match>
 </FindBugsFilter>

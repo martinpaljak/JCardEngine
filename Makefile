@@ -6,6 +6,9 @@ JAVA17 ?= /Library/Java/JavaVirtualMachines/$(JDK)-17.jdk/Contents/Home
 JAVA21 ?= /Library/Java/JavaVirtualMachines/$(JDK)-21.jdk/Contents/Home
 JAVA25 ?= /Library/Java/JavaVirtualMachines/$(JDK)-25.jdk/Contents/Home
 
+JAVA_HOME=$(JAVA17)
+export JAVA_HOME
+
 17: today
 	JAVA_HOME=$(JAVA17) ./mvnw clean install
 
@@ -22,7 +25,7 @@ fast:
 	JAVA_HOME=$(JAVA17) ./mvnw -Dmaven.test.skip=true -Dspotbugs.skip=true clean package
 
 fastinstall:
-	./mvnw -Dmaven.test.skip=true -Djacoco.skip=true clean install
+	./mvnw -Dmaven.test.skip=true -Djacoco.skip=true -Dspotbugs.skip=true -Dmaven.antrun.skip=true clean install
 
 today:
 	# for a dirty tree, set the date to today

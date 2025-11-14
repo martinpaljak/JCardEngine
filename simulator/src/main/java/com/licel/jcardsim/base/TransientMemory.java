@@ -43,17 +43,17 @@ public class TransientMemory {
 
     private void add(Object obj, byte event) {
         int toAdd = 0;
-        if (obj instanceof byte[]) {
-            toAdd += ((byte[]) obj).length;
-        } else if (obj instanceof short[]) {
-            toAdd += ((short[]) obj).length * 2;
-        } else if (obj instanceof Object[]) {
+        if (obj instanceof byte[] bytes) {
+            toAdd += bytes.length;
+        } else if (obj instanceof short[] shorts) {
+            toAdd += shorts.length * 2;
+        } else if (obj instanceof Object[] objects) {
             // Assume 16 bits for pointer. Arbitrary
-            toAdd += ((Object[]) obj).length * 2;
-        } else if (obj instanceof boolean[]) {
-            toAdd += ((boolean[]) obj).length;
+            toAdd += objects.length * 2;
+        } else if (obj instanceof boolean[] booleans) {
+            toAdd += booleans.length;
         } else {
-            log.warn("Unsupported object: {}", obj.getClass());
+            log.error("Unsupported object type: {}", obj.getClass());
         }
 
         if (event == JCSystem.CLEAR_ON_RESET) {
@@ -61,7 +61,7 @@ public class TransientMemory {
         } else if (event == JCSystem.CLEAR_ON_DESELECT) {
             sumCOD += toAdd;
         } else {
-            log.warn("Unsupported event {}", event);
+            log.error("Unsupported event {}", event);
         }
     }
 
@@ -213,14 +213,14 @@ public class TransientMemory {
      */
     protected void zero(List<Object> list) {
         for (Object obj : list) {
-            if (obj instanceof byte[]) {
-                Arrays.fill((byte[]) obj, (byte) 0);
-            } else if (obj instanceof short[]) {
-                Arrays.fill((short[]) obj, (short) 0);
-            } else if (obj instanceof Object[]) {
-                Arrays.fill((Object[]) obj, null);
-            } else if (obj instanceof boolean[]) {
-                Arrays.fill((boolean[]) obj, false);
+            if (obj instanceof byte[] bytes) {
+                Arrays.fill(bytes, (byte) 0);
+            } else if (obj instanceof short[] shorts) {
+                Arrays.fill(shorts, (short) 0);
+            } else if (obj instanceof Object[] objects) {
+                Arrays.fill(objects, null);
+            } else if (obj instanceof boolean[] booleans) {
+                Arrays.fill(booleans, false);
             } else {
                 log.warn("Unsupported object: {}", obj.getClass());
             }

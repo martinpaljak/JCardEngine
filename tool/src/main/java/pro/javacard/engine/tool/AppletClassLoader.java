@@ -30,38 +30,42 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-class AppletClassLoader extends URLClassLoader {
+// Little customisation for a classloader that can look into .cap files.
+public final class AppletClassLoader extends URLClassLoader {
     private static final Logger log = LoggerFactory.getLogger(AppletClassLoader.class);
 
-    AppletClassLoader() {
-        super(new URL[0], AppletClassLoader.class.getClassLoader());
+    public AppletClassLoader() {
+        // Implicit parent
+        super("applet", new URL[0], AppletClassLoader.class.getClassLoader());
     }
 
-    List<String> addApplet(Path file) throws IOException {
+    // Add the specified path to the classloader, and return detected Applet classes
+    public List<String> addApplet(Path file) throws IOException {
+        // Option one: points to a folder.
         if (Files.isDirectory(file)) {
             addURL(file.toUri().toURL());
-            return locateApplets(file, this);
+            return locateApplets(file);
         }
+        // Option two: points to a file (.jar or .cap)
         Path tmp = Files.createTempDirectory("applet");
         String name = file.getFileName().toString().toLowerCase();
 
-        try (FileSystem fs = FileSystems.newFileSystem(file, (ClassLoader) null)) {
-            Path src = name.endsWith(".cap") ?
-                    fs.getPath("APPLET-INF", "classes") :
-                    fs.getPath("/");
+        try (FileSystem fs = FileSystems.newFileSystem(file)) {
+            // Look into .cap structure or assume plain .jar
+            Path src = name.endsWith(".cap") ? fs.getPath("APPLET-INF", "classes") : fs.getPath("/");
 
-            if (Files.exists(src)) {
-                Files.walk(src)
-                        .filter(p -> p.toString().endsWith(".class"))
-                        .forEach(p -> copy(p, tmp.resolve(src.relativize(p).toString())));
-            } else {
+            if (!Files.exists(src)) {
                 throw new FileNotFoundException("APPLET-INF/classes is missing from " + file.getFileName());
+            }
+            // Copy to temporary folder
+            try (var s = Files.walk(src)) {
+                s.filter(p -> p.toString().endsWith(".class")).forEach(p -> copy(p, tmp.resolve(src.relativize(p).toString())));
             }
         }
         // Add to classpath here, so that locateApplets would have access to loaded classes.
         addURL(tmp.toUri().toURL());
         log.trace("adding {}", tmp);
-        return locateApplets(tmp, this);
+        return locateApplets(tmp);
     }
 
     private void copy(Path from, Path to) {
@@ -73,22 +77,16 @@ class AppletClassLoader extends URLClassLoader {
         }
     }
 
-    private static List<String> locateApplets(Path src, URLClassLoader cl) throws IOException {
+    private List<String> locateApplets(Path src) throws IOException {
         List<String> applets = new ArrayList<>();
-        Files.walk(src)
-                .filter(p -> p.toString().endsWith(".class"))
-                .forEach(p -> {
-                    if (InstallableAppletChecker.isValidApplet(p, cl)) {
-                        String cls = src.relativize(p).toString().replace("/", ".");
-                        applets.add(cls.substring(0, cls.length() - 6)); // bite off ".class"
-                    }
-                });
+        try (var s = Files.walk(src)) {
+            s.filter(p -> p.toString().endsWith(".class")).forEach(p -> {
+                if (InstallableAppletChecker.isValidApplet(p, this)) {
+                    String cls = src.relativize(p).toString().replace("/", ".");
+                    applets.add(cls.substring(0, cls.length() - ".class".length())); // bite off ".class"
+                }
+            });
+        }
         return applets;
-    }
-
-    @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException {
-        log.trace("loadClass {}", name);
-        return super.loadClass(name);
     }
 }

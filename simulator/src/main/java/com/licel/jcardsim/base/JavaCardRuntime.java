@@ -71,5 +71,4 @@ public interface JavaCardRuntime {
 
     // Registry and secure channel
     GlobalPlatform getGlobalPlatform();
-
 }
