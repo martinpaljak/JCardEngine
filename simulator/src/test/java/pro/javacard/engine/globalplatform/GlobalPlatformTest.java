@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.gp.GPCrypto;
+import pro.javacard.gp.GPRegistryEntry;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
@@ -80,7 +81,7 @@ public class GlobalPlatformTest {
             //GPSession gp = GPSession.connect(bibo, new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID)));
             GPSession gp = GPSession.discover(bibo);
             gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
-            gp.installAndMakeSelectable(jcaid, jcaid, jcaid, Set.of(), new byte[4]);
+            gp.installAndMakeSelectable(jcaid, jcaid, jcaid, EnumSet.noneOf(GPRegistryEntry.Privilege.class), new byte[4]);
 
             // Now try talking to that applet
             // Note: we need a new key object, as the keys get diversified by channel opening
