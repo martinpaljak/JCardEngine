@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - next
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - next
@@ -35,13 +37,13 @@ jobs:
       - name: Run Maven
         run: ./mvnw -B --no-transfer-progress initialize && ./mvnw -B --no-transfer-progress -T1C -U verify
       - name: Set SSH key
-        if: matrix.java == '17' && github.ref == 'refs/heads/next'
+        if: matrix.java == '17' && (github.ref == 'refs/heads/next' || startsWith(github.ref, 'refs/tags/v'))
         uses: webfactory/ssh-agent@v0.9.1
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
       - name: Add known host key
-        if: matrix.java == '17' && github.ref == 'refs/heads/next'
+        if: matrix.java == '17' && (github.ref == 'refs/heads/next' || startsWith(github.ref, 'refs/tags/v'))
         run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
       - name: Deploy package
-        if: matrix.java == '17' && github.ref == 'refs/heads/next'
+        if: matrix.java == '17' && (github.ref == 'refs/heads/next' || startsWith(github.ref, 'refs/tags/v'))
         run: ./mvnw -B --no-transfer-progress deploy
