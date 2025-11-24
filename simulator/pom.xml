@@ -35,11 +35,6 @@
             <artifactId>slf4j-api</artifactId>
             <version>2.0.17</version>
         </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.82</version>
-        </dependency>
         <!-- Instance proxy for Applets -->
         <dependency>
             <groupId>net.bytebuddy</groupId>
@@ -56,13 +51,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>25.10.20</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>25.11.24.1</version>
         </dependency>
         <!-- unit tests -->
         <dependency>

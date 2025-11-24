@@ -37,12 +37,6 @@
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
-            <artifactId>capfile</artifactId>
-            <version>25.09.20</version>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
             <version>9.9</version>
