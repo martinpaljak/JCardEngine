@@ -175,16 +175,18 @@ public class KeyBuilderProxy {
         if (keyEncryption) {
             CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
+        ECKeyImpl ecDomain = null;
         Key key = null;
-        // FIXME: hardcoded length
 
         switch (algorithmicKeyType) {
             case KeyBuilder.ALG_TYPE_EC_FP_PRIVATE:
-                key = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_256, keyMemoryType);
+                ecDomain = (ECKeyImpl) domainParameters;
+                key = new ECPrivateKeySharedImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, ecDomain.getSize(), keyMemoryType, ecDomain);
                 break;
             case KeyBuilder.ALG_TYPE_EC_FP_PUBLIC:
             case KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS:
-                key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, keyMemoryType);
+                ecDomain = (ECKeyImpl) domainParameters;
+                key = new ECPublicKeySharedImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, ecDomain.getSize(), keyMemoryType, ecDomain);
                 break;
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
