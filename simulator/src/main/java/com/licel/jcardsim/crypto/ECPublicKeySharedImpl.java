@@ -26,6 +26,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 /**
  * Implementation of <code>KeyBuilder.buildKeyWithSharedDomain</code> based
  * on BouncyCastle CryptoAPI.
+ * 
  * @see ECPublicKey
  * @see ECPublicKeyParameters
  */
@@ -35,9 +36,11 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
 
     /**
      * Construct not-initialized ecc public key
-     * @param keyType key type
-     * @param keySize key size it bits
-     * @param sharedDomain key domain parameters, built with KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, ..)
+     * 
+     * @param keyType      key type
+     * @param keySize      key size it bits
+     * @param sharedDomain key domain parameters, built with
+     *                     KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS..)
      * @see javacard.security.KeyBuilder
      */
     public ECPublicKeySharedImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl sharedDomain) {
@@ -45,12 +48,9 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
         w = new ByteContainer(memoryType);
     }
 
-
- 
-     public void setParameters(CipherParameters params){
-        w.setBytes(((ECPublicKeyParameters)params).getQ().getEncoded(false));
+    public void setParameters(CipherParameters params) {
+        w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
     }
-    
 
     public void setW(byte[] buffer, short offset, short length) throws CryptoException {
         w.setBytes(buffer, offset, length);
@@ -71,6 +71,7 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
 
     /**
      * Get <code>ECPublicKeyParameters</code>
+     * 
      * @return parameters for use with BouncyCastle API
      * @see ECPublicKeyParameters
      */

@@ -39,9 +39,10 @@ public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
     /**
      * Construct not-initialized ecc key
      *
-     * @param keyType - key type
-     * @param keySize - key size in bits
-     * @param sharedDomain key domain parameters, built with KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, ..)
+     * @param keyType      - key type
+     * @param keySize      - key size in bits
+     * @param sharedDomain key domain parameters, built with
+     *                     KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS..)
      * @see KeyPair
      * @see KeyBuilder
      */
@@ -147,7 +148,6 @@ public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
     public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         return sharedDomain.getKeyGenerationParameters(rnd);
     }
-
 
     public void copyDomainParametersFrom(ECKey eckey) throws CryptoException {
         sharedDomain.copyDomainParametersFrom(eckey);
