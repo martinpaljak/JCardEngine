@@ -19,8 +19,6 @@ import java.security.SecureRandom;
 
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
-import org.bouncycastle.crypto.params.ECKeyParameters;
-import org.bouncycastle.math.ec.ECCurve;
 
 import javacard.security.CryptoException;
 import javacard.security.ECKey;
