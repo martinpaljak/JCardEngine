@@ -16,6 +16,8 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+
+import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
@@ -198,6 +200,17 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 384, Signature.ALG_ECDSA_SHA_384, "brainpoolP384r1");
         testSelfSignVerify(KeyPair.ALG_EC_FP, (short) 512, Signature.ALG_ECDSA_SHA_512, "brainpoolP512r1");
     }
+    
+    @Test
+    public void testSelfSignVerifyECDSA_Brainpool_SHA2_sharedDomain() {
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 160, Signature.ALG_ECDSA_SHA_256, "brainpoolP160r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 192, Signature.ALG_ECDSA_SHA_256, "brainpoolP192r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 224, Signature.ALG_ECDSA_SHA_256, "brainpoolP224r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 256, Signature.ALG_ECDSA_SHA_256, "brainpoolP256r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 320, Signature.ALG_ECDSA_SHA_384, "brainpoolP320r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 384, Signature.ALG_ECDSA_SHA_384, "brainpoolP384r1");
+        testSelfSignVerifyShared(KeyPair.ALG_EC_FP, (short) 512, Signature.ALG_ECDSA_SHA_512, "brainpoolP512r1");
+    }
 
     @Test
     public void testSelfSignVerifyDSA_SHA() {
@@ -223,13 +236,12 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
     }
 
     /**
-     * Base SelfTest sign/verify method
+     * Base SelfTest sign/verify method, with initialization
      *
      * @param keyAlg  - key generation algorithm
      * @param keySize - key size
      * @param signAlg - signature algorithm
      */
-    @SuppressWarnings("deprecation") // random
     private void testSelfSignVerify(byte keyAlg, short keySize, byte signAlg, String initParams) {
         // generate keys
         KeyPair kp = new KeyPair(keyAlg, keySize);
@@ -237,17 +249,46 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         PublicKey publicKey = kp.getPublic();
 
         // brainpools need to be initialized separately
-        if (initParams != null && initParams.startsWith("brainpool")) {
-            X9ECParameters x9params = TeleTrusTNamedCurves.getByName(initParams);
-            ECDomainParameters params = new ECDomainParameters(
-                    x9params.getCurve(),
-                    x9params.getG(), // G
-                    x9params.getN(), x9params.getH(), x9params.getSeed());
-            ((ECKeyImpl) publicKey).setDomainParameters(params);
-            ((ECKeyImpl) privateKey).setDomainParameters(params);
-        }
+        initBrainpoolParams(publicKey, initParams);
+        initBrainpoolParams(privateKey, initParams);
+
         kp.genKeyPair();
 
+        testSelfSignVerifySignature(signAlg, publicKey, privateKey);
+    }
+
+
+    /**
+     * Base SelfTest sign/verify method, with initialization, using KeyBuilder.buildKeyWithSharedDomain
+     *
+     * @param keyAlg  - key generation algorithm
+     * @param keySize - key size
+     * @param signAlg - signature algorithm
+     */
+    private void testSelfSignVerifyShared(byte keyAlg, short keySize, byte signAlg, String initParams) {
+        // generate keys
+        Key sharedDomain = KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, JCSystem.MEMORY_TYPE_PERSISTENT, keySize, false);
+
+        byte memType = JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+        PublicKey publicKey = (PublicKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PUBLIC, memType, sharedDomain, false);
+        PrivateKey privateKey = (PrivateKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PRIVATE, memType, sharedDomain, false);
+
+        KeyPair kp = new KeyPair(publicKey, privateKey);
+
+        // brainpools need to be initialized separately
+        initBrainpoolParams(sharedDomain, initParams);
+
+        kp.genKeyPair();
+
+        testSelfSignVerifySignature(signAlg, publicKey, privateKey);
+    }
+
+    /**
+     * Base SelfTest sign/verify method
+     *
+     */
+    @SuppressWarnings("deprecation") // random
+    private void testSelfSignVerifySignature(byte signAlg, PublicKey publicKey, PrivateKey privateKey) {
         // init engine
         Signature signEngine = Signature.getInstance(signAlg, false);
         signEngine.init(privateKey, Signature.MODE_SIGN);
@@ -261,6 +302,17 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         assertTrue(signLen <= signEngine.getLength());
         Signature verifyEngine = Signature.getInstance(signAlg, false);
         testEngineVerify(verifyEngine, publicKey, msg, signature, (short) 10, signLen);
+    }
+
+    private static void initBrainpoolParams(Key key, String initParams) {
+        if (initParams != null && initParams.startsWith("brainpool")) {
+            X9ECParameters x9params = TeleTrusTNamedCurves.getByName(initParams);
+            ECDomainParameters params = new ECDomainParameters(
+                    x9params.getCurve(),
+                    x9params.getG(), // G
+                    x9params.getN(), x9params.getH(), x9params.getSeed());
+            ((ECKeyImpl) key).setDomainParameters(params);
+        }
     }
 
     /**
