@@ -26,8 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigInteger;
 
 /**
- * Implementation <code>RSAPrivateCrtKey</code> based
- * on BouncyCastle CryptoAPI.
+ * Implementation <code>RSAPrivateCrtKey</code> based on BouncyCastle CryptoAPI.
  *
  * @see RSAPrivateCrtKey
  * @see RSAPrivateCrtKeyParameters
@@ -52,8 +51,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     }
 
     /**
-     * Construct and initialize rsa key with RSAPrivateCrtKeyParameters.
-     * Use in KeyPairImpl
+     * Construct and initialize rsa key with RSAPrivateCrtKeyParameters. Use in KeyPairImpl
      *
      * @param params key params from BouncyCastle API
      * @see javacard.security.KeyPair
@@ -64,7 +62,6 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     //    type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
     //    setParameters(params);
     //}
-
     public void setParameters(CipherParameters params) {
         p.setBigInteger(((RSAPrivateCrtKeyParameters) params).getP());
         q.setBigInteger(((RSAPrivateCrtKeyParameters) params).getQ());
@@ -123,9 +120,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     }
 
     public boolean isInitialized() {
-        return (p.isInitialized() && q.isInitialized()
-                && dp1.isInitialized() && dq1.isInitialized()
-                && pq.isInitialized());
+        return (p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized());
     }
 
     public CipherParameters getParameters() {
@@ -135,97 +130,9 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
         // modulus = p * q;
         // NOTE: prior to BC 1.77 the exponent based Lenstra's check was not done.
         // See https://github.com/bcgit/bc-java/issues/2104
-        // FIXME: revert back to old code below, with property set, once BC 1.83 is out
+        // Since BC 1.83 the property can be used to disable it. Simulator static init has:
         // System.setProperty("org.bouncycastle.rsa.no_lenstra_check", "true");
-        // return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), null,
-        //        null, p.getBigInteger(), q.getBigInteger(),
-        //        dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
-
-        BigInteger exp = exponent.isInitialized() ? exponent.getBigInteger() : reconstructPublicExponent(p.getBigInteger(), q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
-        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), exp,
-                null, p.getBigInteger(), q.getBigInteger(),
-                dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
+        return new RSAPrivateCrtKeyParameters(p.getBigInteger().multiply(q.getBigInteger()), null, null, p.getBigInteger(),
+            q.getBigInteger(), dp1.getBigInteger(), dq1.getBigInteger(), pq.getBigInteger());
     }
-
-    public BigInteger reconstructPublicExponent(BigInteger p, BigInteger q,
-                                                BigInteger dp1, BigInteger dq1,
-                                                BigInteger pq) {
-
-        BigInteger p1 = p.subtract(BigInteger.ONE);
-        BigInteger q1 = q.subtract(BigInteger.ONE);
-        BigInteger phi = p1.multiply(q1);
-
-        // First check common public exponents
-        BigInteger[] commonExponents = new BigInteger[]{
-                BigInteger.valueOf(65537),
-                BigInteger.valueOf(17),
-                BigInteger.valueOf(3),
-                BigInteger.valueOf(5),
-                BigInteger.valueOf(257),
-                BigInteger.valueOf(65539)
-        };
-
-        for (BigInteger candidateE : commonExponents) {
-            if (candidateE.gcd(phi).equals(BigInteger.ONE)) {
-                BigInteger candidateD = candidateE.modInverse(phi);
-                if (candidateD.mod(p1).equals(dp1) && candidateD.mod(q1).equals(dq1)) {
-                    return candidateE; // quick match found
-                }
-            }
-        }
-
-        // Perform generalized CRT as fallback
-        BigInteger d = robustCRT(dp1, p1, dq1, q1);
-
-        if (!d.gcd(phi).equals(BigInteger.ONE)) {
-            throw new ArithmeticException("Reconstructed d is not invertible modulo phi(n). Check CRT inputs.");
-        }
-
-        return d.modInverse(phi);
-    }
-
-    private BigInteger robustCRT(BigInteger a1, BigInteger m1,
-                                 BigInteger a2, BigInteger m2) {
-        BigInteger gcd = m1.gcd(m2);
-        if (!a1.subtract(a2).mod(gcd).equals(BigInteger.ZERO)) {
-            throw new IllegalArgumentException("Incompatible CRT inputs");
-        }
-
-        BigInteger lcm = m1.divide(gcd).multiply(m2);
-
-        // Extended Euclidean Algorithm to get coefficients
-        BigInteger[] euclid = extendedGCD(m1.divide(gcd), m2.divide(gcd));
-        BigInteger m1Inv = euclid[1];
-
-        BigInteger diff = a2.subtract(a1).divide(gcd);
-
-        BigInteger result = a1.add(m1.multiply(m1Inv).multiply(diff));
-
-        return result.mod(lcm);
-    }
-
-    private BigInteger[] extendedGCD(BigInteger a, BigInteger b) {
-        BigInteger old_r = a, r = b;
-        BigInteger old_s = BigInteger.ONE, s = BigInteger.ZERO;
-        BigInteger old_t = BigInteger.ZERO, t = BigInteger.ONE;
-
-        while (!r.equals(BigInteger.ZERO)) {
-            BigInteger quotient = old_r.divide(r);
-
-            BigInteger temp = r;
-            r = old_r.subtract(quotient.multiply(r));
-            old_r = temp;
-
-            temp = s;
-            s = old_s.subtract(quotient.multiply(s));
-            old_s = temp;
-
-            temp = t;
-            t = old_t.subtract(quotient.multiply(t));
-            old_t = temp;
-        }
-
-        return new BigInteger[]{old_r, old_s, old_t};
-    }
-
 }
