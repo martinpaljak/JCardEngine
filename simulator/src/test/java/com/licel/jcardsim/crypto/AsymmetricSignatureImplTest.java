@@ -22,7 +22,6 @@ import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Test for
  * <code>AsymmetricSignatureImpl</code> Test data from NXP JCOP31-36 JavaCard
  */
-@Disabled
 public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
 
     // rsa public key data from card

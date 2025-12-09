@@ -94,7 +94,7 @@ public class ReflectiveClassProxy {
                 .intercept(InvocationHandlerAdapter.of((proxy, method, args) -> {
                     try {
                         Method targetMethod = targetClass.getMethod(method.getName(), method.getParameterTypes());
-                        log.info("Invoking {} of {} in {}", method.getName(), targetClass.getName(), targetClass.getClassLoader().getName());
+                        log.trace("Invoking {} of {} in {}", method.getName(), targetClass.getName(), targetClass.getClassLoader().getName());
                         return targetMethod.invoke(targetInstance, args);
                     } catch (InvocationTargetException e) {
                         Throwable cause = e.getCause();

@@ -103,7 +103,7 @@ public final class IsolatingClassReloader extends SecureClassLoader {
         }
     }
 
-    private static String pkgname(String className) {
+    public static String pkgname(String className) {
         if (className == null || className.isEmpty()) {
             return "";
         }

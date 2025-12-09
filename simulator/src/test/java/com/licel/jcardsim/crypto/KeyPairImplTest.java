@@ -18,7 +18,6 @@ package com.licel.jcardsim.crypto;
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.*;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Test for <code>KeyPairImpl</code>
  */
-@Disabled
 public class KeyPairImplTest extends SimulatorCoreTest {
 
     static final short[] RSA_SIZES = new short[]{

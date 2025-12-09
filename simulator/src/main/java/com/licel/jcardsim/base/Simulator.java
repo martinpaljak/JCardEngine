@@ -23,6 +23,7 @@ import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
@@ -829,35 +830,12 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     private static final StackWalker STACK_WALKER = StackWalker.getInstance(Set.of(StackWalker.Option.RETAIN_CLASS_REFERENCE));
 
-    private static String computeLocationKey() {
-        Class<?> simulatorClass = Simulator.class;
-
-        return STACK_WALKER.walk(stream ->
-                stream
-                        // Skip frames inside Simulator itself
-                        .filter(f -> !f.getDeclaringClass().equals(simulatorClass))
-                        // Optionally skip low-level infra if desired
-                        .filter(f -> !"java.lang.Thread".equals(f.getClassName()))
-                        .findFirst()
-                        .map(frame -> {
-                            int line = frame.getLineNumber();
-                            if (line <= 0) {
-                                return null;
-                            }
-                            String className = frame.getClassName();
-                            String methodName = frame.getMethodName();
-                            return className + "#" + methodName + ":" + line;
-                        })
-                        .orElse(null)
-        );
-    }
-
     // Intercepted from bytecode
     public static byte[] allocate(int size) {
         Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
         current.bytesAllocated += size;
         // Get list of applets and their packages
-        // FIXME: we get bytebuddy classes.
+        // FIXME: we get bytebuddy classes. Also, allocation happens before registration.
         var interesting = current.applets
                 .values()
                 .stream()
@@ -865,23 +843,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 .collect(Collectors.toSet());
         var check = new HashSet<>(interesting);
         check.addAll(current.interesting);
-        int i = 0;
 
-        //log.warn("Called from " + computeLocationKey());
+        if (log.isEnabledForLevel(Level.TRACE)) {
+            var frame = STACK_WALKER.walk(frames -> frames.limit(16).filter(f -> check.contains(IsolatingClassReloader.pkgname(f.getClassName()))).findFirst());
 
-        for (var f : Thread.currentThread().getStackTrace()) {
-            //log.info("{} {} {} {}", f.getClassName(), f.getFileName(), f.getLineNumber(), f.getClassLoaderName());
-            var cn = f.getClassName();
-            if (check.stream().anyMatch(cn::startsWith)) {
-                log.info("Allocating {} in {} at {}:{}", size, f.getClassName(), f.getFileName(), f.getLineNumber());
-                break;
-            }
-            if (i++ > 15) {
-                break;
-            }
+            frame.ifPresent(f -> log.trace("Allocating {} in {} at {}:{}", size, f.getClassName(), f.getFileName(), f.getLineNumber()));
         }
-
-        log.trace("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
+        log.debug("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
         return new byte[size];
     }
 
@@ -900,10 +868,10 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     private static final int MAX_LINE_NUMBER = Short.MAX_VALUE;
 
     // Per-class boolean arrays for flipping conditionals
-    private final ConcurrentHashMap<String, boolean[]> branch_flips = new ConcurrentHashMap<>();
+    private final HashMap<String, boolean[]> branch_flips = new HashMap<>();
 
     // Per-class int arrays for offsetting switch values
-    private final ConcurrentHashMap<String, int[]> switch_flips = new ConcurrentHashMap<>();
+    private final HashMap<String, int[]> switch_flips = new HashMap<>();
 
     /**
      * Get the boolean flip array for the calling class (called from static initializer).
@@ -911,7 +879,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      */
     @SuppressWarnings("unused")
     public static boolean[] getFaultFlipsArray() {
-        Simulator current = (Simulator)Simulator.current();
+        Simulator current = (Simulator) Simulator.current();
         String className = getCallingClassName();
         var r = current.branch_flips.computeIfAbsent(className, k -> new boolean[MAX_LINE_NUMBER]);
         return r;
@@ -921,8 +889,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      * Get the int flip array for the calling class (called from static initializer).
      * Array is indexed by line number.
      */
+    @SuppressWarnings("unused")
     public static int[] getFaultIntFlipsArray() {
-        Simulator current = (Simulator)Simulator.current();
+        Simulator current = (Simulator) Simulator.current();
         String className = getCallingClassName();
         var r = current.switch_flips.computeIfAbsent(className, k -> new int[MAX_LINE_NUMBER]);
         return r;
