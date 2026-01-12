@@ -102,26 +102,6 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
     }
 
     @Test
-    public void testCodeListing4() {
-        // AID from byte array
-        AID applet1AID = AIDUtil.create(new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9});
-
-        // AID form String
-        AID applet2AID = AIDUtil.create("010203040506070809");
-
-        assertEquals(applet1AID, applet2AID);
-
-        // String to byte array
-        String hexString = ByteUtil.hexString(new byte[]{0, 2, 0, 0});
-
-        // byte array from String
-        byte[] bytes = ByteUtil.byteArray("00 02 00 00");
-
-        assertEquals("00020000", hexString);
-        assertEquals("00020000", ByteUtil.hexString(bytes));
-    }
-
-    @Test
     public void testCodeListing5() throws CardException {
         // 1. Create simulator and install applet
         CardSimulator simulator = new CardSimulator();

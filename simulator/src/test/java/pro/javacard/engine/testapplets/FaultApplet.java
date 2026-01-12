@@ -17,7 +17,11 @@ public class FaultApplet extends Applet {
     }
 
     private FaultApplet() {
-        foo = new byte[13];
+        Object tmp = allocator();
+        if (!(tmp instanceof byte[])) {
+            ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+        }
+        foo = (byte[]) tmp;
         if (foo[0] == 0) {
             blah = true;
         } else if (foo[1] != 0) {
@@ -27,6 +31,10 @@ public class FaultApplet extends Applet {
         if (blah) {
             blah = false;
         }
+    }
+
+    private byte[] allocator() {
+        return new byte[13];
     }
 
     @Override

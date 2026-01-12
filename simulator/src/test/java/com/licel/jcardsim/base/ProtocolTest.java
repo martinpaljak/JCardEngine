@@ -22,7 +22,7 @@ public class ProtocolTest {
 
     @Test
     public void testDualInterfaceApplet() {
-        final String expectedOutput = "CAFE9000";
+        final String expectedOutput = "CAFE9000".toLowerCase();
         byte[] response;
 
         Simulator simulator = new Simulator();
@@ -41,7 +41,7 @@ public class ProtocolTest {
 
             // read data
             response = conn.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
-            assertEquals(expectedOutput, ByteUtil.hexString(response));
+            assertEquals(expectedOutput, ByteUtil.hex(response));
         }
 
         // change protocol
@@ -52,7 +52,7 @@ public class ProtocolTest {
 
             // read data
             response = conn.transmitCommand(new byte[]{CLA, INS_READ, 0, 0});
-            assertEquals(expectedOutput, ByteUtil.hexString(response));
+            assertEquals(expectedOutput, ByteUtil.hex(response));
 
             // store data should fail
             response = conn.transmitCommand(new byte[]{CLA, INS_WRITE, 0, 0, 2, (byte) 0xBA, (byte) 0xD0});

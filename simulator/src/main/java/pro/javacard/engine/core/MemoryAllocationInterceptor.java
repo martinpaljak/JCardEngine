@@ -64,19 +64,31 @@ public class MemoryAllocationInterceptor extends ClassVisitor {
 
         @Override
         public void visitIntInsn(int opcode, int operand) {
-            if (opcode == Opcodes.NEWARRAY && operand == Opcodes.T_BYTE) {
-                // Replace single-dimension byte array creation with call to allocate method
-                // Stack before: [size]
-                // Stack after: [byte[]]
-                log.trace("Intercepting \"new byte[]\"");
-                super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                        Simulator.class.getCanonicalName().replace(".", "/"),
-                        "allocate",
-                        "(I)[B",
-                        false);
-            } else {
-                super.visitIntInsn(opcode, operand);
-            }
+            if (opcode == Opcodes.NEWARRAY) {
+                String method = null;
+                String desc = null;
+                if (operand == Opcodes.T_BYTE) {
+                    method = "allocateBytes";
+                    desc = "(I)[B";
+                } else if (operand == Opcodes.T_BOOLEAN) {
+                    method = "allocateBooleans";
+                    desc = "(I)[Z";
+                } else if (operand == Opcodes.T_SHORT) {
+                    method = "allocateShorts";
+                    desc = "(I)[S";
+                }
+
+                if (method != null) {
+                    log.trace("Intercepting new array {}", method);
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                            Simulator.class.getCanonicalName().replace(".", "/"),
+                            method,
+                            desc,
+                            false);
+                    return;
+                }
+            } 
+            super.visitIntInsn(opcode, operand);
         }
     }
 }

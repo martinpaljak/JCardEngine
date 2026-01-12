@@ -126,7 +126,7 @@ public final class ByteContainer {
                     data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_RESET);
                     break;
                 default:
-                    data = Simulator.allocate(length);
+                    data = Simulator.allocateBytes(length);
                     break;
             }
         }
@@ -176,7 +176,6 @@ public final class ByteContainer {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         Util.arrayCopy(data, (short) 0, dest, offset, length);
-        // https://code.google.com/p/jcardsim/issues/detail?id=14
         return length;
     }
 

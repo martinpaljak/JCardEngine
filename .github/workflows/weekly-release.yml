@@ -40,19 +40,15 @@ jobs:
       - name: Get SHA-256 of JAR
         run: echo "JARSUM=$(shasum -a 256 --tag ./tool/target/jcard.jar)" >> "$GITHUB_ENV"
 
-      - name: Set SSH key
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
-
-      - name: Add known host key
-        run: ssh-keyscan mvn.javacard.pro >> ~/.ssh/known_hosts
-
       - name: Deploy package
-        run: ./mvnw -B deploy
+        uses: martinpaljak/maven-ssh-deploy@v1
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          user: mvn@mvn.javacard.pro
+          host_fp: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
 
       - name: Release
-        uses: softprops/action-gh-release@v2.4.1
+        uses: softprops/action-gh-release@v2.5.0
         with:
           prerelease: true
           tag_name: v${{ env.VERSION }}

@@ -18,6 +18,7 @@ package pro.javacard.engine;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
+import pro.javacard.engine.faulty.FaultyConfig;
 import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 
 import java.time.Duration;
@@ -61,14 +62,20 @@ public interface JavaCardEngine {
 
     final class Builder {
         private ClassLoader classLoader = getClass().getClassLoader();
+        private FaultyConfig faultConfig;
 
         public Builder withClassLoader(ClassLoader cl) {
             this.classLoader = cl;
             return this;
         }
 
+        public Builder faulty(FaultyConfig config) {
+            this.faultConfig = config;
+            return this;
+        }
+
         public JavaCardEngine build() {
-            var sim = new Simulator(classLoader);
+            var sim = new Simulator(classLoader, faultConfig);
             sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
             return sim;
         }

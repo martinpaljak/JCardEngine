@@ -1,9 +1,18 @@
-1:
-  FooBar:
-    34: exception
-    72: skip
-    48: mutate
+step:
+  1:
+    FooBar:
+      34: exception
+      72: skip
+      48: mutate
+  3:
+    FooFoo:
+      34: exception
 
-3:
-  FooFoo:
-    34: exception
+apdu:
+  00A40400:
+    SelectHandler:
+      56: exception
+  80CAXXXX:
+    GetDataHandler:
+      120: skip
+      145: mutate

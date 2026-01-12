@@ -45,15 +45,15 @@ public class SimulatorSession implements EngineSession {
     final Thread owner;
 
     SimulatorSession(Simulator simulator, String protocol, Duration timeout) {
-        log.trace("Acquiring lock ...");
         this.simulator = simulator;
+        this.owner = Thread.currentThread();
+        this.protocol = protocol;
+        log.trace("Acquiring lock ...");
         simulator.lock.acquireUninterruptibly();
         idleTimeout = timeout;
         if (!idleTimeout.isZero()) {
             scheduleTimeout();
         }
-        this.protocol = protocol;
-        this.owner = Thread.currentThread();
         protocol_byte = APDUHelper.getProtocolByte(protocol);
         log.trace("Locked");
     }

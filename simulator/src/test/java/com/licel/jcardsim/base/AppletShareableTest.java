@@ -37,9 +37,9 @@ public class AppletShareableTest {
         Simulator instance = new Simulator();
         assertEquals(shareableAppletAID, instance.installApplet(shareableAppletAID, GlobalArrayServerApplet.class));
         assertTrue(instance.selectApplet(shareableAppletAID));
-        instance._makeCurrent();
-        assertNotNull(JCSystem.getAppletShareableInterfaceObject(shareableAppletAID, (byte) 0));
-        instance._releaseCurrent();
+        try (var sim = instance.asCurrent()) {
+            assertNotNull(JCSystem.getAppletShareableInterfaceObject(shareableAppletAID, (byte) 0));
+        }
     }
 
     @Test
@@ -50,8 +50,8 @@ public class AppletShareableTest {
         Simulator instance = new Simulator();
         assertEquals(appletAID, instance.installApplet(appletAID, GlobalArrayClientApplet.class, Hex.decode(appletAIDStr)));
         assertTrue(instance.selectApplet(appletAID));
-        instance._makeCurrent();
-        assertNull(JCSystem.getAppletShareableInterfaceObject(appletAID, (byte) 0));
-        instance._releaseCurrent();
+        try (var sim = instance.asCurrent()) {
+            assertNull(JCSystem.getAppletShareableInterfaceObject(appletAID, (byte) 0));
+        }
     }
 }

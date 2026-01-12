@@ -1,4 +1,5 @@
 /*
+ * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
  * Copyright 2011 Licel LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,27 +21,59 @@ import javacard.framework.SystemException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Basic implementation of storage transient memory of JCRE.
- */
-public class TransientMemory {
+// Manages transient, persistent, and sensitive memory
+public final class TransientMemory {
     private static final Logger log = LoggerFactory.getLogger(TransientMemory.class);
-    /**
-     * List of <code>CLEAR_ON_DESELECT</code> arrays
-     */
-    protected final ArrayList<Object> clearOnDeselect = new ArrayList<>();
-    /**
-     * List of <code>CLEAR_ON_RESET</code> arrays
-     */
-    protected final ArrayList<Object> clearOnReset = new ArrayList<>();
+
+    private final ArrayList<Object> clearOnDeselect = new ArrayList<>();
+    private final ArrayList<Object> clearOnReset = new ArrayList<>();
+    private final ArrayList<Object> sensitive = new ArrayList<>(); // TODO: map of object to checksum
+    private final ArrayList<Object> persistent = new ArrayList<>();
 
     private int sumCOD;
     private int sumCOR;
+    private int sumPersistent;
+    private int sumSensitive;
 
+    // Registry of all allocated arrays (persistent and transient)
+    // Key: Class Name -> Line Number -> List of arrays created/assigned there
+    private final HashMap<String, HashMap<Integer, CopyOnWriteArrayList<WeakReference<Object>>>> allocations = new HashMap<>();
+
+    public void registerAllocation(Object array, String className, int line) {
+        if (array == null) return;
+
+        // Normalize class name
+        className = className.replace('/', '.');
+
+        allocations.computeIfAbsent(className, k -> new HashMap<>())
+                .computeIfAbsent(line, k -> new CopyOnWriteArrayList<>())
+                .add(new WeakReference<>(array));
+    }
+
+    public Object getBuffer(String className, int line) {
+        var classMap = allocations.get(className);
+        if (classMap == null) return null;
+
+        var list = classMap.get(line);
+        if (list == null || list.isEmpty()) return null;
+
+        // Return the last allocated/assigned buffer that is still alive
+        for (int i = list.size() - 1; i >= 0; i--) {
+            Object buf = list.get(i).get();
+            if (buf != null) return buf;
+        }
+        return null;
+    }
+
+    // Compute "virtual size"
     private void add(Object obj, byte event) {
         int toAdd = 0;
         if (obj instanceof byte[] bytes) {
@@ -53,15 +86,17 @@ public class TransientMemory {
         } else if (obj instanceof boolean[] booleans) {
             toAdd += booleans.length;
         } else {
-            log.error("Unsupported object type: {}", obj.getClass());
+            log.warn("Unsupported object type: {}", obj.getClass());
         }
 
-        if (event == JCSystem.CLEAR_ON_RESET) {
+        if (event == JCSystem.MEMORY_TYPE_TRANSIENT_RESET) {
             sumCOR += toAdd;
-        } else if (event == JCSystem.CLEAR_ON_DESELECT) {
+        } else if (event == JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT) {
             sumCOD += toAdd;
+        } else if (event == JCSystem.MEMORY_TYPE_PERSISTENT) {
+            sumPersistent += toAdd;
         } else {
-            log.error("Unsupported event {}", event);
+            log.warn("Unsupported memory type {}", event);
         }
     }
 
@@ -95,7 +130,7 @@ public class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientShortArray(short, byte)
      */
-    public short[] makeShortArray(short length, byte event) {
+    public short[] makeShortArray(int length, byte event) {
         short[] array = new short[length];
         storeArray(array, event);
         return array;
@@ -107,7 +142,7 @@ public class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientObjectArray(short, byte)
      */
-    public Object[] makeObjectArray(short length, byte event) {
+    public Object[] makeObjectArray(int length, byte event) {
         Object[] array = new Object[length];
         storeArray(array, event);
         return array;
@@ -135,6 +170,7 @@ public class TransientMemory {
                 array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET);
                 break;
             case JCSystem.ARRAY_TYPE_INT:
+                log.warn("int arrays not supported");
                 SystemException.throwIt(SystemException.ILLEGAL_VALUE);
                 break;
             default:
@@ -159,13 +195,17 @@ public class TransientMemory {
         }
     }
 
+    public boolean isSensitive(Object obj) {
+        return sensitive.contains(obj);
+    }
+
     /**
      * Store <code>arrayRef</code> in memory depends by event type
      *
      * @param arrayRef array reference
      * @param event    event type
      */
-    protected void storeArray(Object arrayRef, byte event) {
+    private void storeArray(Object arrayRef, byte event) {
         add(arrayRef, event);
         switch (event) {
             case JCSystem.CLEAR_ON_DESELECT:
@@ -173,6 +213,9 @@ public class TransientMemory {
                 break;
             case JCSystem.CLEAR_ON_RESET:
                 clearOnReset.add(arrayRef);
+                break;
+            case JCSystem.MEMORY_TYPE_PERSISTENT:
+                persistent.add(arrayRef);
                 break;
             default:
                 SystemException.throwIt(SystemException.ILLEGAL_VALUE);
@@ -182,7 +225,7 @@ public class TransientMemory {
     /**
      * Zero <code>CLEAR_ON_DESELECT</code> buffers
      */
-    protected void clearOnDeselect() {
+    void clearOnDeselect() {
         zero(clearOnDeselect);
     }
 
@@ -190,7 +233,7 @@ public class TransientMemory {
      * Zero <code>CLEAR_ON_RESET</code> and <code>CLEAR_ON_DESELECT</code>
      * buffers
      */
-    protected void clearOnReset() {
+    void clearOnReset() {
         zero(clearOnDeselect);
         zero(clearOnReset);
     }
@@ -198,7 +241,7 @@ public class TransientMemory {
     /**
      * Perform <code>clearOnReset</code> and forget all buffers
      */
-    protected void forgetBuffers() {
+    void forgetBuffers() {
         clearOnReset();
         clearOnDeselect.clear();
         clearOnReset.clear();
@@ -211,7 +254,7 @@ public class TransientMemory {
      *
      * @param list list of arrays
      */
-    protected void zero(List<Object> list) {
+    private void zero(List<Object> list) {
         for (Object obj : list) {
             if (obj instanceof byte[] bytes) {
                 Arrays.fill(bytes, (byte) 0);

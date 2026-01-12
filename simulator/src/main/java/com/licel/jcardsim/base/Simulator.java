@@ -23,24 +23,24 @@ import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
 import pro.javacard.engine.core.ContextStackProxy;
 import pro.javacard.engine.core.DependencyAnalyzer;
+import pro.javacard.engine.core.Faulty;
 import pro.javacard.engine.core.IsolatingClassReloader;
+import pro.javacard.engine.faulty.FaultyConfig;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
 import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -92,16 +92,16 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     private final CurrentAPDU currentAPDU;
 
     // Currently selected applet
-    protected AID currentAID;
+    private AID currentAID;
 
     // Context stack
-    protected final Deque<AID> contextStack = new ArrayDeque<>();
+    private final Deque<AID> contextStack = new ArrayDeque<>();
 
     // If applet selection is ongoing - FIXME: refactor
-    protected boolean selecting = false;
+    private boolean selecting = false;
 
     // transaction depth
-    protected byte transactionDepth = 0;
+    private byte transactionDepth = 0;
 
     // Number of allocated bytes
     int bytesAllocated;
@@ -109,28 +109,44 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Set of package names for applets, to identify interesting code _before_ register is called.
     Set<String> interesting = new HashSet<>();
 
-    public Simulator(ClassLoader loader) {
+    // Fault injection configuration
+    private FaultyConfig faultConfig;
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = new GlobalPlatform();
         this.currentAPDU = new CurrentAPDU();
-        this.classLoader = new IsolatingClassReloader(getClass().getClassLoader());
+        this.classLoader = new IsolatingClassReloader(loader);
+        this.faultConfig = faultConfig;
+    }
+
+    public Simulator(ClassLoader loader) {
+        this(loader, null);
+    }
+
+    public Simulator(FaultyConfig faultConfig) {
+        this(Simulator.class.getClassLoader(), faultConfig);
     }
 
     public Simulator() throws RuntimeException {
-        this(Simulator.class.getClassLoader());
+        this(Simulator.class.getClassLoader(), null);
     }
 
     // When applet code calls back for the internal facade of the simulator,
     // return _this_ instance. This usually happens via JCSystem.*/GPSystem.* calls.
     // and is the mirror of current()
-    // These are public so that tests that do not follow the convention can run with
-    // minimal modification. TODO: make not public
-    public void _makeCurrent() {
-        currentSimulator.set(this);
+
+    @FunctionalInterface
+    public interface CurrentSimulator extends AutoCloseable {
+        // This interface exists solely to remove Exception from close() signature
+        @Override
+        void close();
     }
 
-    public void _releaseCurrent() {
-        currentSimulator.remove();
+    // Use in try-with-resources block to have this simulator instance as current simulator
+    public CurrentSimulator asCurrent() {
+        currentSimulator.set(this);
+        return currentSimulator::remove;
     }
 
     @Override
@@ -147,7 +163,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      * @return current Simulator instance
      */
     public static JavaCardRuntime current() {
-        Simulator currentInstance = currentSimulator.get();
+        var currentInstance = currentSimulator.get();
         if (currentInstance == null) {
             throw new IllegalStateException("No current Engine instance");
         }
@@ -168,7 +184,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     public boolean selectApplet(AID aid) throws SystemException {
-        byte[] resp = selectAppletWithResult(aid);
+        var resp = selectAppletWithResult(aid);
         return ByteUtil.getSW(resp) == ISO7816.SW_NO_ERROR;
     }
 
@@ -179,6 +195,67 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public byte[] getATR() {
         // FIXME: remove from this layer unless GPSystem.setATRHistBytes gets implemented
         return Hex.decode(DEFAULT_ATR);
+    }
+
+    @SuppressWarnings("unused") // used from intercept
+    public static byte[] allocateBytes(int size) {
+        Simulator current = (Simulator) current();
+        byte[] v = current.getTransientMemory().makeByteArray(size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        current.registerAllocation(v);
+        return v;
+    }
+
+    @SuppressWarnings("unused") // used from intercept
+    public static short[] allocateShorts(int size) {
+        log.debug("Allocating short array");
+        Simulator current = (Simulator) current();
+        var v = current.getTransientMemory().makeShortArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        current.registerAllocation(v);
+        return v;
+    }
+
+    @SuppressWarnings("unused") // used from intercept
+    public static boolean[] allocateBooleans(int size) {
+        log.debug("Allocating boolean array");
+        Simulator current = (Simulator) current();
+        var v = current.getTransientMemory().makeBooleanArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        current.registerAllocation(v);
+        return v;
+    }
+
+    @SuppressWarnings("unused") // used from intercept
+    public static void trackAllocation(Object array) {
+        Simulator current = (Simulator) current();
+        current.registerAllocation(array);
+    }
+
+    private void registerAllocation(Object array) {
+        if (array == null) return;
+        // Locate the caller
+        StackWalker walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+        Optional<StackWalker.StackFrame> caller = walker.walk(frames -> frames
+                .filter(f -> !f.getClassName().equals(Simulator.class.getName()))
+                .findFirst());
+
+        if (caller.isPresent()) {
+             StackWalker.StackFrame frame = caller.get();
+             String className = frame.getClassName();
+             int line = frame.getLineNumber();
+             
+             // Normalize to dots
+             className = className.replace('/', '.');
+
+             log.trace("Allocation on {}:{} {}", className, line, Faulty.getSourceLine(className, line));
+             // Delegate to TransientMemory
+             transientMemory.registerAllocation(array, className, line);
+        } else {
+             log.warn("Caller not found for allocation");
+        }
+    }
+    
+    // Queries
+    public Object getBuffer(String className, int line) {
+        return transientMemory.getBuffer(className, line);
     }
 
     /**
@@ -200,7 +277,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public AID lookupAID(byte[] buffer, short offset, byte length) {
         // To return the "JC owned" AID instance.
-        for (AID aid : applets.keySet()) {
+        for (var aid : applets.keySet()) {
             if (aid.equals(buffer, offset, length)) {
                 return aid;
             }
@@ -217,7 +294,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public ApplicationInstance lookupApplet(AID lookupAid) {
         log.trace("Searching registry for {}", lookupAid == null ? null : AIDUtil.toString(lookupAid));
         // To return the "JC owned" AID instance.
-        for (AID aid : applets.keySet()) {
+        for (var aid : applets.keySet()) {
             if (aid.equals(lookupAid)) {
                 return applets.get(aid);
             }
@@ -232,7 +309,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public AID getPreviousContextAID() {
         var it = contextStack.iterator();
-        if (it.hasNext()) it.next(); // skip current
+        if (it.hasNext())
+            it.next(); // skip current
         return it.hasNext() ? it.next() : null;
     }
 
@@ -245,7 +323,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public Applet getApplet(AID aid) {
         Objects.requireNonNull(aid);
-        ApplicationInstance a = lookupApplet(aid);
+        var a = lookupApplet(aid);
         if (a == null) {
             return null;
         } else {
@@ -253,16 +331,15 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
     }
 
-
     public void internalDeleteApplet(AID aid) {
         log.info("Deleting applet {}", AIDUtil.toString(aid));
-        ApplicationInstance app = lookupApplet(aid);
+        var app = lookupApplet(aid);
 
         if (app == null) {
             throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
         }
 
-        Applet applet = app.getApplet();
+        var applet = app.getApplet();
 
         // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
         // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
@@ -295,15 +372,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
-        _makeCurrent(); // We call into applet.
-        try {
+        // We call into applet.
+        try (var sim = asCurrent()) {
             // First deselect the applet, if it is currently selected.
             if (aid.equals(currentAID)) {
                 deselect(lookupApplet(currentAID));
             }
             internalDeleteApplet(aid);
-        } finally {
-            _releaseCurrent();
         }
     }
 
@@ -317,7 +392,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public boolean isAppletSelecting(Object aThis) {
         return selecting;
         // NOTE: there is a proxy in play, so identity makes no sense.
-        //return aThis == getApplet(getAID()) && selecting;
+        // return aThis == getApplet(getAID()) && selecting;
     }
 
     /**
@@ -331,17 +406,37 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
-        try (EngineSession session = connect()) {
+        try (var session = connect()) {
             return session.transmitCommand(command);
         }
     }
 
+    int command_counter = 0;
+
     byte[] _transmitCommand(byte protocol, byte[] command) throws SystemException {
-        _makeCurrent();
-        try {
+        command_counter++;
+
+        log.info("Processing command #{}", command_counter);
+        // Reset faults
+        correct();
+
+        // Apply faults from config if set
+        if (faultConfig != null) {
+            var faults = faultConfig.getFaults(command_counter, command);
+            for (var classEntry : faults.entrySet()) {
+                var className = classEntry.getKey();
+                for (var lineEntry : classEntry.getValue().entrySet()) {
+                    int line = lineEntry.getKey();
+                    var type = lineEntry.getValue();
+                    applyFault(className, line, type);
+                }
+            }
+        }
+
+        try (var sim = asCurrent()) {
             log.trace("APDU: {}", Hex.toHexString(command));
-            final int apduCase = APDUHelper.getAPDUCase(command);
-            final byte[] theSW = new byte[2];
+            final var apduCase = APDUHelper.getAPDUCase(command);
+            final var theSW = new byte[2];
             byte[] response;
 
             selecting = false;
@@ -349,7 +444,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             final AID newAid;
             // check if there is an applet to be selected
             if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
-                log.trace("Current AID {}, looking up applet ...", currentAID == null ? null : AIDUtil.toString(currentAID));
+                log.trace("Current AID {}, looking up applet ...",
+                        currentAID == null ? null : AIDUtil.toString(currentAID));
                 newAid = findAppletForSelectApdu(command, apduCase);
                 log.trace("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
                 // Nothing currently selected
@@ -393,7 +489,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
 
             responseBufferSize = 0;
-            APDU apdu = currentAPDU.getAPDU();
+            var apdu = currentAPDU.getAPDU();
             try {
                 if (selecting) {
                     // First call the select() method
@@ -438,7 +534,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
 
             // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
-            if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
+            if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63
+                    || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
                 response = new byte[responseBufferSize + 2];
                 Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
                 Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
@@ -447,31 +544,29 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
 
             return response;
-        } finally {
-            _releaseCurrent();
         }
     }
 
     static void log_exception(Throwable e, String message) {
         if (e.getClass().getName().startsWith("javacard.") || e.getClass().getName().startsWith("javacardx.")) {
             if (log.isTraceEnabled()) {
-                log.error("{}: {}", message, e.getClass().getName(), e);
+                log.warn("{}: {}", message, e.getClass().getName(), e);
             } else {
-                log.error("{}: {}", message, e.getClass().getName());
+                log.warn("{}: {}", message, e.getClass().getName());
             }
         } else {
-            log.error("{}: {}", message, e.getClass().getSimpleName(), e);
+            log.warn("{}: {}", message, e.getClass().getSimpleName(), e);
         }
     }
 
     static boolean isAppletSelectionApdu(byte[] apdu) {
-        final byte channelMask = (byte) 0xFC; // mask out %b000000xx
-        final byte p2Mask = (byte) 0xE3; // mask out %b000xxx00
+        final var channelMask = (byte) 0xFC; // mask out %b000000xx
+        final var p2Mask = (byte) 0xE3; // mask out %b000xxx00
 
-        final byte cla = (byte) (apdu[ISO7816.OFFSET_CLA] & channelMask);
-        final byte ins = apdu[ISO7816.OFFSET_INS];
-        final byte p1 = apdu[ISO7816.OFFSET_P1];
-        final byte p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
+        final var cla = (byte) (apdu[ISO7816.OFFSET_CLA] & channelMask);
+        final var ins = apdu[ISO7816.OFFSET_INS];
+        final var p1 = apdu[ISO7816.OFFSET_P1];
+        final var p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
 
         return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
     }
@@ -497,14 +592,14 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             }
         }
 
-        for (AID aid : applets.keySet()) {
+        for (var aid : applets.keySet()) {
             if (aid.equals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
                 log.trace("Selecting {} based on full AID match", AIDUtil.toString(aid));
                 return aid;
             }
         }
 
-        for (AID aid : applets.keySet()) {
+        for (var aid : applets.keySet()) {
             if (aid.partialEquals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
                 log.trace("Selecting {} based on partial AID match", AIDUtil.toString(aid));
                 return aid;
@@ -517,7 +612,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     private void deselect(ApplicationInstance app) {
         log.trace("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
         try {
-            Applet applet = app.getApplet();
+            var applet = app.getApplet();
             applet.deselect();
         } catch (Exception e) {
             log_exception(e, "Exception in Applet.deselect()");
@@ -552,15 +647,16 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public void reset() {
         // FIXME: lock
-        //lock.acquireUninterruptibly();
+        // lock.acquireUninterruptibly();
         Arrays.fill(responseBuffer, (byte) 0);
         transactionDepth = 0;
         responseBufferSize = 0;
         currentAID = null;
         contextStack.clear();
+        command_counter = 0;
         transientMemory.clearOnReset();
         globalPlatform.reset();
-        //lock.release();
+        // lock.release();
     }
 
     @Override
@@ -657,14 +753,15 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public Shareable getSharedObject(AID serverAID, byte parameter) {
         log.info("Getting Shareable from {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
-        Applet serverApplet = getApplet(serverAID);
+        var serverApplet = getApplet(serverAID);
         if (serverApplet == null) {
             log.warn("Did not find server AID {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
             return null;
         }
         var shareable = serverApplet.getShareableInterfaceObject(getAID(), parameter);
         if (shareable == null) {
-            log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(), AIDUtil.toString(serverAID), System.identityHashCode(this));
+            log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(),
+                    AIDUtil.toString(serverAID), System.identityHashCode(this));
             return null;
         }
         // Wrap in context pusher
@@ -692,19 +789,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
 
     @Override
     public void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
-        _makeCurrent();
-        try {
+        try (var sim = asCurrent()) {
             Simulator.current().getGlobalPlatform().loadClass(packageAid, appletAid, appletClass);
-        } finally {
-            _releaseCurrent();
         }
     }
 
     @Override
-    public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed) {
+    public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges,
+            byte[] parameters, boolean exposed) {
         final Class<?> klass;
 
-        log.info("Installing applet class {}, loaded by {}", appletClass.getName(), appletClass.getClassLoader().getName());
+        log.info("Installing applet class {}, loaded by {}", appletClass.getName(),
+                appletClass.getClassLoader().getName());
 
         var deps = DependencyAnalyzer.getAllPackages(appletClass);
         log.debug("Dependencies for {}: {}", appletClass.getSimpleName(), deps);
@@ -731,7 +827,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         // Check for magic field
         // TODO: same feature flag as for bytecode change
         try {
-            Field magic = klass.getField("jcardengine");
+            var magic = klass.getField("jcardengine");
             magic.setBoolean(null, true);
         } catch (NoSuchFieldException e) {
             // Nothing.
@@ -740,21 +836,21 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
 
         // Construct _actual_ install parameters
-        byte[] install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
+        var install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
 
         // Set the register() callback options
         options.set(new RegisterCallbackOptions(appletAID, exposed));
 
         interesting.add(klass.getPackageName());
-        boolean from_gp = GlobalPlatformApplet.OPEN_AID.equals(contextStack.peek());
+        var from_gp = GlobalPlatformApplet.OPEN_AID.equals(contextStack.peek());
         // Call the install() method.
         try {
             contextStack.clear(); // It is from JCRE context
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
         } catch (InvocationTargetException e) {
-            log.error("Exception in {} install() ", AIDUtil.toString(appletAID), e);
+            log.warn("Exception in {} install() ", AIDUtil.toString(appletAID), e);
             if (e.getCause() instanceof ISOException) {
-                ISOException isoex = (ISOException) e.getCause();
+                var isoex = (ISOException) e.getCause();
                 log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
             }
             throw new JavaCardEngineException("Exception in install()", e);
@@ -770,15 +866,14 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             interesting.clear();
         }
         if (options.get() != null) {
-            log.error("install() did not call register()");
+            log.warn("install() did not call register()");
             throw new JavaCardEngineException("install() did not call register()");
         }
         return appletAID;
     }
 
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
-        _makeCurrent();
-        try {
+        try (var sim = asCurrent()) {
             // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
             if (currentAID != null) {
                 deselect(lookupApplet(currentAID));
@@ -786,7 +881,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             return internalInstallApplet(appletAID, appletClass, null, parameters, exposed);
         } finally {
             memstat();
-            _releaseCurrent();
         }
     }
 
@@ -799,8 +893,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 log.warn("{} already registered or not called from install()", instance.getClass().getName());
                 SystemException.throwIt(SystemException.ILLEGAL_AID);
             }
-            AID instanceAID = options.get().aid;
-            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(instanceAID), System.identityHashCode(this));
+            var instanceAID = options.get().aid;
+            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(instanceAID),
+                    System.identityHashCode(this));
 
             applets.put(instanceAID, new ApplicationInstance(instanceAID, instance, options.get().exposed));
             // Now Applet.getAID() is available.
@@ -815,10 +910,11 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public void register(Object instance, byte[] buffer, short offset, byte len) {
         try {
-            AID actual = new AID(buffer, offset, len);
+            var actual = new AID(buffer, offset, len);
             if (options.get() == null || applets.containsKey(actual))
                 SystemException.throwIt(SystemException.ILLEGAL_AID);
-            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(actual), System.identityHashCode(this));
+            log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(actual),
+                    System.identityHashCode(this));
             applets.put(actual, new ApplicationInstance(actual, instance, options.get().exposed));
             // Now Applet.getAID() is available.
             contextStack.clear();
@@ -828,41 +924,32 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         }
     }
 
-    private static final StackWalker STACK_WALKER = StackWalker.getInstance(Set.of(StackWalker.Option.RETAIN_CLASS_REFERENCE));
-
-    // Intercepted from bytecode
-    public static byte[] allocate(int size) {
-        Simulator current = (Simulator) Simulator.current(); // XXX: shortcut
-        current.bytesAllocated += size;
-        // Get list of applets and their packages
-        // FIXME: we get bytebuddy classes. Also, allocation happens before registration.
-        var interesting = current.applets
-                .values()
-                .stream()
-                .map(applicationInstance -> applicationInstance.getApplet().getClass().getPackageName())
-                .collect(Collectors.toSet());
-        var check = new HashSet<>(interesting);
-        check.addAll(current.interesting);
-
-        if (log.isEnabledForLevel(Level.TRACE)) {
-            var frame = STACK_WALKER.walk(frames -> frames.limit(16).filter(f -> check.contains(IsolatingClassReloader.pkgname(f.getClassName()))).findFirst());
-
-            frame.ifPresent(f -> log.trace("Allocating {} in {} at {}:{}", size, f.getClassName(), f.getFileName(), f.getLineNumber()));
+    public void correct() {
+        for (var b : branch_flips.values()) {
+            Arrays.fill(b, false);
         }
-        log.debug("Allocating {} bytes in {}; total is {}", size, System.identityHashCode(current), current.bytesAllocated);
-        return new byte[size];
+        for (var s : switch_flips.values()) {
+            Arrays.fill(s, 0);
+        }
     }
 
-    public void faultyAt(String clazz, int line) {
-        var branches = branch_flips.computeIfAbsent(clazz, k -> new boolean[MAX_LINE_NUMBER]);
-        var switches = switch_flips.computeIfAbsent(clazz, k -> new int[MAX_LINE_NUMBER]);
+    private void applyFault(String className, int line, String type) {
+        var branches = branch_flips.computeIfAbsent(className, k -> new boolean[MAX_LINE_NUMBER]);
+        var switches = switch_flips.computeIfAbsent(className, k -> new int[MAX_LINE_NUMBER]);
 
-        branches[line] = true;
-        switches[line] = Short.MAX_VALUE;
-    }
-
-    public void faultyAt(Class<?> clazz, int line) {
-        faultyAt(clazz.getName(), line);
+        switch (type) {
+            case "exception", "skip", "mutate" -> {
+                branches[line] = true;
+                switches[line] = Short.MAX_VALUE;
+                var sourceLine = Faulty.getSourceLine(className, line);
+                if (sourceLine != null) {
+                    log.info("Applying {} fault at {}:{} → {}", type, className, line, sourceLine);
+                } else {
+                    log.info("Applying {} fault at {}:{}", type, className, line);
+                }
+            }
+            default -> log.warn("Unknown fault type: {}", type);
+        }
     }
 
     private static final int MAX_LINE_NUMBER = Short.MAX_VALUE;
@@ -873,26 +960,18 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Per-class int arrays for offsetting switch values
     private final HashMap<String, int[]> switch_flips = new HashMap<>();
 
-    /**
-     * Get the boolean flip array for the calling class (called from static initializer).
-     * Array is indexed by line number.
-     */
-    @SuppressWarnings("unused")
+    @SuppressWarnings("unused") // used from intercept
     public static boolean[] getFaultFlipsArray() {
-        Simulator current = (Simulator) Simulator.current();
-        String className = getCallingClassName();
+        var current = (Simulator) Simulator.current();
+        var className = getCallingClassName();
         var r = current.branch_flips.computeIfAbsent(className, k -> new boolean[MAX_LINE_NUMBER]);
         return r;
     }
 
-    /**
-     * Get the int flip array for the calling class (called from static initializer).
-     * Array is indexed by line number.
-     */
-    @SuppressWarnings("unused")
+    @SuppressWarnings("unused") // used from intercept
     public static int[] getFaultIntFlipsArray() {
-        Simulator current = (Simulator) Simulator.current();
-        String className = getCallingClassName();
+        var current = (Simulator) Simulator.current();
+        var className = getCallingClassName();
         var r = current.switch_flips.computeIfAbsent(className, k -> new int[MAX_LINE_NUMBER]);
         return r;
     }
@@ -901,13 +980,11 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      * Get the calling class name using StackWalker.
      */
     private static String getCallingClassName() {
-        StackWalker walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
-        return walker.walk(frames ->
-                frames.skip(2) // Skip this method and the getFault*Array method
-                        .findFirst()
-                        .map(frame -> frame.getClassName())
-                        .orElse("unknown")
-        );
+        var walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
+        return walker.walk(frames -> frames.skip(2) // Skip this method and the getFault*Array method
+                .findFirst()
+                .map(frame -> frame.getClassName())
+                .orElse("unknown"));
     }
 
     private static class RegisterCallbackOptions {

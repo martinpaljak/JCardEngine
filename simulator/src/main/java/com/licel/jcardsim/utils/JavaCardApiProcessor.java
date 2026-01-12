@@ -50,7 +50,10 @@ public class JavaCardApiProcessor {
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.JCSystemProxy", "javacard.framework.JCSystem", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.UtilProxy", "javacard.framework.Util", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.OwnerPINProxy", "javacard.framework.OwnerPIN", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.SensitiveArraysProxy", "javacard.framework.SensitiveArrays", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.ChecksumProxy", "javacard.security.Checksum", true);
+
+
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyAgreementProxy", "javacard.security.KeyAgreement", true);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyPairProxy", "javacard.security.KeyPair", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.security.KeyBuilderProxy", "javacard.security.KeyBuilder", true);
@@ -272,7 +275,7 @@ public class JavaCardApiProcessor {
                 //System.out.println("Use proxy method:    " + cname + "::" + name + desc);
                 return null;
             }
-            System.err.println("Uses original method: " + cname + "::" + name + desc);
+            System.out.println("Uses original method: " + cname + "::" + name + desc);
             return super.visitMethod(access, name, desc, signature, exceptions);
         }
 

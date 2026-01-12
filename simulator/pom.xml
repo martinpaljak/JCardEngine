@@ -22,12 +22,14 @@
             <artifactId>api_classic</artifactId>
             <version>${javacard.version}</version>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.globalplatform</groupId>
             <artifactId>api</artifactId>
             <version>${globalplatform.version}</version>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
         <!-- Mandatory deps -->
         <dependency>
@@ -39,19 +41,19 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.2</version>
+            <version>1.18.3</version>
         </dependency>
         <!-- ASM for bytecode processing -->
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm-commons</artifactId>
-            <version>9.9</version>
+            <version>9.9.1</version>
         </dependency>
         <!-- Global Platform support -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>25.12.01</version>
+            <version>26.01.12</version>
         </dependency>
         <!-- Faulty config parser -->
         <dependency>
@@ -68,7 +70,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>6.0.1</version>
+            <version>6.0.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -97,7 +99,7 @@
                             <artifactId>api_classic</artifactId>
                             <version>${javacard.version}</version>
                             <packaging>jar</packaging>
-                            <file>sdks/jc320v25.1_kit/lib/api_classic-3.0.5.jar</file>
+                            <file>sdks/jc320v25.1_kit/lib/api_classic-${javacard.version}.jar</file>
                         </configuration>
                     </execution>
                     <execution>
@@ -163,13 +165,18 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Now compile -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
             <!-- Run the ASM based proxy code injector -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>cardApi</id>
+                        <id>inject-implementation</id>
                         <phase>process-classes</phase>
                         <goals>
                             <goal>java</goal>
@@ -261,6 +268,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
+            <!-- Use Ant to run the modified variant of jacoco execution dump gatherer -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>

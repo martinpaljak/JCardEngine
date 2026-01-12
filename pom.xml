@@ -44,18 +44,6 @@
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
-    <!-- Default is publishing to private Maven repo on mvn.javacard.pro -->
-    <distributionManagement>
-        <repository>
-            <id>javacard-pro</id>
-            <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/</url>
-        </repository>
-        <snapshotRepository>
-            <id>javacard-pro-snapshots</id>
-            <url>scpexe://mvn@mvn.javacard.pro/home/mvn/maven/SNAPSHOTS</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <repositories>
         <repository>
             <id>javacard-pro</id>
@@ -79,13 +67,6 @@
     </modules>
 
     <build>
-        <extensions>
-            <extension>
-                <groupId>org.apache.maven.wagon</groupId>
-                <artifactId>wagon-ssh-external</artifactId>
-                <version>3.5.3</version>
-            </extension>
-        </extensions>
         <plugins>
             <!-- Minimum Maven version. Not really relevant with wrapper -->
             <plugin>
@@ -105,7 +86,7 @@
                                     <message>Project requires a LTS JDK from v17+</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
-                                    <version>[3.9.11,)</version>
+                                    <version>[3.9.12,)</version>
                                 </requireMavenVersion>
                                 <requirePluginVersions/>
                             </rules>
@@ -120,7 +101,7 @@
                 <executions>
                     <execution>
                         <id>parent-spotbugs</id>
-                        <phase>test</phase>
+                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>

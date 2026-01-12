@@ -4,6 +4,7 @@ import apdu4j.core.CommandAPDU;
 import apdu4j.core.ResponseAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.faulty.FaultyConfig;
 import pro.javacard.engine.testapplets.FaultApplet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,11 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class FaultTest {
     @Test
     public void testFault() {
-        Simulator instance = new Simulator();
-        // Flip condition
-        instance.faultyAt(FaultApplet.class, 54);
+        // Flip condition on step 2 (SELECT is step 1, the test command is step 2)
+        var config = FaultyConfig.builder()
+                .faultyAt(2, FaultApplet.class, 62)
+                .faultyAt(2, FaultApplet.class, 24)
+
+                .build();
+        var instance = new Simulator(config);
         var aid = AIDUtil.create("010203040506");
-        assertTrue(instance.installApplet(aid, FaultApplet.class).equals(aid));
+        assertEquals(instance.installApplet(aid, FaultApplet.class), aid);
 
         assertTrue(instance.selectApplet(aid));
 
@@ -26,9 +31,9 @@ public class FaultTest {
 
     @Test
     public void testNoFault() {
-        Simulator instance = new Simulator();
+        var instance = new Simulator();
         var aid = AIDUtil.create("010203040506");
-        assertTrue(instance.installApplet(aid, FaultApplet.class).equals(aid));
+        assertEquals(instance.installApplet(aid, FaultApplet.class), aid);
 
         assertTrue(instance.selectApplet(aid));
 

@@ -19,7 +19,9 @@ import com.licel.jcardsim.base.Simulator;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+// Instead of mutating a class based on pre-defined configuration, we load all interesting locations with bytecode, that call
+// back to mothership to ask for "should I fail or not". This means that there is just a single and deterministic version
+// of the class file, which makes JaCoCo visualizer happy, and we get "free" code coverage report with line coverage.
 public class FaultInjectionInterceptor extends ClassVisitor {
     private static final Logger log = LoggerFactory.getLogger(FaultInjectionInterceptor.class);
 
