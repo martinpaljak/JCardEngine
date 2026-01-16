@@ -41,7 +41,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.3</version>
+            <version>1.18.4</version>
         </dependency>
         <!-- ASM for bytecode processing -->
         <dependency>
@@ -53,7 +53,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>26.01.12</version>
+            <version>26.01.16</version>
         </dependency>
         <!-- Faulty config parser -->
         <dependency>
@@ -333,7 +333,7 @@
                 <executions>
                     <execution>
                         <id>attach-sources</id>
-                        <phase>verify</phase>
+                        <phase>install</phase>
                         <goals>
                             <goal>jar-no-fork</goal>
                         </goals>
