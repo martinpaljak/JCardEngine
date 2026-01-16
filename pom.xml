@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.martinpaljak</groupId>
-    <version>26.01.17-SNAPSHOT</version>
+    <version>26.01.16.1</version>
     <packaging>pom</packaging>
     <url>https://github.com/martinpaljak/JCardEngine</url>
     <artifactId>jcardengine-package</artifactId>
@@ -38,7 +38,7 @@
     </licenses>
 
     <properties>
-        <project.build.outputTimestamp>2026-01-16T10:34:32Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-01-16T16:24:39Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <javacard.version>3.0.5</javacard.version>
