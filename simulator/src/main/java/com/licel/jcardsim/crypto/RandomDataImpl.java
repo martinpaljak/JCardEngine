@@ -58,7 +58,7 @@ public class RandomDataImpl extends RandomData {
 
     public void setSeed(byte[] buffer, short offset, short length) {
         // XXX: for ALG_PRESEEDED_DRBG seeding should set known state ?
-        engine.addSeedMaterial(Arrays.copyOfRange(buffer, offset, length));
+        engine.addSeedMaterial(Arrays.copyOfRange(buffer, offset, offset + length));
     }
 
     public byte getAlgorithm() {
