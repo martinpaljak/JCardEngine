@@ -235,6 +235,31 @@ public class SimulatorTest {
     }
 
     @Test
+    public void testManageChannelRejected() {
+        Simulator instance = new Simulator();
+        instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
+
+        // MANAGE CHANNEL OPEN (00 70 00 00) — rejected before applet is selected
+        byte[] response = instance.transmitCommand(new byte[]{0x00, 0x70, 0x00, 0x00});
+        assertEquals(0x6881, Util.getShort(response, (short) 0));
+
+        // Select applet, then try again — still rejected at JCRE level
+        assertTrue(instance.selectApplet(TEST_APPLET_AID));
+
+        // OPEN
+        response = instance.transmitCommand(new byte[]{0x00, 0x70, 0x00, 0x00});
+        assertEquals(0x6881, Util.getShort(response, (short) 0));
+
+        // CLOSE (00 70 80 01)
+        response = instance.transmitCommand(new byte[]{0x00, 0x70, (byte) 0x80, 0x01});
+        assertEquals(0x6881, Util.getShort(response, (short) 0));
+
+        // With channel bits in CLA (e.g. channel 1: CLA=0x01)
+        response = instance.transmitCommand(new byte[]{0x01, 0x70, 0x00, 0x00});
+        assertEquals(0x6881, Util.getShort(response, (short) 0));
+    }
+
+    @Test
     public void testInstallAndRegisterMisbehaves() {
         byte[] select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes();
         JavaCardEngine sim = JavaCardEngine.create();

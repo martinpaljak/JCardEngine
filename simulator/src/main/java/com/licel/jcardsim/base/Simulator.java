@@ -458,6 +458,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             final var theSW = new byte[2];
             byte[] response;
 
+            // MANAGE CHANNEL (INS=0x70) — not supported
+            if ((command[ISO7816.OFFSET_CLA] & 0x80) == 0x00 && command[ISO7816.OFFSET_INS] == 0x70) {
+                log.warn("MANAGE CHANNEL not supported");
+                Util.setShort(theSW, (short) 0, (short) 0x6881);
+                return theSW;
+            }
+
             selecting = false;
             final Applet applet;
             final AID newAid;
