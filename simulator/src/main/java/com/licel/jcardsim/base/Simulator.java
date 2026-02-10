@@ -304,6 +304,21 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     /**
+     * Push an applet context AID onto the context stack. Used by GlobalPlatformApplet
+     * to perform context switches for indirect personalization (GP 2.2.1 Section 7.3.3).
+     */
+    public void pushContext(AID aid) {
+        contextStack.push(aid);
+    }
+
+    /**
+     * Pop the top applet context AID from the context stack.
+     */
+    public void popContext() {
+        contextStack.pop();
+    }
+
+    /**
      * @return previous selected applet context AID or null
      */
     @Override

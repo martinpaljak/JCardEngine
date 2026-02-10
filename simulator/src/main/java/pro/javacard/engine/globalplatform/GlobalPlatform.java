@@ -95,8 +95,19 @@ public class GlobalPlatform {
         return sc;
     }
 
+    private AID personalizationTarget = null;
+
+    public void setPersonalizationTarget(AID aid) {
+        personalizationTarget = aid;
+    }
+
+    public AID getPersonalizationTarget() {
+        return personalizationTarget;
+    }
+
     public void reset() {
         sc.resetSecurity();
+        personalizationTarget = null;
     }
 
     public CVM getGlobalPIN() {
