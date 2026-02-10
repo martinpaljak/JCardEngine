@@ -40,6 +40,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class GlobalPlatformTest {
 
     @Test
+    public void testSCP03MacOnlySession() throws Exception {
+        JavaCardEngine sim = JavaCardEngine.create();
+        AID appletAID = AIDUtil.create("010203040506070809");
+        pro.javacard.capfile.AID jcaid = new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID));
+        sim.loadApplet(appletAID, appletAID, GlobalPlatformTestApplet.class);
+
+        PlaintextKeys pk = PlaintextKeys.defaultKey();
+        try (EngineSession instance = sim.connect()) {
+            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            GPSession gp = GPSession.discover(bibo);
+            gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            gp.installAndMakeSelectable(jcaid, jcaid, jcaid, EnumSet.noneOf(GPRegistryEntry.Privilege.class), new byte[4]);
+
+            PlaintextKeys pk2 = PlaintextKeys.defaultKey();
+            gp = GPSession.discover(bibo);
+            gp.openSecureChannel(pk2, null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            gp.deleteAID(jcaid, false);
+        }
+    }
+
+    @Test
     public void testSecureChannel() throws Exception {
         JavaCardEngine sim = JavaCardEngine.create();
         AID appletAID = AIDUtil.create("010203040506070809");
