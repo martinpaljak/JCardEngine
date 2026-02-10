@@ -209,8 +209,10 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 // Length of full decrypted APDU (no Le)
                 return (short) (offset + ISO7816.OFFSET_CDATA + payload.length);
             }
-            // Was just mac
-            bytes[offset + ISO7816.OFFSET_LC] -= 8;
+            // Strip MAC if present
+            if ((state & SecureChannel.C_MAC) == SecureChannel.C_MAC) {
+                bytes[offset + ISO7816.OFFSET_LC] -= 8;
+            }
             return (short) (offset + ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
         } catch (GeneralSecurityException e) {
             log.error("Decryption failed", e);
