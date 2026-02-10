@@ -632,10 +632,13 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
         log.trace("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
         try {
             var applet = app.getApplet();
+            contextStack.push(app.getAID());
             applet.deselect();
         } catch (Exception e) {
             log_exception(e, "Exception in Applet.deselect()");
             // ignore all
+        } finally {
+            contextStack.pop();
         }
 
         currentAID = null;
