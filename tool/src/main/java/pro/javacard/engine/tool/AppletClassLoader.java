@@ -82,7 +82,7 @@ public final class AppletClassLoader extends URLClassLoader {
         try (var s = Files.walk(src)) {
             s.filter(p -> p.toString().endsWith(".class")).forEach(p -> {
                 if (InstallableAppletChecker.isValidApplet(p, this)) {
-                    String cls = src.relativize(p).toString().replace("/", ".");
+                    String cls = src.relativize(p).toString().replaceAll("[/\\\\]", ".");
                     applets.add(cls.substring(0, cls.length() - ".class".length())); // bite off ".class"
                 }
             });
