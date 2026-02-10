@@ -1,0 +1,6 @@
+# Force LF in the repository, let git handle checkout conversion
+* text=auto eol=lf
+
+# Windows batch files need CRLF to work
+*.cmd text eol=crlf
+*.bat text eol=crlf
