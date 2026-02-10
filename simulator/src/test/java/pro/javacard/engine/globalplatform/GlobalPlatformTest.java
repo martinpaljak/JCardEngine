@@ -22,6 +22,9 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.SimulatorBIBO;
@@ -31,31 +34,50 @@ import pro.javacard.gp.GPRegistryEntry;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
+import org.bouncycastle.util.encoders.Hex;
+
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class GlobalPlatformTest {
 
-    @Test
-    public void testSCP03MacOnlySession() throws Exception {
-        JavaCardEngine sim = JavaCardEngine.create();
+    static Stream<Arguments> scpConfigs() {
+        byte[] custom128 = Hex.decode("000102030405060708090A0B0C0D0E0F");
+        byte[] custom256 = Hex.decode("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
+        return Stream.of(
+            Arguments.of("SCP02-MAC",           new SCPConfig.SCP02(),            null,       EnumSet.of(GPSession.APDUMode.MAC)),
+            Arguments.of("SCP03-MAC",           new SCPConfig.SCP03(),            null,       EnumSet.of(GPSession.APDUMode.MAC)),
+            Arguments.of("SCP03-S16-ENC",       new SCPConfig.SCP03(true),        null,       EnumSet.of(GPSession.APDUMode.ENC)),
+            Arguments.of("Custom128-SCP03-ENC", new SCPConfig.SCP03(custom128),   custom128,  EnumSet.of(GPSession.APDUMode.ENC)),
+            Arguments.of("Custom256-SCP03-ENC", new SCPConfig.SCP03(custom256),   custom256,  EnumSet.of(GPSession.APDUMode.ENC))
+        );
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("scpConfigs")
+    void testSCPInstallDelete(String name, SCPConfig config, byte[] masterKey,
+                               EnumSet<GPSession.APDUMode> mode) throws Exception {
+        JavaCardEngine sim = new JavaCardEngine.Builder()
+                .withSCP(config)
+                .build();
         AID appletAID = AIDUtil.create("010203040506070809");
         pro.javacard.capfile.AID jcaid = new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID));
         sim.loadApplet(appletAID, appletAID, GlobalPlatformTestApplet.class);
 
-        PlaintextKeys pk = PlaintextKeys.defaultKey();
+        PlaintextKeys pk = masterKey != null ? PlaintextKeys.fromMasterKey(masterKey) : PlaintextKeys.defaultKey();
         try (EngineSession instance = sim.connect()) {
             APDUBIBO bibo = SimulatorBIBO.wrap(instance);
             GPSession gp = GPSession.discover(bibo);
-            gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            gp.openSecureChannel(pk, null, null, mode);
             gp.installAndMakeSelectable(jcaid, jcaid, jcaid, EnumSet.noneOf(GPRegistryEntry.Privilege.class), new byte[4]);
 
-            PlaintextKeys pk2 = PlaintextKeys.defaultKey();
+            PlaintextKeys pk2 = masterKey != null ? PlaintextKeys.fromMasterKey(masterKey) : PlaintextKeys.defaultKey();
             gp = GPSession.discover(bibo);
-            gp.openSecureChannel(pk2, null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            gp.openSecureChannel(pk2, null, null, mode);
             gp.deleteAID(jcaid, false);
         }
     }

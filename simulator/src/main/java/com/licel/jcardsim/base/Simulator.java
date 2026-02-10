@@ -112,12 +112,16 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     // Fault injection configuration
     private FaultyConfig faultConfig;
 
-    public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatform globalPlatform) {
         this.transientMemory = new TransientMemory();
-        this.globalPlatform = new GlobalPlatform();
+        this.globalPlatform = globalPlatform;
         this.currentAPDU = new CurrentAPDU();
         this.classLoader = new IsolatingClassReloader(loader);
         this.faultConfig = faultConfig;
+    }
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
+        this(loader, faultConfig, new GlobalPlatform());
     }
 
     public Simulator(ClassLoader loader) {

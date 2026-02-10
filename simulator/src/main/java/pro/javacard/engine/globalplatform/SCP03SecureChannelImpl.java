@@ -39,9 +39,10 @@ import java.util.Objects;
 
 public class SCP03SecureChannelImpl implements SecureChannel {
     private static final Logger log = LoggerFactory.getLogger(SCP03SecureChannelImpl.class);
-    private static final boolean s16 = false; // TODO: dynamic support for both, or tunable
+    private final boolean s16;
+    private final byte[] masterKeyBytes;
     private final byte[] KVN = new byte[]{(byte) 0xFF};
-    private final byte[] SCP = new byte[]{0x03, 0x70 | (s16 ? 0x01 : 0x00)};
+    private final byte[] SCP;
 
     private static final byte[] kdd = new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
 
@@ -54,6 +55,20 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     private byte[] macKey;
     private byte[] encKey;
     private byte[] ctx; // needed twice
+
+    public SCP03SecureChannelImpl(byte[] masterKey, boolean s16) {
+        this.masterKeyBytes = masterKey.clone();
+        this.s16 = s16;
+        this.SCP = new byte[]{0x03, (byte) (0x70 | (s16 ? 0x01 : 0x00))};
+    }
+
+    public SCP03SecureChannelImpl() {
+        this(PlaintextKeys.DEFAULT_KEY(), false);
+    }
+
+    private PlaintextKeys freshKeys() {
+        return PlaintextKeys.fromMasterKey(masterKeyBytes);
+    }
 
 
 
@@ -77,7 +92,7 @@ public class SCP03SecureChannelImpl implements SecureChannel {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
             resetSecurity();
-            PlaintextKeys keys = PlaintextKeys.defaultKey();
+            PlaintextKeys keys = freshKeys();
             keys.diversify(GPSecureChannelVersion.SCP.SCP03, kdd);
             byte[] kdf_ctx = GPUtils.concatenate(ssc, AIDUtil.bytes(Simulator.current().getAID())); // TODO: GP perso
             byte[] host_challenge = Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (s16 ? 16 : 8));
@@ -210,7 +225,8 @@ public class SCP03SecureChannelImpl implements SecureChannel {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         try {
-            byte[] result = GPCrypto.aes_cbc_decrypt(Arrays.copyOfRange(buffer, offset, offset + length), PlaintextKeys.DEFAULT_KEY(), new byte[16]);
+            // SCP03 uses static DEK (not session-derived like SCP02)
+            byte[] result = GPCrypto.aes_cbc_decrypt(Arrays.copyOfRange(buffer, offset, offset + length), masterKeyBytes, new byte[16]);
             Util.arrayCopyNonAtomic(result, (short) 0, buffer, offset, (short) result.length);
             return (short) result.length;
         } catch (GeneralSecurityException e) {
@@ -229,6 +245,8 @@ public class SCP03SecureChannelImpl implements SecureChannel {
         state = NO_SECURITY_LEVEL;
         Arrays.fill(chaining, (byte) 0x00);
         Arrays.fill(enc_counter, (byte) 0x00);
+        if (encKey != null) Arrays.fill(encKey, (byte) 0x00);
+        if (macKey != null) Arrays.fill(macKey, (byte) 0x00);
         // NOTE: ssc remains
     }
 

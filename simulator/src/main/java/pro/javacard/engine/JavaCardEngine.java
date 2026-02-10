@@ -19,7 +19,9 @@ import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import pro.javacard.engine.faulty.FaultyConfig;
+import pro.javacard.engine.globalplatform.GlobalPlatform;
 import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
+import pro.javacard.engine.globalplatform.SCPConfig;
 
 import java.time.Duration;
 
@@ -63,6 +65,7 @@ public interface JavaCardEngine {
     final class Builder {
         private ClassLoader classLoader = getClass().getClassLoader();
         private FaultyConfig faultConfig;
+        private SCPConfig scpConfig;
 
         public Builder withClassLoader(ClassLoader cl) {
             this.classLoader = cl;
@@ -74,8 +77,14 @@ public interface JavaCardEngine {
             return this;
         }
 
+        public Builder withSCP(SCPConfig config) {
+            this.scpConfig = config;
+            return this;
+        }
+
         public JavaCardEngine build() {
-            var sim = new Simulator(classLoader, faultConfig);
+            var gp = new GlobalPlatform(scpConfig);
+            var sim = new Simulator(classLoader, faultConfig, gp);
             sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
             return sim;
         }

@@ -39,10 +39,23 @@ import java.util.Objects;
 
 public class SCP02SecureChannelImpl implements SecureChannel {
     private static final Logger log = LoggerFactory.getLogger(SCP02SecureChannelImpl.class);
+    private final byte[] masterKeyBytes;
     private final byte[] KVN = new byte[]{(byte) 0xFF};
     private final byte[] SCP = new byte[]{(byte) 0x02};
 
     private static final byte[] kdd = new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
+
+    public SCP02SecureChannelImpl(byte[] masterKey) {
+        this.masterKeyBytes = masterKey.clone();
+    }
+
+    public SCP02SecureChannelImpl() {
+        this(PlaintextKeys.DEFAULT_KEY());
+    }
+
+    private PlaintextKeys freshKeys() {
+        return PlaintextKeys.fromMasterKey(masterKeyBytes);
+    }
 
     private final byte[] ssc = new byte[2];
 
@@ -77,7 +90,7 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
             resetSecurity();
-            PlaintextKeys keys = PlaintextKeys.defaultKey();
+            PlaintextKeys keys = freshKeys();
             keys.diversify(GPSecureChannelVersion.SCP.SCP02, kdd);
             var host_challenge = Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + 8);
             var card_challenge = GPUtils.concatenate(ssc, GPCrypto.random(6));

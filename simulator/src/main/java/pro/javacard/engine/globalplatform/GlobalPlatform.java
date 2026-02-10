@@ -31,9 +31,23 @@ import java.util.Map;
 
 public class GlobalPlatform {
     private static final Logger log = LoggerFactory.getLogger(GlobalPlatform.class);
-    // TODO: programmatic flag
-    private final SecureChannel sc = System.getProperty("pro.javacard.engine.scp02", "false").equals("true") ? new SCP02SecureChannelImpl() : new SCP03SecureChannelImpl();
+    private final SecureChannel sc;
     private final GlobalPINImpl gpin = new GlobalPINImpl();
+
+    public GlobalPlatform(SCPConfig scpConfig) {
+        if (scpConfig == null) scpConfig = new SCPConfig.SCP03(true);
+        if (scpConfig instanceof SCPConfig.SCP02 c) {
+            sc = new SCP02SecureChannelImpl(c.masterKey());
+        } else if (scpConfig instanceof SCPConfig.SCP03 c) {
+            sc = new SCP03SecureChannelImpl(c.masterKey(), c.s16());
+        } else {
+            throw new IllegalArgumentException("Unsupported SCP config: " + scpConfig);
+        }
+    }
+
+    public GlobalPlatform() {
+        this(null);
+    }
 
     private byte card_state = GPSystem.CARD_SECURED;
 
