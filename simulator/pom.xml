@@ -53,7 +53,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>26.01.16</version>
+            <version>26.02.11</version>
         </dependency>
         <!-- Faulty config parser -->
         <dependency>
