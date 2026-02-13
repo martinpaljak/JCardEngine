@@ -16,6 +16,7 @@ import pro.javacard.gp.GPRegistryEntry;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
+import java.security.SecureRandom;
 import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,7 +59,8 @@ public class IndirectPersonalizationTest {
 
             // 4. STORE DATA with test payload
             //    GP 2.2.1 Section 9.7.2: STORE DATA command
-            byte[] persoData = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+            byte[] persoData = new byte[217]; // NOTE: intentionally > 0x7f to catch the missing & 0xFF.
+            SecureRandom.getInstanceStrong().nextBytes(persoData);
             gp.storeData(persoData, 0x00);
 
             // 5. SELECT the applet and verify stored data

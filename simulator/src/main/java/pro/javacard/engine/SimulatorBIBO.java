@@ -19,9 +19,12 @@ import apdu4j.core.APDUBIBO;
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
 import org.bouncycastle.util.encoders.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // Wrapper for apdu4j
 public class SimulatorBIBO implements BIBO {
+    private static final Logger log = LoggerFactory.getLogger(SimulatorBIBO.class);
     final EngineSession sim;
 
     public SimulatorBIBO(EngineSession sim) {
@@ -30,9 +33,9 @@ public class SimulatorBIBO implements BIBO {
 
     @Override
     public byte[] transceive(byte[] bytes) throws BIBOException {
-        System.out.println(">> " + Hex.toHexString(bytes));
+        log.info(">> " + Hex.toHexString(bytes));
         byte[] response = sim.transmitCommand(bytes);
-        System.out.println("<< " + Hex.toHexString(response));
+        log.info("<< " + Hex.toHexString(response));
         return response;
     }
 

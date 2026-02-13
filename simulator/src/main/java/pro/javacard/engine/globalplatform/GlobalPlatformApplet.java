@@ -74,8 +74,7 @@ public class GlobalPlatformApplet extends Applet {
 
             short len = apdu.setIncomingAndReceive();
             GPSystem.getSecureChannel().unwrap(buffer, ISO7816.OFFSET_CLA, (short) (ISO7816.OFFSET_CDATA + len));
-            byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + buffer[ISO7816.OFFSET_LC]);
-            System.err.println("payload: " + Hex.toHexString(payload));
+            byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (buffer[ISO7816.OFFSET_LC] & 0xFF));
 
             if (buffer[ISO7816.OFFSET_INS] == (byte) 0xe6) {
                 if (buffer[ISO7816.OFFSET_P1] == (byte) 0x20) {
@@ -214,7 +213,6 @@ public class GlobalPlatformApplet extends Applet {
                     Simulator.current().internalDeleteApplet(aid);
                 } catch (Exception e) {
                     // Do nothing, intentionally
-
                 }
                 buffer[0] = 0x00;
                 apdu.setOutgoingAndSend((short) 0, (short) 1);
