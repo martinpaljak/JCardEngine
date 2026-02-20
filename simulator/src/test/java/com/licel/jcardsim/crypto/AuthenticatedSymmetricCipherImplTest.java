@@ -16,6 +16,8 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+
+import javacard.framework.JCSystem;
 import javacard.security.AESKey;
 import javacard.security.CryptoException;
 import javacard.security.DESKey;
@@ -406,8 +408,33 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
     }
 
+
     @Test
-    public void testAES_GCM_OnlineEncryptAndDecryptWithIV() {
+    public void testAES_GCM_OnlineEncryptAndDecryptWithIV_MemoryTypes() {
+        AESKey aesKey;
+        // test KeyBuilder.TYPE_AES_*
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+
+
+        // test AES with JCSystem.MEMORY_TYPE_*
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_AES, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_AES, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_AES, JCSystem.MEMORY_TYPE_PERSISTENT, KeyBuilder.LENGTH_AES_256, false);
+        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
+    }
+
+    public void testAES_GCM_OnlineEncryptAndDecryptWithIV(AESKey aesKey) {
         byte[] key256Bit = new byte[256 / Byte.SIZE];
         new Random().nextBytes(key256Bit);
 
@@ -417,7 +444,6 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         byte[] iv96Bit = new byte[96 / Byte.SIZE];
         new Random().nextBytes(iv96Bit);
 
-        AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
         aesKey.setKey(key256Bit, (short) 0);
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
