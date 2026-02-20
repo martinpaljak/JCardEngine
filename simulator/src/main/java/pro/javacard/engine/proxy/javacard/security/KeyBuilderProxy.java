@@ -155,6 +155,30 @@ public class KeyBuilderProxy {
         }
         Key key = null;
         switch (algorithmicKeyType) {
+            case KeyBuilder.ALG_TYPE_DES:
+                if (keyLength != 64 && keyLength != 128 && keyLength != 192) {
+                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+                }
+                if (keyMemoryType == JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT) {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_DES_TRANSIENT_DESELECT, keyLength);
+                } else if (keyMemoryType == JCSystem.MEMORY_TYPE_TRANSIENT_RESET) {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_DES_TRANSIENT_RESET, keyLength);
+                } else {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, keyLength);
+                }
+                break;
+            case KeyBuilder.ALG_TYPE_AES:
+                if (keyLength != 128 && keyLength != 192 && keyLength != 256) {
+                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+                }
+                if (keyMemoryType == JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT) {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, keyLength);
+                } else if (keyMemoryType == JCSystem.MEMORY_TYPE_TRANSIENT_RESET) {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_AES_TRANSIENT_RESET, keyLength);
+                } else {
+                    key = new SymmetricKeyImpl(KeyBuilder.TYPE_AES, keyLength);
+                }
+                break;
             case KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS:
                 key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, keyLength, keyMemoryType);
                 break;
