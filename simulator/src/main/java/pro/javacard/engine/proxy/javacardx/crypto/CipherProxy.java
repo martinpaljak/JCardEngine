@@ -84,5 +84,42 @@ public class CipherProxy {
         }
         return instance;
     }
-    
+
+    public static final Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm, boolean externalAccess)
+            throws CryptoException {
+        Cipher instance = null;
+        if (externalAccess) {
+            CryptoException.throwIt((short) 3);
+        }
+
+        switch (cipherAlgorithm) {
+            case Cipher.CIPHER_DES_CBC:
+                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
+                    instance = new SymmetricCipherImpl(Cipher.ALG_DES_CBC_NOPAD);
+                }
+                break;
+            case Cipher.CIPHER_DES_ECB:
+                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
+                    instance = new SymmetricCipherImpl(Cipher.ALG_DES_ECB_NOPAD);
+                }
+                break;
+            case Cipher.CIPHER_AES_CBC:
+                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
+                    instance = new SymmetricCipherImpl(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD);
+                }
+                break;
+            case Cipher.CIPHER_AES_ECB:
+                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
+                    instance = new SymmetricCipherImpl(Cipher.ALG_AES_BLOCK_128_ECB_NOPAD);
+                }
+                break;
+            default:
+                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+                break;
+        }
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        return instance;
+    }
 }
