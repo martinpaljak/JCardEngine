@@ -898,6 +898,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             log.warn("install() did not call register()");
             throw new JavaCardEngineException("install() did not call register()");
         }
+        memstat();
         return appletAID;
     }
 
@@ -908,8 +909,6 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 deselect(lookupApplet(currentAID));
             }
             return internalInstallApplet(appletAID, appletClass, null, parameters, exposed);
-        } finally {
-            memstat();
         }
     }
 
