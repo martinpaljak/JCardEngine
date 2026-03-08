@@ -57,6 +57,7 @@ public class CurrentAPDU {
     private short remaining_bytes = 0;
     private byte protocol = APDU.PROTOCOL_T0;
     private byte state = APDU.STATE_INITIAL;
+    private boolean noChaining = false;
 
     // APDU input buffer
     private final byte[] apdu_buffer;
@@ -191,7 +192,7 @@ public class CurrentAPDU {
      *                       </ul>
      */
     public short setOutgoing() throws APDUException {
-        if (state > APDU.STATE_OUTGOING) {
+        if (state >= APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         state = APDU.STATE_OUTGOING;
@@ -235,6 +236,7 @@ public class CurrentAPDU {
         if (state >= APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
+        noChaining = true;
         state = APDU.STATE_OUTGOING;
         return ramVars[LE];
     }
@@ -271,7 +273,7 @@ public class CurrentAPDU {
      */
     public void setOutgoingLength(short len) throws APDUException {
         final short max = extended ? Short.MAX_VALUE : T0_OBS;
-        if (state >= APDU.STATE_OUTGOING_LENGTH_KNOWN) {
+        if (state != APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         if (len > max || len < 0) {
@@ -282,11 +284,11 @@ public class CurrentAPDU {
     }
 
     public short receiveBytes(short bOff) throws APDUException {
-        if (state == APDU.STATE_FULL_INCOMING)
-            return 0;
-        if (state > APDU.STATE_FULL_INCOMING) {
+        if (state == APDU.STATE_INITIAL || state > APDU.STATE_FULL_INCOMING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
+        if (state == APDU.STATE_FULL_INCOMING)
+            return 0;
         if (bOff < 0 || remaining_bytes >= 1 && (bOff + 1) > apdu_buffer.length) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
         }
@@ -348,7 +350,7 @@ public class CurrentAPDU {
         if (state != APDU.STATE_INITIAL) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        // NOTE: getOffsetCdata check state.
+        state = APDU.STATE_PARTIAL_INCOMING;
         return receiveBytes(extended ? ISO7816.OFFSET_EXT_CDATA : ISO7816.OFFSET_CDATA);
     }
 
@@ -357,7 +359,7 @@ public class CurrentAPDU {
         if (bOff < 0 || len < 0 || (short) (bOff + len) > apdu_buffer.length) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
         }
-        if (state < APDU.STATE_OUTGOING_LENGTH_KNOWN) {
+        if (state < APDU.STATE_OUTGOING_LENGTH_KNOWN || state == APDU.STATE_FULL_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
         if (len == 0) {
@@ -547,7 +549,9 @@ public class CurrentAPDU {
      *                       <li><code>APDUException.IO_ERROR</code> on I/O error.</ul>
      */
     public void waitExtension() throws APDUException {
-        // Do nothing.
+        if (noChaining) {
+            APDUException.throwIt(APDUException.ILLEGAL_USE);
+        }
     }
 
     /**
@@ -667,6 +671,7 @@ public class CurrentAPDU {
 
         // Reset state
         state = APDU.STATE_INITIAL;
+        noChaining = false;
         this.protocol = protocol;
         available = true; // make available as current APDU
         int apduCase = APDUHelper.getAPDUCase(inputBuffer);
