@@ -199,6 +199,9 @@ public class SCP02SecureChannelImpl implements SecureChannel {
 
     @Override
     public short unwrap(byte[] bytes, short offset, short length) throws ISOException {
+        if ((state & SecureChannel.AUTHENTICATED) == 0) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         log.trace("Unwrapping ...");
         final int maclen = 8;
         byte[] cryptogram = Arrays.copyOfRange(bytes, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
