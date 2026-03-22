@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class IndirectPersonalizationTest {
 
-    // GP 2.2.1 Section 7.3.3: Indirect personalization — the Security Domain receives
+    // GP 2.2.1 Section 7.3.3: Indirect personalization - the Security Domain receives
     // STORE DATA on behalf of a target application, unwraps secure messaging, and forwards
     // the raw data to the target via Personalization.processData() or Application.processData().
     @Test
@@ -111,7 +111,7 @@ public class IndirectPersonalizationTest {
             // INSTALL [for personalization] (GP 2.2.1 Section 9.5.2.3.5)
             gp.installForPersonalization(jcaid);
 
-            // STORE DATA — triggers processData() on target applet (GP 2.2.1 Section 9.7.2)
+            // STORE DATA - triggers processData() on target applet (GP 2.2.1 Section 9.7.2)
             byte[] persoData = new byte[]{(byte) 0xCA, (byte) 0xFE};
             gp.storeData(persoData, 0x00);
 
@@ -121,7 +121,7 @@ public class IndirectPersonalizationTest {
             assertEquals(0x9000, select.getSW());
 
             // INS 0x02: Read JCSystem.getAID() captured during processData()
-            // GP 2.2.1 Section 7.3.3: "the JCRE performs a context switch" — getAID() must
+            // GP 2.2.1 Section 7.3.3: "the JCRE performs a context switch" - getAID() must
             // return the target applet's own AID, NOT the Security Domain's AID.
             ResponseAPDU aidResp = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00, 256));
             assertEquals(0x9000, aidResp.getSW());
@@ -147,7 +147,7 @@ public class IndirectPersonalizationTest {
         AID appletAID = AIDUtil.create("0A0B0C0D0E0F101112");
         pro.javacard.capfile.AID jcaid = new pro.javacard.capfile.AID(AIDUtil.bytes(appletAID));
 
-        // HelloWorldApplet is a plain Applet — does NOT implement Personalization or Application
+        // HelloWorldApplet is a plain Applet - does NOT implement Personalization or Application
         sim.loadApplet(appletAID, appletAID, HelloWorldApplet.class);
 
         try (EngineSession instance = sim.connect()) {
@@ -169,7 +169,7 @@ public class IndirectPersonalizationTest {
             ResponseAPDU malformed = gp.transmit(new CommandAPDU(GPSession.CLA_GP, GPSession.INS_INSTALL, 0x20, 0x00, new byte[]{0x01}, 256));
             assertEquals(0x6A80, malformed.getSW());
 
-            // INSTALL [for personalization] must fail — HelloWorldApplet doesn't implement
+            // INSTALL [for personalization] must fail - HelloWorldApplet doesn't implement
             // Personalization or Application interface
             GPSession finalGp = gp;
             GPException e = assertThrows(GPException.class, () -> finalGp.installForPersonalization(jcaid));

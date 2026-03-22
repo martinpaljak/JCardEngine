@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Injects jCardSim’s code into Java Card Api Reference Classes
+ * Injects jCardSim's code into Java Card Api Reference Classes
  */
 public class JavaCardApiProcessor {
 

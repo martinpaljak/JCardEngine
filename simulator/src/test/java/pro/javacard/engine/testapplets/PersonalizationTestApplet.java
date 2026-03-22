@@ -8,7 +8,7 @@ public class PersonalizationTestApplet extends Applet implements Personalization
     private byte[] storedData = new byte[256];
     private short storedLength = 0;
 
-    // Captured context AIDs during processData() — for verifying GP 2.2.1 Section 7.3.3 context switch
+    // Captured context AIDs during processData() - for verifying GP 2.2.1 Section 7.3.3 context switch
     private byte[] capturedAID = new byte[16];
     private short capturedAIDLen = 0;
     private byte[] capturedPreviousAID = new byte[16];
@@ -26,7 +26,7 @@ public class PersonalizationTestApplet extends Applet implements Personalization
         Util.arrayCopyNonAtomic(inBuffer, dataOffset, storedData, (short) 0, dataLength);
         storedLength = dataLength;
 
-        // Capture JCSystem.getAID() — per GP spec, should be this applet's AID after context switch
+        // Capture JCSystem.getAID() - per GP spec, should be this applet's AID after context switch
         AID myAID = JCSystem.getAID();
         if (myAID != null) {
             capturedAIDLen = myAID.getBytes(capturedAID, (short) 0);
@@ -34,7 +34,7 @@ public class PersonalizationTestApplet extends Applet implements Personalization
             capturedAIDLen = 0;
         }
 
-        // Capture JCSystem.getPreviousContextAID() — per GP spec, should be the Security Domain's AID
+        // Capture JCSystem.getPreviousContextAID() - per GP spec, should be the Security Domain's AID
         AID prevAID = JCSystem.getPreviousContextAID();
         if (prevAID != null) {
             capturedPreviousAIDLen = prevAID.getBytes(capturedPreviousAID, (short) 0);

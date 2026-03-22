@@ -44,6 +44,6 @@ public class RemoteMessage {
     }
 
     public byte[] getPayload() {
-        return payload.clone();
+        return payload == null ? null : payload.clone();
     }
 }

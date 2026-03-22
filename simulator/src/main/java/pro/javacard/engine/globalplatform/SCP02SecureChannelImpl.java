@@ -32,7 +32,6 @@ import pro.javacard.gp.keys.PlaintextKeys;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -158,11 +157,11 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 log.trace("Decrypted: {}", Hex.toHexString(decrypted));
                 byte[] unpadded = GPCrypto.unpad80(decrypted);
                 bo.write(unpadded.length + 8);
-                bo.write(unpadded);
+                bo.writeBytes(unpadded);
             } else {
                 log.trace("MAC payload not encrypted");
                 bo.write(buffer[offset + ISO7816.OFFSET_LC]);
-                bo.write(payload);
+                bo.writeBytes(payload);
             }
             byte[] mac_input = bo.toByteArray();
             log.trace("mac input: {} icv: {}", Hex.toHexString(mac_input), Hex.toHexString(icv));
@@ -174,7 +173,7 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 resetSecurity();
                 ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             }
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (GeneralSecurityException e) {
             throw new RuntimeException(e);
         }
     }

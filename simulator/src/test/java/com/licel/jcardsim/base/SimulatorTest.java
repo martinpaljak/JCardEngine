@@ -239,11 +239,11 @@ public class SimulatorTest {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
 
-        // MANAGE CHANNEL OPEN (00 70 00 00) — rejected before applet is selected
+        // MANAGE CHANNEL OPEN (00 70 00 00) - rejected before applet is selected
         byte[] response = instance.transmitCommand(new byte[]{0x00, 0x70, 0x00, 0x00});
         assertEquals(0x6881, Util.getShort(response, (short) 0));
 
-        // Select applet, then try again — still rejected at JCRE level
+        // Select applet, then try again - still rejected at JCRE level
         assertTrue(instance.selectApplet(TEST_APPLET_AID));
 
         // OPEN

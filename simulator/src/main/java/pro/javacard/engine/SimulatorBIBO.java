@@ -25,10 +25,13 @@ import org.slf4j.LoggerFactory;
 // Wrapper for apdu4j
 public class SimulatorBIBO implements BIBO {
     private static final Logger log = LoggerFactory.getLogger(SimulatorBIBO.class);
-    final EngineSession sim;
 
-    public SimulatorBIBO(EngineSession sim) {
+    final EngineSession sim;
+    final boolean reset;
+
+    public SimulatorBIBO(EngineSession sim, boolean reset) {
         this.sim = sim;
+        this.reset = reset;
     }
 
     @Override
@@ -41,10 +44,10 @@ public class SimulatorBIBO implements BIBO {
 
     @Override
     public void close() {
-        sim.close();
+        sim.close(reset);
     }
 
     public static APDUBIBO wrap(EngineSession s) {
-        return new APDUBIBO(new SimulatorBIBO(s));
+        return new APDUBIBO(new SimulatorBIBO(s, false)); // FIXME - reset semantics
     }
 }

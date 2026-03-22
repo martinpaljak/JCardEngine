@@ -458,7 +458,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
             final var theSW = new byte[2];
             byte[] response;
 
-            // MANAGE CHANNEL (INS=0x70) — not supported
+            // MANAGE CHANNEL (INS=0x70) - not supported
             if ((command[ISO7816.OFFSET_CLA] & 0x80) == 0x00 && command[ISO7816.OFFSET_INS] == 0x70) {
                 log.warn("MANAGE CHANNEL not supported");
                 Util.setShort(theSW, (short) 0, (short) 0x6881);
@@ -971,7 +971,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
                 switches[line] = Short.MAX_VALUE;
                 var sourceLine = Faulty.getSourceLine(className, line);
                 if (sourceLine != null) {
-                    log.info("Applying {} fault at {}:{} → {}", type, className, line, sourceLine);
+                    log.info("Applying {} fault at {}:{} -> {}", type, className, line, sourceLine);
                 } else {
                     log.info("Applying {} fault at {}:{}", type, className, line);
                 }

@@ -154,7 +154,7 @@ public class KeyAgreementImpl extends KeyAgreement {
     /**
      * BouncyCastle doesn't offer ECDH Agreement that provides both coordinates.
      * This is needed for <code>ALG_EC_SVDP_DH_PLAIN_XY</code>.
-     * So do it here instead and squeeze the resulting point through byte encodingä
+     * So do it here instead and squeeze the resulting point through byte encoding
      * in a BigInteger.
      */
     static class ECDHFullAgreement implements BasicAgreement {

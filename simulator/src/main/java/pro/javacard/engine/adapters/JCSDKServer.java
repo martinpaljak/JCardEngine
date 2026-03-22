@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public final class JCSDKServer extends AbstractTCPAdapter {
     // Protocol: clients (like PC/SC adapter or javax.smartcardio library)
@@ -51,7 +51,7 @@ public final class JCSDKServer extends AbstractTCPAdapter {
 
     ServerSocketChannel server;
 
-    public JCSDKServer(Supplier<EngineSession> sim) {
+    public JCSDKServer(Function<String, EngineSession> sim) {
         super(sim);
         host = DEFAULT_JCSDK_HOST;
         port = DEFAULT_JCSDK_PORT;

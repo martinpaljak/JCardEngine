@@ -32,7 +32,6 @@ import pro.javacard.gp.GPUtils;
 import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -69,7 +68,6 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     private PlaintextKeys freshKeys() {
         return PlaintextKeys.fromMasterKey(masterKeyBytes);
     }
-
 
 
     @Override
@@ -141,32 +139,28 @@ public class SCP03SecureChannelImpl implements SecureChannel {
 
     void process_mac(byte[] buffer, int offset, int length) {
         // FIXME: handle chaining
-        try {
-            final int maclen = s16 ? 16 : 8;
-            byte[] mac = Arrays.copyOfRange(buffer, offset + length - maclen, offset + length);
-            log.trace("mac: {}", Hex.toHexString(mac));
-            byte[] payload = Arrays.copyOfRange(buffer, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
-            ByteArrayOutputStream bo = new ByteArrayOutputStream();
-            bo.write(chaining);
-            bo.write(buffer[offset + ISO7816.OFFSET_CLA]);
-            bo.write(buffer[offset + ISO7816.OFFSET_INS]);
-            bo.write(buffer[offset + ISO7816.OFFSET_P1]);
-            bo.write(buffer[offset + ISO7816.OFFSET_P2]);
-            bo.write(buffer[offset + ISO7816.OFFSET_LC]);
-            bo.write(payload);
-            byte[] cmac_input = bo.toByteArray();
-            log.trace("mac input: {}", Hex.toHexString(cmac_input));
-            byte[] cmac = GPCrypto.aes_cmac(macKey, cmac_input, 128);
-            // set new chaining value
-            System.arraycopy(cmac, 0, chaining, 0, chaining.length);
-            byte[] check = Arrays.copyOf(cmac, maclen);
-            if (!Arrays.equals(check, mac)) {
-                log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
-                resetSecurity();
-                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        final int maclen = s16 ? 16 : 8;
+        byte[] mac = Arrays.copyOfRange(buffer, offset + length - maclen, offset + length);
+        log.trace("mac: {}", Hex.toHexString(mac));
+        byte[] payload = Arrays.copyOfRange(buffer, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
+        ByteArrayOutputStream bo = new ByteArrayOutputStream();
+        bo.writeBytes(chaining);
+        bo.write(buffer[offset + ISO7816.OFFSET_CLA]);
+        bo.write(buffer[offset + ISO7816.OFFSET_INS]);
+        bo.write(buffer[offset + ISO7816.OFFSET_P1]);
+        bo.write(buffer[offset + ISO7816.OFFSET_P2]);
+        bo.write(buffer[offset + ISO7816.OFFSET_LC]);
+        bo.writeBytes(payload);
+        byte[] cmac_input = bo.toByteArray();
+        log.trace("mac input: {}", Hex.toHexString(cmac_input));
+        byte[] cmac = GPCrypto.aes_cmac(macKey, cmac_input, 128);
+        // set new chaining value
+        System.arraycopy(cmac, 0, chaining, 0, chaining.length);
+        byte[] check = Arrays.copyOf(cmac, maclen);
+        if (!Arrays.equals(check, mac)) {
+            log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
+            resetSecurity();
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
     }
 

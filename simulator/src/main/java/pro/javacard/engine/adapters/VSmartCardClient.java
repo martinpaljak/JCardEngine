@@ -24,7 +24,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public final class VSmartCardClient extends AbstractTCPAdapter {
     private static final Logger log = LoggerFactory.getLogger(VSmartCardClient.class);
@@ -44,7 +44,7 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     // 0x04 - get ATR . replied with 0xXXYY length + atr
     // Everything else - command APDU, followed with response APDU.
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
-    public VSmartCardClient(Supplier<EngineSession> sim) {
+    public VSmartCardClient(Function<String, EngineSession> sim) {
         super(sim);
         port = DEFAULT_VSMARTCARD_PORT;
         host = DEFAULT_VSMARTCARD_HOST;

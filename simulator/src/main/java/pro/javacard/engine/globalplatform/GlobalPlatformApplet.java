@@ -142,7 +142,7 @@ public class GlobalPlatformApplet extends Applet {
                 apdu.setOutgoingAndSend((short) 0, (short) 1);
                 return;
             } else if (buffer[ISO7816.OFFSET_INS] == (byte) 0xe2) {
-                // STORE DATA — indirect personalization
+                // STORE DATA - indirect personalization
                 var gp = Simulator.current().getGlobalPlatform();
                 AID targetAid = gp.getPersonalizationTarget();
                 if (targetAid == null) {

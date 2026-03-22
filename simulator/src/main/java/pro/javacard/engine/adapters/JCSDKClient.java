@@ -25,10 +25,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 // Reverse of the server
-public class JCSDKClient implements Supplier<EngineSession>, EngineSession {
+public class JCSDKClient implements Function<String, EngineSession>, EngineSession {
     private static final Logger log = LoggerFactory.getLogger(JCSDKClient.class);
 
     final String host;
@@ -130,7 +130,7 @@ public class JCSDKClient implements Supplier<EngineSession>, EngineSession {
     }
 
     @Override
-    public EngineSession get() {
+    public EngineSession apply(String protocol) {
         try {
             JCSDKClient connection = new JCSDKClient(host, port);
             connection.channel = AbstractTCPAdapter.connect(host, port);
