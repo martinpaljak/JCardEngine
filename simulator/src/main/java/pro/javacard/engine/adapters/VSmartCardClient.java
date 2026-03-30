@@ -51,8 +51,9 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     }
 
     static ByteBuffer _send(byte[] data) throws IOException {
-        if (data.length > Short.MAX_VALUE)
+        if (data.length > Short.MAX_VALUE) {
             throw new IllegalArgumentException("Too big payload");
+        }
         ByteBuffer payload = ByteBuffer.allocate(2 + data.length);
         payload.putShort((short) data.length);
         payload.put(data);

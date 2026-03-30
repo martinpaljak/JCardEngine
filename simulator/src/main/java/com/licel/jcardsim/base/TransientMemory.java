@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 // Manages transient, persistent, and sensitive memory
@@ -48,7 +47,9 @@ public final class TransientMemory {
     private final HashMap<String, HashMap<Integer, CopyOnWriteArrayList<WeakReference<Object>>>> allocations = new HashMap<>();
 
     public void registerAllocation(Object array, String className, int line) {
-        if (array == null) return;
+        if (array == null) {
+            return;
+        }
 
         // Normalize class name
         className = className.replace('/', '.');
@@ -60,15 +61,21 @@ public final class TransientMemory {
 
     public Object getBuffer(String className, int line) {
         var classMap = allocations.get(className);
-        if (classMap == null) return null;
+        if (classMap == null) {
+            return null;
+        }
 
         var list = classMap.get(line);
-        if (list == null || list.isEmpty()) return null;
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
 
         // Return the last allocated/assigned buffer that is still alive
         for (int i = list.size() - 1; i >= 0; i--) {
             Object buf = list.get(i).get();
-            if (buf != null) return buf;
+            if (buf != null) {
+                return buf;
+            }
         }
         return null;
     }

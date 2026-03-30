@@ -47,7 +47,9 @@ public class PersonalizationTestApplet extends Applet implements Personalization
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if (selectingApplet()) return;
+        if (selectingApplet()) {
+            return;
+        }
         byte[] buffer = apdu.getBuffer();
         switch (buffer[ISO7816.OFFSET_INS]) {
             case (byte) 0x01:

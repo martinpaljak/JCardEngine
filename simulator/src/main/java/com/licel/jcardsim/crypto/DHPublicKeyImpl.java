@@ -58,7 +58,7 @@ public final class DHPublicKeyImpl extends DHKeyImpl implements DHPublicKey {
 
     @Override
     public boolean isInitialized() {
-        return (super.isInitialized() && y.isInitialized());
+        return super.isInitialized() && y.isInitialized();
     }
     
     @Override

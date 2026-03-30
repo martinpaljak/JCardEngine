@@ -98,10 +98,10 @@ public class KeyAgreementImpl extends KeyAgreement {
             byte[] secret,
             short secretOffset) throws CryptoException {
         if(algorithm == ALG_DH_PLAIN) {
-            BigInteger pubKey = (new ByteContainer(publicData, publicOffset, publicLength)).getBigInteger();
+            BigInteger pubKey = new ByteContainer(publicData, publicOffset, publicLength).getBigInteger();
             DHParameters baseParam = ((DHKeyParameters) ((DHPrivateKeyImpl) privateKey).getParameters()).getParameters();
             BigInteger retAgreement = engine.calculateAgreement(new DHPublicKeyParameters(pubKey, baseParam));
-            return (new ByteContainer(retAgreement)).getBytes(secret, secretOffset);
+            return new ByteContainer(retAgreement).getBytes(secret, secretOffset);
         } else {
             byte[] publicKey = new byte[publicLength];
             Util.arrayCopyNonAtomic(publicData, publicOffset, publicKey, (short) 0, publicLength);

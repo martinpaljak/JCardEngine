@@ -240,8 +240,9 @@ public class SCP02SecureChannelImpl implements SecureChannel {
     @Override
     public short decryptData(byte[] buffer, short offset, short length) throws ISOException {
         Objects.requireNonNull(buffer);
-        if (length % 8 != 0)
+        if (length % 8 != 0) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
         if ((state & SecureChannel.AUTHENTICATED) == 0) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
@@ -268,12 +269,15 @@ public class SCP02SecureChannelImpl implements SecureChannel {
         Arrays.fill(icv, (byte) 0x00);
         Arrays.fill(host_challenge, (byte) 0x00);
         Arrays.fill(card_challenge, (byte) 0x00);
-        if (encKey != null)
+        if (encKey != null) {
             Arrays.fill(encKey, (byte) 0x00);
-        if (macKey != null)
+        }
+        if (macKey != null) {
             Arrays.fill(macKey, (byte) 0x00);
-        if (dekKey != null)
+        }
+        if (dekKey != null) {
             Arrays.fill(dekKey, (byte) 0x00);
+        }
         // NOTE: ssc remains
     }
 

@@ -81,7 +81,7 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
     }
 
     public boolean isInitialized() {
-        return (exponent.isInitialized() && modulus.isInitialized());
+        return exponent.isInitialized() && modulus.isInitialized();
     }
 
     /**

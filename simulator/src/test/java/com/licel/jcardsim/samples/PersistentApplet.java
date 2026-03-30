@@ -74,7 +74,9 @@ public class PersistentApplet extends Applet {
     
     public void process(APDU apdu) {
 
-        if(selectingApplet()) return;
+        if (selectingApplet()) {
+            return;
+        }
         byte[] buffer = apdu.getBuffer();
 
         switch (buffer[ISO7816.OFFSET_INS]) {

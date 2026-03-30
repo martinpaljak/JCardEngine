@@ -613,7 +613,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         byte[] nonce = Hex.decode(testData[3]);
         byte[] ciphertext = Hex.decode(testData[4]);
 
-        boolean have_sample_tag = (testData.length == 6);
+        boolean have_sample_tag = testData.length == 6;
         byte[] sample_tag = new byte[tagLen];
         if (have_sample_tag) {
             sample_tag = Arrays.copyOf(Hex.decode(testData[5]), tagLen);

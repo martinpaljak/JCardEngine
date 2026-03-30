@@ -72,8 +72,9 @@ public abstract class DHKeyImpl extends KeyImpl implements DHKey {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        if(q.isInitialized())
+        if (q.isInitialized()) {
             return new DHParameters(p.getBigInteger(), g.getBigInteger(), q.getBigInteger());
+        }
         return new DHParameters(p.getBigInteger(), g.getBigInteger());
     }
         
@@ -108,15 +109,16 @@ public abstract class DHKeyImpl extends KeyImpl implements DHKey {
     }
 
     public boolean isInitialized() {
-        return (p.isInitialized() && g.isInitialized());
+        return p.isInitialized() && g.isInitialized();
     }
     
     public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (p.isInitialized() && g.isInitialized()) {
-            if(q.isInitialized())
+            if (q.isInitialized()) {
                 return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger(), q.getBigInteger()));
-            else
+            } else {
                 return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger()));
+            }
         }
         return getDefaultKeyGenerationParameters(size, rnd);
     }

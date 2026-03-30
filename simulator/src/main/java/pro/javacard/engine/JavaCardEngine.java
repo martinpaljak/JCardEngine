@@ -15,6 +15,8 @@
  */
 package pro.javacard.engine;
 
+import apdu4j.pcsc.sim.SynthesizedCardTerminal;
+import apdu4j.pcsc.sim.SynthesizedCardTerminals;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
@@ -23,10 +25,11 @@ import pro.javacard.engine.globalplatform.GlobalPlatform;
 import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
 import pro.javacard.engine.globalplatform.SCPConfig;
 
+import javax.smartcardio.TerminalFactory;
 import java.time.Duration;
 
-// This is the external, programmer-facing interface. It allows to manage the "secure element" by installing and deleting
-// applets, and to open APDU-transports to it.
+// External, programmer-facing interface. Manages the "secure element" by installing and deleting
+// applets, and opening APDU transports (BIBO sessions) to it.
 public interface JavaCardEngine {
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
 
@@ -48,15 +51,36 @@ public interface JavaCardEngine {
 
     void reset();
 
+    byte[] getATR();
+
+    // Connect with default settings (no timeout, any protocol, no reset on close)
     default EngineSession connect() {
-        return connectFor(Duration.ZERO, "*");
+        return connectFor(Duration.ZERO, "*", false);
     }
 
     default EngineSession connect(String protocol) {
-        return connectFor(Duration.ZERO, protocol);
+        return connectFor(Duration.ZERO, protocol, false);
     }
 
-    EngineSession connectFor(Duration duration, String protocol);
+    EngineSession connectFor(Duration duration, String protocol, boolean resetOnClose);
+
+    // pcsc-sim integration: factory mode backed by this engine
+    default SynthesizedCardTerminal toTerminal() {
+        return toTerminal("jcardengine.Terminal");
+    }
+
+    default SynthesizedCardTerminal toTerminal(String name) {
+        var terminal = new SynthesizedCardTerminal(name, "T=1");
+        // Factory mode: engine persists, fresh BIBO per connect, reset on close
+        terminal.present(protocol -> connectFor(Duration.ZERO, protocol, true), getATR());
+        return terminal;
+    }
+
+    default TerminalFactory toTerminalFactory() {
+        var terminals = new SynthesizedCardTerminals();
+        terminals.addTerminal(toTerminal());
+        return terminals.toFactory();
+    }
 
     static JavaCardEngine create() {
         return new Builder().build();

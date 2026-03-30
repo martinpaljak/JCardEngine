@@ -26,7 +26,7 @@ public class DeleteTest {
         simulator.selectApplet(aid1);
 
         // check instance counter == 1
-        result = simulator.transmitCommand(new byte[]{CLA, INS_GET_COUNT, 0, 0});
+        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
         assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
         assertEquals(1, ByteUtil.getShort(result, 0));
 
@@ -35,7 +35,7 @@ public class DeleteTest {
 
         // check instance counter == 2
         simulator.selectApplet(aid2);
-        result = simulator.transmitCommand(new byte[]{CLA, INS_GET_COUNT, 0, 0});
+        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
         assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
         assertEquals(2, ByteUtil.getShort(result, 0));
 
@@ -44,7 +44,7 @@ public class DeleteTest {
 
         // check instance counter == 1
         simulator.selectApplet(aid2);
-        result = simulator.transmitCommand(new byte[]{CLA, INS_GET_COUNT, 0, 0});
+        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
         assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
         assertEquals(1, ByteUtil.getShort(result, 0));
 

@@ -25,7 +25,7 @@ public class FaultTest {
 
         assertTrue(instance.selectApplet(aid));
 
-        var res = instance.transmitCommand(new CommandAPDU(0x00, 0x02, 0x00, 0x00).getBytes());
+        var res = instance.transceive(new CommandAPDU(0x00, 0x02, 0x00, 0x00).getBytes());
         assertEquals(0x9000, new ResponseAPDU(res).getSW());
     }
 
@@ -37,7 +37,7 @@ public class FaultTest {
 
         assertTrue(instance.selectApplet(aid));
 
-        var res = instance.transmitCommand(new CommandAPDU(0x00, 0x02, 0x00, 0x00).getBytes());
+        var res = instance.transceive(new CommandAPDU(0x00, 0x02, 0x00, 0x00).getBytes());
         assertEquals(0x6f00, new ResponseAPDU(res).getSW());
     }
 }

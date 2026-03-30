@@ -57,7 +57,7 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
     }
 
     public boolean isInitialized() {
-        return (super.isInitialized() && y.isInitialized());
+        return super.isInitialized() && y.isInitialized();
     }
 
     public void clearKey() {

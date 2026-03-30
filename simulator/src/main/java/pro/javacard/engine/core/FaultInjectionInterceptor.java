@@ -81,7 +81,9 @@ public class FaultInjectionInterceptor extends ClassVisitor {
                 null,
                 null
             );
-            if (fv1 != null) fv1.visitEnd();
+            if (fv1 != null) {
+                fv1.visitEnd();
+            }
 
             // Add int[] $faultIntFlips
             FieldVisitor fv2 = super.visitField(
@@ -91,7 +93,9 @@ public class FaultInjectionInterceptor extends ClassVisitor {
                 null,
                 null
             );
-            if (fv2 != null) fv2.visitEnd();
+            if (fv2 != null) {
+                fv2.visitEnd();
+            }
 
             // Only create <clinit> if it doesn't exist
             if (!clinitExists) {

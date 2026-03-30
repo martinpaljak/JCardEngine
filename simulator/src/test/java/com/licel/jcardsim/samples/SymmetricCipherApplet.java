@@ -39,22 +39,22 @@ import javacardx.crypto.Cipher;
  * </ul>
  */
 public class SymmetricCipherApplet extends Applet {
-    private final static byte CLA_AES = 0x10;
-    private final static byte CLA_DES = 0x20;
-    private final static byte INS_AES_SET_KEY = 0x10;
-    private final static byte INS_AES_ENCRYPT = 0x11;
-    private final static byte INS_AES_DECRYPT = 0x12;
+    private static final byte CLA_AES = 0x10;
+    private static final byte CLA_DES = 0x20;
+    private static final byte INS_AES_SET_KEY = 0x10;
+    private static final byte INS_AES_ENCRYPT = 0x11;
+    private static final byte INS_AES_DECRYPT = 0x12;
 
-    private final static byte INS_DES_SET_KEY = 0x10;
-    private final static byte INS_DES_ENCRYPT = 0x11;
-    private final static byte INS_DES_DECRYPT = 0x12;
+    private static final byte INS_DES_SET_KEY = 0x10;
+    private static final byte INS_DES_ENCRYPT = 0x11;
+    private static final byte INS_DES_DECRYPT = 0x12;
 
     private Key secreteKey = null;
 
     private Cipher cipher = null;
 
     private byte[] transientMemory = null;
-    private final static short MAX_DATA_BYTE_SIZE = 32;
+    private static final short MAX_DATA_BYTE_SIZE = 32;
 
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
@@ -68,7 +68,9 @@ public class SymmetricCipherApplet extends Applet {
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if (selectingApplet()) return;
+        if (selectingApplet()) {
+            return;
+        }
 
         byte[] buffer = apdu.getBuffer();
         switch (buffer[ISO7816.OFFSET_CLA]) {

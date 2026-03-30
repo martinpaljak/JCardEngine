@@ -46,7 +46,7 @@ import java.util.Optional;
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
  * manipulation MUST happen via these interfaces. Each Simulator is independent (like a single secure element)
  */
-public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime {
+public class Simulator implements JavaCardEngine, JavaCardRuntime {
     static {
         System.setProperty("org.bouncycastle.rsa.no_lenstra_check", "true");
     }
@@ -193,7 +193,7 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     public byte[] selectAppletWithResult(AID aid) throws SystemException {
-        return _transmitCommand(APDU.PROTOCOL_T0, AIDUtil.select(aid)); // FIXME: should either expose selectApplet on session or get rid of it.
+        return _transceive(APDU.PROTOCOL_T0, AIDUtil.select(aid)); // FIXME: should either expose selectApplet on session or get rid of it.
     }
 
     public byte[] getATR() {
@@ -234,7 +234,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     private void registerAllocation(Object array) {
-        if (array == null) return;
+        if (array == null) {
+            return;
+        }
         // Locate the caller
         StackWalker walker = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
         Optional<StackWalker.StackFrame> caller = walker.walk(frames -> frames
@@ -328,8 +330,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     @Override
     public AID getPreviousContextAID() {
         var it = contextStack.iterator();
-        if (it.hasNext())
+        if (it.hasNext()) {
             it.next(); // skip current
+        }
         return it.hasNext() ? it.next() : null;
     }
 
@@ -420,19 +423,19 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
      * @param command command apdu
      * @return response apdu
      */
-    @Override
-    public byte[] transmitCommand(byte[] command) throws SystemException {
+    // Convenience: creates a session, sends one command, closes the session.
+    public byte[] transceive(byte[] command) throws SystemException {
         if (creator != Thread.currentThread()) {
             log.error("Do not call from a different thread.");
         }
         try (var session = connect()) {
-            return session.transmitCommand(command);
+            return session.transceive(command);
         }
     }
 
     int command_counter = 0;
 
-    byte[] _transmitCommand(byte protocol, byte[] command) throws SystemException {
+    byte[] _transceive(byte protocol, byte[] command) throws SystemException {
         command_counter++;
 
         log.info("Processing command #{}", command_counter);
@@ -939,8 +942,9 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     public void register(Object instance, byte[] buffer, short offset, byte len) {
         try {
             var actual = new AID(buffer, offset, len);
-            if (options.get() == null || applets.containsKey(actual))
+            if (options.get() == null || applets.containsKey(actual)) {
                 SystemException.throwIt(SystemException.ILLEGAL_AID);
+            }
             log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(actual),
                     System.identityHashCode(this));
             applets.put(actual, new ApplicationInstance(actual, instance, options.get().exposed));
@@ -1032,8 +1036,8 @@ public class Simulator implements CardInterface, JavaCardEngine, JavaCardRuntime
     }
 
     @Override
-    public EngineSession connectFor(Duration timeout, String protocol) {
-        log.info("Connecting for {} with {}", timeout, protocol);
-        return new SimulatorSession(this, protocol, timeout);
+    public EngineSession connectFor(Duration timeout, String protocol, boolean resetOnClose) {
+        log.info("Connecting for {} with {} reset={}", timeout, protocol, resetOnClose);
+        return new SimulatorSession(this, protocol, timeout, resetOnClose);
     }
 }

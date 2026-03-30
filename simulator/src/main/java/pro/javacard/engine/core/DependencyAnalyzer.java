@@ -105,7 +105,9 @@ public class DependencyAnalyzer {
         public void visit(int version, int access, String name, String sig, String superName, String[] interfaces) {
             addType(superName);
             if (interfaces != null) {
-                for (String i : interfaces) addType(i);
+                for (String i : interfaces) {
+                    addType(i);
+                }
             }
         }
 
@@ -119,7 +121,9 @@ public class DependencyAnalyzer {
         public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] exc) {
             Type mt = Type.getMethodType(desc);
             addDescriptor(mt.getReturnType());
-            for (Type t : mt.getArgumentTypes()) addDescriptor(t);
+            for (Type t : mt.getArgumentTypes()) {
+                addDescriptor(t);
+            }
 
             return new MethodVisitor(Opcodes.ASM9) {
                 @Override
@@ -138,7 +142,9 @@ public class DependencyAnalyzer {
                     addType(owner);
                     Type mt = Type.getMethodType(desc);
                     addDescriptor(mt.getReturnType());
-                    for (Type t : mt.getArgumentTypes()) addDescriptor(t);
+                    for (Type t : mt.getArgumentTypes()) {
+                        addDescriptor(t);
+                    }
                 }
 
                 @Override

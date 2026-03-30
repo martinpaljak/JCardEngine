@@ -1,321 +1,138 @@
 package com.licel.jcardsim.smartcardio;
 
+import com.licel.jcardsim.samples.DualInterfaceApplet;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AIDUtil;
-import com.licel.jcardsim.utils.AutoResetEvent;
+import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.*;
-import java.security.NoSuchAlgorithmException;
-import java.security.Security;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// Tests the bridge between JavaCardEngine and pcsc-sim (SynthesizedCardTerminal).
+// pcsc-sim terminal/card behavior is tested in apdu4j itself.
 public class CardTerminalSimulatorTest {
     private static final ATR ETALON_ATR = new ATR(Hex.decode("3B80800101"));
-    private static final String TEST_APPLET_AID = "010203040506070809";
-    private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode(TEST_APPLET_AID);
+    private static final String HELLO_AID = "010203040506070809";
+    private static final String DUAL_AID = "D0000CAFE00001";
 
     @Test
-    public void testCreateSingleTerminal() throws CardException, InterruptedException {
-        final AutoResetEvent autoResetEvent = new AutoResetEvent();
+    void testTerminalBridge() throws CardException {
+        var engine = JavaCardEngine.create();
+        engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class, Hex.decode("0F0F"));
+        var terminal = engine.toTerminal();
 
-        // get instance
-        final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
-        final CardTerminal terminal = terminals.getTerminal("my terminal");
+        var card = terminal.connect("T=1");
+        assertEquals(ETALON_ATR, card.getATR());
+        assertEquals("T=1", card.getProtocol());
 
-        // create and insert card
-        CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
-        assertSame(terminal, cardSimulator.getAssignedCardTerminal());
+        // select and exchange APDUs via javax.smartcardio
+        var channel = card.getBasicChannel();
+        var response = channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
+        assertEquals(0x9000, response.getSW());
 
-        // Install the test applet to the simulator
-        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
-
-        // connect to card
-        Card card = terminal.connect("T=1");
-        test(card);
-
-        // assign same card
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    if (terminals.waitForChange(0)) {
-                        autoResetEvent.signal();
-                    }
-                } catch (CardException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }.start();
-        cardSimulator.assignToTerminal(terminal);
-        assertTrue(autoResetEvent.await(1, TimeUnit.SECONDS));
-        assertSame(terminal, cardSimulator.getAssignedCardTerminal());
-
-        // assign different card
-        CardSimulator cardSimulator2 = new CardSimulator();
-        assertNull(cardSimulator2.getAssignedCardTerminal());
-        cardSimulator2.assignToTerminal(terminal);
-
-        assertSame(terminal, cardSimulator2.getAssignedCardTerminal());
-        assertNull(cardSimulator.getAssignedCardTerminal());
+        response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
+        assertEquals(0x9000, response.getSW());
+        assertEquals("Hello world !", new String(response.getData()));
     }
 
     @Test
-    public void testCreateTerminals() throws CardException {
-        // get instance
-        CardTerminals terminals = CardTerminalSimulator.terminals("terminal #1", "terminal #2");
-        CardTerminal terminal = terminals.getTerminal("terminal #2");
+    void testTerminalFactory() throws CardException {
+        var engine = JavaCardEngine.create();
+        engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class);
+        var factory = engine.toTerminalFactory();
+        var terminal = factory.terminals().list().get(0);
 
-        // create and insert card
-        CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
+        assertEquals("jcardengine.Terminal", terminal.getName());
+        assertTrue(terminal.isCardPresent());
 
-        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
-
-        // connect to card
-        Card card = terminal.connect("T=1");
-        test(card);
+        var card = terminal.connect("T=1");
+        var channel = card.getBasicChannel();
+        channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
+        var response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
+        assertEquals(0x9000, response.getSW());
     }
 
     @Test
-    public void testProvider() throws CardException, NoSuchAlgorithmException {
-        // register security provider
-        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
+    void testReconnectAfterResetDisconnect() throws CardException {
+        var engine = JavaCardEngine.create();
+        engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class, Hex.decode("0F0F"));
+        var terminal = engine.toTerminal();
 
-        // get instance
-        TerminalFactory tf = TerminalFactory.getInstance("CardTerminalSimulator", null);
-        CardTerminals terminals = tf.terminals();
-        CardTerminal terminal = terminals.getTerminal("jCardSim.Terminal");
+        // first session - store echo data in CLEAR_ON_RESET transient memory
+        var card = terminal.connect("T=1");
+        var channel = card.getBasicChannel();
+        channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
+        var echoData = "TestData".getBytes();
+        var response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x01, 0x00, echoData));
+        assertEquals(0x9000, response.getSW());
+        assertArrayEquals(echoData, response.getData());
 
-        // create and insert card
-        CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
+        // disconnect with reset - transient memory should be cleared
+        card.disconnect(true);
+        assertTrue(terminal.isCardPresent()); // factory mode - card stays
 
-        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
-
-        // connect to card
-        Card card = terminal.connect("T=1");
-        test(card);
+        // second session - echo should return default (hello world), not our stored data
+        card = terminal.connect("T=1");
+        channel = card.getBasicChannel();
+        channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
+        response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
+        assertEquals(0x9000, response.getSW());
+        assertEquals("Hello world !", new String(response.getData()));
     }
 
     @Test
-    public void testProviderCustomNames() throws CardException, NoSuchAlgorithmException {
-        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
+    void testContactlessProtocol() throws CardException {
+        var engine = JavaCardEngine.create();
+        engine.installApplet(AIDUtil.create(DUAL_AID), DualInterfaceApplet.class);
 
-        // get instance
-        TerminalFactory tf = TerminalFactory.getInstance("CardTerminalSimulator", new String[]{"x", "y"});
-        CardTerminals terminals = tf.terminals();
-        CardTerminal terminal = terminals.getTerminal("y");
-
-        // create and insert card
-        CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
-
-        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
-
-        // connect to card
-        Card card = terminal.connect("T=1");
-
-        test(card);
-        assertEquals(2, terminals.list().size());
-        assertEquals("x", terminals.list().get(0).getName());
-        assertEquals("y", terminals.list().get(1).getName());
-    }
-
-    @Test
-    public void testWaitForInsert() throws CardException, InterruptedException {
-        final AutoResetEvent autoResetEvent = new AutoResetEvent();
-        final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
-        final CardTerminal terminal = terminals.getTerminal("my terminal");
-        assertEquals(true, terminal.waitForCardAbsent(1));
-        assertEquals(false, terminal.waitForCardPresent(1));
-
-        final CardSimulator cardSimulator = new CardSimulator();
-
-        cardSimulator.installApplet(AIDUtil.create(TEST_APPLET_AID_BYTES), HelloWorldApplet.class, Hex.decode("0F0F"));
-
-        new Thread() {
-            @Override
-            public void run() {
-                cardSimulator.assignToTerminal(terminal);
-                autoResetEvent.signal();
-            }
-        }.start();
-
-        autoResetEvent.await(1, TimeUnit.MINUTES);
-        assertEquals(true, terminal.waitForCardPresent(1));
-
-        // connect to card
-        Card card = terminal.connect("T=1");
-        test(card);
-    }
-
-    @Test
-    public void testWaitForCardAbsent() throws CardException, InterruptedException {
-        final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
-        final CardTerminal terminal = terminals.getTerminal("my terminal");
-
-        final CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
-
-        assertEquals(true, terminal.waitForCardPresent(1));
-        assertEquals(false, terminal.waitForCardAbsent(1));
-
-        new Thread() {
-            @Override
-            public void run() {
-                cardSimulator.assignToTerminal(null);
-            }
-        }.start();
-
-        assertEquals(true, terminal.waitForCardAbsent(0));
-    }
-
-    @Test
-    public void testWaitForCardChange() throws CardException, InterruptedException {
-        final CardTerminals terminals = CardTerminalSimulator.terminals("my terminal");
-
-        final CardSimulator cardSimulator = new CardSimulator();
-        assertEquals(false, terminals.waitForChange(1));
-
-        CardTerminal terminal = terminals.getTerminal("my terminal");
-        cardSimulator.assignToTerminal(terminal);
-
-        assertEquals(true, terminals.waitForChange(1));
-        assertEquals(false, terminals.waitForChange(1));
-        cardSimulator.assignToTerminal(null);
-        assertEquals(true, terminals.waitForChange(1));
-    }
-
-    @Test
-    public void testList() throws CardException, InterruptedException {
-        final CardTerminals terminals = CardTerminalSimulator.terminals("1", "2", "3", "4");
-
-        CardTerminal terminal1 = terminals.getTerminal("1");
-
-        assertEquals(4, terminals.list().size());
-        assertEquals(4, terminals.list(CardTerminals.State.ALL).size());
-
-        CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal1);
-        assertTrue(terminal1.isCardPresent());
-        assertEquals(3, terminals.list(CardTerminals.State.CARD_ABSENT).size());
-        assertEquals(3, terminals.list(CardTerminals.State.CARD_REMOVAL).size());
-        assertEquals(0, terminals.list(CardTerminals.State.CARD_PRESENT).size());
-        assertEquals(1, terminals.list(CardTerminals.State.CARD_INSERTION).size());
-        assertEquals(0, terminals.list(CardTerminals.State.CARD_PRESENT).size());
-
-        assertEquals(true, terminals.waitForChange(1));
-        assertEquals(1, terminals.list(CardTerminals.State.CARD_INSERTION).size());
-        assertEquals(0, terminals.list(CardTerminals.State.CARD_REMOVAL).size());
-
-        cardSimulator.assignToTerminal(null);
-        assertFalse(terminal1.isCardPresent());
-        assertEquals(true, terminals.waitForChange(1));
-
-        assertEquals(4, terminals.list(CardTerminals.State.ALL).size());
-        assertEquals(3, terminals.list(CardTerminals.State.CARD_ABSENT).size());
-        assertEquals(1, terminals.list(CardTerminals.State.CARD_REMOVAL).size());
-
-        assertEquals(0, terminals.list(CardTerminals.State.CARD_INSERTION).size());
-        assertEquals(0, terminals.list(CardTerminals.State.CARD_PRESENT).size());
-        assertEquals(4, terminals.list(CardTerminals.State.CARD_ABSENT).size());
-    }
-
-    @Test
-    public void testExclusive() throws CardException, InterruptedException {
-        final CardTerminal terminal = CardTerminalSimulator.terminal(new CardSimulator());
-        final AutoResetEvent autoResetEvent = new AutoResetEvent();
-        final AtomicBoolean gotException = new AtomicBoolean(false);
-
-        final CardSimulator cardSimulator = new CardSimulator();
-        cardSimulator.assignToTerminal(terminal);
-        final Card card = terminal.connect("T=1");
-        final CommandAPDU commandAPDU = new CommandAPDU(0, 0, 0, 0);
-
-        card.beginExclusive();
-        card.getBasicChannel().transmit(commandAPDU);
-
-        new Thread() {
-            @Override
-            public void run() {
-                try {
-                    card.getBasicChannel().transmit(commandAPDU);
-                } catch (CardException e) {
-                    gotException.set(true);
-                } finally {
-                    autoResetEvent.signal();
-                }
-                autoResetEvent.signal();
-            }
-        }.start();
-
-        autoResetEvent.await(1, TimeUnit.MINUTES);
-        card.endExclusive();
-    }
-
-    private void test(Card jcsCard) throws CardException {
-        assertTrue(jcsCard != null);
-        // check card ATR
-        assertEquals(jcsCard.getATR(), ETALON_ATR);
-        // check card protocol
-        assertEquals(jcsCard.getProtocol(), "T=1");
-        // get basic channel
-        CardChannel jcsChannel = jcsCard.getBasicChannel();
-        assertTrue(jcsChannel != null);
+        // connect as contactless via pcsc-sim terminal
+        var terminal = engine.toTerminal("CL Reader");
+        var card = terminal.connect("T=CL");
+        var channel = card.getBasicChannel();
 
         // select applet
-        CommandAPDU selectApplet = new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(TEST_APPLET_AID));
-        ResponseAPDU response = jcsChannel.transmit(selectApplet);
+        channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(DUAL_AID)));
+
+        // INS_INFO returns protocol byte - should be contactless
+        var response = channel.transmit(new CommandAPDU(0x80, 0x04, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());
-        // test NOP
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x02, 0x00, 0x00));
+        byte protocol = response.getData()[0];
+        assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, protocol);
+
+        // write should fail on contactless interface
+        response = channel.transmit(new CommandAPDU(0x80, 0x02, 0x00, 0x00, new byte[]{(byte) 0xCA, (byte) 0xFE}));
+        assertEquals(ISO7816.SW_CONDITIONS_NOT_SATISFIED, response.getSW());
+    }
+
+    @Test
+    void testContactProtocol() throws CardException {
+        var engine = JavaCardEngine.create();
+        engine.installApplet(AIDUtil.create(DUAL_AID), DualInterfaceApplet.class);
+
+        var terminal = engine.toTerminal("Contact Reader");
+        var card = terminal.connect("T=1");
+        var channel = card.getBasicChannel();
+
+        channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(DUAL_AID)));
+
+        // INS_INFO - should be contact (T=1, media default)
+        var response = channel.transmit(new CommandAPDU(0x80, 0x04, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());
-        // test SW_INS_NOT_SUPPORTED
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x05, 0x00, 0x00));
-        assertEquals(ISO7816.SW_INS_NOT_SUPPORTED, response.getSW());
-        // test hello world from card
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
+        byte protocol = response.getData()[0];
+        assertEquals(APDU.PROTOCOL_T1, protocol);
+
+        // write should succeed on contact interface
+        response = channel.transmit(new CommandAPDU(0x80, 0x02, 0x00, 0x00, new byte[]{(byte) 0xCA, (byte) 0xFE}));
         assertEquals(0x9000, response.getSW());
-        assertEquals("Hello world !", new String(response.getData()));
-        // test echo
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x01, 0x01, 0x00, ("Hello javacard world !").getBytes()));
+
+        // read it back
+        response = channel.transmit(new CommandAPDU(0x80, 0x00, 0x00, 0x00));
         assertEquals(0x9000, response.getSW());
-        assertEquals("Hello javacard world !", new String(response.getData()));
-        // test echo v2
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x03, 0x00, 0x00, ("Hello javacard world !").getBytes()));
-        assertEquals(0x9000, response.getSW());
-        assertEquals("Hello javacard world !", new String(response.getData()));
-        // test echo install params
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x04, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
-        assertEquals(0xF, response.getData()[0]);
-        assertEquals(0xF, response.getData()[1]);
-        // test continued data
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x06, 0x00, 0x00));
-        assertEquals(0x6107, response.getSW());
-        assertEquals("Hello ", new String(response.getData()));
-        // test https://github.com/licel/jcardsim/issues/13
-        byte[] listObjectsCmd = new byte[5];
-        listObjectsCmd[0] = (byte) 0xb0;
-        listObjectsCmd[1] = (byte) 0x58;
-        listObjectsCmd[2] = (byte) 0x00;
-        listObjectsCmd[3] = (byte) 0x00;
-        listObjectsCmd[4] = (byte) 0x0E;
-        response = jcsChannel.transmit(new CommandAPDU(listObjectsCmd));
-        assertEquals(0x9C12, response.getSW());
-        // application specific sw + data
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x07, 0x00, 0x00));
-        assertEquals(0x9B00, response.getSW());
-        assertEquals("Hello world !", new String(response.getData()));
-        // sending maximum data
-        response = jcsChannel.transmit(new CommandAPDU(0x01, 0x08, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        assertArrayEquals(new byte[]{(byte) 0xCA, (byte) 0xFE}, response.getData());
     }
 }

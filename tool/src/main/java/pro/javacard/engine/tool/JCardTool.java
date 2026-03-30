@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
+ * Copyright 2025-present Martin Paljak <martin@martinpaljak.net>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -190,7 +190,7 @@ public class JCardTool {
 
                 if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST) || options.has(OPT_VSMARTCARD_PROTOCOL) || options.has(OPT_VSMARTCARD_ATR)) {
                     var protocol = options.has(OPT_VSMARTCARD_PROTOCOL) ? options.valueOf(OPT_VSMARTCARD_PROTOCOL) : options.valueOf(OPT_PROTOCOL);
-                    AbstractTCPAdapter adapter = new VSmartCardClient(p -> sim.connectFor(Duration.ofSeconds(1), p)); // TODO: parameter for timeout
+                    AbstractTCPAdapter adapter = new VSmartCardClient(p -> sim.connectFor(Duration.ofSeconds(1), p, true)); // TODO: parameter for timeout
                     adapter = adapter.withProtocol(protocol);
                     adapter = configureVSmartCard(adapter, options);
                     adapters.add(adapter);
@@ -212,7 +212,7 @@ public class JCardTool {
                 }
 
                 if (options.has(OPT_JSON) || options.has(OPT_JSON_PORT) || options.has(OPT_JSON_HOST)) {
-                    AbstractTCPAdapter adapter = new JSONAdapter(p -> sim.connectFor(Duration.ofSeconds(1), p));
+                    AbstractTCPAdapter adapter = new JSONAdapter(p -> sim.connectFor(Duration.ofSeconds(1), p, true));
                     adapter = adapter.withProtocol(options.valueOf(OPT_PROTOCOL));
                     adapter = adapter.withHost(options.valueOf(OPT_JSON_HOST));
                     adapter = adapter.withPort(options.valueOf(OPT_JSON_PORT));
@@ -274,8 +274,9 @@ public class JCardTool {
             Runtime.getRuntime().removeShutdownHook(shutdownThread);
             exec.shutdownNow();
             while (!exec.isTerminated()) {
-                if (exec.awaitTermination(1, TimeUnit.MINUTES))
+                if (exec.awaitTermination(1, TimeUnit.MINUTES)) {
                     break;
+                }
             }
             System.err.println("Thank you for using JCardEngine v" + version + "!");
         } catch (OptionException e) {

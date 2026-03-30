@@ -55,7 +55,7 @@ public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
     }
 
     public boolean isInitialized() {
-        return (super.isInitialized() && x.isInitialized());
+        return super.isInitialized() && x.isInitialized();
     }
 
     public void clearKey() {

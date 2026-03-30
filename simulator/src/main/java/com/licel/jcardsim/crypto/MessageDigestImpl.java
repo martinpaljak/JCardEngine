@@ -166,10 +166,11 @@ public class MessageDigestImpl extends InitializedMessageDigest {
         long byteCountLo = 0;
         long byteCountHi = 0;
         for (short i = 0; i < digestedMsgLenLength; i++) {
-            if( i < 8 )
+            if (i < 8) {
                 byteCountLo = (byteCountLo << 8) + (digestedMsgLenBuf[digestedMsgLenOffset + i] & 0xff);
-            else
+            } else {
                 byteCountHi = (byteCountHi << 8) + (digestedMsgLenBuf[digestedMsgLenOffset + i] & 0xff);
+            }
         }
 
         // byte count % block size must be == 0

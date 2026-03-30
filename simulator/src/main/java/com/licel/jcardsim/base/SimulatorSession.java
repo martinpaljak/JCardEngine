@@ -23,12 +23,12 @@ import java.time.Duration;
 import java.util.concurrent.*;
 
 // Session object lifetime guards the held lock for the simulator
+// XXX: opportunistic locking requires timed release.
 public class SimulatorSession implements EngineSession {
     private static final Logger log = LoggerFactory.getLogger(SimulatorSession.class);
 
-    // XXX: opportunistic locking requires timed release.
+    // I like my threads with nice names.
     static ThreadFactory namedThreadFactory = r -> {
-        // I like my threads with nice names.
         Thread t = new Thread(r, "IdleWatchdog");
         t.setDaemon(true); // not blocking shutdown
         return t;
@@ -42,12 +42,14 @@ public class SimulatorSession implements EngineSession {
     private final Simulator simulator;
     private final String protocol;
     private final byte protocol_byte;
+    private final boolean resetOnClose;
     final Thread owner;
 
-    SimulatorSession(Simulator simulator, String protocol, Duration timeout) {
+    SimulatorSession(Simulator simulator, String protocol, Duration timeout, boolean resetOnClose) {
         this.simulator = simulator;
         this.owner = Thread.currentThread();
         this.protocol = protocol;
+        this.resetOnClose = resetOnClose;
         log.trace("Acquiring lock ...");
         simulator.lock.acquireUninterruptibly();
         idleTimeout = timeout;
@@ -72,18 +74,18 @@ public class SimulatorSession implements EngineSession {
     // Called by scheduler if there has been no APDU traffic for the timeout duration
     private Void timeoutExpired() {
         log.info("Idle timeout, closing session for " + owner.getName());
-        close(false);
+        close();
         return null;
     }
 
     @Override
-    public void close(boolean reset) {
+    public void close() {
         // Do nothing if already closed
         if (closed) {
             return;
         }
         closed = true;
-        if (reset) {
+        if (resetOnClose) {
             simulator.reset();
         }
         simulator.lock.release();
@@ -91,24 +93,11 @@ public class SimulatorSession implements EngineSession {
     }
 
     @Override
-    public byte[] transmitCommand(byte[] commandAPDU) {
+    public byte[] transceive(byte[] commandAPDU) {
         if (closed) {
             throw new IllegalStateException("Session already closed");
         }
         refreshTimeout(); // Extend for another period before auto-close
-        return simulator._transmitCommand(protocol_byte, commandAPDU);
-    }
-
-    @Override
-    public String getProtocol() {
-        if (closed) {
-            throw new IllegalStateException("Session already closed");
-        }
-        return protocol;
-    }
-
-    @Override
-    public boolean isClosed() {
-        return closed;
+        return simulator._transceive(protocol_byte, commandAPDU);
     }
 }

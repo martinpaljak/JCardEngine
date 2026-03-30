@@ -35,7 +35,9 @@ public class GlobalPlatform {
     private final GlobalPINImpl gpin = new GlobalPINImpl();
 
     public GlobalPlatform(SCPConfig scpConfig) {
-        if (scpConfig == null) scpConfig = new SCPConfig.SCP03(true);
+        if (scpConfig == null) {
+            scpConfig = new SCPConfig.SCP03(true);
+        }
         if (scpConfig instanceof SCPConfig.SCP02 c) {
             sc = new SCP02SecureChannelImpl(c.masterKey());
         } else if (scpConfig instanceof SCPConfig.SCP03 c) {

@@ -67,17 +67,20 @@ public final class GlobalPlatformTestApplet extends Applet {
     public boolean select() {
         // NOTE: these are redundant in real life, as OPEN would not allow to select such applet.
         // Here only for test coverage
-        if (GPSystem.getCardState() != GPSystem.CARD_SECURED)
+        if (GPSystem.getCardState() != GPSystem.CARD_SECURED) {
             return false;
-        if (GPSystem.getCardContentState() != GPSystem.APPLICATION_SELECTABLE)
+        }
+        if (GPSystem.getCardContentState() != GPSystem.APPLICATION_SELECTABLE) {
             return false;
+        }
         return true;
     }
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if (selectingApplet())
+        if (selectingApplet()) {
             return;
+        }
         byte[] buffer = apdu.getBuffer();
 
         // Filter out GP commands to pass to SecureChannel. SecureChannel validates the CLA.

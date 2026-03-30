@@ -57,7 +57,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     protected abstract SocketChannel getSocket() throws IOException;
 
-    final protected Function<String, EngineSession> sim;
+    protected final Function<String, EngineSession> sim;
     protected byte[] atr = DEFAULT_ATR;
     protected String configuredProtocol = "*"; // CLI-set protocol, "*" means dynamic
     protected String protocol = "*"; // runtime protocol, may be set by incoming messages
@@ -144,7 +144,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                 switch (currentState) {
                     case DISCONNECTED:
                         if (session != null) {
-                            session.close(true);
+                            session.close();
                             session = null;
                             protocol = configuredProtocol;
                         }
@@ -153,7 +153,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                         } catch (InterruptedException e) {
                             log.debug("State changed, checking new state");
                             AdapterState target = targetState.getAndSet(null);
-                            this.currentState = (target == null) ? AdapterState.SHUTDOWN : target;
+                            this.currentState = target == null ? AdapterState.SHUTDOWN : target;
                             semaphore.release();
                         }
                         continue;
@@ -163,7 +163,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                         return true;
                     case RESET:
                         if (session != null) {
-                            session.close(true);
+                            session.close();
                             session = null;
                             protocol = configuredProtocol;
                         }
@@ -179,8 +179,9 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                 try {
                                     RemoteMessage msg = recv(channel);
                                     // Silence noisy VSmartCard ATR request.
-                                    if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR))
+                                    if (!(this.getClass() == VSmartCardClient.class && msg.getType() == Type.ATR)) {
                                         log.trace("Processing {}", msg.getType());
+                                    }
                                     switch (msg.getType()) {
                                         case ATR:
                                             // NOTE: this is spammed by vsmartcard on every second.
@@ -190,7 +191,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                         case RESET:
                                             // NOTE: on Windows and macOS a connection "Starts" with a reset, so we open a connection on demand
                                             if (session != null) {
-                                                session.close(true);
+                                                session.close();
                                             }
                                             session = sim.apply(protocol);
                                             send(channel, new RemoteMessage(Type.RESET));
@@ -206,14 +207,14 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                         case POWERDOWN:
                                             // Happens on mac/linux
                                             if (session != null) {
-                                                session.close(true); // FIXME: no reset ?
+                                                session.close(); // FIXME: no reset ?
                                             }
                                             session = null;
                                             protocol = configuredProtocol; // reset for next session
                                             send(channel, new RemoteMessage(Type.POWERDOWN));
                                             break;
                                         case APDU:
-                                            if (session == null || session.isClosed()) {
+                                            if (session == null) {
                                                 log.warn("No session opened before APDU-s!");
                                                 session = sim.apply(protocol);
                                             }
@@ -227,7 +228,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                                 break;
                                             }
                                             log.info(">> {}", Hex.toHexString(cmd));
-                                            byte[] response = session.transmitCommand(cmd);
+                                            byte[] response = session.transceive(cmd);
                                             log.info("<< {}", Hex.toHexString(response));
                                             send(channel, new RemoteMessage(Type.APDU, response));
                                             break;
@@ -243,7 +244,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                             if (Thread.interrupted()) {
                                 AdapterState target = targetState.getAndSet(null);
                                 log.trace("interrupted with {}", target);
-                                this.currentState = (target == null) ? AdapterState.SHUTDOWN : target;
+                                this.currentState = target == null ? AdapterState.SHUTDOWN : target;
                                 semaphore.release(); // harmless on shutdown
                             }
                         } catch (SocketException | SocketTimeoutException e) {
@@ -263,7 +264,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
             return true;
         } finally {
             if (session != null) {
-                session.close(true);
+                session.close();
                 session = null;
             }
         }

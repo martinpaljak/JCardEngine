@@ -104,8 +104,8 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
     }
 
     protected boolean isDomainParametersInitialized() {
-        return (a.isInitialized() && b.isInitialized() && g.isInitialized() && r.isInitialized()
-                && isKInitialized && (fp.isInitialized() || k != 0));
+        return a.isInitialized() && b.isInitialized() && g.isInitialized() && r.isInitialized()
+                && isKInitialized && (fp.isInitialized() || k != 0);
     }
 
     public void setFieldFP(byte[] buffer, short offset, short length) throws CryptoException {

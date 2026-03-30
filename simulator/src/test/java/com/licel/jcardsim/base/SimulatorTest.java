@@ -66,13 +66,13 @@ public class SimulatorTest {
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         instance.selectApplet(TEST_APPLET_AID);
         // test NOP with Lc=1
-        byte[] response1 = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA});
+        byte[] response1 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA});
         assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response1, (short) 0));
         // test NOP with Le=1
-        byte[] response2 = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1});
+        byte[] response2 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1});
         assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response2, (short) 0));
         // test NOP with Lc=1, Le=1
-        byte[] response3 = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA, 0, 1});
+        byte[] response3 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA, 0, 1});
         assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response3, (short) 0));
     }
 
@@ -99,7 +99,7 @@ public class SimulatorTest {
     }
 
     /**
-     * Test of transmitCommand method, of class Simulator.
+     * Test of transceive method, of class Simulator.
      */
     @Test
     public void testTransmitCommand() {
@@ -107,7 +107,7 @@ public class SimulatorTest {
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         assertTrue(instance.selectApplet(TEST_APPLET_AID));
         // test NOP
-        byte[] response = instance.transmitCommand(new byte[]{0x01, 0x02, 0x00, 0x00});
+        byte[] response = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00});
         assertArrayEquals(new byte[]{(byte) 0x90, 0x00}, response);
     }
 
@@ -192,7 +192,7 @@ public class SimulatorTest {
         System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
         apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
 
-        byte[] response = instance.transmitCommand(apduForTransmit);
+        byte[] response = instance.transceive(apduForTransmit);
 
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertArrayEquals(commandData, responseApdu.getData());
@@ -207,7 +207,7 @@ public class SimulatorTest {
         System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
         apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
 
-        response = instance.transmitCommand(apduForTransmit);
+        response = instance.transceive(apduForTransmit);
 
         responseApdu = new ResponseAPDU(response);
         assertEquals(0, responseApdu.getData().length);
@@ -227,7 +227,7 @@ public class SimulatorTest {
         System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
         apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
 
-        response = instance.transmitCommand(apduForTransmit);
+        response = instance.transceive(apduForTransmit);
 
         responseApdu = new ResponseAPDU(response);
         assertEquals(0, responseApdu.getData().length);
@@ -240,22 +240,22 @@ public class SimulatorTest {
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
 
         // MANAGE CHANNEL OPEN (00 70 00 00) - rejected before applet is selected
-        byte[] response = instance.transmitCommand(new byte[]{0x00, 0x70, 0x00, 0x00});
+        byte[] response = instance.transceive(new byte[]{0x00, 0x70, 0x00, 0x00});
         assertEquals(0x6881, Util.getShort(response, (short) 0));
 
         // Select applet, then try again - still rejected at JCRE level
         assertTrue(instance.selectApplet(TEST_APPLET_AID));
 
         // OPEN
-        response = instance.transmitCommand(new byte[]{0x00, 0x70, 0x00, 0x00});
+        response = instance.transceive(new byte[]{0x00, 0x70, 0x00, 0x00});
         assertEquals(0x6881, Util.getShort(response, (short) 0));
 
         // CLOSE (00 70 80 01)
-        response = instance.transmitCommand(new byte[]{0x00, 0x70, (byte) 0x80, 0x01});
+        response = instance.transceive(new byte[]{0x00, 0x70, (byte) 0x80, 0x01});
         assertEquals(0x6881, Util.getShort(response, (short) 0));
 
         // With channel bits in CLA (e.g. channel 1: CLA=0x01)
-        response = instance.transmitCommand(new byte[]{0x01, 0x70, 0x00, 0x00});
+        response = instance.transceive(new byte[]{0x01, 0x70, 0x00, 0x00});
         assertEquals(0x6881, Util.getShort(response, (short) 0));
     }
 
@@ -268,23 +268,23 @@ public class SimulatorTest {
         assertThrows(JavaCardEngineException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
         sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
         try (EngineSession session = sim.connect()) {
-            byte[] result = session.transmitCommand(select);
+            byte[] result = session.transceive(select);
             assertArrayEquals(Hex.decode("6f00"), result);
         }
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInSelect.class);
         try (EngineSession session = sim.connect()) {
-            byte[] result = session.transmitCommand(select);
+            byte[] result = session.transceive(select);
             assertArrayEquals(Hex.decode("6999"), result);
         }
 
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInUninstall.class);
         try (EngineSession session = sim.connect()) {
-            byte[] result = session.transmitCommand(select);
+            byte[] result = session.transceive(select);
             assertArrayEquals(Hex.decode("9000"), result);
             // random select - processed by the applet
-            result = session.transmitCommand(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256).getBytes());
+            result = session.transceive(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256).getBytes());
             assertArrayEquals(Hex.decode("9001"), result);
         }
         assertThrows(JavaCardEngineException.class, () -> sim.deleteApplet(TEST_APPLET_AID));

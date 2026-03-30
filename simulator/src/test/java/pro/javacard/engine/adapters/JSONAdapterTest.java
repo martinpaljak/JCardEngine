@@ -36,7 +36,7 @@ public class JSONAdapterTest {
         var sim = new Simulator();
         sim.installApplet(AIDUtil.create(AID_HEX), DualInterfaceApplet.class);
 
-        adapter = new JSONAdapter(p -> sim.connectFor(Duration.ofSeconds(2), p));
+        adapter = new JSONAdapter(p -> sim.connectFor(Duration.ofSeconds(2), p, true));
         adapter.withPort(TEST_PORT);
         exec = Executors.newSingleThreadExecutor();
         exec.submit(adapter);

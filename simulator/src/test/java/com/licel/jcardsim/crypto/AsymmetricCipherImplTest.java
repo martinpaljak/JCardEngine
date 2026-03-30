@@ -23,6 +23,7 @@ import javacard.security.RSAPublicKey;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import java.util.Random;
 
@@ -38,6 +39,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl.
      */
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_NOPAD() {
         // Refer to https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_NOPAD
         testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512 / Byte.SIZE)));
@@ -57,7 +59,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
             byte[] msgEqualOrGreaterThanRsaModulus = new byte[messageLen];
             Arrays.fill(msgEqualOrGreaterThanRsaModulus, (byte) 0xFF);
             testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, messageLen, msgEqualOrGreaterThanRsaModulus);
-            assert (false);
+            assert false;
         } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
@@ -72,6 +74,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
     }
 
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_PKCS1() {
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.2.1 and https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_PKCS1
         // mLen <= k - 11, k is the length in octets of the modulus n
@@ -173,13 +176,14 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
         // Test with mLen > k - 11
         try {
             testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
-            assert (false);
+            assert false;
         } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
     }
 
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_PKCS1_OEAP() {
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.1.1
         // mLen <= k - 2hLen - 2,
@@ -284,7 +288,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
         // Test with mLen > k - 2hLen - 2
         try {
             testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
-            assert (false);
+            assert false;
         } catch (CryptoException ex) {
             assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
         }
@@ -330,7 +334,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
         } catch (CryptoException e) {
             // For RSA1024, data len into PKCS1 frame is 117B, but because AssymetricCipherImpl.bufferPos is not set
             // to 0 during doFinal(), it will emit exception because 68 + 68 > 117
-            assert (false);
+            assert false;
         }
     }
 }

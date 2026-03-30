@@ -35,7 +35,7 @@ public class MemoryTrackingTest {
         simulator.selectApplet(appletAID);
 
         // Test boolean array allocation (INS 0x01)
-        simulator.transmitCommand(new byte[]{0x00, 0x01, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x01, 0x00, 0x00});
 
         Object booleanArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 38); // line of 'booleanArray = ...'
         assertNotNull(booleanArray, "Boolean array should be tracked");
@@ -46,7 +46,7 @@ public class MemoryTrackingTest {
         }
 
         // Test short array allocation (INS 0x02)
-        simulator.transmitCommand(new byte[]{0x00, 0x02, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x02, 0x00, 0x00});
         
         Object shortArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 42); // line of 'shortArray = ...'
         assertNotNull(shortArray, "Short array should be tracked");
@@ -57,7 +57,7 @@ public class MemoryTrackingTest {
         }
 
         // Test object array allocation (INS 0x03)
-        simulator.transmitCommand(new byte[]{0x00, 0x03, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x03, 0x00, 0x00});
         
         Object objectArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 46); // line of 'objectArray = ...'
         assertNotNull(objectArray, "Object array should be tracked");
@@ -76,12 +76,12 @@ public class MemoryTrackingTest {
         simulator.selectApplet(appletAID);
 
         // Test clearing (SensitiveArrays usage)
-        simulator.transmitCommand(new byte[]{0x00, 0x04, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x04, 0x00, 0x00});
 
         // Test makeIntegritySensitiveArray (transient)
-        simulator.transmitCommand(new byte[]{0x00, 0x05, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x05, 0x00, 0x00});
 
         // Test makeIntegritySensitiveArray (persistent)
-        simulator.transmitCommand(new byte[]{0x00, 0x06, 0x00, 0x00});
+        simulator.transceive(new byte[]{0x00, 0x06, 0x00, 0x00});
     }
 }

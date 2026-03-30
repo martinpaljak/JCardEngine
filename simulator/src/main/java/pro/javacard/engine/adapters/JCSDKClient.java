@@ -22,7 +22,7 @@ import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import apdu4j.core.BIBOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.function.Function;
@@ -104,7 +104,7 @@ public class JCSDKClient implements Function<String, EngineSession>, EngineSessi
             send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
             this.atr = send(this.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new BIBOException(e.getMessage(), e);
         }
     }
 
@@ -116,15 +116,14 @@ public class JCSDKClient implements Function<String, EngineSession>, EngineSessi
     }
 
     @Override
-    public byte[] transmitCommand(byte[] commandAPDU) {
+    public byte[] transceive(byte[] commandAPDU) {
         try {
             return send(this.channel, new RemoteMessage(RemoteMessage.Type.APDU, commandAPDU)).getPayload();
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new BIBOException(e.getMessage(), e);
         }
     }
 
-    @Override
     public String getProtocol() {
         return "T=1"; // FIXME
     }
@@ -137,26 +136,23 @@ public class JCSDKClient implements Function<String, EngineSession>, EngineSessi
             connection.atr = send(connection.channel, new RemoteMessage(RemoteMessage.Type.ATR)).getPayload();
             return connection;
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new BIBOException(e.getMessage(), e);
         }
     }
 
     @Override
-    public void close(boolean reset) {
+    public void close() {
         log.trace("Closing connection");
         try {
-            if (reset) {
-                send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
-            }
+            send(this.channel, new RemoteMessage(RemoteMessage.Type.POWERDOWN));
             closed = true;
             this.channel.close();
         } catch (IOException e) {
             log.error("Could not send POWERDOWN", e);
-            throw new UncheckedIOException(e);
+            throw new BIBOException(e.getMessage(), e);
         }
     }
 
-    @Override
     public boolean isClosed() {
         return closed;
     }

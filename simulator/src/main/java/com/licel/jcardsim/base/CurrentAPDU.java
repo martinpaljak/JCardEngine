@@ -287,15 +287,17 @@ public class CurrentAPDU {
         if (state == APDU.STATE_INITIAL || state > APDU.STATE_FULL_INCOMING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
-        if (state == APDU.STATE_FULL_INCOMING)
+        if (state == APDU.STATE_FULL_INCOMING) {
             return 0;
+        }
         if (bOff < 0 || remaining_bytes >= 1 && (bOff + 1) > apdu_buffer.length) {
             APDUException.throwIt(APDUException.BUFFER_BOUNDS);
         }
         if (remaining_bytes != 0) {
             short chunklen = (short) (apdu_buffer.length - bOff);
-            if (remaining_bytes < chunklen)
+            if (remaining_bytes < chunklen) {
                 chunklen = remaining_bytes;
+            }
             remaining_bytes -= chunklen;
             System.arraycopy(incoming_buffer, current_pos, apdu_buffer, bOff, chunklen);
             current_pos += chunklen;

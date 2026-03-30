@@ -27,7 +27,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
-import pro.javacard.engine.SimulatorBIBO;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPRegistryEntry;
@@ -70,7 +69,7 @@ public class GlobalPlatformTest {
 
         PlaintextKeys pk = masterKey != null ? PlaintextKeys.fromMasterKey(masterKey) : PlaintextKeys.defaultKey();
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
             GPSession gp = GPSession.discover(bibo);
             gp.openSecureChannel(pk, null, null, mode);
             gp.installAndMakeSelectable(jcaid, jcaid, jcaid, EnumSet.noneOf(GPRegistryEntry.Privilege.class), new byte[4]);
@@ -90,7 +89,7 @@ public class GlobalPlatformTest {
 
         PlaintextKeys pk = PlaintextKeys.defaultKey();
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
             ResponseAPDU get_nok = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
             assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
 
@@ -119,7 +118,7 @@ public class GlobalPlatformTest {
 
         PlaintextKeys pk = PlaintextKeys.defaultKey();
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
             ResponseAPDU get_nok = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
             assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, get_nok.getSW());
 

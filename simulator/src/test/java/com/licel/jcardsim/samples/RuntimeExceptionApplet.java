@@ -70,18 +70,18 @@ import javacardx.framework.util.UtilException;
  *     <li><code>CLA=12 INS=1</code> <code>UtilException</code> with reason code from <code>P1</code> as high order byte and <code>P2</code> as low order byte is thrown but it has catch exception then throw <code>ISO7816.SW_FUNC_NOT_SUPPORTED</code> instead</li>
  */
 public class RuntimeExceptionApplet extends Applet {
-    private final static byte CLA_CRYPTO_EXCEPTION = 1;
-    private final static byte CLA_APDU_EXCEPTION = 2;
-    private final static byte CLA_SYSTEM_EXCEPTION = 3;
-    private final static byte CLA_SERVICE_EXCEPTION = 4;
-    private final static byte CLA_BIO_EXCEPTION = 5;
-    private final static byte CLA_BIO_1_TO_N_EXCEPTION = 6;
-    private final static byte CLA_EXTERNAL_EXCEPTION = 7;
-    private final static byte CLA_PIN_EXCEPTION = 8;
-    private final static byte CLA_STRING_EXCEPTION = 9;
-    private final static byte CLA_TLV_EXCEPTION = 10;
-    private final static byte CLA_TRANSACTION_EXCEPTION = 11;
-    private final static byte CLA_UTIL_EXCEPTION = 12;
+    private static final byte CLA_CRYPTO_EXCEPTION = 1;
+    private static final byte CLA_APDU_EXCEPTION = 2;
+    private static final byte CLA_SYSTEM_EXCEPTION = 3;
+    private static final byte CLA_SERVICE_EXCEPTION = 4;
+    private static final byte CLA_BIO_EXCEPTION = 5;
+    private static final byte CLA_BIO_1_TO_N_EXCEPTION = 6;
+    private static final byte CLA_EXTERNAL_EXCEPTION = 7;
+    private static final byte CLA_PIN_EXCEPTION = 8;
+    private static final byte CLA_STRING_EXCEPTION = 9;
+    private static final byte CLA_TLV_EXCEPTION = 10;
+    private static final byte CLA_TRANSACTION_EXCEPTION = 11;
+    private static final byte CLA_UTIL_EXCEPTION = 12;
 
     private static final byte INS_HAS_CATCH_EXCEPTION = 1;
 
@@ -95,7 +95,9 @@ public class RuntimeExceptionApplet extends Applet {
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if (selectingApplet()) return;
+        if (selectingApplet()) {
+            return;
+        }
 
         byte[] buffer = apdu.getBuffer();
 

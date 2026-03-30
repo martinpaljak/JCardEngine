@@ -118,7 +118,7 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     }
 
     public boolean isInitialized() {
-        return (p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized());
+        return p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized();
     }
 
     public CipherParameters getParameters() {

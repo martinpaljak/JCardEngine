@@ -103,7 +103,7 @@ public final class APDUHelper {
                 throw new IllegalArgumentException("Invalid extended C-APDU: Lc or Le is invalid");
             }
         } else {
-            int lc = (command[ISO7816.OFFSET_LC] & 0xFF);
+            int lc = command[ISO7816.OFFSET_LC] & 0xFF;
             int offset = ISO7816.OFFSET_LC + 1;
             if (lc + offset == command.length) {
                 return CASE3;

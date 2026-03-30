@@ -147,7 +147,7 @@ public class TransientMemoryTest {
 
         // calculate SHA1
         byte[] apdu = new byte[]{CLA, INS_DIGEST, 0, 0, 1, 'A'};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -155,7 +155,7 @@ public class TransientMemoryTest {
 
         // check last digest
         apdu = new byte[]{CLA, INS_LAST_DIGEST, 0, 0};
-        result = instance.transmitCommand(apdu);
+        result = instance.transceive(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
         assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
@@ -165,7 +165,7 @@ public class TransientMemoryTest {
 
         // check last digest is all zero
         apdu = new byte[]{CLA, INS_LAST_DIGEST, 0, 0};
-        result = instance.transmitCommand(apdu);
+        result = instance.transceive(apdu);
         responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
         assertEquals(Arrays.toString(new byte[20]), Arrays.toString(responseApdu.getData()));

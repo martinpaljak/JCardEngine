@@ -29,9 +29,9 @@ import javacard.framework.*;
  */
 
 public class GlobalArrayServerApplet extends Applet implements GlobalArrayAccess {
-    private final static byte CLA = 0x10;
-    private final static byte INS_INIT_GLOBAL_ARRAY_BYTE = 0x01;
-    private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
+    private static final byte CLA = 0x10;
+    private static final byte INS_INIT_GLOBAL_ARRAY_BYTE = 0x01;
+    private static final byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
 
     private final byte[] transientMemory;
     private static final short MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES = 64;

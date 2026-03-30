@@ -171,29 +171,31 @@ public class SymmetricCipherImpl extends Cipher {
             case KeyBuilder.TYPE_DES_TRANSIENT_RESET:
             case KeyBuilder.TYPE_DES_TRANSIENT_DESELECT:
                 if ((algorithm == Cipher.ALG_DES_CBC_NOPAD) ||
-                        (algorithm == Cipher.ALG_DES_CBC_ISO9797_M1) ||
-                        (algorithm == Cipher.ALG_DES_CBC_ISO9797_M2) ||
-                        (algorithm == Cipher.ALG_DES_CBC_PKCS5) ||
-                        (algorithm == Cipher.ALG_DES_ECB_NOPAD) ||
-                        (algorithm == Cipher.ALG_DES_ECB_ISO9797_M1) ||
-                        (algorithm == Cipher.ALG_DES_ECB_ISO9797_M2) ||
-                        (algorithm == Cipher.ALG_DES_ECB_PKCS5))
+                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M1) ||
+                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M2) ||
+                    (algorithm == Cipher.ALG_DES_CBC_PKCS5) ||
+                    (algorithm == Cipher.ALG_DES_ECB_NOPAD) ||
+                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M1) ||
+                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M2) ||
+                    (algorithm == Cipher.ALG_DES_ECB_PKCS5)) {
                     return true;
+                }
                 break;
 
             case KeyBuilder.TYPE_AES:
             case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
             case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
                 if ((algorithm == Cipher.ALG_AES_CTR) ||
-                        (algorithm == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD) ||
-                        (algorithm == Cipher.ALG_AES_BLOCK_128_ECB_NOPAD) ||
-                        (algorithm == Cipher.ALG_AES_CBC_ISO9797_M1) ||
-                        (algorithm == Cipher.ALG_AES_CBC_ISO9797_M2) ||
-                        (algorithm == Cipher.ALG_AES_CBC_PKCS5) ||
-                        (algorithm == Cipher.ALG_AES_ECB_ISO9797_M1) ||
-                        (algorithm == Cipher.ALG_AES_ECB_ISO9797_M2) ||
-                        (algorithm == Cipher.ALG_AES_ECB_PKCS5))
+                    (algorithm == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD) ||
+                    (algorithm == Cipher.ALG_AES_BLOCK_128_ECB_NOPAD) ||
+                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M1) ||
+                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M2) ||
+                    (algorithm == Cipher.ALG_AES_CBC_PKCS5) ||
+                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M1) ||
+                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M2) ||
+                    (algorithm == Cipher.ALG_AES_ECB_PKCS5)) {
                     return true;
+                }
                 break;
 
 
@@ -201,8 +203,9 @@ public class SymmetricCipherImpl extends Cipher {
             case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
             case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT:
                 if ((algorithm == Cipher.ALG_KOREAN_SEED_CBC_NOPAD) ||
-                        (algorithm == Cipher.ALG_KOREAN_SEED_ECB_NOPAD))
+                    (algorithm == Cipher.ALG_KOREAN_SEED_ECB_NOPAD)) {
                     return true;
+                }
                 break;
         }
 

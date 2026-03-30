@@ -464,7 +464,7 @@ public class JCSystemProxy {
      * AID parameter is currently active on this or another logical channel
      */
     public static boolean isAppletActive(AID theApplet) {
-        return (theApplet == Simulator.current().getAID());
+        return theApplet == Simulator.current().getAID();
     }
 
 }

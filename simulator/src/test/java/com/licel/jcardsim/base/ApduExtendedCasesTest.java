@@ -41,7 +41,7 @@ public class ApduExtendedCasesTest {
 
         byte Le = 0;
         byte[] apdu = new byte[]{CLA, INS, P1, P2, Le};
-        byte[] response = instance.transmitCommand(apdu);
+        byte[] response = instance.transceive(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
@@ -58,7 +58,7 @@ public class ApduExtendedCasesTest {
 
         //  Le = 0x00, 0x01,0x00 -> 256
         byte[] apdu = new byte[]{CLA, INS, P1, P2, 0x00, 0x01, 0x00};
-        byte[] response = instance.transmitCommand(apdu);
+        byte[] response = instance.transceive(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
@@ -82,7 +82,7 @@ public class ApduExtendedCasesTest {
         System.arraycopy(apduHeader_Case3E, 0, apdu, 0, apduHeader_Case3E.length);
         System.arraycopy(data, 0, apdu, apduHeader_Case3E.length, data.length);
 
-        byte[] response = instance.transmitCommand(apdu);
+        byte[] response = instance.transceive(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
     }
@@ -95,7 +95,7 @@ public class ApduExtendedCasesTest {
         byte CData = 0;
         byte Le = 0;
         byte[] apdu = new byte[]{CLA, INS, P1, P2, Lc, CData, Le};
-        byte[] response = instance.transmitCommand(apdu);
+        byte[] response = instance.transceive(apdu);
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());
 
@@ -126,7 +126,7 @@ public class ApduExtendedCasesTest {
         System.arraycopy(data, 0, apduCase4E, apduHeader.length + Lc.length, data.length);
         System.arraycopy(Le, 0, apduCase4E, apduHeader.length + Lc.length + data.length, Le.length);
 
-        byte[] response = instance.transmitCommand(apduCase4E);
+        byte[] response = instance.transceive(apduCase4E);
 
         ResponseAPDU responseApdu = new ResponseAPDU(response);
         assertEquals(ISO7816.SW_NO_ERROR, (short) responseApdu.getSW());

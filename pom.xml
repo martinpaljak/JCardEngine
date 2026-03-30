@@ -41,6 +41,7 @@
         <project.build.outputTimestamp>2026-02-19T10:45:57Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <apdu4j.version>26.03.23-SNAPSHOT</apdu4j.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
@@ -86,30 +87,13 @@
                                     <message>Project requires a LTS JDK from v17+</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
-                                    <version>[3.9.12,)</version>
+                                    <version>[3.9.14,)</version>
                                 </requireMavenVersion>
                                 <requirePluginVersions/>
                             </rules>
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.9.8.2</version>
-                <executions>
-                    <execution>
-                        <id>parent-spotbugs</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <excludeFilterFile>spotbugs.xml</excludeFilterFile>
-                </configuration>
             </plugin>
         </plugins>
         <pluginManagement>
@@ -118,7 +102,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.14.1</version>
+                    <version>3.15.0</version>
                     <configuration>
                         <release>17</release>
                         <compilerArgs>
@@ -162,17 +146,17 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.4.0</version>
+                    <version>3.5.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.4</version>
+                    <version>3.5.5</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
-                    <version>3.9.0</version>
+                    <version>3.10.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
@@ -184,8 +168,142 @@
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>0.8.14</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.openrewrite.maven</groupId>
+                    <artifactId>rewrite-maven-plugin</artifactId>
+                    <version>6.35.0</version>
+                    <configuration>
+                        <activeRecipes>
+                            <!-- Braces / style -->
+                            <recipe>org.openrewrite.staticanalysis.NeedBraces</recipe>
+                            <recipe>org.openrewrite.staticanalysis.EmptyBlock</recipe>
+                            <recipe>org.openrewrite.staticanalysis.ModifierOrder</recipe>
+                            <!-- Dead code / redundancy -->
+                            <recipe>org.openrewrite.staticanalysis.RemoveExtraSemicolons</recipe>
+                            <recipe>org.openrewrite.staticanalysis.UnnecessaryParentheses</recipe>
+                            <recipe>org.openrewrite.java.RemoveUnusedImports</recipe>
+                        </activeRecipes>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.openrewrite.recipe</groupId>
+                            <artifactId>rewrite-static-analysis</artifactId>
+                            <version>2.31.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <id>check</id>
+            <activation>
+                <property>
+                    <name>env.CI</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <slow.tests>true</slow.tests>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.openrewrite.maven</groupId>
+                        <artifactId>rewrite-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>dryRun</goal>
+                                </goals>
+                                <phase>process-test-classes</phase>
+                                <configuration>
+                                    <failOnDryRunResults>true</failOnDryRunResults>
+                                    <runPerSubmodule>true</runPerSubmodule>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.9.8.3</version>
+                        <executions>
+                            <execution>
+                                <id>parent-spotbugs</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <excludeFilterFile>spotbugs.xml</excludeFilterFile>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci</id>
+            <activation>
+                <property>
+                    <name>env.CI</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <slow.tests>true</slow.tests>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- OpenRewrite: apply fixes (bound to process-sources) -->
+        <profile>
+            <id>fixup</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.openrewrite.maven</groupId>
+                        <artifactId>rewrite-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <phase>process-test-classes</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>gppro</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/GlobalPlatformPro/pom.xml</exists>
+                </file>
+            </activation>
+            <modules>
+                <module>GlobalPlatformPro</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
 

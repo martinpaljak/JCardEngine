@@ -12,8 +12,9 @@ public class AppletThrowsInUninstall extends Applet implements AppletEvent {
 
     @Override
     public void process(APDU apdu) throws ISOException {
-        if (selectingApplet())
+        if (selectingApplet()) {
             ISOException.throwIt((short) 0x9000);
+        }
         ISOException.throwIt((short) (jcardengine ? 0x9002 : 0x9001));
     }
 

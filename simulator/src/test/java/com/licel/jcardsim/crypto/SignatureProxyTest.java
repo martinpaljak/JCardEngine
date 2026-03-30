@@ -47,8 +47,9 @@ public class SignatureProxyTest {
         for (Field field : Signature.class.getDeclaredFields()) {
             if (field.getName().startsWith("ALG_")) {
                 List<String> deprecated_list = Arrays.asList(SIGNATURE_DEPRECATED_ALG_JAVACARD_V3_0_5);
-                if (!deprecated_list.contains(field.getName()))
+                if (!deprecated_list.contains(field.getName())) {
                     signature_alg_fields.add(field);
+                }
             }
         }
 

@@ -278,8 +278,9 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
         }
 
         if (algorithm == ALG_AES_CCM) {
-            if (aadLen != initAADLen)
+            if (aadLen != initAADLen) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            }
         }
 
         engine.processAADBytes(aadBuf, aadOff, aadLen);

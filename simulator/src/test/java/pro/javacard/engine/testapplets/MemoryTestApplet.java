@@ -47,21 +47,33 @@ public class MemoryTestApplet extends Applet {
                 SensitiveArrays.assertIntegrity(objectArray);
                 break;
             case (byte) 0x04: // Clear arrays
-                if (booleanArray != null) SensitiveArrays.clearArray(booleanArray);
-                if (shortArray != null) SensitiveArrays.clearArray(shortArray);
-                if (objectArray != null) SensitiveArrays.clearArray(objectArray);
+                if (booleanArray != null) {
+                    SensitiveArrays.clearArray(booleanArray);
+                }
+                if (shortArray != null) {
+                    SensitiveArrays.clearArray(shortArray);
+                }
+                if (objectArray != null) {
+                    SensitiveArrays.clearArray(objectArray);
+                }
                 break;
             case (byte) 0x05: // makeIntegritySensitiveArray transient
                 Object transObj = SensitiveArrays.makeIntegritySensitiveArray(JCSystem.ARRAY_TYPE_BYTE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, (short) 10);
-                if (!(transObj instanceof byte[])) ISOException.throwIt(ISO7816.SW_DATA_INVALID);
-                if (JCSystem.isTransient(transObj) == JCSystem.MEMORY_TYPE_PERSISTENT)
+                if (!(transObj instanceof byte[])) {
                     ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+                }
+                if (JCSystem.isTransient(transObj) == JCSystem.MEMORY_TYPE_PERSISTENT) {
+                    ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+                }
                 break;
             case (byte) 0x06: // makeIntegritySensitiveArray persistent
                 Object persObj = SensitiveArrays.makeIntegritySensitiveArray(JCSystem.ARRAY_TYPE_BYTE, JCSystem.MEMORY_TYPE_PERSISTENT, (short) 10);
-                if (!(persObj instanceof byte[])) ISOException.throwIt(ISO7816.SW_DATA_INVALID);
-                if (JCSystem.isTransient(persObj) != JCSystem.MEMORY_TYPE_PERSISTENT)
+                if (!(persObj instanceof byte[])) {
                     ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+                }
+                if (JCSystem.isTransient(persObj) != JCSystem.MEMORY_TYPE_PERSISTENT) {
+                    ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+                }
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);

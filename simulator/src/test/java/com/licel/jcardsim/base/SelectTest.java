@@ -89,7 +89,7 @@ public class SelectTest {
         // should select d0000cafe00001
         assertTrue(simulator.selectApplet(AIDUtil.create("d0000cafe0")));
         byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
+        byte[] actual = simulator.transceive(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
     }
 
@@ -98,10 +98,10 @@ public class SelectTest {
         Simulator simulator = prepareSimulator();
 
         // should select d0000cafe00001
-        simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 1, (byte) 0xD0});
+        simulator.transceive(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 1, (byte) 0xD0});
 
         byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transmitCommand(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
+        byte[] actual = simulator.transceive(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
         assertEquals(Arrays.toString(expected), Arrays.toString(actual));
     }
 
@@ -109,7 +109,7 @@ public class SelectTest {
     public void testEmptySelectWorks() {
         // Expected to always reset the currentAID and return "not found"
         Simulator simulator = prepareSimulator();
-        byte[] actual = simulator.transmitCommand(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
+        byte[] actual = simulator.transceive(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
         assertEquals(Arrays.toString(Hex.decode("6A82")), Arrays.toString(actual));
     }
 
@@ -131,7 +131,7 @@ public class SelectTest {
         byte[] cmd = new byte[]{CLA, INS_GET_FULL_AID, 0, 0};
         byte[] result;
 
-        result = simulator.transmitCommand(cmd);
+        result = simulator.transceive(cmd);
         assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, ByteUtil.getSW(result));
     }
 }

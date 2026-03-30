@@ -44,8 +44,9 @@ public class CipherProxyTest {
         for(Field field : Class.forName("javacardx.crypto.Cipher").getDeclaredFields()){
             if( field.getName().startsWith("ALG_") ){
                 List<String> deprecated_list = Arrays.asList(CIPHER_DEPRECATED_ALG_JAVACARD_V3_0_5);
-                if( !deprecated_list.contains(field.getName()))
+                if (!deprecated_list.contains(field.getName())) {
                     cipher_alg_fields.add(field);
+                }
             }
         }
 

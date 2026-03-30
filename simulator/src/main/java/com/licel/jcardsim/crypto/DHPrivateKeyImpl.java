@@ -58,7 +58,7 @@ public final class DHPrivateKeyImpl extends DHKeyImpl implements DHPrivateKey {
 
     @Override
     public boolean isInitialized() {
-        return (super.isInitialized() && x.isInitialized());
+        return super.isInitialized() && x.isInitialized();
     }
     
     @Override

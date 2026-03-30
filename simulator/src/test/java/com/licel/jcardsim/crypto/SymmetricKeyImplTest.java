@@ -84,14 +84,14 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
         byte[] key = new byte[8];
         Util.arrayFillNonAtomic(key, (short) 0, (short) key.length, (byte) 7);
         desKey.setKey(key, (short) 0);
-        boolean isValidCipher = (desKey.getCipher() instanceof DESEngine);
+        boolean isValidCipher = desKey.getCipher() instanceof DESEngine;
         assertEquals(true, isValidCipher);
         // 3des key
         SymmetricKeyImpl des3Key = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_3KEY);
         key = new byte[24];
         Util.arrayFillNonAtomic(key, (short) 0, (short) key.length, (byte) 7);
         des3Key.setKey(key, (short) 0);
-        isValidCipher = (des3Key.getCipher() instanceof DESedeEngine);
+        isValidCipher = des3Key.getCipher() instanceof DESedeEngine;
         assertEquals(true, isValidCipher);
         // aes key - 128
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);

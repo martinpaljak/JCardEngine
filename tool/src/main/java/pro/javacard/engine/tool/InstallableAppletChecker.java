@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Martin Paljak <martin@martinpaljak.net>
+ * Copyright 2025-present Martin Paljak <martin@martinpaljak.net>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,9 +71,13 @@ public class InstallableAppletChecker {
         private boolean extendsApplet() {
             String current = superName;
             while (current != null && !"java/lang/Object".equals(current)) {
-                if ("javacard/framework/Applet".equals(current)) return true;
+                if ("javacard/framework/Applet".equals(current)) {
+                    return true;
+                }
                 try (InputStream is = cl.getResourceAsStream(current + ".class")) {
-                    if (is == null) return false;
+                    if (is == null) {
+                        return false;
+                    }
                     current = new ClassReader(is.readAllBytes()).getSuperName();
                 } catch (IOException e) {
                     return false;

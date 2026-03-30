@@ -19,6 +19,7 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -67,6 +68,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
     };
 
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testConstructor() {
         testConstructorRSA(KeyPair.ALG_RSA);
         testConstructorRSA(KeyPair.ALG_RSA_CRT);
@@ -99,6 +101,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      * for on-card key generation
      */
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testGenKeyPairRSA() {
         KeyPairImpl instance = null;
         short offset = 10;
@@ -173,6 +176,7 @@ public class KeyPairImplTest extends SimulatorCoreTest {
      * for on-card key generation
      */
     @Test
+    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testGenKeyPairRSACrt() {
         KeyPairImpl instance = null;
         for (int i = 0; i < RSA_SIZES.length; i++) {

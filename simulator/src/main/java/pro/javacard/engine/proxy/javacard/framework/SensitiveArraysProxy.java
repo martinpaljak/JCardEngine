@@ -70,7 +70,7 @@ public final class SensitiveArraysProxy {
                     SystemException.throwIt(SystemException.ILLEGAL_VALUE);
             }
         } else if (memory == JCSystem.MEMORY_TYPE_TRANSIENT_RESET || memory == JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT) {
-            byte event = (memory == JCSystem.MEMORY_TYPE_TRANSIENT_RESET) ?
+            byte event = memory == JCSystem.MEMORY_TYPE_TRANSIENT_RESET ?
                     JCSystem.CLEAR_ON_RESET : JCSystem.CLEAR_ON_DESELECT;
             switch (type) {
                 case JCSystem.ARRAY_TYPE_BOOLEAN:

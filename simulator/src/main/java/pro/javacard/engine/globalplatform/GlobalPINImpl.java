@@ -61,8 +61,9 @@ public class GlobalPINImpl implements CVM {
 
     @Override
     public boolean update(byte[] bytes, short i, byte b, byte b1) {
-        if (b1 != CVM.FORMAT_HEX)
+        if (b1 != CVM.FORMAT_HEX) {
             return false;
+        }
         value = Arrays.copyOfRange(bytes, i, b);
         format = b1;
         if (try_limit > 0) {

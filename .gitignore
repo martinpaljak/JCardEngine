@@ -3,14 +3,6 @@ target/
 # IDEA
 .idea/
 /*.iml
-# Netbeans
-nbproject/private/
-build/
-nbbuild/
-dist/
-nbdist/
-nbactions.xml
-nb-configuration.xml
 # Eclipse
 .metadata
 .settings/
@@ -19,3 +11,5 @@ nb-configuration.xml
 /dependency-reduced-pom.xml
 # Generic
 *~
+/GlobalPlatformPro
+pom.xml.versionsBackup

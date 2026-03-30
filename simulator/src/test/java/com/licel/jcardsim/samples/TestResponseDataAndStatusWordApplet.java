@@ -23,8 +23,8 @@ import javacard.framework.*;
  * <p><code>CLA=0x01 INS=0x02 P1=SW1 P2=SW2</code> echo input data</p>
  */
 public class TestResponseDataAndStatusWordApplet extends Applet {
-    final static byte CLA = (byte) 0x01;
-    final static byte INS = (byte) 0x02;
+    static final byte CLA = (byte) 0x01;
+    static final byte INS = (byte) 0x02;
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
         new TestResponseDataAndStatusWordApplet().register();

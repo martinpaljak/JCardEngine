@@ -8,7 +8,6 @@ import javacard.framework.AID;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
-import pro.javacard.engine.SimulatorBIBO;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import pro.javacard.engine.testapplets.PersonalizationTestApplet;
 import pro.javacard.gp.GPException;
@@ -38,7 +37,7 @@ public class IndirectPersonalizationTest {
         sim.loadApplet(appletAID, appletAID, PersonalizationTestApplet.class);
 
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
 
             // 1. Open secure channel to ISD, install the applet
             //    GP 2.2.1 Section 9.5.2.3.1: INSTALL [for install and make selectable]
@@ -94,7 +93,7 @@ public class IndirectPersonalizationTest {
         sim.loadApplet(appletAID, appletAID, PersonalizationTestApplet.class);
 
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
 
             // Install the applet via GP (GP 2.2.1 Section 9.5.2.3.1)
             PlaintextKeys pk = PlaintextKeys.defaultKey();
@@ -151,7 +150,7 @@ public class IndirectPersonalizationTest {
         sim.loadApplet(appletAID, appletAID, HelloWorldApplet.class);
 
         try (EngineSession instance = sim.connect()) {
-            APDUBIBO bibo = SimulatorBIBO.wrap(instance);
+            APDUBIBO bibo = new APDUBIBO(instance);
 
             // Install the applet via GP
             PlaintextKeys pk = PlaintextKeys.defaultKey();

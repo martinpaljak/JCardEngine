@@ -40,7 +40,7 @@ public class SymmetricCipherAppletTest {
             System.arraycopy(key, 0, sendAPDU, 5, keyLen);
 
             // Send C-APDU
-            byte[] response = instance.transmitCommand(sendAPDU);
+            byte[] response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, (short) 0));
 
@@ -59,7 +59,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, apdu_Le));
 
@@ -82,7 +82,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, apdu_Le));
 
@@ -106,7 +106,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check exception for ISO7816.SW_UNKNOWN
             assertEquals(ISO7816.SW_UNKNOWN, Util.getShort(response, (short) 0));
 
@@ -136,7 +136,7 @@ public class SymmetricCipherAppletTest {
             System.arraycopy(key, 0, sendAPDU, 5, keyLen);
 
             // Send C-APDU
-            byte[] response = instance.transmitCommand(sendAPDU);
+            byte[] response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, (short) 0));
 
@@ -155,7 +155,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, apdu_Le));
 
@@ -180,7 +180,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check command succeeded
             assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response, apdu_Le));
 
@@ -204,7 +204,7 @@ public class SymmetricCipherAppletTest {
             sendAPDU[5 + apdu_Lc] = apdu_Le;
 
             // Send C-APDU to encrypt data
-            response = instance.transmitCommand(sendAPDU);
+            response = instance.transceive(sendAPDU);
             // Check exception for ISO7816.SW_UNKNOWN
             assertEquals(ISO7816.SW_UNKNOWN, Util.getShort(response, (short) 0));
         }

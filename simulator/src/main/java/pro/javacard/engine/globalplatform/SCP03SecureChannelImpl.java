@@ -216,8 +216,9 @@ public class SCP03SecureChannelImpl implements SecureChannel {
     @Override
     public short decryptData(byte[] buffer, short offset, short length) throws ISOException {
         Objects.requireNonNull(buffer);
-        if (length % 16 != 0)
+        if (length % 16 != 0) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
         if ((state & SecureChannel.AUTHENTICATED) == 0) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
@@ -242,8 +243,12 @@ public class SCP03SecureChannelImpl implements SecureChannel {
         state = NO_SECURITY_LEVEL;
         Arrays.fill(chaining, (byte) 0x00);
         Arrays.fill(enc_counter, (byte) 0x00);
-        if (encKey != null) Arrays.fill(encKey, (byte) 0x00);
-        if (macKey != null) Arrays.fill(macKey, (byte) 0x00);
+        if (encKey != null) {
+            Arrays.fill(encKey, (byte) 0x00);
+        }
+        if (macKey != null) {
+            Arrays.fill(macKey, (byte) 0x00);
+        }
         // NOTE: ssc remains
     }
 

@@ -28,7 +28,7 @@ import javacard.security.CryptoException;
  */
 public class CRC32 extends Checksum {
 
-    final static byte LENGTH = 4;
+    static final byte LENGTH = 4;
     private byte crc32[];
     private final byte polynom[] = {
             4, -63, 29, -73
@@ -111,8 +111,9 @@ public class CRC32 extends Checksum {
     private byte reflect8(byte input) {
         byte reflected = 0;
         for (byte i = 0; i < 8; i++) {
-            if ((input & (0x80 >> i)) > 0)
-                reflected |= (1 << i);
+            if ((input & (0x80 >> i)) > 0) {
+                reflected |= 1 << i;
+            }
         }
         return reflected;
     }
@@ -120,8 +121,9 @@ public class CRC32 extends Checksum {
     private short reflect16(short input) {
         short reflected = 0;
         for (byte i = 0; i < 16; i++) {
-            if ((input & (0x8000 >> i)) > 0)
-                reflected |= (1 << i);
+            if ((input & (0x8000 >> i)) > 0) {
+                reflected |= 1 << i;
+            }
         }
         return reflected;
     }

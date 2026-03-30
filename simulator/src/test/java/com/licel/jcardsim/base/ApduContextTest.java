@@ -4,7 +4,8 @@ import com.licel.jcardsim.samples.DummyApplet;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
-import javacard.framework.*;
+import javacard.framework.AID;
+import javacard.framework.ISO7816;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.EngineSession;
 
@@ -28,7 +29,7 @@ public class ApduContextTest {
             simulator.selectApplet(dummyAppletAID);
             assertTrue(DummyApplet.exceptionInSelect);
 
-            byte[] response = session.transmitCommand(new byte[]{(byte) 0x80, 0, 0, 0});
+            byte[] response = session.transceive(new byte[]{(byte) 0x80, 0, 0, 0});
             assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(response));
             assertTrue(DummyApplet.exceptionIllegalUse1);
             assertTrue(DummyApplet.exceptionIllegalUse2);
@@ -51,8 +52,8 @@ public class ApduContextTest {
         simulator.installApplet(dummyAppletAID, DummyApplet.class);
 
         try (EngineSession session = simulator.connect()) {
-            session.transmitCommand(AIDUtil.select(otherAppletAID));
-            session.transmitCommand(AIDUtil.select(dummyAppletAID));
+            session.transceive(AIDUtil.select(otherAppletAID));
+            session.transceive(AIDUtil.select(dummyAppletAID));
         }
     }
 }

@@ -27,35 +27,35 @@ public class HelloWorldApplet extends Applet {
     /**
      * Instruction: say hello
      */
-    private final static byte SAY_HELLO_INS = (byte) 0x01;
+    private static final byte SAY_HELLO_INS = (byte) 0x01;
     /**
      * Instruction: say echo v2
      */
-    private final static byte SAY_ECHO2_INS = (byte) 0x03;
+    private static final byte SAY_ECHO2_INS = (byte) 0x03;
     /**
      * Instruction: get install params
      */
-    private final static byte SAY_IPARAMS_INS = (byte) 0x04;
+    private static final byte SAY_IPARAMS_INS = (byte) 0x04;
     /**
      * Instruction: NOP
      */
-    private final static byte NOP_INS = (byte) 0x02;
+    private static final byte NOP_INS = (byte) 0x02;
     /**
      * Instruction: queue data and return 61xx
      */
-    private final static byte SAY_CONTINUE_INS = (byte) 0x06;
+    private static final byte SAY_CONTINUE_INS = (byte) 0x06;
     /**
      * Instruction: CKYListObjects (http://pki.fedoraproject.org/images/7/7a/CoolKeyApplet.pdf 2.6.17)
      */
-    private final static byte LIST_OBJECTS_INS = (byte) 0x58;
+    private static final byte LIST_OBJECTS_INS = (byte) 0x58;
     /**
      * Instruction: "Hello Java Card world!" + Application Specific SW 9XYZ
      */
-    private final static byte APPLICATION_SPECIFIC_SW_INS = (byte) 0x7;
+    private static final byte APPLICATION_SPECIFIC_SW_INS = (byte) 0x7;
     /**
      * Instruction: return maximum data.
      */
-    private final static byte MAXIMUM_DATA_INS = (byte) 0x8;
+    private static final byte MAXIMUM_DATA_INS = (byte) 0x8;
     /**
      * Byte array representing "Hello Java Card world!" string.
      */
@@ -115,7 +115,9 @@ public class HelloWorldApplet extends Applet {
      */
     public void process(APDU apdu) {
         // good practice
-        if (selectingApplet()) return;
+        if (selectingApplet()) {
+            return;
+        }
         byte[] buffer = apdu.getBuffer();
         // Now determine the requested instruction:
         switch (buffer[ISO7816.OFFSET_INS]) {

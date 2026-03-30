@@ -41,7 +41,7 @@
         <dependency>
             <groupId>net.bytebuddy</groupId>
             <artifactId>byte-buddy</artifactId>
-            <version>1.18.4</version>
+            <version>1.18.7</version>
         </dependency>
         <!-- ASM for bytecode processing -->
         <dependency>
@@ -53,18 +53,30 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>26.02.11</version>
+            <version>26.03.31-SNAPSHOT</version>
+        </dependency>
+        <!-- apdu4j: explicit core to override transitive version from globalplatformpro -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-core</artifactId>
+            <version>${apdu4j.version}</version>
+        </dependency>
+        <!-- apdu4j pcsc-sim (transitively brings apdu4j-prefs) -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-pcsc-sim</artifactId>
+            <version>${apdu4j.version}</version>
         </dependency>
         <!-- Faulty config parser -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.20.1</version>
+            <version>2.21.2</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>2.20.1</version>
+            <version>2.21.2</version>
         </dependency>
         <!-- unit tests -->
         <dependency>

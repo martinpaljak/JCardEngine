@@ -28,8 +28,8 @@ import java.util.Objects;
  */
 public final class AIDUtil {
     private static final Comparator<AID> aidComparator = (aid1, aid2) -> {
-        String s1 = (aid1 != null) ? toString(aid1) : "";
-        String s2 = (aid1 != null) ? toString(aid2) : "";
+        String s1 = aid1 != null ? toString(aid1) : "";
+        String s2 = aid1 != null ? toString(aid2) : "";
         return s1.compareTo(s2);
     };
 

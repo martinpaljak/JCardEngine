@@ -31,7 +31,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             OwnerPIN o = new OwnerPIN((byte) 0, (byte) 1);
         } catch (Exception e) {
-            assertEquals(true, (e instanceof PINException));
+            assertEquals(true, e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
@@ -44,7 +44,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             OwnerPIN o = new OwnerPIN((byte) 1, (byte) 0);
         } catch (Exception e) {
-            assertEquals(true, (e instanceof PINException));
+            assertEquals(true, e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
@@ -66,7 +66,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
             byte[] pin = new byte[17];
             o.update(pin, (short) 0, (byte) pin.length);
         } catch (Exception e) {
-            assertEquals(true, (e instanceof PINException));
+            assertEquals(true, e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
@@ -106,7 +106,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             assertEquals(false, o.check(null, (short) 0, (byte) (pin2.length)));
         } catch (Exception e) {
-            assertEquals(true, (e instanceof NullPointerException));
+            assertEquals(true, e instanceof NullPointerException);
         }
         assertEquals(tries - 3, o.getTriesRemaining());
         assertEquals(false, o.isValidated());
@@ -114,7 +114,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             assertEquals(false, o.check(pin2, (short) 0, (byte) (pin2.length + 1)));
         } catch (Exception e) {
-            assertEquals(true, (e instanceof ArrayIndexOutOfBoundsException));
+            assertEquals(true, e instanceof ArrayIndexOutOfBoundsException);
         }
         assertEquals(0, o.getTriesRemaining());
         assertEquals(false, o.isValidated());

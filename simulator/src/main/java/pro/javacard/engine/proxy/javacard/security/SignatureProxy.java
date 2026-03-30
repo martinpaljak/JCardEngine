@@ -121,11 +121,13 @@ public class SignatureProxy {
         // TODO: codify the mapping against BC
         switch (cipherAlgorithm) {
             case Signature.SIG_CIPHER_AES_CMAC128:
-                if (messageDigestAlgorithm != MessageDigest.ALG_NULL)
-                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                if (paddingAlgorithm != Cipher.PAD_ISO9797_M2)
-                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                return new SymmetricSignatureImpl(Signature.ALG_AES_CMAC_128); // FIXME: need padding
+                if (messageDigestAlgorithm != MessageDigest.ALG_NULL) {
+                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM); // FIXME: need padding
+                }
+                if (paddingAlgorithm != Cipher.PAD_ISO9797_M2) {
+                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM); // FIXME: need padding
+                }
+                return new SymmetricSignatureImpl(Signature.ALG_AES_CMAC_128);
             case Signature.SIG_CIPHER_ECDSA:
                 switch (messageDigestAlgorithm) {
                     case MessageDigest.ALG_SHA_256:

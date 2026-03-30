@@ -67,7 +67,7 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
     }
 
     public boolean isInitialized() {
-        return (p.isInitialized() && q.isInitialized() && g.isInitialized());
+        return p.isInitialized() && q.isInitialized() && g.isInitialized();
     }
 
     public void setP(byte[] buffer, short offset, short length) throws CryptoException {

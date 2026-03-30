@@ -15,20 +15,9 @@
  */
 package pro.javacard.engine;
 
-import com.licel.jcardsim.base.CardInterface;
+import apdu4j.core.BIBO;
 
-// Helps to isolate session towards a shared simulator. Lock is held while the object is not closed.
-public interface EngineSession extends CardInterface, AutoCloseable {
-
-    // Reset boolean controls runtime reset
-    void close(boolean reset);
-
-    boolean isClosed();
-
-    @Override
-    default void close() {
-        close(false);
-    }
-
-    String getProtocol();
+// Session towards a shared simulator. Lock is held while the session is open.
+// Close semantics (reset or not) are bound at creation time.
+public interface EngineSession extends BIBO {
 }

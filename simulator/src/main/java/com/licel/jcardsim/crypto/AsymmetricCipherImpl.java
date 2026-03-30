@@ -101,7 +101,7 @@ public class AsymmetricCipherImpl extends Cipher {
         }
         update(inBuff, inOffset, inLength, outBuff, outOffset);
         if (algorithm == ALG_RSA_NOPAD) {
-            if ((bufferPos < engine.getInputBlockSize())) {
+            if (bufferPos < engine.getInputBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_USE);
             }
         }

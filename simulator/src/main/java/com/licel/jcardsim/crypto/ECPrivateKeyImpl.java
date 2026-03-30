@@ -67,7 +67,7 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
     }
 
     public boolean isInitialized() {
-        return (isDomainParametersInitialized() && s.isInitialized());
+        return isDomainParametersInitialized() && s.isInitialized();
     }
 
     public void clearKey() {

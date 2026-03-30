@@ -203,7 +203,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] key = new byte[keyLenInBytes];
         Util.arrayCopy(etalonKey, (short) 0, key, (short) 0, (short) etalonKey.length);
         aesKey.setKey(key, (short) 0);
-        boolean needIV = (mode == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD);
+        boolean needIV = mode == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD;
         if (needIV) {
             byte[] iv = Hex.decode(testData[1]);
             engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length);

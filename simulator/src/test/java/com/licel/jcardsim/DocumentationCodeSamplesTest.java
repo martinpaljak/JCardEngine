@@ -1,16 +1,17 @@
 package com.licel.jcardsim;
 
+import apdu4j.core.APDUBIBO;
+import apdu4j.core.CommandAPDU;
+import apdu4j.core.ResponseAPDU;
+import apdu4j.pcsc.sim.SynthesizedCardTerminal;
+import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
-import com.licel.jcardsim.smartcardio.CardSimulator;
-import com.licel.jcardsim.smartcardio.CardTerminalSimulator;
 import com.licel.jcardsim.utils.AIDUtil;
-import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.AID;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.JavaCardEngine;
 
-import javax.smartcardio.*;
-import java.security.NoSuchAlgorithmException;
-import java.security.Security;
+import javax.smartcardio.CardException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -18,110 +19,108 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Contains all listing from the documentation
  */
+@SuppressWarnings({"deprecation", "removal"})
 public class DocumentationCodeSamplesTest implements SmartCardTest {
 
     @Test
     public void testCodeListingReadme() {
-        // 1. Create simulator
-        CardSimulator simulator = new CardSimulator();
+        // 1. Create engine and install applet
+        var engine = JavaCardEngine.create();
+        var appletAID = AIDUtil.create("F000000001");
+        engine.installApplet(appletAID, HelloWorldApplet.class);
 
-        // 2. Install applet
-        AID appletAID = AIDUtil.create("F000000001");
-        simulator.installApplet(appletAID, HelloWorldApplet.class);
+        // 2. Open BIBO session and send APDU
+        try (var bibo = new APDUBIBO(engine.connect())) {
+            bibo.transceive(AIDUtil.select(appletAID));
+            var response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
-        // 3. Select applet
-        simulator.selectApplet(appletAID);
-
-        // 4. Send APDU
-        CommandAPDU commandAPDU = new CommandAPDU(0x00, 0x01, 0x00, 0x00);
-        ResponseAPDU response = simulator.transmitCommand(commandAPDU);
-
-        // 5. Check response status word
-        assertSW(0x9000, response.getSW());
+            // 3. Check response status word
+            assertSW(0x9000, response.getSW());
+        }
     }
 
     @Test
     public void testCodeListing1() {
         // 1. Create simulator
-        CardSimulator simulator = new CardSimulator();
-
-        // 2. Install applet
-        AID appletAID = AIDUtil.create("F000000001");
+        var simulator = new Simulator();
+        var appletAID = AIDUtil.create("F000000001");
         simulator.installApplet(appletAID, HelloWorldApplet.class);
 
-        // 3. Select applet
-        simulator.selectApplet(appletAID);
+        // 2. Open BIBO session, select applet, send APDU
+        try (var bibo = new APDUBIBO(simulator.connect())) {
+            bibo.transceive(AIDUtil.select(appletAID));
+            var response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
-        // 4. Send APDU
-        CommandAPDU commandAPDU = new CommandAPDU(0x00, 0x01, 0x00, 0x00);
-        ResponseAPDU response = simulator.transmitCommand(commandAPDU);
-
-        // 5. Check response status word
-        assertEquals(0x9000, response.getSW());
+            // 3. Check response status word
+            assertEquals(0x9000, response.getSW());
+        }
     }
 
     @Test
     public void testCodeListing2() {
-        CardSimulator simulator = new CardSimulator();
+        var simulator = new Simulator();
 
-        byte[] appletAIDBytes = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
-        AID appletAID = new AID(appletAIDBytes, (short) 0, (byte) appletAIDBytes.length);
+        var appletAIDBytes = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
+        var appletAID = new AID(appletAIDBytes, (short) 0, (byte) appletAIDBytes.length);
 
         simulator.installApplet(appletAID, HelloWorldApplet.class);
-        simulator.selectApplet(appletAID);
 
-        // test NOP
-        ResponseAPDU response = simulator.transmitCommand(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        try (var bibo = new APDUBIBO(simulator.connect())) {
+            bibo.transceive(AIDUtil.select(appletAID));
 
-        // test hello world from card
-        response = simulator.transmitCommand(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
-        assertEquals("Hello world !", new String(response.getData()));
+            // test NOP
+            var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
+            assertEquals(0x9000, response.getSW());
 
-        // test echo
-        CommandAPDU echo = new CommandAPDU(0x00, 0x01, 0x01, 0x00, ("Hello javacard world !").getBytes());
-        response = simulator.transmitCommand(echo);
-        assertEquals(0x9000, response.getSW());
-        assertEquals("Hello javacard world !", new String(response.getData()));
+            // test hello world from card
+            response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
+            assertEquals(0x9000, response.getSW());
+            assertEquals("Hello world !", new String(response.getData()));
+
+            // test echo
+            response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x01, 0x00, "Hello javacard world !".getBytes()));
+            assertEquals(0x9000, response.getSW());
+            assertEquals("Hello javacard world !", new String(response.getData()));
+        }
     }
 
     @Test
     public void testCodeListing3() {
-        CardSimulator simulator = new CardSimulator();
+        var simulator = new Simulator();
 
-        byte[] appletAIDBytes = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
-        AID appletAID = new AID(appletAIDBytes, (short) 0, (byte) appletAIDBytes.length);
+        var appletAIDBytes = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
+        var appletAID = new AID(appletAIDBytes, (short) 0, (byte) appletAIDBytes.length);
 
         simulator.installApplet(appletAID, HelloWorldApplet.class);
-        simulator.selectApplet(appletAID);
 
-        // test NOP
-        ResponseAPDU response = simulator.transmitCommand(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        try (var bibo = new APDUBIBO(simulator.connect())) {
+            bibo.transceive(AIDUtil.select(appletAID));
+
+            // test NOP
+            var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
+            assertEquals(0x9000, response.getSW());
+        }
     }
 
     @Test
     public void testCodeListing5() throws CardException {
-        // 1. Create simulator and install applet
-        CardSimulator simulator = new CardSimulator();
-        AID appletAID = AIDUtil.create("F000000001");
-        simulator.installApplet(appletAID, HelloWorldApplet.class);
+        // 1. Create engine and install applet
+        var engine = JavaCardEngine.create();
+        var appletAID = AIDUtil.create("F000000001");
+        engine.installApplet(appletAID, HelloWorldApplet.class);
 
-        // 2. Create Terminal
-        CardTerminal terminal = CardTerminalSimulator.terminal(simulator);
+        // 2. Get terminal backed by engine
+        var terminal = engine.toTerminal();
 
-        // 3. Connect to Card
-        Card card = terminal.connect("T=1");
-        CardChannel channel = card.getBasicChannel();
+        // 3. Connect to Card via javax.smartcardio
+        var card = terminal.connect("T=1");
+        var channel = card.getBasicChannel();
 
         // 4. Select applet
-        CommandAPDU selectCommand = new CommandAPDU(AIDUtil.select(appletAID));
-        channel.transmit(selectCommand);
+        channel.transmit(new javax.smartcardio.CommandAPDU(AIDUtil.select(appletAID)));
 
         // 5. Send APDU
-        CommandAPDU commandAPDU = new CommandAPDU(0x00, 0x01, 0x00, 0x00);
-        ResponseAPDU response = channel.transmit(commandAPDU);
+        var response = channel.transmit(new javax.smartcardio.CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
         // 6. Check response status word
         assertEquals(0x9000, response.getSW());
@@ -129,49 +128,69 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
     @Test
     public void testCodeListing6() throws CardException {
-        // Obtain CardTerminal
-        CardTerminals cardTerminals = CardTerminalSimulator.terminals("My terminal 1", "My terminal 2");
-        CardTerminal terminal1 = cardTerminals.getTerminal("My terminal 1");
-        CardTerminal terminal2 = cardTerminals.getTerminal("My terminal 2");
+        // 1. Create engine and install applet
+        var engine = JavaCardEngine.create();
+        var appletAID = AIDUtil.create("F000000001");
+        engine.installApplet(appletAID, HelloWorldApplet.class);
 
-        assertEquals(false, terminal1.isCardPresent());
-        assertEquals(false, terminal2.isCardPresent());
+        // 2. Get TerminalFactory backed by engine
+        var factory = engine.toTerminalFactory();
+        var cardTerminals = factory.terminals();
 
-        // Create simulator and install applet
-        CardSimulator simulator = new CardSimulator();
-        AID appletAID = AIDUtil.create("F000000001");
-        simulator.installApplet(appletAID, HelloWorldApplet.class);
-
-        // Insert Card into "My terminal 1"
-        simulator.assignToTerminal(terminal1);
-        assertEquals(true, terminal1.isCardPresent());
-        assertEquals(false, terminal2.isCardPresent());
-    }
-
-    @Test
-    public void testCodeListing7() throws NoSuchAlgorithmException {
-        // Register provider
-        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
-
-        // Get TerminalFactory
-        TerminalFactory factory = TerminalFactory.getInstance("CardTerminalSimulator", null);
-        CardTerminals cardTerminals = factory.terminals();
-
-        // Get CardTerminal
-        CardTerminal terminal = cardTerminals.getTerminal("jCardSim.Terminal");
+        // 3. Get terminal
+        var terminal = cardTerminals.getTerminal("jcardengine.Terminal");
         assertNotNull(terminal);
+
+        // 4. Card is present via factory mode
+        assertEquals(true, terminal.isCardPresent());
     }
 
     @Test
-    public void testCodeListing8() throws NoSuchAlgorithmException {
-        // Register provider
-        Security.addProvider(new CardTerminalSimulator.SecurityProvider());
+    public void testCodeListing7_insert_eject() throws CardException {
+        // 1. Create engine and install applet
+        var engine = JavaCardEngine.create();
+        var appletAID = AIDUtil.create("F000000001");
+        engine.installApplet(appletAID, HelloWorldApplet.class);
 
-        // Get TerminalFactory with custom names
-        String[] names = new String[]{"My terminal 1", "My terminal 2"};
-        TerminalFactory factory = TerminalFactory.getInstance("CardTerminalSimulator", names);
-        CardTerminals cardTerminals = factory.terminals();
-        assertNotNull(cardTerminals.getTerminal("My terminal 1"));
-        assertNotNull(cardTerminals.getTerminal("My terminal 2"));
+        // 2. Create terminal - card not yet present
+        var terminal = new SynthesizedCardTerminal("My terminal 1");
+        assertEquals(false, terminal.isCardPresent());
+
+        // 3. Present engine to terminal (card appears)
+        terminal.present(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
+        assertEquals(true, terminal.isCardPresent());
+
+        // 4. Yank card (card disappears)
+        terminal.yank();
+        assertEquals(false, terminal.isCardPresent());
+    }
+
+    @Test
+    public void testCodeListing7_wait_for_insert() throws CardException, InterruptedException {
+        // 1. Create terminal - no card yet
+        var terminal = new SynthesizedCardTerminal("My terminal 1");
+        assertEquals(false, terminal.isCardPresent());
+
+        // 2. Create engine and install applet
+        var engine = JavaCardEngine.create();
+        var appletAID = AIDUtil.create("F000000001");
+        engine.installApplet(appletAID, HelloWorldApplet.class);
+
+        // 3. Schedule card insertion from another thread
+        var thread = new Thread(() -> {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            terminal.present(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
+        });
+        thread.start();
+
+        // 4. Wait for card to appear
+        assertEquals(true, terminal.waitForCardPresent(5000));
+        assertEquals(true, terminal.isCardPresent());
+
+        thread.join();
     }
 }

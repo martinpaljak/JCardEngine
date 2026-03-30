@@ -55,10 +55,11 @@ public class GlobalArrayTest {
 
         booleansForTest = new boolean[32];
         for (byte i = 0; i < 32; i++) {
-            if ((i % 2) != 0)
+            if ((i % 2) != 0) {
                 booleansForTest[i] = true;
-            else
+            } else {
                 booleansForTest[i] = true;
+            }
         }
 
         shortsForTest = new short[32];
@@ -82,7 +83,7 @@ public class GlobalArrayTest {
         assertTrue(instance.selectApplet(serverAppletAID));
 
         // Send C-APDU to create the byte global array for 32-byte size and filled with 0x5A
-        byte[] response1 = instance.transmitCommand(new byte[]{0x10, 0x01, 32, (byte) 0x5A});
+        byte[] response1 = instance.transceive(new byte[]{0x10, 0x01, 32, (byte) 0x5A});
 
         // Check command succeeded
         assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response1, (short) 0));
@@ -90,7 +91,7 @@ public class GlobalArrayTest {
         // Select client applet
         assertTrue(instance.selectApplet(clientAppletAID));
         // Send C-APDU to read the global byte array for 32 bytes
-        byte[] response2 = instance.transmitCommand(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
+        byte[] response2 = instance.transceive(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
         // Check command succeeded
         assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response2, (short) 32));
 
@@ -106,12 +107,12 @@ public class GlobalArrayTest {
         System.arraycopy(bytesForTest, 0, sendAPDU, 5, 32);
 
         // Send C-APDU
-        byte[] response3 = instance.transmitCommand(sendAPDU);
+        byte[] response3 = instance.transceive(sendAPDU);
         // Check command succeeded
         assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response3, (short) 0));
 
         // Send C-APDU to read the global byte array for 32 bytes
-        byte[] response4 = instance.transmitCommand(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
+        byte[] response4 = instance.transceive(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
         // Check command succeeded
         assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response4, (short) 32));
 

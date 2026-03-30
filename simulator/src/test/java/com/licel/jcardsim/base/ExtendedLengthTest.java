@@ -41,7 +41,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_DIGEST, P1, P2, 1, DUMMY};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -57,7 +57,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, lc, 0, le};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -72,7 +72,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, le};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -86,7 +86,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_ECHO, 0, 0, 1, DUMMY};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -102,7 +102,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_DIGEST, 0, 0, 0, 0, 1, DUMMY};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -117,7 +117,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 0, le};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -131,7 +131,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 1, 2};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -145,7 +145,7 @@ public class ExtendedLengthTest {
         Simulator instance = prepareSimulator();
 
         byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 0, 1, DUMMY, 0x1F, (byte) 0xCA};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -158,7 +158,7 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
         byte[] apdu = new byte[]{CLA, INS_ECHO, 0, 0, 0, 0, 1, DUMMY};
-        byte[] result = instance.transmitCommand(apdu);
+        byte[] result = instance.transceive(apdu);
 
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
@@ -182,7 +182,7 @@ public class ExtendedLengthTest {
         inputApdu.put((byte) 0).putShort((short) input.length); // Lc
         inputApdu.put(input);
 
-        byte[] result = instance.transmitCommand(inputApdu.array());
+        byte[] result = instance.transceive(inputApdu.array());
         ResponseAPDU responseApdu = new ResponseAPDU(result);
         assertEquals(0x9000, responseApdu.getSW());
         assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));

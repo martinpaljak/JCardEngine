@@ -59,7 +59,7 @@ public class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivate
     }
 
     public boolean isInitialized() {
-        return (isDomainParametersInitialized() && s.isInitialized());
+        return isDomainParametersInitialized() && s.isInitialized();
     }
 
     public void clearKey() {

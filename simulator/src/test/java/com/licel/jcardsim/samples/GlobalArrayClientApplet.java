@@ -28,9 +28,9 @@ import javacard.framework.*;
  * </ul>
  */
 public class GlobalArrayClientApplet extends Applet {
-    private final static byte CLA = 0x10;
-    private final static byte INS_READ_GLOBAL_ARRAY_BYTE = 0x01;
-    private final static byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
+    private static final byte CLA = 0x10;
+    private static final byte INS_READ_GLOBAL_ARRAY_BYTE = 0x01;
+    private static final byte INS_WRITE_GLOBAL_ARRAY_BYTE = 0x02;
 
     private static final short MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES = 64;
 
@@ -62,13 +62,15 @@ public class GlobalArrayClientApplet extends Applet {
 
 
     public void process(APDU apdu) {
-        if (selectingApplet())
+        if (selectingApplet()) {
             return;
+        }
 
         byte[] buffer = apdu.getBuffer();
 
-        if (buffer[ISO7816.OFFSET_CLA] != CLA)
+        if (buffer[ISO7816.OFFSET_CLA] != CLA) {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
+        }
 
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_READ_GLOBAL_ARRAY_BYTE:
