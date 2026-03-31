@@ -181,7 +181,6 @@
                             <!-- Dead code / redundancy -->
                             <recipe>org.openrewrite.staticanalysis.RemoveExtraSemicolons</recipe>
                             <recipe>org.openrewrite.staticanalysis.UnnecessaryParentheses</recipe>
-                            <recipe>org.openrewrite.java.RemoveUnusedImports</recipe>
                         </activeRecipes>
                     </configuration>
                     <dependencies>
