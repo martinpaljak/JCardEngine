@@ -768,12 +768,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     /**
-     * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
     @Override
-    public short getAvailablePersistentMemory() {
-        return Short.MAX_VALUE;
+    public int getAvailablePersistentMemory() {
+        return transientMemory.getAvailablePersistentMemory();
     }
 
     /**
@@ -1030,7 +1029,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     public void memstat() {
-        log.info("Persistent         {}", bytesAllocated);
+        log.info("Persistent         {}", transientMemory.getSumPersistent());
         log.info("CLEAR_ON_RESET:    {}", transientMemory.getSumCOR());
         log.info("CLEAR_ON_DESELECT: {}", transientMemory.getSumCOD());
     }

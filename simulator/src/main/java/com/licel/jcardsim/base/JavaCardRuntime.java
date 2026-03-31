@@ -55,7 +55,7 @@ public interface JavaCardRuntime {
 
     short getMaxCommitCapacity();
 
-    short getAvailablePersistentMemory();
+    int getAvailablePersistentMemory();
 
     Shareable getSharedObject(AID serverAID, byte parameter);
 

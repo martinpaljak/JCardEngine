@@ -285,23 +285,29 @@ public final class TransientMemory {
         return sumCOR;
     }
 
-
-    /**
-     * @return The current implementation always returns 32767
-     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
-     */
-    public short getAvailableTransientResetMemory() {
-        // TODO: do some math
-        return Short.MAX_VALUE;
+    public int getSumPersistent() {
+        return sumPersistent;
     }
 
     /**
-     * @return The current implementation always returns 32767
      * @see javacard.framework.JCSystem#getAvailableMemory(byte)
      */
-    public short getAvailableTransientDeselectMemory() {
-        // TODO: do some math
-        return Short.MAX_VALUE;
+    public int getAvailableTransientResetMemory() {
+        return Integer.MAX_VALUE - sumCOR;
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
+     */
+    public int getAvailableTransientDeselectMemory() {
+        return Integer.MAX_VALUE - sumCOD;
+    }
+
+    /**
+     * @see javacard.framework.JCSystem#getAvailableMemory(byte)
+     */
+    public int getAvailablePersistentMemory() {
+        return Integer.MAX_VALUE - sumPersistent;
     }
 
 }

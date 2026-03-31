@@ -358,22 +358,25 @@ public class JCSystemProxy {
      */
     public static short getAvailableMemory(byte memoryType)
             throws SystemException {
-        switch (memoryType) {
-            case JCSystem.MEMORY_TYPE_PERSISTENT:
-                return Simulator.current().getAvailablePersistentMemory();
-            case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                return Simulator.current().getTransientMemory().getAvailableTransientResetMemory();
-            case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
-                return Simulator.current().getTransientMemory().getAvailableTransientDeselectMemory();
-            default:
-                SystemException.throwIt(SystemException.ILLEGAL_VALUE);
-                return 0;
-        }
+        return (short) Math.min(Short.MAX_VALUE, getAvailableMemoryInt(memoryType));
     }
 
     public static void getAvailableMemory(short[] buffer, short offset, byte memoryType) {
-        buffer[offset] = 0x0000;
-        buffer[offset + 1] = getAvailableMemory(memoryType);
+        int available = getAvailableMemoryInt(memoryType);
+        buffer[offset] = (short) (available >>> 16);
+        buffer[(short) (offset + 1)] = (short) (available & 0xFFFF);
+    }
+
+    private static int getAvailableMemoryInt(byte memoryType) {
+        return switch (memoryType) {
+            case JCSystem.MEMORY_TYPE_PERSISTENT -> Simulator.current().getAvailablePersistentMemory();
+            case JCSystem.MEMORY_TYPE_TRANSIENT_RESET -> Simulator.current().getTransientMemory().getAvailableTransientResetMemory();
+            case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT -> Simulator.current().getTransientMemory().getAvailableTransientDeselectMemory();
+            default -> {
+                SystemException.throwIt(SystemException.ILLEGAL_VALUE);
+                yield 0;
+            }
+        };
     }
 
     /**
