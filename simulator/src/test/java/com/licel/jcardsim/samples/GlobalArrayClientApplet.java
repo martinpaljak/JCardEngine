@@ -16,6 +16,7 @@
 package com.licel.jcardsim.samples;
 
 import javacard.framework.*;
+import org.globalplatform.GPSystem;
 
 /**
  * Global array client applet.
@@ -88,7 +89,7 @@ public class GlobalArrayClientApplet extends Applet {
 
     private void readGlobalArrayByte(APDU apdu) {
         GlobalArrayAccess shared = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
-        byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef();
+        byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef(GPSystem.getRegistryEntry(null));
 
         short le = apdu.setOutgoing();
         apdu.setOutgoingLength(le);
@@ -103,7 +104,7 @@ public class GlobalArrayClientApplet extends Applet {
         }
 
         GlobalArrayAccess shared = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
-        byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef();
+        byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef(GPSystem.getRegistryEntry(null));
 
         byte bytesRead = (byte) apdu.setIncomingAndReceive();
         byte bufferOffset = 0;

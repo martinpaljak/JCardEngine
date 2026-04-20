@@ -16,10 +16,11 @@
 package com.licel.jcardsim.samples;
 
 import javacard.framework.Shareable;
+import org.globalplatform.GPRegistryEntry;
 
 /**
  * Grants access to the global array.
  */
 public interface GlobalArrayAccess extends Shareable {
-    Object getGlobalArrayRef();
+    Object getGlobalArrayRef(GPRegistryEntry caller);
 }

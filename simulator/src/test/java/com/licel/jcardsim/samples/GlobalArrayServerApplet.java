@@ -16,6 +16,7 @@
 package com.licel.jcardsim.samples;
 
 import javacard.framework.*;
+import org.globalplatform.GPRegistryEntry;
 
 /**
  * Global array server applet.
@@ -117,7 +118,11 @@ public class GlobalArrayServerApplet extends Applet implements GlobalArrayAccess
     }
 
     @Override
-    public Object getGlobalArrayRef() {
+    public Object getGlobalArrayRef(GPRegistryEntry caller) {
+        // caller's AID must equal invoking context (captured at construction, not query)
+        if (!caller.getAID().equals(JCSystem.getPreviousContextAID())) {
+            ISOException.throwIt((short) 0x6FEE);
+        }
         return globalArray;
     }
 }

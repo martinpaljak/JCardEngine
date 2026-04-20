@@ -15,7 +15,6 @@
  */
 package pro.javacard.engine.globalplatform;
 
-import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
@@ -24,7 +23,12 @@ import org.globalplatform.GPSystem;
 
 public class RegistryEntry implements GPRegistryEntry {
 
+    private final AID aid;
     byte state = GPSystem.APPLICATION_SELECTABLE;
+
+    public RegistryEntry(AID aid) {
+        this.aid = aid;
+    }
 
     @Override
     public void deregisterService(short i) throws ISOException {
@@ -33,8 +37,7 @@ public class RegistryEntry implements GPRegistryEntry {
 
     @Override
     public AID getAID() {
-        // TODO: currently only "this applet"
-        return Simulator.current().getAID();
+        return aid;
     }
 
     @Override

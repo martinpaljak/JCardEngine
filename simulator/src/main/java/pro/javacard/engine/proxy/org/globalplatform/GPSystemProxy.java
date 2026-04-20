@@ -43,8 +43,7 @@ public class GPSystemProxy {
 
     public static GPRegistryEntry getRegistryEntry(AID reqAID) {
         if (reqAID == null) {
-            // TODO: return "this applet"
-            return new RegistryEntry();
+            return new RegistryEntry(Simulator.current().getAID());
         }
         return null;
     }
