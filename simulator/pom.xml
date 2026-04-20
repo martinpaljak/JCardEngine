@@ -53,7 +53,7 @@
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
             <artifactId>globalplatformpro</artifactId>
-            <version>26.04.20</version>
+            <version>26.04.20.1</version>
         </dependency>
         <!-- apdu4j: explicit core to override transitive version from globalplatformpro -->
         <dependency>
