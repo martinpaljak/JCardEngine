@@ -157,7 +157,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         assertEquals(false, terminal.isCardPresent());
 
         // 3. Present engine to terminal (card appears)
-        terminal.present(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
+        terminal.presentFactory(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
         assertEquals(true, terminal.isCardPresent());
 
         // 4. Yank card (card disappears)
@@ -183,7 +183,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            terminal.present(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
+            terminal.presentFactory(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
         });
         thread.start();
 

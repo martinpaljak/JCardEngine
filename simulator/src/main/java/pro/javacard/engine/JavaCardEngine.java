@@ -72,7 +72,7 @@ public interface JavaCardEngine {
     default SynthesizedCardTerminal toTerminal(String name) {
         var terminal = new SynthesizedCardTerminal(name, "T=1");
         // Factory mode: engine persists, fresh BIBO per connect, reset on close
-        terminal.present(protocol -> connectFor(Duration.ZERO, protocol, true), getATR());
+        terminal.presentFactory(protocol -> connectFor(Duration.ZERO, protocol, true), getATR());
         return terminal;
     }
 

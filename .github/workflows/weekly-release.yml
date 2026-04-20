@@ -15,7 +15,7 @@ jobs:
     name: Weekly Release
     steps:
       - name: Checkout with submodules
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: next
           submodules: true
@@ -48,7 +48,7 @@ jobs:
           host_fp: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
 
       - name: Release
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v3.0.0
         with:
           prerelease: true
           tag_name: v${{ env.VERSION }}
