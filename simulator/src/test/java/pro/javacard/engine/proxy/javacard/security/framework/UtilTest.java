@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Martin Paljak <martin@martinpaljak.net>
+// SPDX-FileCopyrightText: 2013 Klas Lindfors
+// SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.proxy.javacard.security.framework;
 
 import javacard.framework.Util;

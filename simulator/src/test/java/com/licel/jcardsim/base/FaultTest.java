@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2025 Martin Paljak <martin@martinpaljak.net>
+// SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
 import apdu4j.core.CommandAPDU;

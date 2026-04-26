@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2025 Martin Paljak <martin@martinpaljak.net>
+// SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.faulty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;

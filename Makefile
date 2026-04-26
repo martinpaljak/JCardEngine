@@ -30,3 +30,6 @@ fastinstall:
 today:
 	# for a dirty tree, set the date to today
 	test -z "$(shell git status --porcelain)" || ./mvnw versions:set -DnewVersion=$(shell date +%y.%m.%d)-SNAPSHOT -DgenerateBackupPoms=false
+
+reuse:
+	reuse --no-multiprocessing lint
