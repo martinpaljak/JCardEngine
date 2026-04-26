@@ -49,6 +49,10 @@ public interface JavaCardEngine {
         return connectFor(Duration.ZERO, protocol, false);
     }
 
+    default EngineSession connect(String protocol, boolean resetOnClose) {
+        return connectFor(Duration.ZERO, protocol, resetOnClose);
+    }
+
     EngineSession connectFor(Duration duration, String protocol, boolean resetOnClose);
 
     // pcsc-sim integration: factory mode backed by this engine
@@ -59,7 +63,7 @@ public interface JavaCardEngine {
     default SynthesizedCardTerminal toTerminal(String name) {
         var terminal = new SynthesizedCardTerminal(name, "T=1");
         // Factory mode: engine persists, fresh BIBO per connect, reset on close
-        terminal.presentFactory(protocol -> connectFor(Duration.ZERO, protocol, true), getATR());
+        terminal.presentFactory(protocol -> connect(protocol, true), getATR());
         return terminal;
     }
 

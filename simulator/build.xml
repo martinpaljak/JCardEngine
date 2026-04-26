@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="jcardengine-applets" default="caps" basedir=".">
+  <property name="ant-javacard.jar" value="target/ant-javacard.jar"/>
+  <target name="-bootstrap">
+    <mkdir dir="target"/>
+    <get src="https://github.com/martinpaljak/ant-javacard/releases/latest/download/ant-javacard.jar" dest="${ant-javacard.jar}" usetimestamp="true" skipexisting="true"/>
+    <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpath="${ant-javacard.jar}"/>
+  </target>
+  <target name="caps" depends="-bootstrap">
+    <mkdir dir="target/caps"/>
+    <javacard jckit="sdks/jc320v25.1_kit">
+      <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java">
+        <applet class="pro.javacard.engine.testapplets.MemoryApplet" aid="D233000000774D454D2D303101"/>
+      </cap>
+    </javacard>
+  </target>
+</project>
