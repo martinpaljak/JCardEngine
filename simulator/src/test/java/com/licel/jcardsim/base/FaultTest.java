@@ -17,9 +17,7 @@ public class FaultTest {
     public void testFault() {
         // Flip condition on step 2 (SELECT is step 1, the test command is step 2)
         var config = FaultyConfig.builder()
-                .faultyAt(2, FaultApplet.class, 62)
-                .faultyAt(2, FaultApplet.class, 24)
-
+                .faultyAt(2, FaultApplet.class, 64)
                 .build();
         var instance = new Simulator(config);
         var aid = AIDUtil.create("010203040506");
