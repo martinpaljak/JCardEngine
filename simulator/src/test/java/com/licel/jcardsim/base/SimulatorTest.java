@@ -11,11 +11,8 @@ import javacard.framework.ISO7816;
 import javacard.framework.Util;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
-
-import javax.smartcardio.ResponseAPDU;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -51,16 +48,18 @@ public class SimulatorTest {
     public void testNopWithLengthExtensionsFails() {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        instance.selectApplet(TEST_APPLET_AID);
-        // test NOP with Lc=1
-        byte[] response1 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA});
-        assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response1, (short) 0));
-        // test NOP with Le=1
-        byte[] response2 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1});
-        assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response2, (short) 0));
-        // test NOP with Lc=1, Le=1
-        byte[] response3 = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA, 0, 1});
-        assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response3, (short) 0));
+        try (var bibo = instance.connect()) {
+            bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            // test NOP with Lc=1
+            var response1 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA});
+            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response1, (short) 0));
+            // test NOP with Le=1
+            var response2 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1});
+            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response2, (short) 0));
+            // test NOP with Lc=1, Le=1
+            var response3 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA, 0, 1});
+            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response3, (short) 0));
+        }
     }
 
     /**
@@ -74,28 +73,19 @@ public class SimulatorTest {
     }
 
     /**
-     * Test of selectAppletWithResult method, of class Simulator.
-     */
-    @Test
-    public void testSelectAppletWithResult() {
-        Simulator instance = new Simulator();
-        instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        byte[] result = instance.selectAppletWithResult(TEST_APPLET_AID);
-        assertEquals((byte) 0x90, result[0]);
-        assertEquals(0x00, result[1]);
-    }
-
-    /**
      * Test of transceive method, of class Simulator.
      */
     @Test
     public void testTransmitCommand() {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertTrue(instance.selectApplet(TEST_APPLET_AID));
-        // test NOP
-        byte[] response = instance.transceive(new byte[]{0x01, 0x02, 0x00, 0x00});
-        assertArrayEquals(new byte[]{(byte) 0x90, 0x00}, response);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
+            // test NOP
+            var response = bibo.transmit(new CommandAPDU(0x01, 0x02, 0x00, 0x00));
+            assertEquals(0x9000, response.getSW());
+        }
     }
 
     /**
@@ -159,66 +149,38 @@ public class SimulatorTest {
 
         AID appletAID = AIDUtil.create(APPLET_AID_BYTES);
         instance.installApplet(appletAID, APPLET_CLASS);
-        assertTrue(instance.selectApplet(appletAID));
 
         byte[] commandData = {0x12, 0x34, 0x56, 0x78};
-        byte[] apduHeader = new byte[]{CLA, INS, 0x69, (byte) 0x85};
 
-        byte[] apduForTransmit = new byte[apduHeader.length + 1 + commandData.length + 1];
-        System.arraycopy(apduHeader, 0, apduForTransmit, 0, apduHeader.length);
-        apduForTransmit[apduHeader.length] = (byte) commandData.length;
-        System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
-        apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(appletAID));
+            assertEquals(0x9000, sel.getSW());
 
-        // Test for SW=0x61XX warning, must have response data
-        apduHeader = new byte[]{CLA, INS, 0x61, 0x12};
+            // Test for SW=0x61XX warning, must have response data
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x61, 0x12, commandData, commandData.length));
+            assertArrayEquals(commandData, responseApdu.getData());
+            assertEquals(0x6112, (short) responseApdu.getSW());
 
-        apduForTransmit = new byte[apduHeader.length + 1 + commandData.length + 1];
-        System.arraycopy(apduHeader, 0, apduForTransmit, 0, apduHeader.length);
-        apduForTransmit[apduHeader.length] = (byte) commandData.length;
-        System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
-        apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
-
-        byte[] response = instance.transceive(apduForTransmit);
-
-        ResponseAPDU responseApdu = new ResponseAPDU(response);
-        assertArrayEquals(commandData, responseApdu.getData());
-        assertEquals(0x6112, (short) responseApdu.getSW());
-
-        // Test for SW=0x64XX
-        apduHeader = new byte[]{CLA, INS, 0x64, 0x34};
-
-        apduForTransmit = new byte[apduHeader.length + 1 + commandData.length + 1];
-        System.arraycopy(apduHeader, 0, apduForTransmit, 0, apduHeader.length);
-        apduForTransmit[apduHeader.length] = (byte) commandData.length;
-        System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
-        apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
-
-        response = instance.transceive(apduForTransmit);
-
-        responseApdu = new ResponseAPDU(response);
-        assertEquals(0, responseApdu.getData().length);
-        assertEquals(0x6434, (short) responseApdu.getSW());
+            // Test for SW=0x64XX
+            responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x64, 0x34, commandData, commandData.length));
+            assertEquals(0, responseApdu.getData().length);
+            assertEquals(0x6434, (short) responseApdu.getSW());
+        }
 
         // Try with base SimulatorRuntime
         instance = new Simulator();
 
         appletAID = AIDUtil.create(APPLET_AID_BYTES);
         instance.installApplet(appletAID, APPLET_CLASS);
-        assertTrue(instance.selectApplet(appletAID));
 
-        apduHeader = new byte[]{CLA, INS, 0x69, (byte) 0x85};
-        apduForTransmit = new byte[apduHeader.length + 1 + commandData.length + 1];
-        System.arraycopy(apduHeader, 0, apduForTransmit, 0, apduHeader.length);
-        apduForTransmit[apduHeader.length] = (byte) commandData.length;
-        System.arraycopy(commandData, 0, apduForTransmit, apduHeader.length + 1, commandData.length);
-        apduForTransmit[apduHeader.length + 1 + commandData.length] = (byte) commandData.length;
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(appletAID));
+            assertEquals(0x9000, sel.getSW());
 
-        response = instance.transceive(apduForTransmit);
-
-        responseApdu = new ResponseAPDU(response);
-        assertEquals(0, responseApdu.getData().length);
-        assertEquals(0x6985, (short) responseApdu.getSW());
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x69, 0x85, commandData, commandData.length));
+            assertEquals(0, responseApdu.getData().length);
+            assertEquals(0x6985, (short) responseApdu.getSW());
+        }
     }
 
     @Test
@@ -226,53 +188,56 @@ public class SimulatorTest {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
 
-        // MANAGE CHANNEL OPEN (00 70 00 00) - rejected before applet is selected
-        byte[] response = instance.transceive(new byte[]{0x00, 0x70, 0x00, 0x00});
-        assertEquals(0x6881, Util.getShort(response, (short) 0));
+        try (var bibo = instance.connect()) {
+            // MANAGE CHANNEL OPEN (00 70 00 00) - rejected before applet is selected
+            var response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x00, 0x00));
+            assertEquals(0x6881, response.getSW());
 
-        // Select applet, then try again - still rejected at JCRE level
-        assertTrue(instance.selectApplet(TEST_APPLET_AID));
+            // Select applet, then try again - still rejected at JCRE level
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        // OPEN
-        response = instance.transceive(new byte[]{0x00, 0x70, 0x00, 0x00});
-        assertEquals(0x6881, Util.getShort(response, (short) 0));
+            // OPEN
+            response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x00, 0x00));
+            assertEquals(0x6881, response.getSW());
 
-        // CLOSE (00 70 80 01)
-        response = instance.transceive(new byte[]{0x00, 0x70, (byte) 0x80, 0x01});
-        assertEquals(0x6881, Util.getShort(response, (short) 0));
+            // CLOSE (00 70 80 01)
+            response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x80, 0x01));
+            assertEquals(0x6881, response.getSW());
 
-        // With channel bits in CLA (e.g. channel 1: CLA=0x01)
-        response = instance.transceive(new byte[]{0x01, 0x70, 0x00, 0x00});
-        assertEquals(0x6881, Util.getShort(response, (short) 0));
+            // With channel bits in CLA (e.g. channel 1: CLA=0x01)
+            response = bibo.transmit(new CommandAPDU(0x01, 0x70, 0x00, 0x00));
+            assertEquals(0x6881, response.getSW());
+        }
     }
 
     @Test
     public void testInstallAndRegisterMisbehaves() {
-        byte[] select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256).getBytes();
+        var select = new CommandAPDU(0x00, 0xA4, 0x04, 0x00, TEST_APPLET_AID_BYTES, 256);
         JavaCardEngine sim = JavaCardEngine.create();
         // Not installed yet
         assertThrows(IllegalArgumentException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
         assertThrows(JavaCardEngineException.class, () -> sim.installApplet(TEST_APPLET_AID, AppletWithNoInstallMethod.class));
         sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
-        try (EngineSession session = sim.connect()) {
-            byte[] result = session.transceive(select);
-            assertArrayEquals(Hex.decode("6f00"), result);
+        try (var session = sim.connect()) {
+            var result = session.transmit(select);
+            assertEquals(0x6f00, result.getSW());
         }
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInSelect.class);
-        try (EngineSession session = sim.connect()) {
-            byte[] result = session.transceive(select);
-            assertArrayEquals(Hex.decode("6999"), result);
+        try (var session = sim.connect()) {
+            var result = session.transmit(select);
+            assertEquals(0x6999, result.getSW());
         }
 
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInUninstall.class);
-        try (EngineSession session = sim.connect()) {
-            byte[] result = session.transceive(select);
-            assertArrayEquals(Hex.decode("9000"), result);
+        try (var session = sim.connect()) {
+            var result = session.transmit(select);
+            assertEquals(0x9000, result.getSW());
             // random select - processed by the applet
-            result = session.transceive(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256).getBytes());
-            assertArrayEquals(Hex.decode("9001"), result);
+            result = session.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256));
+            assertEquals(0x9001, result.getSW());
         }
         assertThrows(JavaCardEngineException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
     }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Martin Paljak
+// SPDX-FileCopyrightText: 2025 Martin Paljak <martin@martinpaljak.net>
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 

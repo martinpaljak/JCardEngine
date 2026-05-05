@@ -23,24 +23,16 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class SCP02SecureChannelImpl implements SecureChannel {
+public final class SCP02SecureChannelImpl extends EngineSecureChannel {
     private static final Logger log = LoggerFactory.getLogger(SCP02SecureChannelImpl.class);
-    private final byte[] masterKeyBytes;
-    private final byte[] KVN = new byte[]{(byte) 0xFF};
     private final byte[] SCP = new byte[]{(byte) 0x02};
 
-    private static final byte[] kdd = new byte[]{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
-
-    public SCP02SecureChannelImpl(byte[] masterKey) {
-        this.masterKeyBytes = masterKey.clone();
-    }
-
     public SCP02SecureChannelImpl() {
-        this(PlaintextKeys.DEFAULT_KEY());
     }
 
     private PlaintextKeys freshKeys() {
-        return PlaintextKeys.fromMasterKey(masterKeyBytes);
+        var ks = resolveMasterKey();
+        return PlaintextKeys.fromKeys(ks.value(KeySet.KID_ENC), ks.value(KeySet.KID_MAC), ks.value(KeySet.KID_DEK));
     }
 
     private final byte[] ssc = new byte[2];
@@ -50,10 +42,7 @@ public class SCP02SecureChannelImpl implements SecureChannel {
 
     private final byte[] icv = new byte[8];
     boolean open = false;
-    private byte state = SecureChannel.NO_SECURITY_LEVEL;
 
-    private byte[] macKey;
-    private byte[] encKey;
     private byte[] dekKey;
 
     @Override
@@ -65,17 +54,21 @@ public class SCP02SecureChannelImpl implements SecureChannel {
 
         byte[] buffer = apdu.getBuffer();
 
-        if (buffer[ISO7816.OFFSET_INS] == (byte) 0x50) {
+        if (buffer[ISO7816.OFFSET_INS] == INS_INITIALIZE_UPDATE) {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x80) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
             }
-            if (buffer[ISO7816.OFFSET_P1] != 0x00 && buffer[ISO7816.OFFSET_P2] != 0x00) {
+            // P1 carries the requested KVN per GPC v2.3.1 D.4.1.3; already consumed and validated
+            // by SecurityDomainApplet.primeSecureChannel — accept any value here. P2 (Key Identifier)
+            // is unused for SCP02 master-key selection.
+            if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
             if (buffer[ISO7816.OFFSET_LC] != 8) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
-            resetSecurity();
+            resetSession();
+            byte[] kdd = sessionKDD();
             PlaintextKeys keys = freshKeys();
             keys.diversify(GPSecureChannelVersion.SCP.SCP02, kdd);
             var host_challenge = Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + 8);
@@ -87,10 +80,10 @@ public class SCP02SecureChannelImpl implements SecureChannel {
             encKey = keys.getSessionKey(GPCardKeys.KeyPurpose.ENC, ssc);
             dekKey = keys.getSessionKey(GPCardKeys.KeyPurpose.DEK, ssc);
             byte[] cryptogram = GPCrypto.mac_3des(GPUtils.concatenate(host_challenge, card_challenge), encKey, new byte[8]);
-            byte[] resp = GPUtils.concatenate(kdd, KVN, SCP, card_challenge, cryptogram);
+            byte[] resp = GPUtils.concatenate(kdd, new byte[]{currentMasterKey.kvn()}, SCP, card_challenge, cryptogram);
             System.arraycopy(resp, 0, buffer, ISO7816.OFFSET_CDATA, resp.length);
             return (short) resp.length;
-        } else if (buffer[ISO7816.OFFSET_INS] == (byte) 0x82) {
+        } else if (buffer[ISO7816.OFFSET_INS] == INS_EXTERNAL_AUTHENTICATE) {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x84) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
             }
@@ -185,9 +178,7 @@ public class SCP02SecureChannelImpl implements SecureChannel {
 
     @Override
     public short unwrap(byte[] bytes, short offset, short length) throws ISOException {
-        if ((state & SecureChannel.AUTHENTICATED) == 0) {
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-        }
+        requireAuthenticated();
         log.trace("Unwrapping ...");
         final int maclen = 8;
         byte[] cryptogram = Arrays.copyOfRange(bytes, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
@@ -199,19 +190,16 @@ public class SCP02SecureChannelImpl implements SecureChannel {
                 process_mac(bytes, offset, length);
             }
             log.trace("Cryptogram len={} {}", cryptogram.length, Hex.toHexString(cryptogram));
-            if ((bytes[offset + ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
-                // Decrypt payload
+            if ((bytes[offset + ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION
+                    && cryptogram.length > 0) {
                 byte[] payload = des3_cbc_decrypt(cryptogram, encKey, new byte[8]);
-                // Remove padding
                 payload = GPCrypto.unpad80(payload);
                 log.trace("Unwrapped: {}", Hex.toHexString(payload));
-                // Copy back to location
                 Util.arrayCopyNonAtomic(payload, (short) 0, bytes, (short) (offset + ISO7816.OFFSET_CDATA), (short) payload.length);
                 bytes[offset + ISO7816.OFFSET_LC] = (byte) payload.length; // TODO: extlen
-                // Length of full decrypted APDU (no Le)
                 return (short) (offset + ISO7816.OFFSET_CDATA + payload.length);
             }
-            // Strip MAC if present
+            // Strip MAC if present (covers both no-ENC and case-1 ENC with empty cryptogram).
             if ((state & SecureChannel.C_MAC) == SecureChannel.C_MAC) {
                 bytes[offset + ISO7816.OFFSET_LC] -= 8;
             }
@@ -230,9 +218,7 @@ public class SCP02SecureChannelImpl implements SecureChannel {
         if (length % 8 != 0) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
-        if ((state & SecureChannel.AUTHENTICATED) == 0) {
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-        }
+        requireAuthenticated();
         try {
             byte[] result = des3_ecb_decrypt(Arrays.copyOfRange(buffer, offset, offset + length), dekKey);
             log.debug("Decrypted: {}", Hex.toHexString(result));
@@ -249,27 +235,19 @@ public class SCP02SecureChannelImpl implements SecureChannel {
         throw new UnsupportedOperationException("SecureChannel.encryptData()");
     }
 
+    // ssc deliberately persists across sessions.
     @Override
-    public void resetSecurity() {
-        state = NO_SECURITY_LEVEL;
+    protected void wipeScpState() {
         open = false;
-        Arrays.fill(icv, (byte) 0x00);
-        Arrays.fill(host_challenge, (byte) 0x00);
-        Arrays.fill(card_challenge, (byte) 0x00);
-        if (encKey != null) {
-            Arrays.fill(encKey, (byte) 0x00);
-        }
-        if (macKey != null) {
-            Arrays.fill(macKey, (byte) 0x00);
-        }
-        if (dekKey != null) {
-            Arrays.fill(dekKey, (byte) 0x00);
-        }
-        // NOTE: ssc remains
+        zeroize(encKey, macKey, dekKey, icv, host_challenge, card_challenge);
     }
 
+    // SCP02 R-MAC is a fixed 8-byte trailer (DES MAC). R-ENCRYPTION is not implemented.
     @Override
-    public byte getSecurityLevel() {
-        return state;
+    public short maxResponseLength() {
+        if ((state & SecureChannel.R_MAC) != 0) {
+            return (short) 248;
+        }
+        return (short) 256;
     }
 }

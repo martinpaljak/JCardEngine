@@ -8,7 +8,7 @@ import javacard.framework.OwnerPIN;
 import javacard.framework.PINException;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class OwnerPinTest extends SimulatorCoreTest {
 
@@ -18,11 +18,11 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             OwnerPIN o = new OwnerPIN((byte) 0, (byte) 1);
         } catch (Exception e) {
-            assertEquals(true, e instanceof PINException);
+            assertTrue(e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
-        assertEquals(true, isException);
+        assertTrue(isException);
     }
 
     @Test
@@ -31,11 +31,11 @@ public class OwnerPinTest extends SimulatorCoreTest {
         try {
             OwnerPIN o = new OwnerPIN((byte) 1, (byte) 0);
         } catch (Exception e) {
-            assertEquals(true, e instanceof PINException);
+            assertTrue(e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
-        assertEquals(true, isException);
+        assertTrue(isException);
     }
 
     @Test
@@ -53,11 +53,11 @@ public class OwnerPinTest extends SimulatorCoreTest {
             byte[] pin = new byte[17];
             o.update(pin, (short) 0, (byte) pin.length);
         } catch (Exception e) {
-            assertEquals(true, e instanceof PINException);
+            assertTrue(e instanceof PINException);
             assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
             isException = true;
         }
-        assertEquals(true, isException);
+        assertTrue(isException);
     }
 
     @Test
@@ -66,7 +66,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         byte[] pin = new byte[]{(byte) 0, (byte) 1, (byte) 3};
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
-        assertEquals(true, o.check(pin, (short) 0, (byte) pin.length));
+        assertTrue(o.check(pin, (short) 0, (byte) pin.length));
         assertEquals(tries, o.getTriesRemaining());
     }
 
@@ -78,33 +78,33 @@ public class OwnerPinTest extends SimulatorCoreTest {
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
         // correct
-        assertEquals(true, o.check(pin, (short) 0, (byte) pin.length));
+        assertTrue(o.check(pin, (short) 0, (byte) pin.length));
         assertEquals(tries, o.getTriesRemaining());
-        assertEquals(true, o.isValidated());
+        assertTrue(o.isValidated());
         // incorrect
-        assertEquals(false, o.check(pin2, (short) 0, (byte) pin2.length));
+        assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
         assertEquals(tries - 1, o.getTriesRemaining());
-        assertEquals(false, o.isValidated());
+        assertFalse(o.isValidated());
         // incorrect
-        assertEquals(false, o.check(pin2, (short) 0, (byte) (pin2.length - 1)));
+        assertFalse(o.check(pin2, (short) 0, (byte) (pin2.length - 1)));
         assertEquals(tries - 2, o.getTriesRemaining());
-        assertEquals(false, o.isValidated());
+        assertFalse(o.isValidated());
         // incorrect
         try {
-            assertEquals(false, o.check(null, (short) 0, (byte) (pin2.length)));
+            assertFalse(o.check(null, (short) 0, (byte) (pin2.length)));
         } catch (Exception e) {
-            assertEquals(true, e instanceof NullPointerException);
+            assertTrue(e instanceof NullPointerException);
         }
         assertEquals(tries - 3, o.getTriesRemaining());
-        assertEquals(false, o.isValidated());
+        assertFalse(o.isValidated());
         // incorrect
         try {
-            assertEquals(false, o.check(pin2, (short) 0, (byte) (pin2.length + 1)));
+            assertFalse(o.check(pin2, (short) 0, (byte) (pin2.length + 1)));
         } catch (Exception e) {
-            assertEquals(true, e instanceof ArrayIndexOutOfBoundsException);
+            assertTrue(e instanceof ArrayIndexOutOfBoundsException);
         }
         assertEquals(0, o.getTriesRemaining());
-        assertEquals(false, o.isValidated());
+        assertFalse(o.isValidated());
     }
 
     @Test
@@ -114,7 +114,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         byte[] pin2 = new byte[]{(byte) 0, (byte) 1, (byte) 2};
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
-        assertEquals(false, o.check(pin2, (short) 0, (byte) pin2.length));
+        assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
         assertEquals(0, o.getTriesRemaining());
         o.reset();
         assertEquals(0, o.getTriesRemaining());
@@ -127,9 +127,9 @@ public class OwnerPinTest extends SimulatorCoreTest {
         byte[] pin2 = new byte[]{(byte) 0, (byte) 1, (byte) 2};
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
-        assertEquals(false, o.check(pin2, (short) 0, (byte) pin2.length));
+        assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
         assertEquals(tries - 1, o.getTriesRemaining());
-        assertEquals(true, o.check(pin, (short) 0, (byte) pin.length));
+        assertTrue(o.check(pin, (short) 0, (byte) pin.length));
         o.reset();
         assertEquals(tries, o.getTriesRemaining());
     }
@@ -141,11 +141,11 @@ public class OwnerPinTest extends SimulatorCoreTest {
         byte[] pin2 = new byte[]{(byte) 0, (byte) 1, (byte) 2};
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
-        assertEquals(false, o.check(pin2, (short) 0, (byte) pin2.length));
+        assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
         assertEquals(0, o.getTriesRemaining());
         o.resetAndUnblock();
         assertEquals(tries, o.getTriesRemaining());
-        assertEquals(false, o.isValidated());
+        assertFalse(o.isValidated());
     }
 
 }

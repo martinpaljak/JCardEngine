@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.samples.GlobalArrayClientApplet;
 import com.licel.jcardsim.samples.GlobalArrayServerApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import javacard.framework.Util;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class GlobalArrayTest {
@@ -66,46 +67,43 @@ public class GlobalArrayTest {
         assertEquals(serverAppletAID, instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class));
         assertEquals(clientAppletAID, instance.installApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar));
 
-        // Select server applet
-        assertTrue(instance.selectApplet(serverAppletAID));
+        try (var bibo = instance.connect()) {
+            // Select server applet
+            var sel1 = bibo.transmit(AIDUtil.select(serverAppletAID));
+            assertEquals(0x9000, sel1.getSW());
 
-        // Send C-APDU to create the byte global array for 32-byte size and filled with 0x5A
-        byte[] response1 = instance.transceive(new byte[]{0x10, 0x01, 32, (byte) 0x5A});
+            // Send C-APDU to create the byte global array for 32-byte size and filled with 0x5A
+            var response1 = bibo.transmit(new CommandAPDU(0x10, 0x01, 32, 0x5A));
 
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response1, (short) 0));
+            // Check command succeeded
+            assertEquals(ISO7816.SW_NO_ERROR, (short) response1.getSW());
 
-        // Select client applet
-        assertTrue(instance.selectApplet(clientAppletAID));
-        // Send C-APDU to read the global byte array for 32 bytes
-        byte[] response2 = instance.transceive(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response2, (short) 32));
+            // Select client applet
+            var sel2 = bibo.transmit(AIDUtil.select(clientAppletAID));
+            assertEquals(0x9000, sel2.getSW());
+            // Send C-APDU to read the global byte array for 32 bytes
+            var response2 = bibo.transmit(new CommandAPDU(0x10, 0x01, 0x00, 0x00, 32));
+            // Check command succeeded
+            assertEquals(ISO7816.SW_NO_ERROR, (short) response2.getSW());
 
-        // Check global array content
-        for (byte i = 0; i < 32; i++) {
-            assertEquals((byte) 0x5A, ((byte[]) response2)[i]);
+            // Check global array content
+            byte[] response2Data = response2.getData();
+            for (byte i = 0; i < 32; i++) {
+                assertEquals((byte) 0x5A, response2Data[i]);
+            }
+
+            // Send C-APDU to write 32 test bytes to global array
+            var response3 = bibo.transmit(new CommandAPDU(0x10, 0x02, 0x00, 0x00, bytesForTest));
+            // Check command succeeded
+            assertEquals(ISO7816.SW_NO_ERROR, (short) response3.getSW());
+
+            // Send C-APDU to read the global byte array for 32 bytes
+            var response4 = bibo.transmit(new CommandAPDU(0x10, 0x01, 0x00, 0x00, 32));
+            // Check command succeeded
+            assertEquals(ISO7816.SW_NO_ERROR, (short) response4.getSW());
+
+            // Check the global array with the writen data
+            assertArrayEquals(bytesForTest, response4.getData());
         }
-
-        // Create C-APDU to write 32 test bytes to global array
-        byte[] commandAPDUHeaderWithLc = new byte[]{0x10, 0x02, 0, 0, 32};
-        byte[] sendAPDU = new byte[5 + 32];
-        System.arraycopy(commandAPDUHeaderWithLc, 0, sendAPDU, 0, 5);
-        System.arraycopy(bytesForTest, 0, sendAPDU, 5, 32);
-
-        // Send C-APDU
-        byte[] response3 = instance.transceive(sendAPDU);
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response3, (short) 0));
-
-        // Send C-APDU to read the global byte array for 32 bytes
-        byte[] response4 = instance.transceive(new byte[]{0x10, 0x01, 0x00, 0x00, 32});
-        // Check command succeeded
-        assertEquals(ISO7816.SW_NO_ERROR, Util.getShort(response4, (short) 32));
-
-        // Check the global array with the writen data
-        byte[] globalArrayBytes = new byte[32];
-        System.arraycopy(response4, 0, globalArrayBytes, 0, globalArrayBytes.length);
-        assertArrayEquals(bytesForTest, globalArrayBytes);
     }
 }

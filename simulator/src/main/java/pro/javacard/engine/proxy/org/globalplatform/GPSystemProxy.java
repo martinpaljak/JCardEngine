@@ -5,12 +5,12 @@ package pro.javacard.engine.proxy.org.globalplatform;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import org.globalplatform.*;
-import pro.javacard.engine.globalplatform.RegistryEntry;
 
 public class GPSystemProxy {
 
     public static byte getCardContentState() {
-        return getRegistryEntry(null).getState();
+        var entry = getRegistryEntry(null);
+        return entry == null ? 0 : entry.getState();
     }
 
     public static byte getCardState() {
@@ -29,10 +29,7 @@ public class GPSystemProxy {
     }
 
     public static GPRegistryEntry getRegistryEntry(AID reqAID) {
-        if (reqAID == null) {
-            return new RegistryEntry(Simulator.current().getAID());
-        }
-        return null;
+        return Simulator.current().getGlobalPlatform().getRegistryEntry(reqAID);
     }
 
     public static GlobalService getService(AID serverAID, short sServiceName) {
@@ -48,7 +45,7 @@ public class GPSystemProxy {
     }
 
     public static boolean setCardContentState(byte bState) {
-        return false;
+        return Simulator.current().getGlobalPlatform().setCardContentState(bState);
     }
 
     public static boolean terminateCard() {

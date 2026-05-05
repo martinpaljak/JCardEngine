@@ -35,7 +35,7 @@
         <Bug pattern="AT_STALE_THREAD_WRITE_OF_PRIMITIVE"/>
     </Match>
     <Match>
-        <Class name="pro.javacard.engine.globalplatform.GlobalPINImpl"/>
+        <Class name="pro.javacard.engine.globalplatform.EngineGlobalPIN"/>
         <Bug pattern="MS_SHOULD_BE_FINAL"/>
     </Match>
     <!-- Mystery from GP API ? -->

@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim;
 
-import apdu4j.core.APDUBIBO;
 import apdu4j.core.CommandAPDU;
-import apdu4j.core.ResponseAPDU;
 import apdu4j.pcsc.sim.SynthesizedCardTerminal;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
@@ -15,9 +13,9 @@ import org.junit.jupiter.api.Test;
 import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.CardException;
+import java.time.Duration;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Contains all listing from the documentation
@@ -33,8 +31,8 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         engine.installApplet(appletAID, HelloWorldApplet.class);
 
         // 2. Open BIBO session and send APDU
-        try (var bibo = new APDUBIBO(engine.connect())) {
-            bibo.transceive(AIDUtil.select(appletAID));
+        try (var bibo = engine.connect()) {
+            bibo.transmit(AIDUtil.select(appletAID));
             var response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
             // 3. Check response status word
@@ -50,8 +48,8 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         simulator.installApplet(appletAID, HelloWorldApplet.class);
 
         // 2. Open BIBO session, select applet, send APDU
-        try (var bibo = new APDUBIBO(simulator.connect())) {
-            bibo.transceive(AIDUtil.select(appletAID));
+        try (var bibo = simulator.connect()) {
+            bibo.transmit(AIDUtil.select(appletAID));
             var response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
             // 3. Check response status word
@@ -68,8 +66,8 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
         simulator.installApplet(appletAID, HelloWorldApplet.class);
 
-        try (var bibo = new APDUBIBO(simulator.connect())) {
-            bibo.transceive(AIDUtil.select(appletAID));
+        try (var bibo = simulator.connect()) {
+            bibo.transmit(AIDUtil.select(appletAID));
 
             // test NOP
             var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
@@ -96,8 +94,8 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
         simulator.installApplet(appletAID, HelloWorldApplet.class);
 
-        try (var bibo = new APDUBIBO(simulator.connect())) {
-            bibo.transceive(AIDUtil.select(appletAID));
+        try (var bibo = simulator.connect()) {
+            bibo.transmit(AIDUtil.select(appletAID));
 
             // test NOP
             var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
@@ -120,7 +118,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         var channel = card.getBasicChannel();
 
         // 4. Select applet
-        channel.transmit(new javax.smartcardio.CommandAPDU(AIDUtil.select(appletAID)));
+        channel.transmit(new javax.smartcardio.CommandAPDU(AIDUtil.select(appletAID).getBytes()));
 
         // 5. Send APDU
         var response = channel.transmit(new javax.smartcardio.CommandAPDU(0x00, 0x01, 0x00, 0x00));
@@ -145,7 +143,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         assertNotNull(terminal);
 
         // 4. Card is present via factory mode
-        assertEquals(true, terminal.isCardPresent());
+        assertTrue(terminal.isCardPresent());
     }
 
     @Test
@@ -157,22 +155,22 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
         // 2. Create terminal - card not yet present
         var terminal = new SynthesizedCardTerminal("My terminal 1");
-        assertEquals(false, terminal.isCardPresent());
+        assertFalse(terminal.isCardPresent());
 
         // 3. Present engine to terminal (card appears)
-        terminal.presentFactory(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
-        assertEquals(true, terminal.isCardPresent());
+        terminal.presentFactory(protocol -> engine.connectFor(Duration.ZERO, protocol, true), engine.getATR());
+        assertTrue(terminal.isCardPresent());
 
         // 4. Yank card (card disappears)
         terminal.yank();
-        assertEquals(false, terminal.isCardPresent());
+        assertFalse(terminal.isCardPresent());
     }
 
     @Test
     public void testCodeListing7_wait_for_insert() throws CardException, InterruptedException {
         // 1. Create terminal - no card yet
         var terminal = new SynthesizedCardTerminal("My terminal 1");
-        assertEquals(false, terminal.isCardPresent());
+        assertFalse(terminal.isCardPresent());
 
         // 2. Create engine and install applet
         var engine = JavaCardEngine.create();
@@ -186,13 +184,13 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            terminal.presentFactory(protocol -> engine.connectFor(java.time.Duration.ZERO, protocol, true), engine.getATR());
+            terminal.presentFactory(protocol -> engine.connectFor(Duration.ZERO, protocol, true), engine.getATR());
         });
         thread.start();
 
         // 4. Wait for card to appear
-        assertEquals(true, terminal.waitForCardPresent(5000));
-        assertEquals(true, terminal.isCardPresent());
+        assertTrue(terminal.waitForCardPresent(5000));
+        assertTrue(terminal.isCardPresent());
 
         thread.join();
     }

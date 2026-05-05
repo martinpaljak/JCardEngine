@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.utils;
 
+import apdu4j.core.CommandAPDU;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import org.bouncycastle.util.encoders.Hex;
@@ -16,18 +17,18 @@ import java.util.Objects;
 public final class AIDUtil {
     private static final Comparator<AID> aidComparator = (aid1, aid2) -> {
         String s1 = aid1 != null ? toString(aid1) : "";
-        String s2 = aid1 != null ? toString(aid2) : "";
+        String s2 = aid2 != null ? toString(aid2) : "";
         return s1.compareTo(s2);
     };
 
     /**
-     * Generate a SELECT APDU for <code>aid</code>
+     * Generate the raw bytes of a SELECT APDU for <code>aid</code>.
      *
      * @param aid AID to be selected
-     * @return SELECT APDU (CLA=0x00, INS=0xA4, P1=0x04, P2=0x00, Lc, AID, Le=0x00)
+     * @return SELECT APDU bytes (CLA=0x00, INS=0xA4, P1=0x04, P2=0x00, Lc, AID, Le=0x00)
      * @throws java.lang.NullPointerException if <code>aid</code> is null
      */
-    public static byte[] select(AID aid) {
+    public static byte[] selectBytes(AID aid) {
         Objects.requireNonNull(aid);
 
         byte[] bytes = bytes(aid);
@@ -41,6 +42,17 @@ public final class AIDUtil {
         selectCmd[selectCmd.length - 1] = 0;
 
         return selectCmd;
+    }
+
+    /**
+     * Generate a SELECT APDU for <code>aid</code>.
+     *
+     * @param aid AID to be selected
+     * @return SELECT CommandAPDU (CLA=0x00, INS=0xA4, P1=0x04, P2=0x00, Lc, AID, Le=0x00)
+     * @throws java.lang.NullPointerException if <code>aid</code> is null
+     */
+    public static CommandAPDU select(AID aid) {
+        return new CommandAPDU(selectBytes(aid));
     }
 
     /**

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Martin Paljak
+// SPDX-FileCopyrightText: 2025 Martin Paljak <martin@martinpaljak.net>
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.core;
 
@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 
@@ -61,11 +60,11 @@ public class ContextStackProxy {
     private static Class<?>[] allShareables(Class<?> klass) {
         var interfaces = new HashSet<Class<?>>();
         Class<?> current = klass;
-        while (!current.equals(Object.class)) {
+        while (current != null && !current.equals(Object.class)) {
             for (var iface : current.getInterfaces()) {
                 if (Shareable.class.isAssignableFrom(iface)) {
                     log.debug("Adding {}", iface.getName());
-                    Collections.addAll(interfaces, current.getInterfaces());
+                    interfaces.add(iface);
                 }
             }
             current = current.getSuperclass();

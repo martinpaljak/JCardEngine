@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.samples.Sha1Applet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
@@ -9,7 +10,6 @@ import javacard.framework.JCSystem;
 import javacard.framework.SystemException;
 import org.junit.jupiter.api.Test;
 
-import javax.smartcardio.ResponseAPDU;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -17,9 +17,9 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TransientMemoryTest {
-    private static final byte CLA = (byte) 0x80;
-    private static final byte INS_DIGEST = 0;
-    private static final byte INS_LAST_DIGEST = 6;
+    private static final int CLA = 0x80;
+    private static final int INS_DIGEST = 0x00;
+    private static final int INS_LAST_DIGEST = 0x06;
 
     @Test
     public void testMemoryManagementWorks() {
@@ -130,32 +130,29 @@ public class TransientMemoryTest {
 
         Simulator instance = new Simulator();
         instance.installApplet(aid, Sha1Applet.class);
-        instance.selectApplet(aid);
 
-        // calculate SHA1
-        byte[] apdu = new byte[]{CLA, INS_DIGEST, 0, 0, 1, 'A'};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(aid));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // calculate SHA1
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_DIGEST, 0x00, 0x00, new byte[]{'A'}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
 
-        // check last digest
-        apdu = new byte[]{CLA, INS_LAST_DIGEST, 0, 0};
-        result = instance.transceive(apdu);
-        responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // check last digest
+            responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_LAST_DIGEST, 0x00, 0x00));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
 
-        // trigger clean on deselect
-        instance.selectApplet(aid);
+            // trigger clean on deselect
+            bibo.transmit(AIDUtil.select(aid));
 
-        // check last digest is all zero
-        apdu = new byte[]{CLA, INS_LAST_DIGEST, 0, 0};
-        result = instance.transceive(apdu);
-        responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(new byte[20]), Arrays.toString(responseApdu.getData()));
+            // check last digest is all zero
+            responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_LAST_DIGEST, 0x00, 0x00));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(new byte[20]), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -170,7 +167,7 @@ public class TransientMemoryTest {
         assertTrue(globalBooleans[0]);
 
         transientMemory.clearOnReset();
-        assertTrue(!globalBooleans[0]);
+        assertFalse(globalBooleans[0]);
     }
 
     @Test
@@ -182,10 +179,10 @@ public class TransientMemoryTest {
         globalBytes[0] = (byte) 0x5A;
 
         transientMemory.clearOnDeselect();
-        assertTrue(globalBytes[0] == 0x5A);
+        assertEquals(0x5A, globalBytes[0]);
 
         transientMemory.clearOnReset();
-        assertTrue(globalBytes[0] == 0);
+        assertEquals(0, globalBytes[0]);
     }
 
     @Test
@@ -197,10 +194,10 @@ public class TransientMemoryTest {
         globalShorts[0] = (short) 0x5A7F;
 
         transientMemory.clearOnDeselect();
-        assertTrue(globalShorts[0] == 0x5A7F);
+        assertEquals(0x5A7F, globalShorts[0]);
 
         transientMemory.clearOnReset();
-        assertTrue(globalShorts[0] == 0);
+        assertEquals(0, globalShorts[0]);
     }
 
     @Test
@@ -214,10 +211,10 @@ public class TransientMemoryTest {
         globalObjects[0] = dummy;
 
         transientMemory.clearOnDeselect();
-        assertTrue(globalObjects[0] == dummy);
+        assertSame(globalObjects[0], dummy);
 
         transientMemory.clearOnReset();
-        assertTrue(globalObjects[0] == null);
+        assertNull(globalObjects[0]);
     }
 
     @Test

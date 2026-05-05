@@ -19,7 +19,7 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
+public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
     @Test
     public void testAES_GCM_NotSupportKey() {
@@ -193,7 +193,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         byte[] retrievedTag = new byte[tag.length];
         engine.retrieveTag(retrievedTag, (short) 0, (short) retrievedTag.length);
 
-        assertEquals(true, Arrays.areEqual(retrievedTag, tag));
+        assertTrue(Arrays.areEqual(retrievedTag, tag));
 
         // Test decryption with wrong AAD
         byte[] wrongAAD = new byte[16];
@@ -218,8 +218,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
         assertEquals(decryptProcessedBytes, decrypted.length);
 
-        assertEquals(true, Arrays.areEqual(decrypted, plaintext));
-        assertEquals(true, engine.verifyTag(encrypted, (short) ciphertext.length, (short) tag.length, (short) tag.length));
+        assertTrue(Arrays.areEqual(decrypted, plaintext));
+        assertTrue(engine.verifyTag(encrypted, (short) ciphertext.length, (short) tag.length, (short) tag.length));
 
     }
 
@@ -276,7 +276,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, msgBytes));
+        assertTrue(Arrays.areEqual(decrypted, msgBytes));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
@@ -337,8 +337,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
-        assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
+        assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
+        assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
@@ -390,9 +390,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
-        assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
+        assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
+        assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
     }
 
 
@@ -469,9 +469,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
-        assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
-        assertEquals(true, engine.verifyTag(tag, (short) 0, (short) tag.length, (short) aad128Bit.length));
+        assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
+        assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) aad128Bit.length));
     }
 
     @Test
@@ -695,7 +695,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, msgBytes));
+        assertTrue(Arrays.areEqual(decrypted, msgBytes));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
@@ -756,8 +756,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest  {
         short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
 
         assertEquals(decryptProcessedBytes, decrypted.length);
-        assertEquals(true, Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
-        assertEquals(true, Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
+        assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
+        assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 }

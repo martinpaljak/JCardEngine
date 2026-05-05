@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.samples.MultiInstanceApplet;
 import com.licel.jcardsim.utils.AIDUtil;
-import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ public class SelectTest {
     public static class UnselectableApplet extends Applet {
         public static boolean selectedCalled;
 
-        private byte[] array = new byte[12];
+        private final byte[] array = new byte[12];
 
         @SuppressWarnings("unused")
         public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -41,6 +41,25 @@ public class SelectTest {
 
         public boolean selectCalled() {
             return selectedCalled;
+        }
+    }
+
+    // Returns true from select() while leaving an applet-initiated transaction
+    // open - the JCRE must treat this as a selection failure.
+    public static class TransactionLeakingApplet extends Applet {
+        @SuppressWarnings("unused")
+        public static void install(byte[] bArray, short bOffset, byte bLength) {
+            new TransactionLeakingApplet().register();
+        }
+
+        @Override
+        public boolean select() {
+            JCSystem.beginTransaction();
+            return true;
+        }
+
+        @Override
+        public void process(APDU apdu) throws ISOException {
         }
     }
 
@@ -89,31 +108,38 @@ public class SelectTest {
     public void testPartialSelectWorks1() {
         Simulator simulator = prepareSimulator();
 
-        // should select d0000cafe00001
-        assertTrue(simulator.selectApplet(AIDUtil.create("d0000cafe0")));
-        byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transceive(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
-        assertEquals(Arrays.toString(expected), Arrays.toString(actual));
+        try (var bibo = simulator.connect()) {
+            // should select d0000cafe00001
+            var sel = bibo.transmit(AIDUtil.select(AIDUtil.create("d0000cafe0")));
+            assertEquals(0x9000, sel.getSW());
+            byte[] expected = Hex.decode("d0000cafe000019000");
+            var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+        }
     }
 
     @Test
     public void testPartialSelectWorks2() {
         Simulator simulator = prepareSimulator();
 
-        // should select d0000cafe00001
-        simulator.transceive(new byte[]{0, ISO7816.INS_SELECT, 4, 0, 1, (byte) 0xD0});
+        try (var bibo = simulator.connect()) {
+            // should select d0000cafe00001
+            bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00, new byte[]{(byte) 0xD0}));
 
-        byte[] expected = Hex.decode("d0000cafe000019000");
-        byte[] actual = simulator.transceive(new byte[]{CLA, INS_GET_FULL_AID, 0, 0});
-        assertEquals(Arrays.toString(expected), Arrays.toString(actual));
+            byte[] expected = Hex.decode("d0000cafe000019000");
+            var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+        }
     }
 
     @Test
     public void testEmptySelectWorks() {
         // Expected to always reset the currentAID and return "not found"
         Simulator simulator = prepareSimulator();
-        byte[] actual = simulator.transceive(new byte[]{0, ISO7816.INS_SELECT, 4, 0});
-        assertEquals(Arrays.toString(Hex.decode("6A82")), Arrays.toString(actual));
+        try (var bibo = simulator.connect()) {
+            var actual = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00));
+            assertEquals(Arrays.toString(Hex.decode("6A82")), Arrays.toString(actual.getBytes()));
+        }
     }
 
     @Test
@@ -122,7 +148,7 @@ public class SelectTest {
         Simulator simulator = new Simulator();
         simulator.installExposedApplet(aid, UnselectableApplet.class);
 
-        byte[] result = simulator.selectAppletWithResult(aid);
+        byte[] result = simulator.transceive(AIDUtil.selectBytes(aid));
         assertEquals(2, result.length);
         assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, Util.getShort(result, (short) 0));
         assertTrue(UnselectableApplet.selectedCalled);
@@ -131,10 +157,55 @@ public class SelectTest {
     @Test
     public void testApduWithoutSelectedAppletFails() {
         Simulator simulator = new Simulator();
-        byte[] cmd = new byte[]{CLA, INS_GET_FULL_AID, 0, 0};
-        byte[] result;
 
-        result = simulator.transceive(cmd);
-        assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, ByteUtil.getSW(result));
+        try (var bibo = simulator.connect()) {
+            var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, (short) result.getSW());
+        }
+    }
+
+    // JCRE 3.2 §4.6.2 step 7: select() returning true with a transaction
+    // in progress is a selection failure (SW=6999) and no applet stays selected.
+    @Test
+    public void testSelectWithLeakedTransactionFails() {
+        AID aid = AIDUtil.create("d0000cafe00099");
+        Simulator simulator = new Simulator();
+        simulator.installExposedApplet(aid, TransactionLeakingApplet.class);
+
+        try (var bibo = simulator.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(aid));
+            assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) sel.getSW());
+            // No applet is active on the channel - subsequent non-SELECT must be rejected.
+            var follow = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, (short) follow.getSW());
+        }
+    }
+
+    @Test
+    public void testHostSelectWithLeakedTransactionFails() {
+        AID aid = AIDUtil.create("d0000cafe00099");
+        Simulator simulator = new Simulator();
+        simulator.installExposedApplet(aid, TransactionLeakingApplet.class);
+
+        assertFalse(simulator.selectApplet(aid));
+    }
+
+    // GPC v2.3.1 6.4.2.1.2: on SELECT lookup miss, the currently selected
+    // Application shall remain selected.
+    @Test
+    public void testSelectAppletWithUnknownAidPreservesCurrent() {
+        AID good = AIDUtil.create("d0000cafe00001");
+        AID bad = AIDUtil.create("d0000cafe09999");
+
+        Simulator simulator = new Simulator();
+        simulator.installApplet(good, MultiInstanceApplet.class);
+        assertTrue(simulator.selectApplet(good));
+        assertFalse(simulator.selectApplet(bad));
+
+        try (var bibo = simulator.connect()) {
+            var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(0x9000, actual.getSW());
+            assertArrayEquals(AIDUtil.bytes(good), actual.getData());
+        }
     }
 }

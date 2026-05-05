@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.samples.MultiInstanceApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
@@ -18,7 +19,6 @@ public class DeleteTest {
 
     @Test
     public void testDeleteWorks() {
-        byte[] result;
         AID aid1 = AIDUtil.create("d0000cafe00001");
         AID aid2 = AIDUtil.create("d0000cafe00002");
 
@@ -26,30 +26,36 @@ public class DeleteTest {
 
         // install first instance
         simulator.installApplet(aid1, MultiInstanceApplet.class);
-        simulator.selectApplet(aid1);
 
-        // check instance counter == 1
-        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
-        assertEquals(1, ByteUtil.getShort(result, 0));
+        try (var bibo = simulator.connect()) {
+            bibo.transmit(AIDUtil.select(aid1));
+
+            // check instance counter == 1
+            var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
+            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
+            assertEquals(1, ByteUtil.getShort(result.getData(), 0));
+        }
 
         // install second instance
         simulator.installApplet(aid2, MultiInstanceApplet.class);
 
-        // check instance counter == 2
-        simulator.selectApplet(aid2);
-        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
-        assertEquals(2, ByteUtil.getShort(result, 0));
+        try (var bibo = simulator.connect()) {
+            // check instance counter == 2
+            bibo.transmit(AIDUtil.select(aid2));
+            var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
+            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
+            assertEquals(2, ByteUtil.getShort(result.getData(), 0));
+        }
 
         // delete instance 1
         simulator.deleteApplet(aid1);
 
-        // check instance counter == 1
-        simulator.selectApplet(aid2);
-        result = simulator.transceive(new byte[]{CLA, INS_GET_COUNT, 0, 0});
-        assertEquals(ISO7816.SW_NO_ERROR, ByteUtil.getSW(result));
-        assertEquals(1, ByteUtil.getShort(result, 0));
-
+        try (var bibo = simulator.connect()) {
+            // check instance counter == 1
+            bibo.transmit(AIDUtil.select(aid2));
+            var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
+            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
+            assertEquals(1, ByteUtil.getShort(result.getData(), 0));
+        }
     }
 }

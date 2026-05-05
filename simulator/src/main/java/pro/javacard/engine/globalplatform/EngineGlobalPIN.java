@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.globalplatform;
 
+import com.licel.jcardsim.base.Simulator;
 import org.globalplatform.CVM;
+import org.globalplatform.GPRegistryEntry;
 
 import java.util.Arrays;
 
-public class GlobalPINImpl implements CVM {
+public class EngineGlobalPIN implements CVM {
 
     private static final byte INACTIVE = 0x00;
     private static final byte ACTIVE = 0x01;
@@ -20,6 +22,15 @@ public class GlobalPINImpl implements CVM {
     byte try_counter = 0;
     byte try_limit = -1;
 
+    // GPC v2.3.1 6.6.1 (Table 6-1, CVM Management privilege) + 8.2.1: update/blockState/
+    // resetAndUnblockState/setTryLimit are gated on PRIVILEGE_CVM_MANAGEMENT held by the
+    // current applet context.
+    private static boolean callerHasCvmManagement() {
+        var sim = Simulator.current();
+        var aid = sim.getAID();
+        var entry = sim.lookupApplet(aid);
+        return entry != null && entry.isPrivileged(GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT);
+    }
 
     @Override
     public boolean isActive() {
@@ -48,10 +59,14 @@ public class GlobalPINImpl implements CVM {
 
     @Override
     public boolean update(byte[] bytes, short i, byte b, byte b1) {
+        if (!callerHasCvmManagement()) {
+            return false;
+        }
         if (b1 != CVM.FORMAT_HEX) {
             return false;
         }
-        value = Arrays.copyOfRange(bytes, i, b);
+        int len = b & 0xFF;
+        value = Arrays.copyOfRange(bytes, i, i + len);
         format = b1;
         if (try_limit > 0) {
             try_counter = try_limit;
@@ -71,6 +86,9 @@ public class GlobalPINImpl implements CVM {
 
     @Override
     public boolean blockState() {
+        if (!callerHasCvmManagement()) {
+            return false;
+        }
         if (state > INACTIVE) {
             state = BLOCKED;
             return true;
@@ -80,16 +98,25 @@ public class GlobalPINImpl implements CVM {
 
     @Override
     public boolean resetAndUnblockState() {
-        if (state > INACTIVE) {
-            state = ACTIVE;
+        if (!callerHasCvmManagement()) {
+            return false;
         }
-        return false;
+        if (state == INACTIVE) {
+            return false;
+        }
+        state = ACTIVE;
+        try_counter = try_limit;
+        return true;
     }
 
     @Override
     public boolean setTryLimit(byte b) {
+        if (!callerHasCvmManagement()) {
+            return false;
+        }
         if (b > 0) {
             try_limit = b;
+            try_counter = b;
             if (value != null) {
                 state = ACTIVE;
             }
@@ -104,16 +131,30 @@ public class GlobalPINImpl implements CVM {
             return CVM.CVM_FAILURE;
         }
 
-        if (b1 == format && Arrays.equals(value, Arrays.copyOfRange(bytes, i, b))) {
+        int len = b & 0xFF;
+        if (b1 == format && Arrays.equals(value, Arrays.copyOfRange(bytes, i, i + len))) {
             try_counter = try_limit;
             state = VALIDATED;
             return CVM_SUCCESS;
         }
 
         state = INVALID_SUBMISSION;
-        if (--try_counter == 0) {
+        if (--try_counter <= 0) {
             state = BLOCKED;
         }
         return CVM.CVM_FAILURE;
+    }
+
+    // GPC v2.3.1 8.2.2.2.1: at end of Card Session the CVM transitions back to ACTIVE, preserving the
+    // retry counter. BLOCKED survives across sessions; INACTIVE (never initialized) stays put.
+    //
+    // The simulator cannot observe end-of-session directly (no card-removal event), but the next
+    // power-up arrives as reset() — logically equivalent, since nothing observable happens between
+    // session end and the following power-up. Same model as CLEAR_ON_RESET transient memory: we
+    // always act on reset.
+    void onCardReset() {
+        if (state != BLOCKED && state != INACTIVE) {
+            state = ACTIVE;
+        }
     }
 }

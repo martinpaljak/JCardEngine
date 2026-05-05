@@ -8,9 +8,11 @@ import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import pro.javacard.engine.faulty.FaultyConfig;
+import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatform;
-import pro.javacard.engine.globalplatform.GlobalPlatformApplet;
+import pro.javacard.engine.globalplatform.KeySet;
 import pro.javacard.engine.globalplatform.SCPConfig;
+import pro.javacard.engine.globalplatform.SecurityDomainApplet;
 
 import javax.smartcardio.TerminalFactory;
 import java.time.Duration;
@@ -98,9 +100,27 @@ public interface JavaCardEngine {
         }
 
         public JavaCardEngine build() {
-            var gp = new GlobalPlatform(scpConfig);
+            var resolvedScp = scpConfig != null ? scpConfig : new SCPConfig.SCP03(true);
+            var gp = new GlobalPlatform(resolvedScp);
             var sim = new Simulator(classLoader, faultConfig, gp);
-            sim.installExposedApplet(GlobalPlatformApplet.OPEN_AID, GlobalPlatformApplet.class);
+            // Plant the ISD entry directly: the OPEN is an override, not a normal install.
+            // Structural plant of the factory KVN (0xFF) keyset matching the SCP type;
+            // bypasses the personalization-only factory trigger that putKey applies.
+            var openSda = new SecurityDomainApplet();
+            var openEntry = EngineRegistryEntry.forISD(SecurityDomainApplet.OPEN_AID, openSda, true,
+                    SecurityDomainApplet.ISD_DEFAULT_PRIVILEGES, SecurityDomainApplet.SSD_PACKAGE_AID);
+            KeySet bootstrap;
+            if (resolvedScp instanceof SCPConfig.SCP02 c) {
+                bootstrap = KeySet.ofMaster((byte) 0xFF, KeySet.TYPE_DES3, c.masterKey());
+            } else if (resolvedScp instanceof SCPConfig.SCP03 c) {
+                bootstrap = KeySet.ofMaster((byte) 0xFF, KeySet.TYPE_AES, c.masterKey());
+            } else {
+                throw new IllegalArgumentException("Unsupported SCP config: " + resolvedScp);
+            }
+            openSda.seedKey(bootstrap);
+            sim.getRegistry().put(SecurityDomainApplet.OPEN_AID, openEntry);
+            gp.addBuiltinPackage(SecurityDomainApplet.SSD_PACKAGE_AID, SecurityDomainApplet.SSD_MODULE_AID, SecurityDomainApplet.class);
+            sim.reset();
             return sim;
         }
     }

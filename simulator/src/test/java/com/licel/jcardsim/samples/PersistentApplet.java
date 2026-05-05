@@ -16,49 +16,49 @@ import javacard.security.RandomData;
  */
 @SuppressWarnings("deprecation") // random
 public class PersistentApplet extends Applet {
-    
+
     private static final byte GET_DATA_INS = 0x01;
     private static final byte GET_COUNTER = 0x02;
     private static final byte INC_COUNTER = 0x03;
     private static final byte GET_DESELECT_COUNTER = 0x04;
-    
+
     private static final short ARR_SIZE = 8;
     private static final short AES_KEY_SIZE = 128;
 
-    private byte[] byteArr;
-    private Key[] keyArr;
-    
+    private final byte[] byteArr;
+    private final Key[] keyArr;
+
     private byte counter = 0;
     private byte deSelectCounter = 0;
-    
+
     RandomData gen;
-    
+
     protected PersistentApplet(byte[] bArray, short bOffset, byte bLength) {
         gen = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
 
         byteArr = new byte[ARR_SIZE];
         gen.generateData(byteArr, (short) 0, (short) byteArr.length);
-        
+
         keyArr = new Key[ARR_SIZE];
         byte[] keyDataBuf = new byte[AES_KEY_SIZE / 8];
-        for(int i = 0; i < keyArr.length; i++) {
+        for (int i = 0; i < keyArr.length; i++) {
             keyArr[i] = KeyBuilder.buildKey(KeyBuilder.TYPE_AES, AES_KEY_SIZE, false);
             gen.generateData(keyDataBuf, (short) 0, (short) keyDataBuf.length);
-            
+
             ((AESKey) keyArr[i]).setKey(keyDataBuf, (short) 0);
-        }                    
+        }
         register();
     }
-    
+
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new PersistentApplet(bArray, bOffset,bLength);
+        new PersistentApplet(bArray, bOffset, bLength);
     }
-    
+
     public void deselect() {
         deSelectCounter++;
     }
-    
+
     public void process(APDU apdu) {
 
         if (selectingApplet()) {
@@ -69,11 +69,11 @@ public class PersistentApplet extends Applet {
         switch (buffer[ISO7816.OFFSET_INS]) {
             case GET_DATA_INS:
                 apdu.setOutgoing();
-                short totalLen = (short)(byteArr.length + (keyArr.length * AES_KEY_SIZE / 8));
+                short totalLen = (short) (byteArr.length + (keyArr.length * AES_KEY_SIZE / 8));
                 apdu.setOutgoingLength(totalLen);
                 byte[] buf = new byte[totalLen];
                 System.arraycopy(byteArr, (short) 0, buf, (short) 0, byteArr.length);
-                for(int i = 0; i < keyArr.length; i++) {
+                for (int i = 0; i < keyArr.length; i++) {
                     ((AESKey) keyArr[i]).getKey(buf, (short) (byteArr.length + (i * AES_KEY_SIZE / 8)));
                 }
                 apdu.sendBytesLong(buf, (short) 0, (short) buf.length);

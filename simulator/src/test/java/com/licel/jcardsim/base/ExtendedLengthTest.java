@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.CommandAPDU;
+import apdu4j.core.ResponseAPDU;
 import com.licel.jcardsim.samples.Sha1Applet;
+import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
-import javax.smartcardio.ResponseAPDU;
-import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -17,22 +18,21 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ExtendedLengthTest {
-    private static final byte CLA = (byte) 0x80;
-    private static final byte INS_DIGEST = 0;
-    private static final byte INS_ECHO = 2;
-    private static final byte INS_LEN = 4;
-    private static final byte P1 = (byte) 0;
-    private static final byte P2 = (byte) 0;
+    private static final int CLA = 0x80;
+    private static final int INS_DIGEST = 0x00;
+    private static final int INS_ECHO = 0x02;
+    private static final int INS_LEN = 0x04;
+    private static final int P1 = 0x00;
+    private static final int P2 = 0x00;
     private static final byte DUMMY = (byte) 0x41;
 
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode("0102030405cafe01");
+    private static final AID TEST_APPLET_AID = new AID(TEST_APPLET_AID_BYTES, (short) 0, (byte) TEST_APPLET_AID_BYTES.length);
 
 
     private Simulator prepareSimulator() {
         Simulator instance = new Simulator();
-        AID aid = new AID(TEST_APPLET_AID_BYTES, (short) 0, (byte) TEST_APPLET_AID_BYTES.length);
-        instance.installApplet(aid, Sha1Applet.class);
-        instance.selectApplet(aid);
+        instance.installApplet(TEST_APPLET_AID, Sha1Applet.class);
         return instance;
     }
 
@@ -43,12 +43,14 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_DIGEST, P1, P2, 1, DUMMY};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_DIGEST, P1, P2, new byte[]{DUMMY}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -59,12 +61,15 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, lc, 0, le};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on Lc/Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, lc, 0, le}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -74,12 +79,15 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, le};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on Lc/Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, le}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -88,12 +96,14 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_ECHO, 0, 0, 1, DUMMY};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_ECHO, 0x00, 0x00, new byte[]{DUMMY}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -104,12 +114,14 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_DIGEST, 0, 0, 0, 0, 1, DUMMY};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_DIGEST, 0x00, 0x00, new byte[]{DUMMY}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -119,12 +131,15 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 0, le};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, 0, le}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -133,12 +148,15 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 1, 2};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, 1, 2}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -147,12 +165,15 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        byte[] apdu = new byte[]{CLA, INS_LEN, P1, P2, 0, 0, 1, DUMMY, 0x1F, (byte) 0xCA};
-        byte[] result = instance.transceive(apdu);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Lc/Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, 0, 1, DUMMY, 0x1F, (byte) 0xCA}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -160,12 +181,15 @@ public class ExtendedLengthTest {
         byte[] expectedOutput = {0x41};
 
         Simulator instance = prepareSimulator();
-        byte[] apdu = new byte[]{CLA, INS_ECHO, 0, 0, 0, 0, 1, DUMMY};
-        byte[] result = instance.transceive(apdu);
 
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
+
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_ECHO, 0x00, 0x00, new byte[]{DUMMY}));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 
     @Test
@@ -177,17 +201,13 @@ public class ExtendedLengthTest {
 
         Simulator instance = prepareSimulator();
 
-        ByteBuffer inputApdu = ByteBuffer.wrap(new byte[input.length + 7]);
-        inputApdu.put(CLA);
-        inputApdu.put(INS_DIGEST);
-        inputApdu.put(P1);
-        inputApdu.put(P2);
-        inputApdu.put((byte) 0).putShort((short) input.length); // Lc
-        inputApdu.put(input);
+        try (var bibo = instance.connect()) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(0x9000, sel.getSW());
 
-        byte[] result = instance.transceive(inputApdu.array());
-        ResponseAPDU responseApdu = new ResponseAPDU(result);
-        assertEquals(0x9000, responseApdu.getSW());
-        assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_DIGEST, P1, P2, input));
+            assertEquals(0x9000, responseApdu.getSW());
+            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+        }
     }
 }

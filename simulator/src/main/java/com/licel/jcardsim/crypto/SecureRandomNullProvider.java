@@ -8,20 +8,24 @@ import org.bouncycastle.crypto.prng.RandomGenerator;
 
 import java.security.SecureRandom;
 import java.security.SecureRandomSpi;
+
 // TODO: remove
 class SecureRandomNullProvider extends SecureRandom {
 
     public SecureRandomNullProvider() {
         super(new SecureRandomSpi() {
-            RandomGenerator engine = new DigestRandomGenerator(new SHA1Digest());
+            final RandomGenerator engine = new DigestRandomGenerator(new SHA1Digest());
+
             @Override
             protected void engineSetSeed(byte[] arg) {
                 engine.addSeedMaterial(arg);
             }
+
             @Override
             protected void engineNextBytes(byte[] arg) {
                 engine.nextBytes(arg);
             }
+
             @Override
             protected byte[] engineGenerateSeed(int len) {
                 byte[] buf = new byte[len];
