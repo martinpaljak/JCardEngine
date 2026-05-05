@@ -23,6 +23,7 @@ import java.util.TreeMap;
 public class GlobalPlatform {
     private static final Logger log = LoggerFactory.getLogger(GlobalPlatform.class);
     private final EngineSecureChannel sc;
+    private final SCPConfig scpConfig;
     private final EngineGlobalPIN gpin = new EngineGlobalPIN();
 
     // CPLC value (ISO/IEC 7816-6 tag '9F7F', Visa GP convention; not in GPC). 42 bytes.
@@ -43,6 +44,7 @@ public class GlobalPlatform {
         if (scpConfig == null) {
             scpConfig = new SCPConfig.SCP03(true);
         }
+        this.scpConfig = scpConfig;
         if (scpConfig instanceof SCPConfig.SCP02) {
             sc = new SCP02SecureChannelImpl();
         } else if (scpConfig instanceof SCPConfig.SCP03 c) {
@@ -97,6 +99,31 @@ public class GlobalPlatform {
         var pkg = EngineRegistryEntry.forPackage(packageAid, null, SecurityDomainApplet.OPEN_AID);
         pkg.addModule(moduleAid, moduleClass);
         packages.put(packageAid, pkg);
+    }
+
+    // Plant the ISD entry directly: the OPEN is an override, not a normal install.
+    // Structural plant of the factory KVN (0xFF) keyset matching the SCP type;
+    // bypasses the personalization-only factory trigger that putKey applies.
+    public void bootstrap(SortedMap<AID, EngineRegistryEntry> registry) {
+        if (registry.containsKey(SecurityDomainApplet.OPEN_AID)) {
+            return;
+        }
+        var isd = new SecurityDomainApplet();
+        isd.seedKey(bootstrapKeySet());
+        var entry = EngineRegistryEntry.forISD(SecurityDomainApplet.OPEN_AID, isd, true,
+                SecurityDomainApplet.ISD_DEFAULT_PRIVILEGES, SecurityDomainApplet.SSD_PACKAGE_AID);
+        registry.put(SecurityDomainApplet.OPEN_AID, entry);
+        addBuiltinPackage(SecurityDomainApplet.SSD_PACKAGE_AID, SecurityDomainApplet.SSD_MODULE_AID, SecurityDomainApplet.class);
+    }
+
+    private KeySet bootstrapKeySet() {
+        if (scpConfig instanceof SCPConfig.SCP02 c) {
+            return KeySet.ofMaster(SecurityDomainApplet.FACTORY_KVN, KeySet.TYPE_DES3, c.masterKey());
+        }
+        if (scpConfig instanceof SCPConfig.SCP03 c) {
+            return KeySet.ofMaster(SecurityDomainApplet.FACTORY_KVN, KeySet.TYPE_AES, c.masterKey());
+        }
+        throw new IllegalStateException("Unsupported SCP config: " + scpConfig);
     }
 
     public Collection<EngineRegistryEntry> getPackages() {
