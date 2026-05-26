@@ -38,7 +38,7 @@
     </licenses>
 
     <properties>
-        <project.build.outputTimestamp>2026-04-20T08:58:54Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-04-20T08:59:54Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <apdu4j.version>26.04.21-SNAPSHOT</apdu4j.version>
@@ -70,6 +70,11 @@
 
     <build>
         <plugins>
+            <!-- Code formatter; invoked on demand via `make format` -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+            </plugin>
             <!-- Minimum Maven version. Not really relevant with wrapper -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -88,7 +93,7 @@
                                     <message>Project requires a LTS JDK from v17+</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
-                                    <version>[3.9.14,)</version>
+                                    <version>[3.9.16,)</version>
                                 </requireMavenVersion>
                                 <requirePluginVersions/>
                             </rules>
@@ -168,6 +173,25 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>0.8.14</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>2.44.0</version>
+                    <configuration>
+                        <java>
+                            <includes>
+                                <include>src/main/java/**/*.java</include>
+                                <include>src/test/java/**/*.java</include>
+                            </includes>
+                            <eclipse>
+                                <version>4.32</version>
+                                <file>${maven.multiModuleProjectDirectory}/eclipse-formatter.xml</file>
+                            </eclipse>
+                            <trimTrailingWhitespace/>
+                            <endWithNewline/>
+                        </java>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.openrewrite.maven</groupId>

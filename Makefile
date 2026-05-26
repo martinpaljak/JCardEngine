@@ -33,3 +33,9 @@ today:
 
 reuse:
 	reuse --no-multiprocessing lint
+
+format:
+	./mvnw -q spotless:apply
+
+format-check:
+	./mvnw -q spotless:check
