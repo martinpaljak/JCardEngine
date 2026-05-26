@@ -23,8 +23,8 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Objects;
 
-public final class SCP03SecureChannelImpl extends EngineSecureChannel {
-    private static final Logger log = LoggerFactory.getLogger(SCP03SecureChannelImpl.class);
+public final class SCP03SecureChannel extends EngineSecureChannel {
+    private static final Logger log = LoggerFactory.getLogger(SCP03SecureChannel.class);
     private final boolean s16;
     private final byte[] SCP;
 
@@ -34,20 +34,14 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
 
     private byte[] ctx; // needed twice
 
-    public SCP03SecureChannelImpl(boolean s16) {
+    public SCP03SecureChannel(boolean s16) {
         this.s16 = s16;
         this.SCP = new byte[]{0x03, (byte) (0x70 | (s16 ? 0x01 : 0x00))};
     }
 
-    public SCP03SecureChannelImpl() {
+    public SCP03SecureChannel() {
         this(false);
     }
-
-    private PlaintextKeys freshKeys() {
-        var ks = resolveMasterKey();
-        return PlaintextKeys.fromKeys(ks.value(KeySet.KID_ENC), ks.value(KeySet.KID_MAC), ks.value(KeySet.KID_DEK));
-    }
-
 
     @Override
     public short processSecurity(APDU apdu) throws ISOException {
@@ -62,9 +56,8 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x80) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
             }
-            // P1 carries the requested KVN per GPC v2.3.1 D.4.1.3; already consumed and validated
-            // by SecurityDomainApplet.primeSecureChannel — accept any value here. P2 (Key Identifier)
-            // is unused for SCP03 master-key selection.
+            // P1 = key version number, used by initializeMasterKey() below to select the key set.
+            // P2 (Key Identifier) unused for SCP03 master-key selection. GPC v2.3.1 D.4.1.4.
             if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
@@ -73,7 +66,7 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
             }
             resetSession();
             byte[] kdd = sessionKDD();
-            PlaintextKeys keys = freshKeys();
+            PlaintextKeys keys = initializeMasterKey(buffer[ISO7816.OFFSET_P1]);
             keys.diversify(GPSecureChannelVersion.SCP.SCP03, kdd);
             byte[] kdf_ctx = GPUtils.concatenate(ssc, AIDUtil.bytes(Simulator.current().getAID()));
             byte[] host_challenge = Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (s16 ? 16 : 8));
@@ -166,9 +159,8 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
             }
             log.trace("Cryptogram len={} {}", cryptogram.length, Hex.toHexString(cryptogram));
             if ((bytes[ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
-                // GPC Amd D v1.2 6.2.6 requires the encryption counter to still be incremented
-                // even when no encryption is applied because the command has no data field, which
-                // keeps the engine's counter in sync with GPPro's default wrapper.
+                // GPC v2.3.1 Amd D 6.2.6: increment the counter even with no data field, to stay
+                // in sync with GPPro's wrapper.
                 GPCrypto.buffer_increment(enc_counter);
                 if (cryptogram.length > 0) {
                     byte[] iv = GPCrypto.aes_cbc(enc_counter, encKey, new byte[16]);
@@ -202,12 +194,12 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
         }
         requireAuthenticated();
         try {
-            // SCP03 uses static DEK (not session-derived like SCP02)
+            // SCP03 uses static DEK
             byte[] result = GPCrypto.aes_cbc_decrypt(Arrays.copyOfRange(buffer, offset, offset + length), currentMasterKey.value(KeySet.KID_DEK), new byte[16]);
             Util.arrayCopyNonAtomic(result, (short) 0, buffer, offset, (short) result.length);
             return (short) result.length;
         } catch (GeneralSecurityException e) {
-            log.error("Could not decrypt data: " + e.getMessage(), e);
+            log.error("Decrypt failed", e);
             throw new RuntimeException(e);
         }
     }
@@ -223,11 +215,9 @@ public final class SCP03SecureChannelImpl extends EngineSecureChannel {
         zeroize(encKey, macKey, chaining, enc_counter);
     }
 
-    // GPC Amd D v1.2 6.2.5: R-MAC = first 8 bytes (S8) or full 16 bytes (S16) of the CMAC.
-    // 6.2.7 reuses 6.2.5 sizing under R-ENCRYPTION. R-ENCRYPTION pads to AES block (worst case
-    // +16 bytes when payload length is a multiple of 16).
+    // GPC v2.3.1 Amd D 6.2.5/6.2.7: R-MAC = 8 bytes (S8) or 16 (S16); R-ENCRYPTION pads up to +16.
     @Override
-    public short maxResponseLength() {
+    short maxResponseLength() {
         short max = 256;
         if ((state & SecureChannel.R_MAC) != 0) {
             max -= s16 ? 16 : 8;

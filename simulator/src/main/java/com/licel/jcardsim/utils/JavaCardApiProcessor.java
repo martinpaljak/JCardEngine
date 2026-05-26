@@ -17,9 +17,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Injects jCardSim's code into Java Card Api Reference Classes
- */
+// Injects proxy class bodies into the Java Card API reference classes, replacing no-op stubs.
+// Pure interfaces (CLApplet, CRELApplication, ...) are not proxied: nothing to inject, and they
+// stay parent-loaded so applet `implements` and engine `instanceof` see the same Class.
 public class JavaCardApiProcessor {
 
     public static void main(String args[]) throws Exception {
@@ -28,9 +28,7 @@ public class JavaCardApiProcessor {
             throw new RuntimeException("Invalid directory: " + buildDir);
         }
         System.out.println("Processing " + buildDir);
-        // NOTE: resorting to string here is intentional, as the transformation fscks up the class directory (proxies are removed)
-        // This makes IDE very unhappy when running tests. Alternative: don't delete proxies (but removing them from dist would mean they all should live
-        // in a separate package)
+        // Strings (not Class refs) on purpose: the transform deletes proxy classes from the dir.
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.AIDProxy", "javacard.framework.AID", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.APDUProxy", "javacard.framework.APDU", false);
         proxyClass(buildDir, "pro.javacard.engine.proxy.javacard.framework.AppletProxy", "javacard.framework.Applet", false);
@@ -72,6 +70,7 @@ public class JavaCardApiProcessor {
 
         // Global Platform
         proxyClass(buildDir, "pro.javacard.engine.proxy.org.globalplatform.GPSystemProxy", "org.globalplatform.GPSystem", false);
+        proxyClass(buildDir, "pro.javacard.engine.proxy.org.globalplatform.contactless.GPCLSystemProxy", "org.globalplatform.contactless.GPCLSystem", false);
     }
 
     public static void proxyClass(File buildDir, Class<?> proxyClass, Class<?> targetClass, boolean skipConstructor) throws IOException {
@@ -183,16 +182,7 @@ public class JavaCardApiProcessor {
 
         @Override
         public void visitEnd() {
-            // ASM for adding the body to constructor and static throwIt, resulting in:
-            // public class YourClassName extends YourSuperClass {
-            //    public YourClassName(short value) {
-            //        super(value);
-            //    }
-            //    public static void throwIt(short value) {
-            //        throw new YourClassName(value);
-            //    }
-            //}
-
+            // Generate: ctor (short) -> super(short), and static throwIt(short) -> throw new this(short).
             MethodVisitor mv = cv.visitMethod(ACC_PUBLIC, "<init>", "(S)V", null, null);
             mv.visitCode();
             mv.visitVarInsn(ALOAD, 0);

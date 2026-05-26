@@ -18,7 +18,7 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 // Simulator.loadApplet(...) before the simulator runs. The Security Domain therefore actively
 // rejects the LOAD APDU and any INSTALL P1 carrying the "for load" bit (b2 = 0x02), with
 // SW_FUNC_NOT_SUPPORTED (0x6A81). This is the SOLE legitimate use of hand-rolled CommandAPDU
-// in the GP test suite — gp-pro deliberately has no installForLoad surface.
+// in the GP test suite - gp-pro deliberately has no installForLoad surface.
 public class DispatchRejectionTest {
 
     static Stream<Arguments> loadFamilyCases() {
@@ -33,7 +33,7 @@ public class DispatchRejectionTest {
                 // Continuation bit (b8 = 0x80) must not mask off the load-bit check. P1=0x82 is
                 // the continuation form of INSTALL [for load] and is rejected for the same reason.
                 Arguments.of("INSTALL [for load] continuation", GPSession.INS_INSTALL, (byte) 0x82, new byte[]{0x00, 0x00, 0x00, 0x00, 0x00}),
-                // GPC v2.3.1 11.6 LOAD (INS 0xE8). Without INSTALL [for load] priming this is
+                // GPC v2.3.1 11.6 LOAD (INS 0xE8). Without a preceding INSTALL [for load] this is
                 // meaningless on an engine that does not load on card; rejected explicitly rather
                 // than left to default 6D00, so a misbehaving GP host gets a deterministic signal.
                 Arguments.of("LOAD", GPSession.INS_LOAD, (byte) 0x80, new byte[]{(byte) 0xC4, 0x00})

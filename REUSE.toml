@@ -39,7 +39,10 @@ SPDX-License-Identifier = "Apache-2.0"
 # org.globalplatform.* API jar - GlobalPlatform Specification License
 # Agreement (see LICENSES/LicenseRef-GlobalPlatform-API.txt).
 [[annotations]]
-path = ["simulator/gpapi-globalplatform.jar"]
+path = [
+    "simulator/gpapi-globalplatform.jar",
+    "simulator/gpapi-contactless.jar",
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "GlobalPlatform Inc."
 SPDX-License-Identifier = "LicenseRef-GlobalPlatform-API"

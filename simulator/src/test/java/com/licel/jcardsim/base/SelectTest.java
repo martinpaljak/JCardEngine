@@ -134,11 +134,12 @@ public class SelectTest {
 
     @Test
     public void testEmptySelectWorks() {
-        // Expected to always reset the currentAID and return "not found"
+        // GPC v2.3.1 6.3: empty-AID SELECT (case 1/2) selects the default application - the ISD, which
+        // every card is now born with - so it answers with its FCI and 9000, not "not found".
         Simulator simulator = prepareSimulator();
         try (var bibo = simulator.connect()) {
             var actual = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00));
-            assertEquals(Arrays.toString(Hex.decode("6A82")), Arrays.toString(actual.getBytes()));
+            assertEquals(0x9000, actual.getSW());
         }
     }
 
@@ -164,7 +165,7 @@ public class SelectTest {
         }
     }
 
-    // JCRE 3.2 §4.6.2 step 7: select() returning true with a transaction
+    // JCRE 3.2 4.6.2 step 7: select() returning true with a transaction
     // in progress is a selection failure (SW=6999) and no applet stays selected.
     @Test
     public void testSelectWithLeakedTransactionFails() {

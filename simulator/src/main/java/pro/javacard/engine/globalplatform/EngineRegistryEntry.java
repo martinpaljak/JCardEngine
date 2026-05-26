@@ -6,29 +6,27 @@ import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import org.globalplatform.GPRegistryEntry;
+import org.globalplatform.GPSystem;
+import org.globalplatform.contactless.CLAppletEvent;
+import org.globalplatform.contactless.GPCLRegistryEntry;
 import pro.javacard.engine.core.ReflectiveClassProxy;
+import pro.javacard.engine.globalplatform.GPNamedElement.GPInfo;
+import pro.javacard.engine.globalplatform.GPNamedElement.GPTag;
 import pro.javacard.gp.data.BitField;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 import static pro.javacard.gp.GPRegistryEntry.*;
 
-/**
- * Unified registry entry. Holds both APP/SSD/ISD applet instances and PKG load files.
- * Implements the GP API {@link GPRegistryEntry} so the same instance is returned via
- * {@code GPSystem.getRegistryEntry(...)}.
- */
-public final class EngineRegistryEntry implements GPRegistryEntry {
+// GP(CL)RegistryEntry implementation
+public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
-    // Default initial lifecycle for APP/SSD entries — SELECTABLE per GPC v2.3.1 11.1.1 (Table 11-4).
-    public static final byte APP_SELECTABLE = (byte) 0x07;
-    // Default initial lifecycle for PKG entries — LOADED per GPC v2.3.1 11.1.1 (Table 11-3).
+    // Load-file (ELF) initial lifecycle, GPC v2.3.1 11.1.1: LOADED. GPSystem defines no load-file
+    // state constant (only APPLICATION_*/CARD_*/SECURITY_DOMAIN_*), so this one stays local. The
+    // applet/ISD initial states use GPSystem.APPLICATION_SELECTABLE / CARD_OP_READY directly.
     public static final byte PKG_LOADED = (byte) 0x01;
-    // Default initial lifecycle for ISD — OP_READY per GPC v2.3.1 11.1.1 (Table 11-6).
-    public static final byte ISD_OP_READY = (byte) 0x01;
+
+    private static final short SW_FUNC_NOT_SUPPORTED = 0x6A81;
 
     private final AID aid;
     private final Object instance;          // null for PKG
@@ -36,14 +34,30 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
     private EnumSet<Privilege> privileges;
     private final Kind kind;
     private final AID packageAID;           // load file AID (nullable for APP/SSD/ISD)
-    private AID parentSD;                   // associated SD (mutable: INSTALL [for extradition], 11.5.2.3.4)
+    private EngineRegistryEntry parentSD;   // associated SD (mutable: INSTALL [for extradition], 11.5.2.3.4)
     private byte lifecycle;                 // mutable: getState/setState
-    private final String javaPackageName;   // only for PKG
-    private final Map<AID, Class<? extends Applet>> modules; // only for PKG
+    private final String javaPackageName;   // PKG only
+    private final Map<AID, Class<? extends Applet>> modules; // PKG only
 
-    private EngineRegistryEntry(AID aid, Object instance, boolean exposed,
-                                EnumSet<Privilege> privileges, Kind kind,
-                                AID packageAID, byte initialLifecycle, AID parentSD) {
+    // ---- CL state (applet-kind only; PKG entries throw on CL methods).
+    private byte state = STATE_CL_DEACTIVATED;
+    private final LinkedHashSet<AID> crels = new LinkedHashSet<>();
+    private final HashMap<GPInfo, byte[]> infos = new HashMap<>();
+
+    // Global Service registration (GPC v2.3.1 8.1.1).
+    private final LinkedHashSet<Short> installedServices = new LinkedHashSet<>();
+    private final LinkedHashSet<Short> registeredServices = new LinkedHashSet<>();
+
+    // Opaque INSTALL EF System Specific Parameters
+    private final LinkedHashMap<GPTag, byte[]> systemParams = new LinkedHashMap<>();
+
+    // STORE DATA / GET DATA data objects (GPC v2.3.1 11.11), keyed by tag.
+    private final LinkedHashMap<GPTag, byte[]> data = new LinkedHashMap<>();
+
+    // DELETE tombstone, set by markDisabled().
+    private boolean disabled;
+
+    private EngineRegistryEntry(AID aid, Object instance, boolean exposed, EnumSet<Privilege> privileges, Kind kind, AID packageAID, byte initialLifecycle, EngineRegistryEntry parentSD) {
         this.aid = aid;
         this.instance = instance;
         this.exposed = exposed;
@@ -51,12 +65,12 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
         this.kind = kind;
         this.packageAID = packageAID;
         this.lifecycle = initialLifecycle;
-        this.parentSD = parentSD;
+        this.parentSD = parentSD == null ? this : parentSD;
         this.javaPackageName = null;
         this.modules = null;
     }
 
-    private EngineRegistryEntry(AID packageAID, String javaPackageName, byte initialLifecycle, AID associatedSD) {
+    private EngineRegistryEntry(AID packageAID, String javaPackageName, byte initialLifecycle, EngineRegistryEntry associatedSD) {
         this.aid = packageAID;
         this.instance = null;
         this.exposed = false;
@@ -69,35 +83,29 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
         this.modules = new TreeMap<>(AIDUtil.comparator());
     }
 
-    // APP/SSD factory (EnumSet-first). The Kind is auto-promoted to SSD when the SecurityDomain
-    // privilege is present, mirroring gp-pro's GPRegistry which derives Kind from the privilege bit.
-    // ISD entries go through forISD; the ISD is special and not derivable from privileges alone.
-    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, EnumSet<Privilege> privileges, AID packageAID, AID parentSD) {
+    // APP/SSD factory. Kind auto-promotes to SSD when the SecurityDomain privilege is present (ISD goes via forISD).
+    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, EnumSet<Privilege> privileges, AID packageAID, EngineRegistryEntry parentSD) {
         var privSet = copyPrivileges(privileges);
         Kind kind = privSet.contains(Privilege.SecurityDomain) ? Kind.SSD : Kind.APP;
-        return new EngineRegistryEntry(aid, instance, exposed, privSet, kind, packageAID, APP_SELECTABLE, parentSD);
+        return new EngineRegistryEntry(aid, instance, exposed, privSet, kind, packageAID, GPSystem.APPLICATION_SELECTABLE, parentSD);
     }
 
-    // APP/SSD factory: byte[] convenience for the GP install boundary. Kind auto-promotion as above.
-    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, byte[] privBytes, AID packageAID, AID parentSD) {
+    // APP/SSD factory: byte[] convenience for the GP install boundary.
+    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, byte[] privBytes, AID packageAID, EngineRegistryEntry parentSD) {
         return forApplet(aid, instance, exposed, decodePrivileges(privBytes), packageAID, parentSD);
     }
 
-    // ISD factory: explicit override used by the bootstrap site that "plants" the card manager entry.
-    // The ISD self-parents because GPC v2.3.1 7.2 states that the Issuer Security Domain is
-    // effectively associated with itself, its establishment on the card is not defined by
-    // GlobalPlatform, and it is not subject to extradition.
-    public static EngineRegistryEntry forISD(AID aid, Object instance, boolean exposed, EnumSet<Privilege> privileges, AID packageAID) {
-        return new EngineRegistryEntry(aid, instance, exposed, copyPrivileges(privileges), Kind.ISD, packageAID, ISD_OP_READY, aid);
+    // ISD factory used by bootstrap. The ISD self-parents (GPC v2.3.1 7.2) and is not extraditable.
+    static EngineRegistryEntry forISD(AID aid, Object instance, AID packageAID) {
+        return new EngineRegistryEntry(aid, instance, true, copyPrivileges(SecurityDomainApplet.ISD_DEFAULT_PRIVILEGES), Kind.ISD, packageAID, GPSystem.CARD_OP_READY, null);
     }
 
-    // PKG factory. The associated SD is the one that "issued" the load (real GP: INSTALL [for load]).
-    // Mirrors the role parentSD plays for APP/SSD entries — see resolveMasterKey()'s walk.
-    public static EngineRegistryEntry forPackage(AID packageAID, String javaPackageName, AID associatedSD) {
+    // PKG factory. associatedSD is the SD that issued the load (real GP: INSTALL [for load]).
+    static EngineRegistryEntry forPackage(AID packageAID, String javaPackageName, EngineRegistryEntry associatedSD) {
         return new EngineRegistryEntry(packageAID, javaPackageName, PKG_LOADED, associatedSD);
     }
 
-    public static EnumSet<Privilege> decodePrivileges(byte[] bytes) {
+    static EnumSet<Privilege> decodePrivileges(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             return EnumSet.noneOf(Privilege.class);
         }
@@ -126,38 +134,49 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
         }
     }
 
-    public String getJavaPackageName() {
+    String getJavaPackageName() {
         return javaPackageName;
     }
 
-    public Map<AID, Class<? extends Applet>> getModules() {
+    Map<AID, Class<? extends Applet>> getModules() {
         return modules == null ? Map.of() : Collections.unmodifiableMap(modules);
+    }
+
+    // GET DATA / STORE DATA data objects keyed by tag (clone on the boundary, never share the array).
+    byte[] getData(GPTag element) {
+        byte[] v = data.get(element);
+        return v == null ? null : v.clone();
+    }
+
+    void putData(GPTag element, byte[] value) {
+        if (value == null) {
+            data.remove(element);
+            return;
+        }
+        data.put(element, value.clone());
     }
 
     public Kind getKind() {
         return kind;
     }
 
-    public AID getPackageAID() {
+    AID getPackageAID() {
         return packageAID;
     }
 
-    public AID getParentSD() {
+    EngineRegistryEntry getParentSD() {
         return parentSD;
     }
 
-    // Mutator for INSTALL [for extradition] (GPC v2.3.1 11.5.2.3.4 / Table 11-45): rebinds this entry
-    // to a new associated SD. Should only be called from the extradition path on the
-    // OPEN; user code has no API surface to reach this. The ISD cannot be extradited
-    // (it is its own associated SD by definition); enforced by callers.
-    public void setParentSD(AID newParent) {
+    // INSTALL [for extradition] (GPC v2.3.1 11.5.2.3.4): rebind to a new associated SD. OPEN-only; ISD never extradited.
+    void setParentSD(EngineRegistryEntry newParent) {
         if (newParent == null) {
             throw new IllegalArgumentException("parent SD must not be null");
         }
         this.parentSD = newParent;
     }
 
-    public void addModule(AID appletAid, Class<? extends Applet> appletClass) {
+    void addModule(AID appletAid, Class<? extends Applet> appletClass) {
         if (kind != Kind.PKG) {
             throw new IllegalStateException("Modules only allowed on PKG entries");
         }
@@ -166,54 +185,60 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
 
     @Override
     public String toString() {
+        if (disabled) {
+            return "<deleted %s>".formatted(aid);
+        }
         String lc = switch (kind) {
             case ISD -> ByteEnum.fromByte(ISDLifeCycle.class, lifecycle).name();
             case APP -> ByteEnum.fromByte(APPLifeCycle.class, lifecycle).name();
             case PKG -> ByteEnum.fromByte(PKGLifeCycle.class, lifecycle).name();
             case SSD -> ByteEnum.fromByte(SSDLifeCycle.class, lifecycle).name();
         };
-        return "%s(%s, %s, %s, privs=%s)".formatted(kind, AIDUtil.toString(aid),
-                packageAID == null ? "-" : AIDUtil.toString(packageAID), lc, privileges);
+        // Compact log identity: KIND(aid-hex lifecycle [privileges]); privileges omitted when none.
+        return "%s(%s %s%s)".formatted(kind, aid, lc, privileges.isEmpty() ? "" : " " + privileges);
     }
 
-    // ---------- org.globalplatform.GPRegistryEntry implementation ----------
+    void markDisabled() {
+        this.disabled = true;
+    }
+
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    private void checkAlive() {
+        if (disabled) {
+            SystemException.throwIt(SystemException.ILLEGAL_USE);
+        }
+    }
 
     @Override
     public AID getAID() {
+        // Exempt from checkAlive(): getAID() stays usable on a disabled entry to identify the dead AID.
         return aid;
     }
 
     @Override
     public byte getState() {
+        checkAlive();
         return lifecycle;
     }
 
-    // Engine-internal bare mutator that bypasses the GP API validation rules; used by engine
-    // plumbing such as GlobalPlatform.setCardLifecycleState (which has its own card-LCS state
-    // machine and privilege checks) and the boot-time entry construction path.
+    // Bare mutator bypassing GP-API validation; for engine plumbing (setCardLifecycleState, boot).
     void internalForceState(byte newState) {
         this.lifecycle = newState;
     }
 
-    // GP API GPRegistryEntry.setState (export file v1.8) — implements the GlobalPlatform Card
-    // Specification v2.3.1 chapter-5 transition rules. ISD entries route into the card-wide LCS
-    // state machine because the ISD entry's lifecycle byte IS the card LCS in this engine.
-    // For SSD and APP entries the OPEN enforces irreversibility of the documented base
-    // transitions (5.3.1.2 / 5.3.2.3) and the LOCKED-bit gating from 5.3.1.3 with the GP API
-    // privilege rules (lock requires self or Global Lock; unlock requires Global Lock).
     @Override
     public boolean setState(byte newState) {
+        checkAlive();
         var sim = Simulator.current();
-        AID callerAID = sim.getAID();
-        if (callerAID == null) {
-            return false;
-        }
-        var caller = sim.lookupApplet(callerAID);
+        var caller = sim.caller();
         if (caller == null) {
             return false;
         }
         if (this.kind == Kind.ISD) {
-            return sim.getGlobalPlatform().setCardLifecycleState(newState);
+            return sim.gp().setCardLifecycleState(newState);
         }
         int current = this.lifecycle & 0xFF;
         int next = newState & 0xFF;
@@ -223,19 +248,15 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
         boolean newLocked = (newState & (byte) 0x80) != 0;
         boolean curLocked = (this.lifecycle & (byte) 0x80) != 0;
         if (newLocked && !curLocked) {
-            // GPC v2.3.1 5.3.1.3: lock requires that the caller is the entry itself or holds
-            // the Global Lock privilege. The high bit on the new state encodes "lock attempt"
-            // per the GPRegistryEntry.setState javadoc; b7..b1 of newState are ignored on lock.
-            if (!callerAID.equals(this.aid) && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
+            // GPC v2.3.1 5.3.1.3: lock requires self or Global Lock. High bit = lock; b7..b1 ignored.
+            if (!caller.getAID().equals(this.aid) && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
                 return false;
             }
             this.lifecycle = (byte) (this.lifecycle | 0x80);
             return true;
         }
         if (!newLocked && curLocked) {
-            // GPC v2.3.1 5.3.1.3: only a Global Lock privilege holder may unlock; an applet
-            // cannot unlock itself via this path (which is exactly why setCardContentState
-            // also forbids self-unlock).
+            // GPC v2.3.1 5.3.1.3: only a Global Lock holder may unlock; no self-unlock.
             if (!caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
                 return false;
             }
@@ -243,26 +264,21 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
             return true;
         }
         if (curLocked) {
-            // Locked entry receiving another lock-flagged write: javadoc says b7..b1 of newState
-            // are ignored, so this is a no-op success.
+            // b7..b1 ignored on a locked entry: no-op success.
             return true;
         }
-        // GPRegistryEntry.setState javadoc: "If this method is invoked to transition an
-        // Application (or Security Domain) from the INSTALLED state to the SELECTABLE state,
-        // then the request shall be rejected." (Use INSTALL [for make selectable] instead.)
+        // GPRegistryEntry.setState: INSTALLED -> SELECTABLE is rejected (use INSTALL [for make selectable]).
         if (current == 0x03 && next == 0x07) {
             return false;
         }
-        // GPC v2.3.1 5.3.1.2: INSTALLED -> SELECTABLE is irreversible, so reject any regression
-        // back to INSTALLED (0x03) or SELECTABLE (0x07) once the entry has moved past them.
+        // GPC v2.3.1 5.3.1.2: INSTALLED -> SELECTABLE irreversible; reject regression to 0x03/0x07.
         if (next == 0x03 && current > 0x03) {
             return false;
         }
         if (next == 0x07 && current > 0x07) {
             return false;
         }
-        // GPC v2.3.1 5.3.2.3: for Security Domains, SELECTABLE -> PERSONALIZED (0x0F) is
-        // irreversible, so once at PERSONALIZED or beyond an SSD cannot regress below 0x0F.
+        // GPC v2.3.1 5.3.2.3: SSD SELECTABLE -> PERSONALIZED (0x0F) irreversible; no regression below 0x0F.
         if (this.kind == Kind.SSD && current >= 0x0F && next < 0x0F) {
             return false;
         }
@@ -272,6 +288,7 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
 
     @Override
     public short getPrivileges(byte[] buf, short off) throws ArrayIndexOutOfBoundsException {
+        checkAlive();
         byte[] bytes = BitField.encode(privileges, 3);
         Util.arrayCopyNonAtomic(bytes, (short) 0, buf, off, (short) bytes.length);
         return (short) (off + bytes.length);
@@ -279,55 +296,331 @@ public final class EngineRegistryEntry implements GPRegistryEntry {
 
     @Override
     public boolean isPrivileged(byte b) {
-        Privilege p = privilegeForByte(b);
+        checkAlive();
+        Privilege p = GPPrivilege.toPrivilege(b);
         return p != null && privileges.contains(p);
     }
 
-    public EnumSet<Privilege> getPrivileges() {
+    EnumSet<Privilege> getPrivileges() {
         return copyPrivileges(privileges);
     }
 
-    public void setPrivileges(EnumSet<Privilege> p) {
+    void setPrivileges(EnumSet<Privilege> p) {
         privileges = copyPrivileges(p);
     }
 
     @Override
     public boolean isAssociated(AID sdAID) {
-        return parentSD != null && parentSD.equals(sdAID);
+        checkAlive();
+        return parentSD.getAID().equals(sdAID);
     }
 
+    // GPC v2.3.1 8.1.1 unique service registration.
     @Override
     public void registerService(short sServiceName) throws ISOException {
-        ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        checkAlive();
+        if (!privileges.contains(Privilege.GlobalService)) {
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        if (!installedServices.isEmpty() && !matchesRecorded(sServiceName)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        for (var e : Simulator.current().gp().getApplets()) {
+            if (e != this && e.registeredServices.contains(sServiceName)) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+        }
+        registeredServices.add(sServiceName);
+    }
+
+    // GPC v2.3.1 8.1.1 deregistration
+    @Override
+    public void deregisterService(short sServiceName) throws ISOException {
+        checkAlive();
+        if (!privileges.contains(Privilege.GlobalService)) {
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        if (!registeredServices.remove(sServiceName)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+    }
+
+    // GPC v2.3.1 8.1.1: requested name matches a recorded one exactly, or a recorded family-only
+    // (id byte 00) name covers any requested name with the same family byte.
+    private boolean matchesRecorded(short requested) {
+        if (installedServices.contains(requested)) {
+            return true;
+        }
+        short family = (short) (requested & 0xFF00);
+        return installedServices.contains(family);
+    }
+
+    // Install-path recorder for CB Global Service Parameters (GPC v2.3.1 8.1.1): NOT uniqueness-checked.
+    void recordInstalledService(short serviceName) {
+        installedServices.add(serviceName);
     }
 
     @Override
-    public void deregisterService(short sServiceName) throws ISOException {
-        ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+    public byte getCLState() {
+        checkAlive();
+        requireAppletKind();
+        return state;
     }
 
-    // Map JC GP API privilege byte constants (PRIVILEGE_*) to GPPro Privilege enum values.
-    private static Privilege privilegeForByte(byte b) {
-        return switch (b) {
-            case GPRegistryEntry.PRIVILEGE_SECURITY_DOMAIN -> Privilege.SecurityDomain;
-            case GPRegistryEntry.PRIVILEGE_DAP_VERIFICATION -> Privilege.DAPVerification;
-            case GPRegistryEntry.PRIVILEGE_DELEGATED_MANAGEMENT -> Privilege.DelegatedManagement;
-            case GPRegistryEntry.PRIVILEGE_CARD_LOCK -> Privilege.CardLock;
-            case GPRegistryEntry.PRIVILEGE_CARD_TERMINATE -> Privilege.CardTerminate;
-            case GPRegistryEntry.PRIVILEGE_CARD_RESET -> Privilege.CardReset;
-            case GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT -> Privilege.CVMManagement;
-            case GPRegistryEntry.PRIVILEGE_MANDATED_DAP -> Privilege.MandatedDAPVerification;
-            case GPRegistryEntry.PRIVILEGE_TRUSTED_PATH -> Privilege.TrustedPath;
-            case GPRegistryEntry.PRIVILEGE_AUTHORIZED_MANAGEMENT -> Privilege.AuthorizedManagement;
-            case GPRegistryEntry.PRIVILEGE_TOKEN_VERIFICATION -> Privilege.TokenVerification;
-            case GPRegistryEntry.PRIVILEGE_GLOBAL_DELETE -> Privilege.GlobalDelete;
-            case GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK -> Privilege.GlobalLock;
-            case GPRegistryEntry.PRIVILEGE_GLOBAL_REGISTRY -> Privilege.GlobalRegistry;
-            case GPRegistryEntry.PRIVILEGE_FINAL_APPLICATION -> Privilege.FinalApplication;
-            case GPRegistryEntry.PRIVILEGE_GLOBAL_SERVICE -> Privilege.GlobalService;
-            case GPRegistryEntry.PRIVILEGE_RECEIPT_GENERATION -> Privilege.ReceiptGeneration;
-            case GPRegistryEntry.PRIVILEGE_CIPHERED_LOAD_FILE_DATA_BLOCK -> Privilege.CipheredLoadFileDataBlock;
-            default -> null;
-        };
+    @Override
+    public byte setCLState(byte newState) {
+        checkAlive();
+        requireAppletKind();
+        return ContactlessEngine.setCLState(this, newState);
+    }
+
+    @Override
+    public GPCLRegistryEntry getNextCRELApplication(GPCLRegistryEntry entry) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+        return null;
+    }
+
+    @Override
+    public void addToCRELApplicationList(byte[] buf, short offset, short length) {
+        checkAlive();
+        requireAppletKind();
+        var crelAid = new AID(buf, offset, (byte) length);
+        if (crels.add(crelAid)) {
+            // GPC v2.3.1 Amd C 3.8.2: notify after mutation so the callee sees itself in the set.
+            ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_ADDED);
+        }
+    }
+
+    @Override
+    public void removeFromCRELApplicationList(byte[] buf, short offset, short length) {
+        checkAlive();
+        requireAppletKind();
+        var crelAid = new AID(buf, offset, (byte) length);
+        if (crels.remove(crelAid)) {
+            ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_REMOVED);
+        }
+    }
+
+    // getInfo/setInfo (GPC v2.3.1 Amd C 11.2.3)
+    @Override
+    public short getInfo(byte[] buffer, short offset, short info) {
+        checkAlive();
+        requireAppletKind();
+        var element = GPData.byInfo(info).orElse(null);
+        if (element == null) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+        var value = infos.get(element);
+        if (value == null) {
+            ISOException.throwIt(ISO7816.SW_RECORD_NOT_FOUND);
+        }
+        System.arraycopy(value, 0, buffer, offset, value.length);
+        return (short) (offset + value.length);
+    }
+
+    @Override
+    public short setInfo(byte[] buffer, short offset, short length, short info) {
+        checkAlive();
+        requireAppletKind();
+        var element = GPData.byInfo(info).orElse(null);
+        if (element == null) {
+            ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
+        }
+        return setInfoInternal(buffer, offset, length, element);
+    }
+
+    @Override
+    public GPCLRegistryEntry getNextConflictingApplication(GPCLRegistryEntry entry) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+        return null;
+    }
+
+    @Override
+    public void joinGroup(AID head) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+    }
+
+    @Override
+    public GPCLRegistryEntry getNextGroupMember(GPCLRegistryEntry entry) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+        return null;
+    }
+
+    @Override
+    public void addToGroupAuthorizationList(byte[] buf, short offset, short length) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+    }
+
+    @Override
+    public void removeFromGroupAuthorizationList(byte[] buf, short offset, short length) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+    }
+
+    @Override
+    public void setPartialSelectionOrder(boolean topBottom) {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+    }
+
+    // GPC v2.3.1 Amd C: iterate applications holding THIS AID in their CREL list. Stateless cursor (oEntry)
+    @Override
+    public GPCLRegistryEntry getNextReferencingApplication(GPCLRegistryEntry oEntry) {
+        checkAlive();
+        requireAppletKind();
+        var sim = Simulator.current();
+        var caller = sim.caller();
+        boolean callerIsSelf = caller.getAID().equals(getAID());
+        boolean callerPrivileged = caller.isPrivileged(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION);
+        if (!callerIsSelf && !callerPrivileged) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+
+        // Validate oEntry: SecurityException for non-engine instances, ILLEGAL_USE for a tombstoned one.
+        EngineRegistryEntry cursor = null;
+        if (oEntry != null) {
+            if (!(oEntry instanceof EngineRegistryEntry o)) {
+                throw new SecurityException();
+            }
+            if (o.disabled) {
+                SystemException.throwIt(SystemException.ILLEGAL_USE);
+            }
+            cursor = o;
+        }
+
+        // X references this iff X.crels contains this.AID. Registry order is the AID comparator, stable.
+        var thisAID = getAID();
+        var refs = new ArrayList<EngineRegistryEntry>();
+        for (var e : sim.gp().getApplets()) {
+            if (e.kind != Kind.PKG && e.crels.contains(thisAID)) {
+                refs.add(e);
+            }
+        }
+
+        if (refs.isEmpty()) {
+            return null;
+        }
+        if (cursor == null) {
+            return refs.get(0);
+        }
+        // Identity equals; cursor is the verified live instance.
+        int idx = refs.indexOf(cursor);
+        if (idx < 0 || idx + 1 >= refs.size()) {
+            return null;
+        }
+        return refs.get(idx + 1);
+    }
+
+    @Override
+    public boolean isGroupHead() {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+        return false;
+    }
+
+    @Override
+    public boolean isGroupMember() {
+        checkAlive();
+        SystemException.throwIt(SystemException.ILLEGAL_USE);
+        return false;
+    }
+
+    // Unmodifiable insertion-ordered (LinkedHashSet) view of the CREL AIDs - deterministic fan-out.
+    Set<AID> internalGetCRELs() {
+        return Collections.unmodifiableSet(crels);
+    }
+
+    byte internalGetCLState() {
+        return state;
+    }
+
+    // Apply the activation state byte, return whether it changed. No validation; caller fires the event.
+    boolean internalApplyCLState(byte newState) {
+        boolean changed = newState != this.state;
+        this.state = newState;
+        return changed;
+    }
+
+    // Install-path bypass of the caller-identity gate: SD writes Application Information from the
+    // INSTALL TLV. Length 0 clears the slot (GPC v2.3.1 Amd C 11.2.3).
+    short setInfoInternal(byte[] buffer, short offset, short length, GPInfo element) {
+        if (length == 0) {
+            infos.remove(element);
+        } else {
+            var copy = new byte[length];
+            System.arraycopy(buffer, offset, copy, 0, length);
+            infos.put(element, copy);
+        }
+        return (short) (offset + length);
+    }
+
+    // Opaque INSTALL EF System Specific Parameter store (GPC v2.3.1 Table 11-49). Raw value bytes,
+    // keyed by the GPData GPTag; no enforcement.
+    void putSystemParam(GPTag element, byte[] value) {
+        systemParams.put(element, value.clone());
+    }
+
+    private void requireAppletKind() {
+        if (kind == Kind.PKG) {
+            // PKG implements GPCLRegistryEntry only for the cast rule; no CL lifecycle.
+            SystemException.throwIt(SystemException.ILLEGAL_USE);
+        }
+    }
+
+    // JC GP API privilege byte (PRIVILEGE_*, an identifier 0x00..0x13) <-> GPPro Privilege.
+    // Distinct from the BitField bit-mask encoding used on the wire.
+    private enum GPPrivilege {
+        SECURITY_DOMAIN(GPRegistryEntry.PRIVILEGE_SECURITY_DOMAIN, Privilege.SecurityDomain),
+        DAP_VERIFICATION(GPRegistryEntry.PRIVILEGE_DAP_VERIFICATION, Privilege.DAPVerification),
+        DELEGATED_MANAGEMENT(GPRegistryEntry.PRIVILEGE_DELEGATED_MANAGEMENT, Privilege.DelegatedManagement),
+        CARD_LOCK(GPRegistryEntry.PRIVILEGE_CARD_LOCK, Privilege.CardLock),
+        CARD_TERMINATE(GPRegistryEntry.PRIVILEGE_CARD_TERMINATE, Privilege.CardTerminate),
+        CARD_RESET(GPRegistryEntry.PRIVILEGE_CARD_RESET, Privilege.CardReset),
+        CVM_MANAGEMENT(GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT, Privilege.CVMManagement),
+        MANDATED_DAP(GPRegistryEntry.PRIVILEGE_MANDATED_DAP, Privilege.MandatedDAPVerification),
+        TRUSTED_PATH(GPRegistryEntry.PRIVILEGE_TRUSTED_PATH, Privilege.TrustedPath),
+        AUTHORIZED_MANAGEMENT(GPRegistryEntry.PRIVILEGE_AUTHORIZED_MANAGEMENT, Privilege.AuthorizedManagement),
+        TOKEN_VERIFICATION(GPRegistryEntry.PRIVILEGE_TOKEN_VERIFICATION, Privilege.TokenVerification),
+        GLOBAL_DELETE(GPRegistryEntry.PRIVILEGE_GLOBAL_DELETE, Privilege.GlobalDelete),
+        GLOBAL_LOCK(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK, Privilege.GlobalLock),
+        GLOBAL_REGISTRY(GPRegistryEntry.PRIVILEGE_GLOBAL_REGISTRY, Privilege.GlobalRegistry),
+        FINAL_APPLICATION(GPRegistryEntry.PRIVILEGE_FINAL_APPLICATION, Privilege.FinalApplication),
+        GLOBAL_SERVICE(GPRegistryEntry.PRIVILEGE_GLOBAL_SERVICE, Privilege.GlobalService),
+        RECEIPT_GENERATION(GPRegistryEntry.PRIVILEGE_RECEIPT_GENERATION, Privilege.ReceiptGeneration),
+        CIPHERED_LOAD_FILE_DATA_BLOCK(GPRegistryEntry.PRIVILEGE_CIPHERED_LOAD_FILE_DATA_BLOCK, Privilege.CipheredLoadFileDataBlock),
+        CONTACTLESS_ACTIVATION(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION, Privilege.ContactlessActivation),
+        CONTACTLESS_SELF_ACTIVATION(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_SELF_ACTIVATION, Privilege.ContactlessSelfActivation);
+
+        final byte api;
+        final Privilege gp;
+
+        GPPrivilege(byte api, Privilege gp) {
+            this.api = api;
+            this.gp = gp;
+        }
+
+        private static final Map<Byte, Privilege> TO_PRIV = new HashMap<>();
+        private static final Map<Privilege, Byte> TO_BYTE = new EnumMap<>(Privilege.class);
+
+        static {
+            for (var v : values()) {
+                TO_PRIV.put(v.api, v.gp);
+                TO_BYTE.put(v.gp, v.api);
+            }
+        }
+
+        // null if the byte/privilege has no API counterpart.
+        static Privilege toPrivilege(byte b) {
+            return TO_PRIV.get(b);
+        }
+
+        static Byte toByte(Privilege p) {
+            return TO_BYTE.get(p);
+        }
     }
 }

@@ -52,6 +52,7 @@ public class RandomDataProxy {
         private OneShot() {
             log.debug("RandomData.OneShot");
         }
+
         public static RandomDataProxy.OneShot open(byte algorithm) {
             RandomDataProxy.OneShot one = new RandomDataProxy.OneShot();
             one.rnd = RandomData.getInstance(algorithm);

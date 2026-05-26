@@ -8,7 +8,6 @@ import javacard.framework.Util;
 import org.bouncycastle.util.encoders.Hex;
 
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * ProxyClass for <code>AID</code>
@@ -77,15 +76,13 @@ public class AIDProxy {
      */
     public final boolean equals(Object anObject) throws SecurityException {
 
-        if (anObject instanceof AID) {
-            AID other = (AID) anObject;
+        if (anObject instanceof AID other) {
             byte[] aid = new byte[16];
             int len = other.getBytes(aid, (short) 0);
             byte[] otheraid = Arrays.copyOf(aid, len);
             return Arrays.equals(this.aid, otheraid);
         }
-        if (anObject instanceof AIDProxy) {
-            AIDProxy other = (AIDProxy) anObject;
+        if (anObject instanceof AIDProxy other) {
             return Arrays.equals(this.aid, other.aid);
         }
         return false;
@@ -194,10 +191,10 @@ public class AIDProxy {
         return (byte) copyLen;
     }
 
-    // We still run in a JVM environment. AID is used as HashMap key
+    // Hash over byte content to match equals; AID is used as a HashMap key.
     @Override
     public int hashCode() {
-        return Objects.hash(aid);
+        return Arrays.hashCode(aid);
     }
 
     @Override

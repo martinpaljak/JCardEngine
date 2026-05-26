@@ -8,14 +8,13 @@ import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import pro.javacard.engine.faulty.FaultyConfig;
-import pro.javacard.engine.globalplatform.GlobalPlatform;
+import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 import pro.javacard.engine.globalplatform.SCPConfig;
 
 import javax.smartcardio.TerminalFactory;
 import java.time.Duration;
 
-// External, programmer-facing interface. Manages the "secure element" by installing and deleting
-// applets, and opening APDU transports (BIBO sessions) to it.
+// External programmer-facing interface: install/delete applets and open APDU (BIBO) sessions.
 public interface JavaCardEngine {
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
 
@@ -79,7 +78,7 @@ public interface JavaCardEngine {
     final class Builder {
         private ClassLoader classLoader = getClass().getClassLoader();
         private FaultyConfig faultConfig;
-        private SCPConfig scpConfig;
+        private SCPConfig scpConfig = SCPConfig.defaultConfig();
 
         public Builder withClassLoader(ClassLoader cl) {
             this.classLoader = cl;
@@ -97,9 +96,12 @@ public interface JavaCardEngine {
         }
 
         public JavaCardEngine build() {
-            var gp = new GlobalPlatform(scpConfig);
+            var gp = new GlobalPlatformEngine(scpConfig);
             var sim = new Simulator(classLoader, faultConfig, gp);
-            gp.bootstrap(sim.getRegistry());
+            try (var c = sim.asCurrent()) {
+                // Constructors use JCSystem so we need the "current" reference
+                gp.bootstrap();
+            }
             sim.reset();
             return sim;
         }

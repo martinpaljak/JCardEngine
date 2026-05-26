@@ -6,9 +6,7 @@ import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.Shareable;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
-import pro.javacard.engine.globalplatform.GlobalPlatform;
-
-import java.util.Collection;
+import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 
 // The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
@@ -17,11 +15,14 @@ public interface JavaCardRuntime {
 
     void internalDeleteApplet(AID aid);
 
-    EngineRegistryEntry lookupApplet(AID aid);
-
-    Collection<EngineRegistryEntry> getApplets();
-
     AID getAID();
+
+    // The active applet instance (JC RE): the applet currently selected on the channel, or null.
+    // Distinct from getAID() (the current executing context).
+    AID getActiveAID();
+
+    // Currently executing applet's registry entry, or null in platform context.
+    EngineRegistryEntry caller();
 
     AID lookupAID(byte[] buffer, short offset, byte length);
 
@@ -53,9 +54,10 @@ public interface JavaCardRuntime {
 
     Shareable getSharedObject(AID serverAID, byte parameter);
 
-    // Get a context-switching proxy for a Shareable sub-interface implemented by an applet.
-    // Bypasses Applet.getShareableInterfaceObject() — used for JCRE-internal cross-context dispatch
-    // (e.g. GP STORE DATA into a Personalization/Application target).
+    // Platform-context SIO fetch (null clientAID = system/CRS/OPEN). GPC v2.3.1 Amd C 3.10.
+    Shareable getSystemSharedObject(AID serverAID, byte parameter);
+
+    // Context-switching proxy for a Shareable sub-interface, bypassing getShareableInterfaceObject().
     <S extends Shareable> S getInterface(AID aid, Class<S> iface);
 
     boolean isObjectDeletionSupported();
@@ -69,5 +71,5 @@ public interface JavaCardRuntime {
     void register(Object instance, byte[] buffer, short offset, byte len);
 
     // Registry and secure channel
-    GlobalPlatform getGlobalPlatform();
+    GlobalPlatformEngine gp();
 }

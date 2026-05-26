@@ -74,7 +74,7 @@ public class MemoryAllocationInterceptor extends ClassVisitor {
                             false);
                     return;
                 }
-            } 
+            }
             super.visitIntInsn(opcode, operand);
         }
     }

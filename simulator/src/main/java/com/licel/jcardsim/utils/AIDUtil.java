@@ -16,8 +16,8 @@ import java.util.Objects;
  */
 public final class AIDUtil {
     private static final Comparator<AID> aidComparator = (aid1, aid2) -> {
-        String s1 = aid1 != null ? toString(aid1) : "";
-        String s2 = aid2 != null ? toString(aid2) : "";
+        String s1 = aid1 != null ? aid1.toString() : "";
+        String s2 = aid2 != null ? aid2.toString() : "";
         return s1.compareTo(s2);
     };
 
@@ -82,18 +82,6 @@ public final class AIDUtil {
     public static AID create(String aidString) {
         Objects.requireNonNull(aidString);
         return create(Hex.decode(aidString));
-    }
-
-    /**
-     * Convert AID to hex-string
-     *
-     * @param aid AID to convert
-     * @return hex string
-     * @throws java.lang.NullPointerException if <code>aid</code> is null
-     */
-    public static String toString(AID aid) {
-        Objects.requireNonNull(aid);
-        return Hex.toHexString(bytes(aid));
     }
 
     public static byte[] bytes(AID aid) {

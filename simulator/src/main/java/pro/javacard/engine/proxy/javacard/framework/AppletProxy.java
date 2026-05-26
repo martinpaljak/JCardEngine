@@ -66,7 +66,7 @@ public class AppletProxy {
      *                The maximum value of bLength is 127.
      * @throws ISOException if the install method failed
      */
-    public static void install(byte bArray[], short bOffset, byte bLength)
+    public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
         ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
     }
@@ -195,7 +195,7 @@ public class AppletProxy {
      *                         <code>register()</code> methods or if a Java Card runtime environment-initiated <code>install()</code> method execution is not in progress.
      *                         </ul>
      */
-    protected final void register(byte bArray[], short bOffset, byte bLength) throws SystemException {
+    protected final void register(byte[] bArray, short bOffset, byte bLength) throws SystemException {
         if (bLength < 5 || bLength > 16) {
             throw new SystemException(SystemException.ILLEGAL_VALUE);
         }

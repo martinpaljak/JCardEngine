@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBOException;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,7 +10,6 @@ import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
-import apdu4j.core.BIBOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.function.Function;

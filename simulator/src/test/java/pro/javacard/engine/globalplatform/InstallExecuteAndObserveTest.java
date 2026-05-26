@@ -3,7 +3,6 @@
 package pro.javacard.engine.globalplatform;
 
 import apdu4j.core.CommandAPDU;
-import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
@@ -15,6 +14,7 @@ import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPData;
+import pro.javacard.gp.GPException;
 import pro.javacard.gp.GPKeyInfo;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
@@ -27,12 +27,13 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 
 // End-to-end install/execute/observe narrative across the supported SCP variants, plus the GP
 // surfaces that don't fit the keystore or SD-lifecycle narratives: GET STATUS chunking,
-// shareable cross-instance, GET DATA unknown-tag rejection, and the SSD load-file plant guard.
+// shareable cross-instance, GET DATA unknown-tag rejection, and the SSD load-file registration guard.
 public class InstallExecuteAndObserveTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
@@ -55,7 +56,7 @@ public class InstallExecuteAndObserveTest {
     }
 
     // Single end-to-end narrative across all 5 SCP variants:
-    //   1. Build sim, plant test applet load file.
+    //   1. Build sim, register test applet load file.
     //   2. Open ISD; assert KIT shape (3 KIDs, type per SCP, all KVN=0xFF, KIDs 1/2/3).
     //   3. Fetch CPLC and assert engine signature ("JCEN" IC serial, 0x4242 in fab/serial slots).
     //   4. Assert SSD load file planted at boot (registry visibility, lifecycle LOADED, modules).
@@ -69,11 +70,13 @@ public class InstallExecuteAndObserveTest {
     void installExecuteObserve(String name, SCPConfig config, byte[] masterKey,
                                EnumSet<GPSession.APDUMode> mode) throws Exception {
         var sim = new JavaCardEngine.Builder().withSCP(config).build();
-        var appletAID = AIDUtil.create("010203040506070809");
+        // ELF and instance AIDs must differ (GPC v2.3.1 6.5.1.1); instance = ELF + instance byte.
+        var pkgAID = AIDUtil.create("010203040506070809");
+        var appletAID = AIDUtil.create("01020304050607080901");
         var jcaid = gpAID(appletAID);
-        sim.loadApplet(appletAID, appletAID, GlobalPlatformTestApplet.class);
+        sim.loadApplet(pkgAID, appletAID, GlobalPlatformTestApplet.class);
 
-        // 2: open ISD, inspect KIT. Done in its own session — gp.getKeyInfoTemplate() takes the
+        // 2: open ISD, inspect KIT. Done in its own session - gp.getKeyInfoTemplate() takes the
         // SCP-wrapped GET DATA path when a session is open, and we don't want to reuse this
         // session for follow-up SCP-wrapped commands in the same connection.
         try (var bibo = sim.connect()) {
@@ -81,7 +84,7 @@ public class InstallExecuteAndObserveTest {
             assertKit(gp, config);
         }
 
-        // 3 + 4: fresh session — CPLC via raw bibo, registry visibility for the planted SSD load file.
+        // 3 + 4: fresh session - CPLC via raw bibo, registry visibility for the planted SSD load file.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             assertCplc(bibo);
@@ -91,7 +94,7 @@ public class InstallExecuteAndObserveTest {
         // 5: install applet via SCP with install-param byte 0x55.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
-            gp.installAndMakeSelectable(jcaid, jcaid, jcaid, EnumSet.noneOf(Privilege.class), new byte[]{(byte) 0x55});
+            gp.installAndMakeSelectable(gpAID(pkgAID), jcaid, jcaid, EnumSet.noneOf(Privilege.class), new byte[]{(byte) 0x55});
         }
 
         // 6: reopen ISD; registry sees applet + package + ISD.
@@ -100,7 +103,7 @@ public class InstallExecuteAndObserveTest {
             var registry = gp.getRegistry();
             assertTrue(registry.allAppletAIDs().contains(jcaid),
                     "Installed applet must be visible in the registry");
-            assertTrue(registry.allPackageAIDs().contains(jcaid),
+            assertTrue(registry.allPackageAIDs().contains(gpAID(pkgAID)),
                     "Loaded package must be visible in the registry");
             assertTrue(registry.getISD().isPresent(), "ISD must be present");
 
@@ -166,7 +169,7 @@ public class InstallExecuteAndObserveTest {
 
             for (var aid : aids) {
                 assertTrue(registry.allAppletAIDs().contains(gpAID(aid)),
-                        "Chunked GET STATUS must return all installed applets, missing " + AIDUtil.toString(aid));
+                        "Chunked GET STATUS must return all installed applets, missing " + aid);
             }
         }
     }
@@ -209,24 +212,60 @@ public class InstallExecuteAndObserveTest {
 
     // Regression guard: loadClass() matches an existing PKG entry by Java package name OR by AID.
     // Built-in entries pass null for the Java package name so they can never merge with user-loaded
-    // classes that happen to live in the same Java package as a hypothetical SSD class.
-    // The (Simulator) cast to call getGlobalPlatform().getPackages() is the SOLE engine-internal
-    // surface in this file — there is no GPSession surface for classloader merge behavior.
+    // classes that happen to live in the same Java package as a hypothetical SSD class. Observed
+    // over GET STATUS (p1=0x10) which exposes module AIDs per package; the underlying classloader
+    // map is engine-internal but the on-wire module set is enough - if a hypothetical merge had
+    // happened, the user applet AID would have been added to the SSD package's module list.
     @Test
-    public void ssdPackageNotMergedByLoadClass() {
+    public void ssdPackageNotMergedByLoadClass() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         var userPkgAid = AIDUtil.create("01020304050607080F");
         var userAppAid = AIDUtil.create("0102030405060708A1");
         sim.loadApplet(userPkgAid, userAppAid, GlobalPlatformTestApplet.class);
 
-        var packages = ((Simulator) sim).getGlobalPlatform().getPackages();
-        var ssdEntry = packages.stream().filter(e -> e.getAID().equals(SecurityDomainApplet.SSD_PACKAGE_AID)).findFirst().orElseThrow();
+        try (var bibo = sim.connect()) {
+            var reg = GPTestUtils.openIsd(bibo).getRegistry();
+            var ssdPkg = reg.allPackages().stream()
+                    .filter(e -> e.getAID().equals(gpAID(SecurityDomainApplet.SSD_PACKAGE_AID)))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("SSD package must be in the registry"));
+            var modules = ssdPkg.getModules();
+            assertEquals(1, modules.size(), "SSD package modules must contain only the built-in SD module, found: " + modules);
+            assertTrue(modules.contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)),
+                    "SSD package must still contain SSD_MODULE_AID");
+            assertFalse(modules.contains(gpAID(userAppAid)),
+                    "User applet AID must not have been merged into the SSD package");
+        }
+    }
 
-        var modules = ssdEntry.getModules();
-        assertEquals(1, modules.size(), "SSD package modules must contain only the built-in SD module, found: " + modules.keySet());
-        assertTrue(modules.containsKey(SecurityDomainApplet.SSD_MODULE_AID), "SSD package must still contain SSD_MODULE_AID");
-        assertFalse(modules.containsKey(userAppAid), "User applet AID must not have been merged into the SSD package");
-        assertFalse(modules.containsValue(GlobalPlatformTestApplet.class), "User applet class must not have been merged into the SSD package");
+    // GPC v2.3.1 6.5.1.1 / 11.5.3.1: an Application (instance) AID may not equal an Executable Load
+    // File AID. freshEngine() loads PKG as the ELF; installing an instance with that same AID must be
+    // rejected, since ELFs and Applications share the one registry's AID keyspace.
+    @Test
+    public void instanceAidEqualToLoadFileRejected() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = GPTestUtils.openIsd(bibo);
+            // Instance AID == loaded ELF AID must be refused with SW_CONDITIONS_NOT_SATISFIED.
+            var ex = assertThrows(GPException.class, () -> installWith(gp, PKG, EnumSet.noneOf(Privilege.class)));
+            assertEquals(0x6985, ex.sw);
+            // The rejected install must leave no applet entry behind.
+            assertFalse(gp.getRegistry().allAppletAIDs().contains(gpAID(PKG)));
+        }
+    }
+
+    // GPC v2.3.1 11.2: DELETE [card content] of an Executable Load File removes it from the registry.
+    @Test
+    public void deleteLoadFile() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = GPTestUtils.openIsd(bibo);
+            // The ELF planted by freshEngine() is present before deletion.
+            assertTrue(gp.getRegistry().allPackageAIDs().contains(gpAID(PKG)));
+            gp.deleteAID(gpAID(PKG), false);
+            // After DELETE the ELF is gone from the registry.
+            assertFalse(gp.getRegistry().allPackageAIDs().contains(gpAID(PKG)));
+        }
     }
 
     // Open ISD via gp-pro using the (possibly custom) master key and SCP mode for this variant.
@@ -280,7 +319,7 @@ public class InstallExecuteAndObserveTest {
         }
     }
 
-    // The engine plants the SSD load file at boot using the GP-default SSD AIDs (GPC v2.3.1 H.1.2
+    // The engine registers the SSD load file at boot using the GP-default SSD AIDs (GPC v2.3.1 H.1.2
     // RID 'A000000151'; packageAID 'A0000001515350' / moduleAID 'A000000151535041'). The load file
     // must be visible in registry (P1=0x10/0x20 GET STATUS templates per Table 11-37) at lifecycle
     // LOADED (0x01 per Table 11-3) with the SSD module enumerated.
@@ -311,6 +350,6 @@ public class InstallExecuteAndObserveTest {
 
     private static void selectAID(apdu4j.core.BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW(), "SELECT " + AIDUtil.toString(aid));
+        assertEquals(0x9000, r.getSW(), "SELECT " + aid);
     }
 }

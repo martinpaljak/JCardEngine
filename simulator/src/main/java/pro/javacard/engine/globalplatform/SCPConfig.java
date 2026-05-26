@@ -5,6 +5,13 @@ package pro.javacard.engine.globalplatform;
 import pro.javacard.gp.keys.PlaintextKeys;
 
 public sealed interface SCPConfig permits SCPConfig.SCP02, SCPConfig.SCP03 {
+
+    // Secure channel used when a caller does not specify one. Single source for the card's
+    // default SCP so convenience entry points need not repeat the literal.
+    static SCPConfig defaultConfig() {
+        return new SCP03(true);
+    }
+
     record SCP02(byte[] masterKey) implements SCPConfig {
         public SCP02 {
             masterKey = masterKey.clone();

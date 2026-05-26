@@ -9,6 +9,7 @@ import javacard.framework.Util;
 
 /**
  * Implementation for <code>OwnerPin</code>
+ *
  * @see javacard.framework.OwnerPIN
  */
 
@@ -16,26 +17,27 @@ public class OwnerPINProxy implements PIN {
 
     private static final byte VALIDATED = 0;
     private static final byte NUMFLAGS = 1;
-    private byte tryLimit;
-    private byte maxPINSize;
-    private byte pinValue[];
+    private final byte tryLimit;
+    private final byte maxPINSize;
+    private final byte[] pinValue;
     private byte pinSize;
     // CHECK !!! Use transient array with size 1 element for store validation state
-    private boolean flags[];
+    private final boolean[] flags;
     // CHECK !!! Use transient array with size 1 element for store tries counter
-    private byte triesLeft[];
+    private final byte[] triesLeft;
 
-    
+
     /**
      * Constructor. Allocates a new <code>PIN</code> instance with validated flag
      * set to <code>false</code>
-     * @param tryLimit the maximum number of times an incorrect PIN can be presented. <code>tryLimit</code> must be &gt;=1
+     *
+     * @param tryLimit   the maximum number of times an incorrect PIN can be presented. <code>tryLimit</code> must be &gt;=1
      * @param maxPINSize the maximum allowed PIN size. <code>maxPINSize</code> must be &gt;=1
      * @throws PINException with the following reason codes:
-     * <ul>
-     *  <li><code>PINException.ILLEGAL_VALUE</code> if <code>tryLimit</code> parameter is less than 1.
-     *  <li><code>PINException.ILLEGAL_VALUE</code> if <code>maxPINSize</code> parameter is less than 1.
-     * </ul>
+     *                      <ul>
+     *                       <li><code>PINException.ILLEGAL_VALUE</code> if <code>tryLimit</code> parameter is less than 1.
+     *                       <li><code>PINException.ILLEGAL_VALUE</code> if <code>maxPINSize</code> parameter is less than 1.
+     *                      </ul>
      */
     public OwnerPINProxy(byte tryLimit, byte maxPINSize)
             throws PINException {
@@ -56,6 +58,7 @@ public class OwnerPINProxy implements PIN {
      * This protected method returns the validated flag.
      * This method is intended for subclass of this <code>OwnerPIN</code> to access or
      * override the internal PIN state of the <code>OwnerPIN</code>.
+     *
      * @return the boolean state of the PIN validated flag
      */
     protected boolean getValidatedFlag() {
@@ -66,6 +69,7 @@ public class OwnerPINProxy implements PIN {
      * This protected method sets the value of the validated flag.
      * This method is intended for subclass of this <code>OwnerPIN</code> to control or
      * override the internal PIN state of the <code>OwnerPIN</code>.
+     *
      * @param value the new value for the validated flag
      */
     protected void setValidatedFlag(boolean value) {
@@ -91,6 +95,7 @@ public class OwnerPINProxy implements PIN {
     /**
      * Returns the number of times remaining that an incorrect PIN can
      * be presented before the <code>PIN</code> is blocked.
+     *
      * @return the number of times remaining
      */
     @Override
@@ -117,15 +122,16 @@ public class OwnerPINProxy implements PIN {
      * of the </em><code>pin</code><em> array, an </em><code>ArrayIndexOutOfBoundsException</code><em> exception is thrown.</em>
      * <li><em>If </em><code>pin</code><em> parameter is </em><code>null</code><em>
      * a </em><code>NullPointerException</code><em> exception is thrown.</em></ul>
-     * @param pin the byte array containing the PIN value being checked
+     *
+     * @param pin    the byte array containing the PIN value being checked
      * @param offset the starting offset in the <code>pin</code> array
      * @param length the length of <code>pin</code>
      * @return <code>true</code> if the PIN value matches; <code>false</code> otherwise
      * @throws ArrayIndexOutOfBoundsException if the check operation would cause access of data outside array bounds.
-     * @throws NullPointerException if <code>pin</code> is <code>null</code>
+     * @throws NullPointerException           if <code>pin</code> is <code>null</code>
      */
     @Override
-    public boolean check(byte pin[], short offset, byte length)
+    public boolean check(byte[] pin, short offset, byte length)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
         boolean noMoreTries = false;
         setValidatedFlag(false);
@@ -152,6 +158,7 @@ public class OwnerPINProxy implements PIN {
     /**
      * Returns <code>true</code> if a valid PIN has been presented since the last
      * card reset or last call to <code>reset()</code>.
+     *
      * @return <code>true</code> if validated; <code>false</code> otherwise
      */
     @Override
@@ -180,15 +187,16 @@ public class OwnerPINProxy implements PIN {
      * This method copies the input pin parameter into an internal representation. If a transaction is
      * in progress, the new pin and try counter update must be conditional i.e
      * the copy operation must use the transaction facility.
-     * @param pin the byte array containing the new PIN value
+     *
+     * @param pin    the byte array containing the new PIN value
      * @param offset the starting offset in the pin array
      * @param length he length of the new PIN
      * @throws PINException with the following reason codes:
-     * <ul>
-     *   <li><code>PINException.ILLEGAL_VALUE</code> if length is greater than configured maximum PIN size.
-     * </ul>
+     *                      <ul>
+     *                        <li><code>PINException.ILLEGAL_VALUE</code> if length is greater than configured maximum PIN size.
+     *                      </ul>
      */
-    public void update(byte pin[], short offset, byte length)
+    public void update(byte[] pin, short offset, byte length)
             throws PINException {
         if (length > maxPINSize) {
             PINException.throwIt(PINException.ILLEGAL_VALUE);

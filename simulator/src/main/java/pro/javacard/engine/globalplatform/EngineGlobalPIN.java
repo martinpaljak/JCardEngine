@@ -26,10 +26,8 @@ public class EngineGlobalPIN implements CVM {
     // resetAndUnblockState/setTryLimit are gated on PRIVILEGE_CVM_MANAGEMENT held by the
     // current applet context.
     private static boolean callerHasCvmManagement() {
-        var sim = Simulator.current();
-        var aid = sim.getAID();
-        var entry = sim.lookupApplet(aid);
-        return entry != null && entry.isPrivileged(GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT);
+        var caller = Simulator.current().caller();
+        return caller != null && caller.isPrivileged(GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT);
     }
 
     @Override
@@ -149,7 +147,7 @@ public class EngineGlobalPIN implements CVM {
     // retry counter. BLOCKED survives across sessions; INACTIVE (never initialized) stays put.
     //
     // The simulator cannot observe end-of-session directly (no card-removal event), but the next
-    // power-up arrives as reset() — logically equivalent, since nothing observable happens between
+    // power-up arrives as reset() - logically equivalent, since nothing observable happens between
     // session end and the following power-up. Same model as CLEAR_ON_RESET transient memory: we
     // always act on reset.
     void onCardReset() {

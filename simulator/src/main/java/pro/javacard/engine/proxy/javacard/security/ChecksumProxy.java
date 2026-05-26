@@ -9,22 +9,24 @@ import javacard.security.CryptoException;
 
 /**
  * ProxyClass for <code>Checksum</code>
+ *
  * @see Checksum
  */
 public class ChecksumProxy {
     /**
      * Creates a <code>Checksum</code> object instance of the selected algorithm.
-     * @param algorithm the desired checksum algorithm.
+     *
+     * @param algorithm      the desired checksum algorithm.
      * @param externalAccess <code>true</code> indicates that the instance will be shared among
-     * multiple applet instances and that the <code>Checksum</code> instance will also be accessed (via a <code>Shareable</code>.
-     * interface) when the owner of the <code>Checksum</code> instance is not the currently selected applet.
-     * If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
+     *                       multiple applet instances and that the <code>Checksum</code> instance will also be accessed (via a <code>Shareable</code>.
+     *                       interface) when the owner of the <code>Checksum</code> instance is not the currently selected applet.
+     *                       If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
      * @return the <code>Checksum</code> object instance of the requested algorithm.
-     * @throws CryptoException  with the following reason codes:
-     * <ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
-     * or shared access mode is not supported.
-     * </ul>
+     * @throws CryptoException with the following reason codes:
+     *                         <ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
+     *                         or shared access mode is not supported.
+     *                         </ul>
      */
     public static final Checksum getInstance(byte algorithm, boolean externalAccess)
             throws CryptoException {
@@ -47,5 +49,5 @@ public class ChecksumProxy {
         }
         return instance;
     }
-    
+
 }

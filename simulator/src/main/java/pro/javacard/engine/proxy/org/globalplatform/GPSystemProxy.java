@@ -14,22 +14,22 @@ public class GPSystemProxy {
     }
 
     public static byte getCardState() {
-        return Simulator.current().getGlobalPlatform().getCardState();
+        return Simulator.current().gp().getCardState();
     }
 
     public static CVM getCVM(byte bCVMIdentifier) {
         if (bCVMIdentifier == GPSystem.CVM_GLOBAL_PIN) {
-            return Simulator.current().getGlobalPlatform().getGlobalPIN();
+            return Simulator.current().gp().getGlobalPIN();
         }
         return null;
     }
 
     public static SecureChannel getSecureChannel() {
-        return Simulator.current().getGlobalPlatform().getSecureChannel();
+        return Simulator.current().gp().getSecureChannel();
     }
 
     public static GPRegistryEntry getRegistryEntry(AID reqAID) {
-        return Simulator.current().getGlobalPlatform().getRegistryEntry(reqAID);
+        return Simulator.current().gp().getRegistryEntry(reqAID);
     }
 
     public static GlobalService getService(AID serverAID, short sServiceName) {
@@ -37,7 +37,7 @@ public class GPSystemProxy {
     }
 
     public static boolean lockCard() {
-        return Simulator.current().getGlobalPlatform().lockCard();
+        return Simulator.current().gp().lockCard();
     }
 
     public static boolean setATRHistBytes(byte[] baBuffer, short sOffset, byte bLength) {
@@ -45,10 +45,10 @@ public class GPSystemProxy {
     }
 
     public static boolean setCardContentState(byte bState) {
-        return Simulator.current().getGlobalPlatform().setCardContentState(bState);
+        return Simulator.current().gp().setCardContentState(bState);
     }
 
     public static boolean terminateCard() {
-        return Simulator.current().getGlobalPlatform().terminateCard();
+        return Simulator.current().gp().terminateCard();
     }
 }

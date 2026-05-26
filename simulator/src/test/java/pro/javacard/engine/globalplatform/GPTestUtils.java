@@ -12,7 +12,7 @@ import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.util.EnumSet;
 
-// Cross-cutting fixtures for GlobalPlatform engine tests. Keeps the FQN/JC <-> gp-pro AID
+// Cross-cutting fixtures for GlobalPlatformEngine engine tests. Keeps the FQN/JC <-> gp-pro AID
 // conversion in one place and folds repeated SCP / SSD-install boilerplate into single calls.
 final class GPTestUtils {
     private GPTestUtils() {

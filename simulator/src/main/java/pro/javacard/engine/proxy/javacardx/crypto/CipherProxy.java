@@ -8,26 +8,29 @@ import com.licel.jcardsim.crypto.SymmetricCipherImpl;
 import javacard.security.CryptoException;
 import javacardx.crypto.AEADCipher;
 import javacardx.crypto.Cipher;
+
 /**
  * ProxyClass for <code>Cipher</code>
+ *
  * @see Cipher
  */
 @SuppressWarnings("deprecation")
 public class CipherProxy {
     /**
      * Creates a <code>Cipher</code> object instance of the selected algorithm.
-     * @param algorithm the desired Cipher algorithm. Valid codes listed in
-     * ALG_ .. constants above, for example, {@link Cipher#ALG_DES_CBC_NOPAD}
+     *
+     * @param algorithm      the desired Cipher algorithm. Valid codes listed in
+     *                       ALG_ .. constants above, for example, {@link Cipher#ALG_DES_CBC_NOPAD}
      * @param externalAccess indicates that the instance will be shared among
-     * multiple applet instances and that the <code>Cipher</code> instance will also be accessed (via a <code>Shareable</code>
-     * interface) when the owner of the <code>Cipher</code> instance is not the currently selected applet.
-     * If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
+     *                       multiple applet instances and that the <code>Cipher</code> instance will also be accessed (via a <code>Shareable</code>
+     *                       interface) when the owner of the <code>Cipher</code> instance is not the currently selected applet.
+     *                       If <code>true</code> the implementation must not allocate CLEAR_ON_DESELECT transient space for internal data.
      * @return the <code>Cipher</code> object instance of the requested algorithm
      * @throws CryptoException with the following reason codes:
-     * <ul>
-     *  <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm is not supported
-     *  or shared access mode is not supported.
-     * </ul>
+     *                         <ul>
+     *                          <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm is not supported
+     *                          or shared access mode is not supported.
+     *                         </ul>
      */
     public static final Cipher getInstance(byte algorithm, boolean externalAccess)
             throws CryptoException {
@@ -35,7 +38,7 @@ public class CipherProxy {
         if (externalAccess) {
             CryptoException.throwIt((short) 3);
         }
- 
+
         switch (algorithm) {
             case Cipher.ALG_DES_CBC_NOPAD:
             case Cipher.ALG_DES_CBC_ISO9797_M1:

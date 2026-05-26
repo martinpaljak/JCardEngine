@@ -8,6 +8,7 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.ISO7816;
+import org.globalplatform.GPSystem;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
@@ -33,8 +34,6 @@ public class CardLifecycleAndPrivilegesTest {
 
     private static final byte ID_A = (byte) 0xA1;
     private static final byte ID_B = (byte) 0xB2;
-
-    private static final byte APP_SELECTABLE = (byte) 0x07;
 
     private static final byte INS_SET_STATUS = (byte) 0xF0;
     private static final byte P1_CARD_LCS = (byte) 0x80;
@@ -88,7 +87,7 @@ public class CardLifecycleAndPrivilegesTest {
             // GPC v2.3.1 5.1.1.5: TERMINATED is reachable from any non-terminal state (CardTerminate privilege).
             gp.setCardStatus(ISDLifeCycle.TERMINATED);
 
-            // GPC v2.3.1 5.1.1.5: TERMINATED is irreversible — no transition out, including self-loop.
+            // GPC v2.3.1 5.1.1.5: TERMINATED is irreversible - no transition out, including self-loop.
             assertSetStatusRejected(gp, 0x0F, "TERMINATED -> SECURED");
             assertSetStatusRejected(gp, 0x07, "TERMINATED -> INITIALIZED");
             assertSetStatusRejected(gp, 0x01, "TERMINATED -> OP_READY");
@@ -98,7 +97,7 @@ public class CardLifecycleAndPrivilegesTest {
 
     // GPC v2.3.1 5.1.1.4 / 5.1.1.5: GPSystem.lockCard and GPSystem.terminateCard from inside an
     // applet are gated by privileges (CardLock, CardTerminate) and by source-state preconditions.
-    // The applet can't bypass GPC v2.3.1 5.1.1 just by holding a privilege — the JC-API path enforces both.
+    // The applet can't bypass GPC v2.3.1 5.1.1 just by holding a privilege - the JC-API path enforces both.
     @Test
     public void gpSystemCardStateApi() throws Exception {
         // From SECURED: lockCard gated by CardLock; ISD stays SECURED on rejection.
@@ -118,7 +117,7 @@ public class CardLifecycleAndPrivilegesTest {
             assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, true,
                     "lockCard with CardLock from SECURED");
             // GPSystem.getCardState (JC-API view) MUST track the actual ISD lifecycle byte
-            // observable via GET STATUS — same source of truth, different surface.
+            // observable via GET STATUS - same source of truth, different surface.
             var rState = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_CARD_STATE, 0x00, 0x00, 256));
             assertEquals(0x9000, rState.getSW());
             assertEquals((byte) 0x7F, rState.getData()[0],
@@ -204,11 +203,11 @@ public class CardLifecycleAndPrivilegesTest {
 
             var rNull = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_SELF, 0x00, 0x00, 256));
             assertEquals(0x9000, rNull.getSW(), "self-query via null");
-            assertEquals(APP_SELECTABLE, rNull.getData()[0]);
+            assertEquals(GPSystem.APPLICATION_SELECTABLE, rNull.getData()[0]);
 
             var rSelf = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(A), 256));
             assertEquals(0x9000, rSelf.getSW(), "self-query via own AID");
-            assertEquals(APP_SELECTABLE, rSelf.getData()[0]);
+            assertEquals(GPSystem.APPLICATION_SELECTABLE, rSelf.getData()[0]);
 
             var rCross = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
             assertEquals(0x6A82, rCross.getSW(), "Unprivileged cross-applet query must be denied (gate fired)");
@@ -224,7 +223,7 @@ public class CardLifecycleAndPrivilegesTest {
 
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
             assertEquals(0x9000, r.getSW(), "GlobalRegistry-privileged cross-applet query must succeed");
-            assertEquals(APP_SELECTABLE, r.getData()[0]);
+            assertEquals(GPSystem.APPLICATION_SELECTABLE, r.getData()[0]);
         }
     }
 
@@ -325,7 +324,7 @@ public class CardLifecycleAndPrivilegesTest {
     }
 
     // Advance the ISD lifecycle from OP_READY through INITIALIZED to SECURED via SET STATUS
-    // on the open ISD session. SCP wraps the APDUs and authenticates the ISD as the caller —
+    // on the open ISD session. SCP wraps the APDUs and authenticates the ISD as the caller -
     // the ISD holds AuthorizedManagement by default, which authorizes both transitions.
     private static void advanceToSecured(GPSession gp) throws Exception {
         gp.setCardStatus(ISDLifeCycle.INITIALIZED);
@@ -334,7 +333,7 @@ public class CardLifecycleAndPrivilegesTest {
 
     private static void selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW(), "SELECT " + AIDUtil.toString(aid));
+        assertEquals(0x9000, r.getSW(), "SELECT " + aid);
     }
 
     private static void assertSetStatusRejected(GPSession gp, int newLcs, String label) throws Exception {

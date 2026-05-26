@@ -67,7 +67,7 @@ public class SecurityDomainTest {
         }
 
         // 2. Bare SELECT [by AID] of the SSD must return 9000 with an FCI whose 84 (Application
-        // AID) tag carries the SSD's own AID — proves fci(AID) is built per-applet rather than
+        // AID) tag carries the SSD's own AID - proves fci(AID) is built per-applet rather than
         // echoing the hardcoded ISD AID. This is the ONE place a raw CommandAPDU is justified;
         // gp-pro does not surface the FCI bytes from its own SELECT path.
         try (var bibo = sim.connect()) {
@@ -84,7 +84,7 @@ public class SecurityDomainTest {
         }
 
         // 3. Open SCP to the freshly-installed SSD with the bootstrap default key. The SSD owns
-        // no keys yet, so resolveMasterKey walks up to the ISD's KVN=0xFF (GPC v2.3.1 7.1).
+        // no keys yet, so key resolution walks up to the ISD's KVN=0xFF (GPC v2.3.1 7.1).
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, gpAID(SSD));
             gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC));
@@ -114,7 +114,7 @@ public class SecurityDomainTest {
             openSdMac(bibo, SSD, MasterKeys.A, 0x01);
         }
 
-        // 8. Parent's bootstrap key must NO LONGER reach the SSD — the walk-up stops at the
+        // 8. Parent's bootstrap key must NO LONGER reach the SSD - the walk-up stops at the
         // SSD's own non-empty keystore. This is what makes the PERSONALIZED transition
         // meaningful (key isolation, GPC v2.3.1 7.1).
         try (var bibo = sim.connect()) {
@@ -154,7 +154,7 @@ public class SecurityDomainTest {
         }
 
         // 12. Post-extradition key resolution: SCP to APP with the SSD owner's master at KVN=0x01
-        // succeeds (resolveMasterKey walks APP -> SSD), while the ISD's bootstrap key fails
+        // succeeds (key resolution walks APP -> SSD), while the ISD's bootstrap key fails
         // (no longer reachable from APP's chain post-extradition; GPC v2.3.1 7.1).
         try (var bibo = sim.connect()) {
             openSdMac(bibo, APP, MasterKeys.A, 0x01);
@@ -218,7 +218,7 @@ public class SecurityDomainTest {
             assertEquals(0x6982, ex.sw, "extradition by an SSD lacking AM must yield SW_SECURITY_STATUS_NOT_SATISFIED (6982) since AM is required per GPC v2.3.1 9.4.1 and 6.6.1");
         }
 
-        // Scenario B: SSD WITH AM privilege — extradition must succeed and the registry flips.
+        // Scenario B: SSD WITH AM privilege - extradition must succeed and the registry flips.
         var simB = new JavaCardEngine.Builder().build();
         simB.loadApplet(PKG, APP, GlobalPlatformTestApplet.class);
         try (var bibo = simB.connect()) {

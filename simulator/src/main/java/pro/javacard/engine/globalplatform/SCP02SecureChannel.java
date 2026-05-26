@@ -23,16 +23,11 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Objects;
 
-public final class SCP02SecureChannelImpl extends EngineSecureChannel {
-    private static final Logger log = LoggerFactory.getLogger(SCP02SecureChannelImpl.class);
+public final class SCP02SecureChannel extends EngineSecureChannel {
+    private static final Logger log = LoggerFactory.getLogger(SCP02SecureChannel.class);
     private final byte[] SCP = new byte[]{(byte) 0x02};
 
-    public SCP02SecureChannelImpl() {
-    }
-
-    private PlaintextKeys freshKeys() {
-        var ks = resolveMasterKey();
-        return PlaintextKeys.fromKeys(ks.value(KeySet.KID_ENC), ks.value(KeySet.KID_MAC), ks.value(KeySet.KID_DEK));
+    public SCP02SecureChannel() {
     }
 
     private final byte[] ssc = new byte[2];
@@ -58,9 +53,8 @@ public final class SCP02SecureChannelImpl extends EngineSecureChannel {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x80) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
             }
-            // P1 carries the requested KVN per GPC v2.3.1 D.4.1.3; already consumed and validated
-            // by SecurityDomainApplet.primeSecureChannel — accept any value here. P2 (Key Identifier)
-            // is unused for SCP02 master-key selection.
+            // P1 = key version number, used by initializeMasterKey() below to select the key set.
+            // P2 (Key Identifier) unused for SCP02 master-key selection. GPC v2.3.1 D.4.1.4.
             if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
@@ -69,7 +63,7 @@ public final class SCP02SecureChannelImpl extends EngineSecureChannel {
             }
             resetSession();
             byte[] kdd = sessionKDD();
-            PlaintextKeys keys = freshKeys();
+            PlaintextKeys keys = initializeMasterKey(buffer[ISO7816.OFFSET_P1]);
             keys.diversify(GPSecureChannelVersion.SCP.SCP02, kdd);
             var host_challenge = Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + 8);
             var card_challenge = GPUtils.concatenate(ssc, GPCrypto.random(6));
@@ -225,7 +219,7 @@ public final class SCP02SecureChannelImpl extends EngineSecureChannel {
             Util.arrayCopyNonAtomic(result, (short) 0, buffer, offset, (short) result.length);
             return (short) result.length;
         } catch (GeneralSecurityException e) {
-            log.error("Could not decrypt data: " + e.getMessage(), e);
+            log.error("Decrypt failed", e);
             throw new RuntimeException(e);
         }
     }
@@ -244,7 +238,7 @@ public final class SCP02SecureChannelImpl extends EngineSecureChannel {
 
     // SCP02 R-MAC is a fixed 8-byte trailer (DES MAC). R-ENCRYPTION is not implemented.
     @Override
-    public short maxResponseLength() {
+    short maxResponseLength() {
         if ((state & SecureChannel.R_MAC) != 0) {
             return (short) 248;
         }

@@ -9,11 +9,13 @@ import javacard.security.PublicKey;
 
 /**
  * ProxyClass for <code>KeyPair</code>
+ *
  * @see javacard.security.KeyPair
  */
 
 public class KeyPairProxy {
-    private KeyPairImpl impl;
+    private final KeyPairImpl impl;
+
     /**
      * (Re)Initializes the key objects encapsulated in this <code>KeyPair</code> instance
      * with new key values. The initialized public and private key objects
@@ -35,11 +37,12 @@ public class KeyPairProxy {
      * <li><em>If the time taken to generate the key values is excessive, the implementation may automatically
      * request additional APDU processing time from the CAD.</em>
      * </ul>
+     *
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.ILLEGAL_VALUE</code> if the exponent
-     * value parameter in RSA or the p, q, g parameter set in DSA or
-     * the Field, A, B, G and R parameter set in EC is invalid.
-     * </ul>
+     *                         <li><code>CryptoException.ILLEGAL_VALUE</code> if the exponent
+     *                         value parameter in RSA or the p, q, g parameter set in DSA or
+     *                         the Field, A, B, G and R parameter set in EC is invalid.
+     *                         </ul>
      * @see javacard.framework.APDU
      * @see javacard.security.Signature
      * @see javacardx.crypto.Cipher
@@ -64,14 +67,15 @@ public class KeyPairProxy {
      * <li><em>The key objects encapsulated in the generated </em><code>KeyPair</code><em> object
      * need not support the </em><code>KeyEncryption</code><em> interface.</em>
      * </ul>
+     *
      * @param algorithm the type of algorithm whose key pair needs to be generated.
-     * Valid codes listed in <code>ALG_..</code> constants above. See <A HREF="../../javacard/security/KeyPair.html#ALG_RSA"><CODE>ALG_RSA</CODE></A>
-     * @param keyLength  the key size in bits. The valid key bit lengths are key type dependent.
-     * See the <code>KeyBuilder</code> class.
-     * @see javacard.security.KeyBuilder
+     *                  Valid codes listed in <code>ALG_..</code> constants above. See <A HREF="../../javacard/security/KeyPair.html#ALG_RSA"><CODE>ALG_RSA</CODE></A>
+     * @param keyLength the key size in bits. The valid key bit lengths are key type dependent.
+     *                  See the <code>KeyBuilder</code> class.
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
-     * associated with the specified type, size of key is not supported.</ul>
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the requested algorithm
+     *                         associated with the specified type, size of key is not supported.</ul>
+     * @see javacard.security.KeyBuilder
      * @see javacard.security.KeyBuilder
      * @see javacard.security.Signature
      * @see javacardx.crypto.KeyEncryption
@@ -88,14 +92,15 @@ public class KeyPairProxy {
      * <p>Note that this constructor only stores references to the public
      * and private key components in the generated <code>KeyPair</code> object. It
      * does not throw an exception if the key parameter objects are uninitialized.
-     * @param publicKey the public key.
+     *
+     * @param publicKey  the public key.
      * @param privateKey the private key.
      * @throws CryptoException with the following reason codes:<ul>
-     * <li><code>CryptoException.ILLEGAL_VALUE</code> if the input parameter key
-     * objects are inconsistent with each other - i.e mismatched algorithm, size etc.
-     * <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the algorithm
-     * associated with the specified type, size of key is not supported.
-     * </ul>
+     *                         <li><code>CryptoException.ILLEGAL_VALUE</code> if the input parameter key
+     *                         objects are inconsistent with each other - i.e mismatched algorithm, size etc.
+     *                         <li><code>CryptoException.NO_SUCH_ALGORITHM</code> if the algorithm
+     *                         associated with the specified type, size of key is not supported.
+     *                         </ul>
      */
     public KeyPairProxy(PublicKey publicKey, PrivateKey privateKey)
             throws CryptoException {
@@ -104,6 +109,7 @@ public class KeyPairProxy {
 
     /**
      * Returns a reference to the public key component of this <code>KeyPair</code> object.
+     *
      * @return a reference to the public key.
      */
     public PublicKey getPublic() {
@@ -112,6 +118,7 @@ public class KeyPairProxy {
 
     /**
      * Returns a reference to the private key component of this <code>KeyPair</code> object.
+     *
      * @return a reference to the private key.
      */
     public PrivateKey getPrivate() {

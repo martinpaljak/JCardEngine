@@ -174,7 +174,7 @@ public class JCSystemProxy {
      * is thrown if <code>buffer</code> is <code>null</code>,
      * or if <code>offset</code> or <code>length</code> are out of range.
      */
-    public static AID lookupAID(byte buffer[], short offset, byte length) {
+    public static AID lookupAID(byte[] buffer, short offset, byte length) {
         return Simulator.current().lookupAID(buffer, offset, length);
     }
 
@@ -454,7 +454,9 @@ public class JCSystemProxy {
      * AID parameter is currently active on this or another logical channel
      */
     public static boolean isAppletActive(AID theApplet) {
-        return theApplet == Simulator.current().getAID();
+        // JC RE: "active" = currently selected applet instance, NOT the executing context. A server SIO
+        // called via an intermediate applet must see the intermediate as inactive, the selected one active.
+        return theApplet != null && theApplet.equals(Simulator.current().getActiveAID());
     }
 
 }

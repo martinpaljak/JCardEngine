@@ -6,6 +6,7 @@ import com.licel.jcardsim.base.Simulator;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 // Instead of mutating a class based on pre-defined configuration, we load all interesting locations with bytecode, that call
 // back to mothership to ask for "should I fail or not". This means that there is just a single and deterministic version
 // of the class file, which makes JaCoCo visualizer happy, and we get "free" code coverage report with line coverage.
@@ -30,7 +31,7 @@ public class FaultInjectionInterceptor extends ClassVisitor {
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String descriptor,
-        String signature, String[] exceptions) {
+                                     String signature, String[] exceptions) {
         MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 
         log.trace("visitMethod called: class={}, method={}, isInterface={}", currentClassName, name, isInterface);
@@ -61,38 +62,20 @@ public class FaultInjectionInterceptor extends ClassVisitor {
         // Add static fields if not already added
         if (!fieldsAdded) {
             // Add boolean[] $faultFlips
-            FieldVisitor fv1 = super.visitField(
-                Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
-                "$faultFlips",
-                "[Z",
-                null,
-                null
-            );
+            FieldVisitor fv1 = super.visitField(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "$faultFlips", "[Z", null, null);
             if (fv1 != null) {
                 fv1.visitEnd();
             }
 
             // Add int[] $faultIntFlips
-            FieldVisitor fv2 = super.visitField(
-                Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
-                "$faultIntFlips",
-                "[I",
-                null,
-                null
-            );
+            FieldVisitor fv2 = super.visitField(Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "$faultIntFlips", "[I", null, null);
             if (fv2 != null) {
                 fv2.visitEnd();
             }
 
             // Only create <clinit> if it doesn't exist
             if (!clinitExists) {
-                MethodVisitor mv = super.visitMethod(
-                    Opcodes.ACC_STATIC,
-                    "<clinit>",
-                    "()V",
-                    null,
-                    null
-                );
+                MethodVisitor mv = super.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
                 if (mv != null) {
                     mv.visitCode();
                     injectFaultArrayInitialization(mv);
@@ -108,20 +91,13 @@ public class FaultInjectionInterceptor extends ClassVisitor {
     }
 
     private void injectFaultArrayInitialization(MethodVisitor mv) {
+        var simclass = Simulator.class.getCanonicalName().replace(".", "/");
         // $faultFlips = Simulator.getFaultFlipsArray();
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-            Simulator.class.getCanonicalName().replace(".", "/"),
-            "getFaultFlipsArray",
-            "()[Z",
-            false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, simclass, "getFaultFlipsArray", "()[Z", false);
         mv.visitFieldInsn(Opcodes.PUTSTATIC, currentClassName, "$faultFlips", "[Z");
 
         // $faultIntFlips = Simulator.getFaultIntFlipsArray();
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC,
-            Simulator.class.getCanonicalName().replace(".", "/"),
-            "getFaultIntFlipsArray",
-            "()[I",
-            false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, simclass, "getFaultIntFlipsArray", "()[I", false);
         mv.visitFieldInsn(Opcodes.PUTSTATIC, currentClassName, "$faultIntFlips", "[I");
     }
 
@@ -137,23 +113,16 @@ public class FaultInjectionInterceptor extends ClassVisitor {
         @Override
         public void visitCode() {
             super.visitCode();
+            var simclass = Simulator.class.getCanonicalName().replace(".", "/");
 
             // Inject our initialization at the very beginning
             if (!initialized) {
                 // $faultFlips = Simulator.getFaultFlipsArray();
-                super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    Simulator.class.getCanonicalName().replace(".", "/"),
-                    "getFaultFlipsArray",
-                    "()[Z",
-                    false);
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, simclass, "getFaultFlipsArray", "()[Z", false);
                 super.visitFieldInsn(Opcodes.PUTSTATIC, className, "$faultFlips", "[Z");
 
                 // $faultIntFlips = Simulator.getFaultIntFlipsArray();
-                super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                    Simulator.class.getCanonicalName().replace(".", "/"),
-                    "getFaultIntFlipsArray",
-                    "()[I",
-                    false);
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, simclass, "getFaultIntFlipsArray", "()[I", false);
                 super.visitFieldInsn(Opcodes.PUTSTATIC, className, "$faultIntFlips", "[I");
 
                 initialized = true;
@@ -188,13 +157,13 @@ public class FaultInjectionInterceptor extends ClassVisitor {
 
         private boolean isConditionalJump(int opcode) {
             return opcode == Opcodes.IFEQ || opcode == Opcodes.IFNE ||
-                opcode == Opcodes.IFLT || opcode == Opcodes.IFGE ||
-                opcode == Opcodes.IFGT || opcode == Opcodes.IFLE ||
-                opcode == Opcodes.IF_ICMPEQ || opcode == Opcodes.IF_ICMPNE ||
-                opcode == Opcodes.IF_ICMPLT || opcode == Opcodes.IF_ICMPGE ||
-                opcode == Opcodes.IF_ICMPGT || opcode == Opcodes.IF_ICMPLE ||
-                opcode == Opcodes.IF_ACMPEQ || opcode == Opcodes.IF_ACMPNE ||
-                opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL;
+                    opcode == Opcodes.IFLT || opcode == Opcodes.IFGE ||
+                    opcode == Opcodes.IFGT || opcode == Opcodes.IFLE ||
+                    opcode == Opcodes.IF_ICMPEQ || opcode == Opcodes.IF_ICMPNE ||
+                    opcode == Opcodes.IF_ICMPLT || opcode == Opcodes.IF_ICMPGE ||
+                    opcode == Opcodes.IF_ICMPGT || opcode == Opcodes.IF_ICMPLE ||
+                    opcode == Opcodes.IF_ACMPEQ || opcode == Opcodes.IF_ACMPNE ||
+                    opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL;
         }
 
         private void injectConditionalFlip(int opcode, Label label) {

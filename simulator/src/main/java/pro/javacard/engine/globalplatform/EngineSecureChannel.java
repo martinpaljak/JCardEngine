@@ -8,24 +8,25 @@ import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import org.globalplatform.SecureChannel;
 import pro.javacard.gp.GPUtils;
+import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.util.Arrays;
 
 // Internal base for the SCP02/SCP03 secure channel impls. Holds the shared session
 // state (security level, session keys) and centralizes the reset/auth-check sequences.
-public abstract sealed class EngineSecureChannel implements SecureChannel permits SCP02SecureChannelImpl, SCP03SecureChannelImpl {
+public abstract sealed class EngineSecureChannel implements SecureChannel permits SCP02SecureChannel, SCP03SecureChannel {
 
     protected byte state = NO_SECURITY_LEVEL;
     protected byte[] macKey;
     protected byte[] encKey;
 
-    // Master keys for the active session. Set by beginSession() at INITIALIZE_UPDATE time,
-    // cleared by resetSecurity() (power cycle / MAC failure / explicit drop). Read by processSecurity()
-    // to derive session keys, and by SCP03.decryptData() for static-DEK operations.
+    // Master key set for the active session. Resolved at INITIALIZE UPDATE by initializeMasterKey(),
+    // cleared by resetSecurity() (power cycle / MAC failure / explicit drop). Read to derive session
+    // keys and by SCP03.decryptData() for static-DEK operations.
     protected KeySet currentMasterKey;
 
     // GP INS values processed by processSecurity().
-    static final byte INS_INITIALIZE_UPDATE     = (byte) 0x50;
+    static final byte INS_INITIALIZE_UPDATE = (byte) 0x50;
     static final byte INS_EXTERNAL_AUTHENTICATE = (byte) 0x82;
 
     @Override
@@ -33,29 +34,17 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
         return state;
     }
 
-    // Prime master keys for the upcoming session. Called by the OPEN before processSecurity()
-    // at INITIALIZE_UPDATE time. The keys persist for the session lifetime.
-    public final void beginSession(KeySet keys) {
-        this.currentMasterKey = keys;
-    }
-
-    // Resolve the master key set for this session. If the OPEN already primed via beginSession()
-    // (the normal path), return that. Otherwise delegate to SecurityDomainApplet.resolveKeys(),
-    // which walks the SD chain and returns the first non-empty own keyset; we pick its newest.
-    //
-    // Stashes the resolved keys in currentMasterKey for later session use (decryptData, etc.).
-    protected final KeySet resolveMasterKey() {
-        if (currentMasterKey != null) {
-            return currentMasterKey;
+    // INITIALIZE UPDATE master-key initialization. The secure channel does not contain the key-lookup
+    // walk - that belongs to the SD applet (resolveKeySet). The channel only supplies what it knows:
+    // the calling applet context and the requested key version (IU P1). The resolved set is this SD's
+    // own keys or, failing that, its parent SD's (GPC v2.3.1 7.1).
+    protected final PlaintextKeys initializeMasterKey(byte requestedKvn) {
+        var ks = SecurityDomainApplet.resolveKeySet(Simulator.current().caller(), requestedKvn);
+        if (ks.isEmpty()) {
+            ISOException.throwIt(requestedKvn == 0 ? ISO7816.SW_CONDITIONS_NOT_SATISFIED : ISO7816.SW_INCORRECT_P1P2);
         }
-        var sim = Simulator.current();
-        var ks = SecurityDomainApplet.resolveKeys(sim, sim.lookupApplet(sim.getAID()))
-                .stream().reduce((a, b) -> b).orElse(null);
-        if (ks == null) {
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-        }
-        currentMasterKey = ks;
-        return ks;
+        currentMasterKey = ks.get();
+        return PlaintextKeys.fromKeys(currentMasterKey.value(KeySet.KID_ENC), currentMasterKey.value(KeySet.KID_MAC), currentMasterKey.value(KeySet.KID_DEK));
     }
 
     // Drop authentication and master keys, let the SCP impl wipe its own session state.
@@ -67,8 +56,9 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
         currentMasterKey = null;
     }
 
-    // Internal session-only reset: used by SCP impls at INITIALIZE_UPDATE start to clear the previous
-    // session's session keys without dropping the just-primed master. ssc deliberately persists across.
+    // Internal session-only reset: used by SCP impls at INITIALIZE UPDATE start to clear the previous
+    // session's session keys. The master key set is re-resolved by the same INITIALIZE UPDATE; ssc
+    // deliberately persists across.
     protected final void resetSession() {
         state = NO_SECURITY_LEVEL;
         wipeScpState();
@@ -91,7 +81,7 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
     }
 
     // Max plaintext response payload that fits in a 256-byte APDU response after wrap().
-    public abstract short maxResponseLength();
+    abstract short maxResponseLength();
 
     // SCP-specific cleanup: zero session keys + per-SCP crypto buffers (ICV, chaining, ...).
     protected abstract void wipeScpState();
@@ -101,7 +91,7 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
     // from the card's CPLC. Used by SCP02/SCP03 INITIALIZE_UPDATE.
     protected static byte[] sessionKDD() {
         var sim = Simulator.current();
-        byte[] cplc = sim.getGlobalPlatform().cplc;
+        byte[] cplc = sim.gp().isd().getData(GPData.CPLC);
         byte[] aidBytes = AIDUtil.bytes(sim.getAID());
         byte[] aidTail = Arrays.copyOfRange(aidBytes, aidBytes.length - 2, aidBytes.length);
         return GPUtils.concatenate(aidTail, Arrays.copyOfRange(cplc, 10, 18));

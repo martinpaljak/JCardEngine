@@ -7,7 +7,6 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
-import org.globalplatform.GPRegistryEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.EngineSession;
@@ -19,10 +18,10 @@ import pro.javacard.engine.core.Faulty;
 import pro.javacard.engine.core.IsolatingClassReloader;
 import pro.javacard.engine.faulty.FaultyConfig;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
-import pro.javacard.engine.globalplatform.GlobalPlatform;
+import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
+import pro.javacard.engine.globalplatform.RegistryPolicy;
+import pro.javacard.engine.globalplatform.SCPConfig;
 import pro.javacard.engine.globalplatform.SecurityDomainApplet;
-import pro.javacard.gp.GPRegistryEntry.Kind;
-import pro.javacard.gp.GPRegistryEntry.Privilege;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -64,9 +63,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // The thread that creates this Simulator instance. Used for assisting warnings.
     final Thread creator = Thread.currentThread();
 
-    // Registry of selectable entries: APP / SSD / ISD. Keyed by instance AID.
-    protected final SortedMap<AID, EngineRegistryEntry> registry = new TreeMap<>(AIDUtil.comparator());
-
     // Outbound transfer buffer
     protected final byte[] responseBuffer = new byte[Short.MAX_VALUE + 2];
     // Outbound transfer buffer length
@@ -75,12 +71,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // Transient memory
     protected final TransientMemory transientMemory;
     // Global Platform support for registry and secure channel
-    private final GlobalPlatform globalPlatform;
+    private final GlobalPlatformEngine globalPlatform;
     // Handles APDU state and IO
     private final CurrentAPDU currentAPDU;
 
-    // Currently selected applet
-    private AID currentAID;
+    // The active applet instance: the applet currently selected on the channel (JC RE: "active applet
+    // instance"). Distinct from getAID() == contextStack.peek(), the current executing context.
+    private AID activeAID;
 
     // Context stack
     private final Deque<AID> contextStack = new ArrayDeque<>();
@@ -100,7 +97,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // Fault injection configuration
     private final FaultyConfig faultConfig;
 
-    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatform globalPlatform) {
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = globalPlatform;
         this.currentAPDU = new CurrentAPDU();
@@ -109,7 +106,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
-        this(loader, faultConfig, new GlobalPlatform());
+        this(loader, faultConfig, new GlobalPlatformEngine(SCPConfig.defaultConfig()));
     }
 
     public Simulator(ClassLoader loader) {
@@ -182,23 +179,26 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
         lock.acquireUninterruptibly();
         try (var sim = asCurrent()) {
-            return _select(aid);
+            return _select(globalPlatform.lookup(aid));
         } finally {
             lock.release();
         }
     }
 
     // Keeps track of selected applet and triggers deselect/select invocation
-    private boolean _select(AID aid) {
-        var instance = lookupApplet(aid);
+    private boolean _select(EngineRegistryEntry instance) {
         if (instance == null) {
             return false;
         }
-        if (currentAID != null) {
-            deselect(lookupApplet(currentAID));
+        var aid = instance.getAID();
+        if (activeAID != null) {
+            deselect(globalPlatform.lookup(activeAID));
         }
         contextStack.clear();
         contextStack.push(aid);
+        // JC API isAppletActive: the applet is the active instance during its own select() callback;
+        // rolled back to null below if it refuses selection.
+        activeAID = aid;
         boolean success;
         try {
             success = instance.getApplet().select();
@@ -208,14 +208,15 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         } finally {
             contextStack.clear();
         }
-        // JCRE 3.2 §4.6.2 step 7: select() returning true with an applet-initiated
-        // transaction in progress is treated as a selection failure.
+        // JCRE 3.2 4.6.2 step 7: select() true with a transaction in progress is a selection failure.
         if (success && getTransactionDepth() != 0) {
-            log.warn("{} returned true from select() with transaction in progress", AIDUtil.toString(aid));
+            log.warn("select() returned true with transaction in progress: {}", aid);
             abortTransaction();
             success = false;
         }
-        currentAID = success ? aid : null;
+        if (!success) {
+            activeAID = null;
+        }
         return success;
     }
 
@@ -295,6 +296,17 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         return contextStack.peek();
     }
 
+    @Override
+    public AID getActiveAID() {
+        return activeAID;
+    }
+
+    @Override
+    public EngineRegistryEntry caller() {
+        var aid = contextStack.peek();
+        return aid == null ? null : globalPlatform.lookup(aid);
+    }
+
     /**
      * Lookup applet by aid contains in byte array
      *
@@ -305,42 +317,14 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
      */
     @Override
     public AID lookupAID(byte[] buffer, short offset, byte length) {
-        // Return the "JC owned" AID instance for selectable applet entries only.
-        for (var aid : registry.keySet()) {
-            if (aid.equals(buffer, offset, length)) {
-                return aid;
+        // The JCRE's sole registry read (JCSystem.lookupAID proxy): the "JC owned" AID instance for
+        // selectable applet entries only. getApplets() already excludes ELFs (Kind.PKG).
+        for (var e : globalPlatform.getApplets()) {
+            if (e.getAID().equals(buffer, offset, length)) {
+                return e.getAID();
             }
         }
         return null;
-    }
-
-    /**
-     * Lookup applet entry by AID. PKG entries live in {@link GlobalPlatform} and are excluded.
-     *
-     * @param lookupAid applet AID
-     * @return EngineRegistryEntry or null
-     */
-    @Override
-    public EngineRegistryEntry lookupApplet(AID lookupAid) {
-        log.trace("Searching registry for {}", lookupAid == null ? null : AIDUtil.toString(lookupAid));
-        if (lookupAid == null) {
-            return null;
-        }
-        var entry = registry.get(lookupAid);
-        if (entry == null) {
-            log.warn("Application with AID {} not found", AIDUtil.toString(lookupAid));
-            return null;
-        }
-        return entry;
-    }
-
-    public SortedMap<AID, EngineRegistryEntry> getRegistry() {
-        return registry;
-    }
-
-    @Override
-    public Collection<EngineRegistryEntry> getApplets() {
-        return Collections.unmodifiableCollection(registry.values());
     }
 
     /**
@@ -364,7 +348,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public Applet getApplet(AID aid) {
         Objects.requireNonNull(aid);
-        var a = lookupApplet(aid);
+        var a = globalPlatform.lookup(aid);
         if (a == null) {
             return null;
         } else {
@@ -373,44 +357,32 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     public void internalDeleteApplet(AID aid) {
-        log.info("Deleting applet {}", AIDUtil.toString(aid));
-        var app = lookupApplet(aid);
+        log.info("Deleting applet {}", aid);
+        var app = globalPlatform.lookup(aid);
 
         if (app == null) {
-            throw new IllegalArgumentException("Applet with AID " + AIDUtil.toString(aid) + " not found");
+            throw new IllegalArgumentException("Applet with AID " + aid + " not found");
         }
 
-        var heldCardReset = app.isPrivileged(GPRegistryEntry.PRIVILEGE_CARD_RESET);
         var applet = app.getApplet();
         JavaCardEngineException uninstallFailure = null;
+        // Snapshot the caller's context so post-delete work (e.g. EVENT_DELETED fan-out) keeps it.
+        var savedStack = new ArrayDeque<>(contextStack);
 
-        // See https://docs.oracle.com/en/java/javacard/3.1/guide/appletevent-uninstall-method.html
-        // https://pinpasjc.win.tue.nl/docs/apis/jc222/javacard/framework/AppletEvent.html
         if (applet instanceof AppletEvent) {
             try {
                 contextStack.clear();
                 contextStack.push(aid);
-                // Called by the Java Card runtime environment to inform this applet instance that the Applet Deletion Manager has been requested to delete it.
-                // This method may be called by the Java Card runtime environment multiple times, once for each attempt to delete this applet instance.
                 ((AppletEvent) applet).uninstall();
             } catch (Exception e) {
-                // Exceptions thrown by this method are caught by the Java Card runtime environment and ignored.
-                // We delete it, but still throw, so that JavaCardEngine.deleteApplet() could be used for testing.
+                // JCRE ignores uninstall() exceptions; we still throw so deleteApplet() is testable.
                 uninstallFailure = new JavaCardEngineException("uninstall() failed", e);
             }
         }
         contextStack.clear();
-        registry.remove(aid);
-        // GPC v2.3.1 6.6.2: deleting the CardReset-privileged application returns the privilege to the ISD.
-        if (heldCardReset && !SecurityDomainApplet.OPEN_AID.equals(aid)) {
-            var isd = registry.get(SecurityDomainApplet.OPEN_AID);
-            if (isd != null) {
-                var privs = isd.getPrivileges();
-                privs.add(Privilege.CardReset);
-                isd.setPrivileges(privs);
-                log.info("Restored CardReset to ISD after deletion of {}", AIDUtil.toString(aid));
-            }
-        }
+        contextStack.addAll(savedStack);
+        // The OPEN restores spec-defaulted privileges (still seeing the deletee's set) and removes it.
+        globalPlatform.remove(aid);
         if (uninstallFailure != null) {
             throw uninstallFailure;
         }
@@ -429,8 +401,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         // We call into applet.
         try (var sim = asCurrent()) {
             // First deselect the applet, if it is currently selected.
-            if (aid.equals(currentAID)) {
-                deselect(lookupApplet(currentAID));
+            if (aid.equals(activeAID)) {
+                deselect(globalPlatform.lookup(activeAID));
             }
             internalDeleteApplet(aid);
         }
@@ -502,35 +474,32 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
             selecting = false;
             final Applet applet;
-            final AID newAid;
+            final EngineRegistryEntry newEntry;
             // check if there is an applet to be selected
             if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
-                log.trace("Current AID {}, looking up applet ...",
-                        currentAID == null ? null : AIDUtil.toString(currentAID));
-                newAid = findAppletForSelectApdu(command, apduCase);
-                log.trace("Found {}", newAid == null ? null : AIDUtil.toString(newAid));
-                if (newAid == null) {
-                    // GPC v2.3.1 6.4.2.1.2: lookup miss with no Application currently
-                    // selected returns 6A82; with one selected, the SELECT APDU is
-                    // dispatched to it without any deselection.
-                    if (currentAID == null) {
+                log.trace("Current AID {}, looking up applet ...", activeAID);
+                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase);
+                log.trace("Found {}", newEntry);
+                if (newEntry == null) {
+                    // GPC v2.3.1 6.4.2.1.2: miss with nothing selected -> 6A82; else dispatch to current.
+                    if (activeAID == null) {
                         Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
                         return theSW;
                     }
-                    applet = lookupApplet(currentAID).getApplet();
+                    applet = globalPlatform.lookup(activeAID).getApplet();
                 } else {
                     // applet was found, so we will trigger Applet.select() via _select() later
                     selecting = true;
-                    applet = lookupApplet(newAid).getApplet();
+                    applet = newEntry.getApplet();
                 }
             } else {
                 // Nothing selected and not a SELECT applet - done
-                if (currentAID == null) {
+                if (activeAID == null) {
                     Util.setShort(theSW, (short) 0, ISO7816.SW_COMMAND_NOT_ALLOWED);
                     return theSW;
                 }
-                applet = lookupApplet(currentAID).getApplet();
-                newAid = null;
+                applet = globalPlatform.lookup(activeAID).getApplet();
+                newEntry = null;
             }
 
             if (APDUHelper.isExtendedAPDU(apduCase)) {
@@ -544,16 +513,15 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             var apdu = currentAPDU.getAPDU();
             try {
                 if (selecting) {
-                    log.trace("Calling Applet.select() of {}", AIDUtil.toString(newAid));
-                    if (!_select(newAid)) {
-                        // JCRE 4.6 Applet Selection: on refusal, return SW_APPLET_SELECT_FAILED
-                        // and leave no applet selected. _select() already cleared currentAID.
-                        log.warn("{} denied selection in Applet.select()", AIDUtil.toString(newAid));
+                    log.trace("Calling Applet.select(): {}", newEntry);
+                    if (!_select(newEntry)) {
+                        // JCRE 4.6: on refusal return SW_APPLET_SELECT_FAILED, nothing selected.
+                        log.warn("Applet.select() denied selection: {}", newEntry);
                         throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
                     }
                 }
                 currentAPDU.reset(protocol, command);
-                contextStack.push(currentAID);
+                contextStack.push(activeAID);
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
             } catch (Throwable e) {
@@ -570,8 +538,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             }
 
             // if theSW = 0x61XX or 0x9XYZ than return data (ISO7816-3)
-            if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63
-                    || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
+            if (theSW[0] == 0x61 || theSW[0] == 0x62 || theSW[0] == 0x63 || (theSW[0] >= (byte) 0x90 && theSW[0] <= (byte) 0x9F) || isNotAbortingCase(theSW)) {
                 response = new byte[responseBufferSize + 2];
                 Util.arrayCopyNonAtomic(responseBuffer, (short) 0, response, (short) 0, responseBufferSize);
                 Util.arrayCopyNonAtomic(theSW, (short) 0, response, responseBufferSize, (short) 2);
@@ -618,34 +585,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         return false;
     }
 
-    protected AID findAppletForSelectApdu(byte[] selectApdu, int apduCase) {
-        if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
-            if (registry.containsKey(SecurityDomainApplet.OPEN_AID)) {
-                log.info("Selecting OPEN");
-                return SecurityDomainApplet.OPEN_AID;
-            }
-            return null;
-        }
-
-        for (var aid : registry.keySet()) {
-            if (aid.equals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
-                log.trace("Selecting {} based on full AID match", AIDUtil.toString(aid));
-                return aid;
-            }
-        }
-
-        for (var aid : registry.keySet()) {
-            if (aid.partialEquals(selectApdu, ISO7816.OFFSET_CDATA, selectApdu[ISO7816.OFFSET_LC])) {
-                log.trace("Selecting {} based on partial AID match", AIDUtil.toString(aid));
-                return aid;
-            }
-        }
-
-        return null;
-    }
-
     private void deselect(EngineRegistryEntry app) {
-        log.trace("Applet.deselect(): {}", AIDUtil.toString(app.getAID()));
+        log.trace("Applet.deselect(): {}", app.getAID());
         try {
             var applet = app.getApplet();
             contextStack.push(app.getAID());
@@ -657,17 +598,15 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             contextStack.pop();
         }
 
-        currentAID = null;
+        activeAID = null;
 
         if (getTransactionDepth() != 0) {
             log.warn("Applet deselected with transactions pending");
             abortTransaction();
         }
         transientMemory.clearOnDeselect();
-        // GPC v2.3.1 10.2.3 closes the Secure Channel session when the on-card Application
-        // Session terminates, so dropping SC state here lets the next SELECT plus INITIALIZE_UPDATE
-        // re-resolve master keys via the new applet's associated-SD chain rather than letting the
-        // previous SD's primed master persist and shadow the chain walk on a non-SD APP target.
+        // GPC v2.3.1 10.2.3: SC session closes when the Application Session ends, so the next
+        // INITIALIZE_UPDATE re-resolves master keys via the new applet's associated-SD chain.
         globalPlatform.getSecureChannel().resetSecurity();
     }
 
@@ -694,7 +633,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         Arrays.fill(responseBuffer, (byte) 0);
         transactionDepth = 0;
         responseBufferSize = 0;
-        currentAID = null;
+        activeAID = null;
         contextStack.clear();
         command_counter = 0;
         transientMemory.clearOnReset();
@@ -709,7 +648,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     @Override
-    public GlobalPlatform getGlobalPlatform() {
+    public GlobalPlatformEngine gp() {
         return globalPlatform;
     }
 
@@ -795,35 +734,59 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
      */
     @Override
     public Shareable getSharedObject(AID serverAID, byte parameter) {
-        log.info("Getting Shareable from {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
-        var serverApplet = getApplet(serverAID);
-        if (serverApplet == null) {
-            log.warn("Did not find server AID {} in {}", AIDUtil.toString(serverAID), System.identityHashCode(this));
+        log.info("Getting Shareable from {} in {}", serverAID, System.identityHashCode(this));
+        // JC API: null if the calling applet has not yet invoked Applet.register() - i.e. called from
+        // install() before registration. options != null means we are mid-install before register().
+        if (options.get() != null) {
+            log.warn("getShareableInterfaceObject before caller register(): {}", serverAID);
             return null;
         }
-        var shareable = serverApplet.getShareableInterfaceObject(getAID(), parameter);
+        // JC API: null if serverAID is null (must not propagate as NPE from getApplet).
+        if (serverAID == null) {
+            return null;
+        }
+        var serverApplet = getApplet(serverAID);
+        if (serverApplet == null) {
+            log.warn("Did not find server AID {} in {}", serverAID, System.identityHashCode(this));
+            return null;
+        }
+        // JC API: null if the server applet throws an uncaught exception.
+        Shareable shareable;
+        try {
+            shareable = serverApplet.getShareableInterfaceObject(getAID(), parameter);
+        } catch (Exception e) {
+            log.warn("{}({}) threw during getShareableInterfaceObject: {}", serverApplet.getClass().getSimpleName(), serverAID, e.getMessage(), e);
+            return null;
+        }
         if (shareable == null) {
-            log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(),
-                    AIDUtil.toString(serverAID), System.identityHashCode(this));
+            log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(), serverAID, System.identityHashCode(this));
             return null;
         }
         // Wrap in context pusher
         return ContextStackProxy.wrap(serverAID, contextStack, shareable);
     }
 
-    /**
-     * Return a context-switching proxy for a Shareable sub-interface implemented by an applet,
-     * bypassing {@link Applet#getShareableInterfaceObject(AID, byte)}. Used by JCRE-internal
-     * cross-context dispatch (e.g. GP STORE DATA into a Personalization/Application target).
-     *
-     * @param aid   target applet AID
-     * @param iface requested Shareable sub-interface
-     * @return a proxy implementing {@code iface}, or {@code null} if the applet is missing
-     * or does not implement {@code iface}
-     */
+    // Platform-context SIO fetch: getShareableInterfaceObject(null, parameter), so the server
+    // sees a null clientAID (system/CRS/OPEN caller). Used by CL event fan-out. GPC v2.3.1 Amd C 3.10.
+    public Shareable getSystemSharedObject(AID serverAID, byte parameter) {
+        var serverApplet = getApplet(serverAID);
+        if (serverApplet == null) {
+            return null;
+        }
+        var shareable = serverApplet.getShareableInterfaceObject(null, parameter);
+        if (shareable == null) {
+            return null;
+        }
+        // wrapPlatform suspends the applet stack so the callee sees getAID() == serverAID
+        // and getPreviousContextAID() == null.
+        return ContextStackProxy.wrapPlatform(serverAID, contextStack, shareable);
+    }
+
+    // Context-switching proxy for a Shareable sub-interface, bypassing getShareableInterfaceObject().
+    // Used for JCRE-internal cross-context dispatch (e.g. GP STORE DATA). Null if missing or no match.
     @Override
     public <S extends Shareable> S getInterface(AID aid, Class<S> iface) {
-        var entry = lookupApplet(aid);
+        var entry = globalPlatform.lookup(aid);
         if (entry == null) {
             return null;
         }
@@ -856,19 +819,16 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
         try (var sim = asCurrent()) {
-            // Same SD-resolution rule as internalInstallApplet: the issuing SD is whoever is on
-            // top of the context stack (GP-driven path) or the ISD (direct test path).
+            // Issuing SD: top of stack, or ISD on the direct test path.
             AID associatedSD = contextStack.peek();
             if (associatedSD == null) {
                 associatedSD = SecurityDomainApplet.OPEN_AID;
             }
-            Simulator.current().getGlobalPlatform().loadClass(packageAid, appletAid, appletClass, associatedSD);
+            Simulator.current().gp().loadClass(packageAid, appletAid, appletClass, associatedSD);
         }
     }
 
-    // Install entrypoint that also threads packageAID into the resulting registry entry.
-    // Used by the GP applet's INSTALL [for install and make selectable]. Privileges flow verbatim
-    // to the applet; the registry entry decodes them when register() builds it.
+    // Install entrypoint that threads packageAID into the registry entry. Used by INSTALL.
     @Override
     public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges,
                                      byte[] parameters, boolean exposed, AID packageAID) {
@@ -913,15 +873,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         // Construct _actual_ install parameters
         var install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
 
-        // Capture the SD that issued INSTALL [for install] BEFORE we clear the context stack.
-        // GP-driven installs land here with the issuing SD on top; the direct test path leaves
-        // contextStack empty, in which case the ISD is the implicit parent (it owns the engine).
+        // Capture the issuing SD before clearing the stack; empty stack (direct test path) -> ISD.
         AID parentSD = contextStack.peek();
         if (parentSD == null) {
             parentSD = SecurityDomainApplet.OPEN_AID;
         }
-        // Privileges flow verbatim — the applet sees them via install_parameters; the registry
-        // entry decodes them when register() builds it.
         options.set(new RegisterCallbackOptions(appletAID, exposed, privileges, packageAID, parentSD));
 
         interesting.add(klass.getPackageName());
@@ -931,13 +887,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             contextStack.clear(); // It is from JCRE context
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
         } catch (InvocationTargetException e) {
-            log.warn("Exception in {} install() ", AIDUtil.toString(appletAID), e);
+            log.warn("Exception in install(): {}", appletAID, e);
             if (e.getCause() instanceof ISOException isoex) {
                 log.error(String.format("ISOException: 0x%04X", isoex.getReason()), isoex);
             }
             throw new JavaCardEngineException("Exception in install()", e);
         } catch (Exception e) {
-            log.error("Error installing applet " + AIDUtil.toString(appletAID), e);
+            log.error("Error installing applet " + appletAID, e);
             throw new SystemException(SystemException.ILLEGAL_AID);
         } finally {
             // XXX: this is hacky
@@ -958,8 +914,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
         try (var sim = asCurrent()) {
             // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
-            if (currentAID != null) {
-                deselect(lookupApplet(currentAID));
+            if (activeAID != null) {
+                deselect(globalPlatform.lookup(activeAID));
             }
             return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
         }
@@ -987,53 +943,23 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     private void registerAt(AID instanceAID, Object instance, RegisterCallbackOptions opts) {
-        if (opts == null || registry.containsKey(instanceAID)) {
-            log.warn("{} already registered or not called from install()", instance.getClass().getName());
+        if (opts == null || globalPlatform.lookup(instanceAID) != null) {
+            log.warn("Already registered or not in install(): {}", instance.getClass().getName());
             SystemException.throwIt(SystemException.ILLEGAL_AID);
         }
-        log.info("Registering {} as {} in {}", instance.getClass().getName(), AIDUtil.toString(instanceAID), System.identityHashCode(this));
-        var newEntry = buildEntry(instanceAID, instance, opts);
-        if (newEntry.isPrivileged(GPRegistryEntry.PRIVILEGE_CARD_RESET)) {
-            transferCardReset(instanceAID);
-        }
-        registry.put(instanceAID, newEntry);
+        log.info("Registering {} as {} in {}", instance.getClass().getName(), instanceAID, System.identityHashCode(this));
+        globalPlatform.register(instanceAID, instance, opts.exposed(), opts.privileges(), opts.packageAID(), opts.parentSD());
         // Now Applet.getAID() is available.
         contextStack.clear();
         contextStack.push(instanceAID);
     }
 
-    // Build an APP/SSD registry entry from the in-flight install options. Kind (APP vs SSD) is
-    // auto-derived from the SecurityDomain privilege bit by EngineRegistryEntry.forApplet. The
-    // ISD is planted by JavaCardEngine.Builder via forISD and never reaches this callback path.
-    private static EngineRegistryEntry buildEntry(AID aid, Object instance, RegisterCallbackOptions opts) {
-        return EngineRegistryEntry.forApplet(aid, instance, opts.exposed(), opts.privileges(), opts.packageAID(), opts.parentSD());
-    }
-
-    // GPC v2.3.1 6.4.1 / 6.4.2.1.1: on power-up the CardReset-privilege applet is implicitly selected.
+    // On power-up, drive selection of the OPEN's implicitly selected Application
     private void autoSelectOnReset() {
         try (var sim = asCurrent()) {
-            for (var entry : registry.values()) {
-                if (entry.isPrivileged(GPRegistryEntry.PRIVILEGE_CARD_RESET)) {
-                    if (_select(entry.getAID())) {
-                        log.debug("Auto-selected {} on reset (CardReset privilege)", AIDUtil.toString(entry.getAID()));
-                    } else {
-                        log.warn("Auto-select of {} on reset failed (Applet.select() returned false or threw)", AIDUtil.toString(entry.getAID()));
-                    }
-                    return;
-                }
-            }
-            log.warn("No applet holds CardReset privilege on reset; card remains unselected");
-        }
-    }
-
-    // GPC v2.3.1 6.6.2: only one application may hold CardReset at a time.
-    private void transferCardReset(AID newHolder) {
-        for (var entry : registry.values()) {
-            if (!entry.getAID().equals(newHolder) && entry.isPrivileged(GPRegistryEntry.PRIVILEGE_CARD_RESET)) {
-                var stripped = entry.getPrivileges();
-                stripped.remove(Privilege.CardReset);
-                entry.setPrivileges(stripped);
-                log.info("Stripped CardReset from {} due to install of {}", AIDUtil.toString(entry.getAID()), AIDUtil.toString(newHolder));
+            var entry = RegistryPolicy.implicitlySelectedEntry(globalPlatform);
+            if (!_select(entry)) {
+                log.warn("Auto-select on reset failed: {}", entry);
             }
         }
     }

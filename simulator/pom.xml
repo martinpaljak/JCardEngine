@@ -12,7 +12,8 @@
 
     <properties>
         <javacard.version>3.0.5</javacard.version>
-        <globalplatform.version>1.6</globalplatform.version>
+        <globalplatform.version>1.8</globalplatform.version>
+        <globalplatform.contactless.version>1.4</globalplatform.contactless.version>
     </properties>
 
     <dependencies>
@@ -28,6 +29,13 @@
             <groupId>org.globalplatform</groupId>
             <artifactId>api</artifactId>
             <version>${globalplatform.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.globalplatform</groupId>
+            <artifactId>contactless</artifactId>
+            <version>${globalplatform.contactless.version}</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
@@ -120,6 +128,7 @@
                             <file>sdks/jc320v25.1_kit/lib/api_classic-${javacard.version}.jar</file>
                         </configuration>
                     </execution>
+                    <!-- sha256: 3b1c025c528fd3148234b7be2ff7d027c65d8e6918d4003e54097a803de87e22 -->
                     <execution>
                         <id>globalplatform-api</id>
                         <phase>initialize</phase>
@@ -132,6 +141,21 @@
                             <version>${globalplatform.version}</version>
                             <packaging>jar</packaging>
                             <file>gpapi-globalplatform.jar</file>
+                        </configuration>
+                    </execution>
+                    <!-- sha256: 0673f2660556d1198c0d194be8087d3394d8bfe077e77ba3be2f2dc3fd0d975a -->
+                    <execution>
+                        <id>globalplatform-contactless</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.globalplatform</groupId>
+                            <artifactId>contactless</artifactId>
+                            <version>${globalplatform.contactless.version}</version>
+                            <packaging>jar</packaging>
+                            <file>gpapi-contactless.jar</file>
                         </configuration>
                     </execution>
                 </executions>
@@ -173,6 +197,26 @@
                                     <groupId>org.globalplatform</groupId>
                                     <artifactId>api</artifactId>
                                     <version>${globalplatform.version}</version>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                                    <includes>**/*.class</includes>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>globalplatform-contactless</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.globalplatform</groupId>
+                                    <artifactId>contactless</artifactId>
+                                    <version>${globalplatform.contactless.version}</version>
                                     <type>jar</type>
                                     <overWrite>true</overWrite>
                                     <outputDirectory>${project.build.directory}/classes</outputDirectory>
