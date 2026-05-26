@@ -21,6 +21,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
+    private static final String LOREM_PART1 = """
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+            sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            Ut enim ad minim veniam, quis nostrud exercitation
+            ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+            """;
+    private static final String LOREM_PART2 = """
+            Duis aute irure dolor in reprehenderit in voluptate velit
+            esse cillum dolore eu fugiat nulla pariatur.
+            Excepteur sint occaecat cupidatat non proident,
+            sunt in culpa qui officia deserunt mollit anim id est laborum.
+            """;
+
+
     @Test
     public void testAES_GCM_NotSupportKey() {
         byte[] desKey64bit = new byte[KeyBuilder.LENGTH_DES / Byte.SIZE];
@@ -234,19 +249,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
-        String msg =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n" +
-                        "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msg = LOREM_PART1 + LOREM_PART2;
 
         byte[] msgBytes = msg.getBytes();
 
@@ -291,21 +294,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
-        String msgPart1 =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n";
+        String msgPart1 = LOREM_PART1;
 
-        String msgPart2 =
-                "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msgPart2 = LOREM_PART2;
 
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
@@ -357,21 +348,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.init(aesKey, Cipher.MODE_ENCRYPT);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        String msgPart1 =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n";
+        String msgPart1 = LOREM_PART1;
 
-        String msgPart2 =
-                "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msgPart2 = LOREM_PART2;
 
         final short TAG_SIZE = 16;
         byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + TAG_SIZE];
@@ -437,21 +416,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        String msgPart1 =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n";
+        String msgPart1 = LOREM_PART1;
 
-        String msgPart2 =
-                "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msgPart2 = LOREM_PART2;
 
         byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + aad128Bit.length];
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
@@ -653,19 +620,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
-        String msg =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n" +
-                        "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msg = LOREM_PART1 + LOREM_PART2;
 
         byte[] msgBytes = msg.getBytes();
 
@@ -710,21 +665,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] aad128Bit = new byte[128 / Byte.SIZE];
         new Random().nextBytes(aad128Bit);
 
-        String msgPart1 =
-                "Copyright 2022 Licel Corporation.\n" +
-                        "Licensed under the Apache License, Version 2.0 (the \"License\");\n" +
-                        "you may not use this file except in compliance with the License.\n" +
-                        "You may obtain a copy of the License at\n" +
-                        "\n" +
-                        "      http://www.apache.org/licenses/LICENSE-2.0\n" +
-                        "\n";
+        String msgPart1 = LOREM_PART1;
 
-        String msgPart2 =
-                "Unless required by applicable law or agreed to in writing, software\n" +
-                        "distributed under the License is distributed on an \"AS IS\" BASIS,\n" +
-                        "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n" +
-                        "See the License for the specific language governing permissions and\n" +
-                        "limitations under the License.\n";
+        String msgPart2 = LOREM_PART2;
 
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
