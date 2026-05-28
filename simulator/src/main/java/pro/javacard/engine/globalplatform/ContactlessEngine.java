@@ -12,13 +12,37 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 // The CRS side of the OPEN: contactless event dispatch and CL state policy.
 public final class ContactlessEngine {
     private static final Logger log = LoggerFactory.getLogger(ContactlessEngine.class);
 
+    // Symbolic CLAppletEvent names (EVENT_ prefix stripped) for log readability, mapped once via reflection.
+    private static final Map<Short, String> EVENT_NAMES = buildEventNames();
+
     private ContactlessEngine() {
+    }
+
+    private static Map<Short, String> buildEventNames() {
+        var names = new HashMap<Short, String>();
+        try {
+            for (Field f : CLAppletEvent.class.getDeclaredFields()) {
+                if (f.getType() == short.class) {
+                    names.put(f.getShort(null), f.getName().replace("EVENT_", ""));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not map CLAppletEvent names: {}", e.getMessage());
+        }
+        return names;
+    }
+
+    private static String eventName(short event) {
+        return EVENT_NAMES.getOrDefault(event, "0x" + Integer.toHexString(event & 0xFFFF));
     }
 
     // Fan out a CL event for cl, originator = Simulator.caller(): CREL fan-out (3.10.2), CRS implicit
@@ -59,6 +83,7 @@ public final class ContactlessEngine {
         var sio = sim.getSystemSharedObject(ownAID, GPCLSystem.GPCL_CL_APPLICATION);
         if (sio instanceof CLApplet self) {
             try {
+                log.info("{}: {} -> {}", eventName(event), ownAID, ownAID);
                 self.notifyCLEvent(event);
             } catch (Exception e) {
                 log.warn("CLApplet {} notifyCLEvent failed on event 0x{}", ownAID, Integer.toHexString(event & 0xFFFF), e);
@@ -73,6 +98,7 @@ public final class ContactlessEngine {
         var sio = sim.getSystemSharedObject(aid, GPCLSystem.GPCL_CREL_APPLICATION);
         if (sio instanceof CRELApplication crel) {
             try {
+                log.info("{}: {} -> {}", eventName(event), cl.getAID(), aid);
                 crel.notifyCLEvent(cl, event);
             } catch (Exception e) {
                 log.warn("CREL {} notifyCLEvent failed on event 0x{}", aid, Integer.toHexString(event & 0xFFFF), e);
@@ -84,19 +110,10 @@ public final class ContactlessEngine {
         return false;
     }
 
-    // Notify one CREL of a list-mutation event (EVENT_CREL_ADDED/REMOVED).
+    // Notify one CREL of a list-mutation event (EVENT_CREL_ADDED/REMOVED). Delegates to the shared
+    // CREL delivery path so logging and error handling live in one place.
     public static void notifyCRELListChange(EngineRegistryEntry cl, AID affected, short event) {
-        var sim = Simulator.current();
-        var sio = sim.getSystemSharedObject(affected, GPCLSystem.GPCL_CREL_APPLICATION);
-        if (sio instanceof CRELApplication crel) {
-            try {
-                crel.notifyCLEvent(cl, event);
-            } catch (Exception e) {
-                log.warn("CREL {} notifyCLEvent failed on event 0x{}", affected, Integer.toHexString(event & 0xFFFF), e);
-            }
-        } else if (sio != null) {
-            log.warn("{} returned instead of CRELApplication", sio.getClass().getSimpleName());
-        }
+        deliverToCREL(Simulator.current(), affected, cl, event);
     }
 
     // Caller-authorized CL state change (GPC v2.3.1 Amd C 3.11.4.2.2 + 7.1/7.2). Auth:
