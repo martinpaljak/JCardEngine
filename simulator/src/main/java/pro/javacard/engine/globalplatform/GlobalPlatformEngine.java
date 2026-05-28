@@ -52,22 +52,14 @@ public class GlobalPlatformEngine {
         addBuiltinPackage(SecurityDomainApplet.SSD_PACKAGE_AID, SecurityDomainApplet.SSD_MODULE_AID, SecurityDomainApplet.class);
     }
 
-    // Virtual load: collapses INSTALL [for load] + LOAD blocks into one call. Associated SD set on first load.
-    public void loadClass(AID packageAid, AID appletAid, Class<? extends Applet> appletClass, AID associatedSD) {
-        String pkgname = appletClass.getPackageName();
-
-        // Locate existing PKG by Java package name or package AID.
-        EngineRegistryEntry pkg = null;
-        for (var entry : registry.values()) {
-            if (entry.getKind() == Kind.PKG && (pkgname.equals(entry.getJavaPackageName()) || entry.getAID().equals(packageAid))) {
-                log.debug("Matching package entry: {}", entry);
-                pkg = entry;
-                break;
-            }
-        }
+    // Virtual load: collapses INSTALL [for load] + LOAD blocks into one call; null parent = ISD.
+    public void loadClass(AID packageAid, AID appletAid, Class<? extends Applet> appletClass, EngineRegistryEntry parent) {
+        var pkg = lookup(packageAid);
         if (pkg == null) {
-            pkg = EngineRegistryEntry.forPackage(packageAid, pkgname, lookup(associatedSD));
+            pkg = EngineRegistryEntry.forPackage(packageAid, appletClass.getPackageName(), parent != null ? parent : isd);
             registry.put(packageAid, pkg);
+        } else if (pkg.getKind() != Kind.PKG) {
+            throw new JavaCardEngineException("AID already in use by a non-PKG entry: " + packageAid);
         }
 
         if (pkg.getModules().containsKey(appletAid)) {
@@ -113,12 +105,10 @@ public class GlobalPlatformEngine {
         return entry;
     }
 
-    // Build the APP/SSD entry from install materials and land it in the registry.
-    public void register(AID aid, Object instance, boolean exposed, byte[] privileges, AID packageAID, AID parentSD) {
-        // GPC v2.3.1 9.3.6: an Application inherits the associated SD of the ELF it is installed from.
-        // The no-ELF direct path (host-side install) falls back to the supplied issuing SD.
-        var elf = lookup(packageAID);
-        var parent = elf != null ? elf.getParentSD() : lookup(parentSD);
+    // GPC v2.3.1 9.3.6: App inherits the ELF's parent SD. Host install passes pkg=null -> ISD.
+    public void register(AID aid, Object instance, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {
+        var packageAID = pkg != null ? pkg.getAID() : null;
+        var parent = pkg != null ? pkg.getParentSD() : isd;
         var entry = EngineRegistryEntry.forApplet(aid, instance, exposed, privileges, packageAID, parent);
         // GPC v2.3.1 6.6.2: Card Reset is single-holder.
         if (entry.getPrivileges().contains(Privilege.CardReset)) {

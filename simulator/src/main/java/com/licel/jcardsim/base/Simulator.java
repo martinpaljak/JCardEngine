@@ -21,7 +21,6 @@ import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 import pro.javacard.engine.globalplatform.RegistryPolicy;
 import pro.javacard.engine.globalplatform.SCPConfig;
-import pro.javacard.engine.globalplatform.SecurityDomainApplet;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -293,6 +292,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
      */
     @Override
     public AID getAID() {
+        if (options.get() != null) {
+            return null;
+        }
         return contextStack.peek();
     }
 
@@ -819,19 +821,14 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
         try (var sim = asCurrent()) {
-            // Issuing SD: top of stack, or ISD on the direct test path.
-            AID associatedSD = contextStack.peek();
-            if (associatedSD == null) {
-                associatedSD = SecurityDomainApplet.OPEN_AID;
-            }
-            Simulator.current().gp().loadClass(packageAid, appletAid, appletClass, associatedSD);
+            Simulator.current().gp().loadClass(packageAid, appletAid, appletClass, null);
         }
     }
 
-    // Install entrypoint that threads packageAID into the registry entry. Used by INSTALL.
+    // pkg is the loaded PKG entry the install was certified against, or null for host install.
     @Override
     public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges,
-                                     byte[] parameters, boolean exposed, AID packageAID) {
+                                     byte[] parameters, boolean exposed, EngineRegistryEntry pkg) {
         final Class<?> klass;
 
         log.info("Installing applet class {}, loaded by {}", appletClass.getName(),
@@ -873,19 +870,14 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         // Construct _actual_ install parameters
         var install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
 
-        // Capture the issuing SD before clearing the stack; empty stack (direct test path) -> ISD.
-        AID parentSD = contextStack.peek();
-        if (parentSD == null) {
-            parentSD = SecurityDomainApplet.OPEN_AID;
-        }
-        options.set(new RegisterCallbackOptions(appletAID, exposed, privileges, packageAID, parentSD));
+        options.set(new RegisterCallbackOptions(appletAID, exposed, privileges, pkg));
 
         interesting.add(klass.getPackageName());
-        var from_gp = SecurityDomainApplet.OPEN_AID.equals(contextStack.peek());
-        // Call the install() method.
+        var registered = false;
+        contextStack.push(appletAID);
         try {
-            contextStack.clear(); // It is from JCRE context
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
+            registered = options.get() == null;
         } catch (InvocationTargetException e) {
             log.warn("Exception in install(): {}", appletAID, e);
             if (e.getCause() instanceof ISOException isoex) {
@@ -896,14 +888,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             log.error("Error installing applet " + appletAID, e);
             throw new SystemException(SystemException.ILLEGAL_AID);
         } finally {
-            // XXX: this is hacky
-            if (from_gp) {
-                contextStack.clear();
-                contextStack.push(SecurityDomainApplet.OPEN_AID);
-            }
+            contextStack.pop();
             interesting.clear();
+            options.remove();
         }
-        if (options.get() != null) {
+        if (!registered) {
             log.warn("install() did not call register()");
             throw new JavaCardEngineException("install() did not call register()");
         }
@@ -947,11 +936,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             log.warn("Already registered or not in install(): {}", instance.getClass().getName());
             SystemException.throwIt(SystemException.ILLEGAL_AID);
         }
+        // GP pre-certifies the instance AID; reject divergence from the install-entry AID.
+        if (!opts.aid().equals(instanceAID)) {
+            log.warn("register() AID differs from install AID: {} vs {}", instanceAID, opts.aid());
+            SystemException.throwIt(SystemException.ILLEGAL_AID);
+        }
         log.info("Registering {} as {} in {}", instance.getClass().getName(), instanceAID, System.identityHashCode(this));
-        globalPlatform.register(instanceAID, instance, opts.exposed(), opts.privileges(), opts.packageAID(), opts.parentSD());
-        // Now Applet.getAID() is available.
-        contextStack.clear();
-        contextStack.push(instanceAID);
+        globalPlatform.register(instanceAID, instance, opts.exposed(), opts.privileges(), opts.pkg());
     }
 
     // On power-up, drive selection of the OPEN's implicitly selected Application
@@ -1028,7 +1019,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     // Per-thread context that register() consumes when an applet calls back during install().
-    private record RegisterCallbackOptions(AID aid, boolean exposed, byte[] privileges, AID packageAID, AID parentSD) {
+    private record RegisterCallbackOptions(AID aid, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {
     }
 
     public void memstat() {

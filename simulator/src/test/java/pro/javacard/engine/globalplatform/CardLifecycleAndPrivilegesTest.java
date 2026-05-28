@@ -61,11 +61,9 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals((byte) 0x01, gp.getRegistry().getISD().get().getLifeCycle(),
                     "Lifecycle must remain OP_READY after rejected transitions");
 
-            // GPC v2.3.1 11.10 SET STATUS allows P1=0x40 for Application LCS per Table 11-86,
-            // but only P1=0x80 (Card LCS) is implemented by this engine so Application LCS is
-            // out of scope here.
-            var p1App = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x07));
-            assertEquals(0x6A81, p1App.getSW(), "SET STATUS P1=0x40 must return 0x6A81");
+            // GPC v2.3.1 Table 11-86: P1 values other than 0x80 (card) and 0x40 (application) are unsupported.
+            var p1Bad = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x60, 0x07));
+            assertEquals(0x6A81, p1Bad.getSW(), "SET STATUS with an unsupported P1 must return 0x6A81");
 
             // GPC v2.3.1 5.1.1.2: OP_READY -> INITIALIZED.
             gp.setCardStatus(ISDLifeCycle.INITIALIZED);
@@ -303,6 +301,93 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals((byte) 0x00, unlock.getData()[0], "self-unlock via setState must be refused since the applet does not hold Global Lock");
             assertEquals((byte) 0x87, unlock.getData()[1]);
         }
+    }
+
+    // GPC v2.3.1 11.10 SET STATUS [for application] (P1=0x40): the associated SD (here the ISD,
+    // which installed A) locks the applet (P2 b8=1) and unlocks it back. The data field is the
+    // target AID, the new state is in P2. GPSession.lockUnlockApplet drives the success path;
+    // the reject probes go over the same authenticated session as the card-LCS probes above.
+    @Test
+    public void applicationSetStatusLockUnlock() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            installWith(gp, A, EnumSet.noneOf(Privilege.class));
+
+            // Freshly made-selectable applet starts at SELECTABLE (0x07).
+            assertEquals((byte) 0x07, appLifecycle(gp, A), "newly installed applet must be SELECTABLE");
+
+            // Unknown target AID -> 0x6A88 (referenced data not found).
+            var unknown = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x80, AIDUtil.bytes(B)));
+            assertEquals(0x6A88, unknown.getSW(), "SET STATUS P1=0x40 for an unknown AID must return 0x6A88");
+        }
+
+        // Lock (P2 b8=1) then unlock (P2 b8=0) the applet via the GPSession helper; the b8 LOCK
+        // bit sets/clears the high bit so SELECTABLE 0x07 becomes 0x87 and returns to 0x07.
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            gp.lockUnlockApplet(gpAID(A), true);
+            assertEquals((byte) 0x87, appLifecycle(gp, A), "locked applet must be SELECTABLE | 0x80 = 0x87");
+        }
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            gp.lockUnlockApplet(gpAID(A), false);
+            assertEquals((byte) 0x07, appLifecycle(gp, A), "unlocked applet must return to SELECTABLE 0x07");
+        }
+
+        // Illegal transition: SELECTABLE (0x07) -> INSTALLED (0x03) is irreversible (GPC v2.3.1 5.3.1.2) -> 0x6985.
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            var regress = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x03, AIDUtil.bytes(A)));
+            assertEquals(0x6985, regress.getSW(), "SELECTABLE -> INSTALLED must be rejected as an illegal transition");
+            assertEquals((byte) 0x07, appLifecycle(gp, A), "lifecycle must remain SELECTABLE after a rejected transition");
+        }
+    }
+
+    // Read an applet's GET STATUS lifecycle byte via the gp-pro registry (tag 9F70 = getLifeCycle).
+    private static byte appLifecycle(GPSession gp, AID aid) throws Exception {
+        var gpaid = gpAID(aid);
+        return gp.getRegistry().allApplets().stream().filter(e -> e.getAID().equals(gpaid)).findFirst()
+                .orElseThrow(() -> new AssertionError("applet not in registry: " + aid)).getLifeCycle();
+    }
+
+    // GPC v2.3.1 Table 11-43: the Card Reset privilege cannot be set on an INSTALL [for install]
+    // that does not also make the Application selectable in the same command. The engine must
+    // reject this with 0x6A80 before any registry mutation. GPSession models only the combined
+    // install-and-make-selectable (P1=0x0C); the install-only P1=0x04 case is driven over the
+    // authenticated session the same way the SET STATUS reject probes above are.
+    @Test
+    public void cardResetRequiresMakeSelectable() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            // INSTALL [for install] only (P1=0x04, no make-selectable) carrying Card Reset is rejected.
+            var r = gp.transmit(installOnlyCommand(A, EnumSet.of(Privilege.CardReset)));
+            assertEquals(0x6A80, r.getSW());
+
+            // Same install-only command without Card Reset is accepted, proving 0x04 itself works.
+            var ok = gp.transmit(installOnlyCommand(B, EnumSet.noneOf(Privilege.class)));
+            assertEquals(0x9000, ok.getSW());
+        }
+    }
+
+    // INSTALL [for install] only (P1=0x04): LV pkg | LV applet | LV instance | LV privileges |
+    // L install params (C9 00), matching the field layout GPSession.buildInstallData produces for
+    // the combined command. Only P1 differs (0x04 install-only vs 0x0C install-and-make-selectable).
+    private static CommandAPDU installOnlyCommand(AID instance, EnumSet<Privilege> privs) {
+        var bo = new java.io.ByteArrayOutputStream();
+        for (var aid : new AID[]{PKG, PKG, instance}) {
+            var bytes = AIDUtil.bytes(aid);
+            bo.write(bytes.length);
+            bo.writeBytes(bytes);
+        }
+        var privBytes = pro.javacard.gp.data.BitField.encode(privs, 3);
+        bo.write(privBytes.length);
+        bo.writeBytes(privBytes);
+        bo.write(0x02);
+        bo.writeBytes(new byte[]{(byte) 0xC9, 0x00});
+        bo.write(0x00); // empty install token (6th LV field)
+        return new CommandAPDU(0x80, 0xE6, 0x04, 0x00, bo.toByteArray());
     }
 
     private static JavaCardEngine freshEngine() {

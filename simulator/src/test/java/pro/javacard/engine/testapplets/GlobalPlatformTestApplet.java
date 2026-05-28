@@ -49,6 +49,9 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
         if (JCSystem.getAID() != null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
+        if (JCSystem.getPreviousContextAID() == null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         applet.register(bArray, (short) (bOffset + 1), bArray[bOffset]);
         if (JCSystem.getAID() == null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);

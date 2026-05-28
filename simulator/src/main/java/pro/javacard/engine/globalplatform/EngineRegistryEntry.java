@@ -240,6 +240,18 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         if (this.kind == Kind.ISD) {
             return sim.gp().setCardLifecycleState(newState);
         }
+        // GPC v2.3.1 5.3.1.3: lock requires self or Global Lock; only a Global Lock holder may unlock.
+        boolean lockAllowed = caller.getAID().equals(this.aid) || caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK);
+        boolean unlockAllowed = caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK);
+        return transition(newState, lockAllowed, unlockAllowed);
+    }
+
+    // Guarded lifecycle transition shared by the JC-API path (setState) and the SET STATUS
+    // [for application] admin path. lockAllowed/unlockAllowed gate the b8 LOCK bit per the
+    // caller's authorization, already decided upstream; this method only enforces the
+    // GPC v2.3.1 5.3.1 transition legality (lock-bit mechanics + INSTALLED/SELECTABLE
+    // irreversibility) and mutates the lifecycle on success.
+    boolean transition(byte newState, boolean lockAllowed, boolean unlockAllowed) {
         int current = this.lifecycle & 0xFF;
         int next = newState & 0xFF;
         if (current == next) {
@@ -248,16 +260,15 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         boolean newLocked = (newState & (byte) 0x80) != 0;
         boolean curLocked = (this.lifecycle & (byte) 0x80) != 0;
         if (newLocked && !curLocked) {
-            // GPC v2.3.1 5.3.1.3: lock requires self or Global Lock. High bit = lock; b7..b1 ignored.
-            if (!caller.getAID().equals(this.aid) && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
+            // High bit = lock; b7..b1 ignored.
+            if (!lockAllowed) {
                 return false;
             }
             this.lifecycle = (byte) (this.lifecycle | 0x80);
             return true;
         }
         if (!newLocked && curLocked) {
-            // GPC v2.3.1 5.3.1.3: only a Global Lock holder may unlock; no self-unlock.
-            if (!caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
+            if (!unlockAllowed) {
                 return false;
             }
             this.lifecycle = (byte) (this.lifecycle & 0x7F);

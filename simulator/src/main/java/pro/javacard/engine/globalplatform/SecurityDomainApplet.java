@@ -342,6 +342,12 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
+        // GPC v2.3.1 Table 11-43: Card Reset cannot be set when installing without making selectable.
+        if (!makeSelectable && decodedPrivileges.contains(Privilege.CardReset)) {
+            log.warn("CardReset privilege requires make-selectable in same INSTALL");
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+
         // Top level: C9 (applet payload) + optional EF (contactless install hints). All EF
         // validation runs before internalInstallApplet so a bad block aborts with no partial
         // mutation - post-commit events cannot be unfired.
@@ -384,8 +390,12 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
+        var pkgEntry = sim.gp().lookup(pkg);
+        if (pkgEntry == null) {
+            ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
+        }
         // exposed=true for the SD class: platform code touching Simulator/GP statics, not isolated.
-        sim.internalInstallApplet(instanceAid, appletClass, privileges, appletParams, isSD, pkg);
+        sim.internalInstallApplet(instanceAid, appletClass, privileges, appletParams, isSD, pkgEntry);
 
         // Commit done; apply CL params and fan out EVENT_SELECTABLE. Straight-line, no rollback -
         // everything fed below was validated above.
@@ -825,15 +835,22 @@ public class SecurityDomainApplet extends Applet {
         return new KeySet.KeyEntry(type, keyValue);
     }
 
-    // SET STATUS - only P1=0x80 (ISD/card lifecycle) is implemented. Application-LCS path
-    // (P1=0x40) is a different state machine and out of scope here. Per GPC v2.3.1 11.10
-    // (Table 11-86), the new lifecycle state is in P2; no command data is sent (case-1).
+    // SET STATUS (GPC v2.3.1 11.10, Table 11-86). P1=0x80 is the ISD/card lifecycle (P2 = new
+    // state, no data); P1=0x40 is the Application/SSD lifecycle (data = target AID, P2 = new
+    // state per Table 11-87). Any other P1 is unsupported.
     private void handleSetStatus(APDU apdu, byte[] buffer, byte[] payload) {
         byte p1 = buffer[ISO7816.OFFSET_P1];
         byte p2 = buffer[ISO7816.OFFSET_P2];
-        if (p1 != (byte) 0x80) {
+        if (p1 == (byte) 0x80) {
+            handleSetCardStatus(apdu, buffer, payload, p2);
+        } else if (p1 == (byte) 0x40) {
+            handleSetApplicationStatus(apdu, buffer, payload, p2);
+        } else {
             ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
         }
+    }
+
+    private void handleSetCardStatus(APDU apdu, byte[] buffer, byte[] payload, byte p2) {
         if (payload.length != 0) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
@@ -843,6 +860,37 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         // The update counter is bumped by gp().setCardLifecycleState() on success (GPC v2.3.1 Amd C 3.11.2.3).
+        buffer[0] = 0x00;
+        apdu.setOutgoingAndSend((short) 0, (short) 1);
+    }
+
+    // SET STATUS [for application] (P1=0x40): the data field is the raw target Application AID,
+    // P2 is the new life cycle state (b8 = LOCK per GPC v2.3.1 5.3.1). The associated SD may set
+    // the state of its own applications; Global Lock permits locking/unlocking any application.
+    private void handleSetApplicationStatus(APDU apdu, byte[] buffer, byte[] payload, byte p2) {
+        var sim = Simulator.current();
+        var target = sim.gp().lookup(AIDUtil.create(payload));
+        if (target == null || target.getKind() == Kind.PKG) {
+            ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
+        }
+        if (target.getKind() == Kind.ISD) {
+            // The ISD card state is the P1=0x80 path; it is not an application target here.
+            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+        }
+        // Reserved app LCS encodings (low byte 0x01/0x02, below INSTALLED) are not valid targets.
+        if ((p2 & 0x7F) == 0x01 || (p2 & 0x7F) == 0x02) {
+            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+        }
+        var caller = sim.gp().getRegistryEntry(null);
+        boolean associated = target.getParentSD().getAID().equals(caller.getAID());
+        if (!associated && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        // Admin authorization passed: the guarded transition then enforces only GPC v2.3.1 5.3.1
+        // transition legality, with lock/unlock permitted.
+        if (!target.transition(p2, true, true)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         buffer[0] = 0x00;
         apdu.setOutgoingAndSend((short) 0, (short) 1);
     }
