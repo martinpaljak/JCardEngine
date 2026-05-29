@@ -47,7 +47,7 @@ public record KeySet(byte kvn, SortedMap<Byte, KeyEntry> entries) {
         return entries.get(kid).value();
     }
 
-    // GPC v2.3.1 11.3.3.1.1 (Table 11-28, Basic) — one C0 per KID. Caller wraps the list in E0.
+    // GPC v2.3.1 11.3.3.1.1 (Table 11-28, Basic) - one C0 per KID. Caller wraps the list in E0.
     public List<TLV> keyInfoEntries() {
         return entries.entrySet().stream()
                 .map(e -> TLV.of(Tag.ber(0xC0), new byte[]{

@@ -28,7 +28,7 @@ public class MemoryTrackingTest {
             bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
             Object booleanArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 38); // line of 'booleanArray = ...'
-            assertNotNull(booleanArray, "Boolean array should be tracked");
+            assertNotNull(booleanArray);
             if (booleanArray instanceof boolean[] fa) {
                 assertEquals(10, fa.length);
             } else {
@@ -39,7 +39,7 @@ public class MemoryTrackingTest {
             bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
 
             Object shortArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 42); // line of 'shortArray = ...'
-            assertNotNull(shortArray, "Short array should be tracked");
+            assertNotNull(shortArray);
             if (shortArray instanceof short[] sa) {
                 assertEquals(5, sa.length);
             } else {
@@ -50,7 +50,7 @@ public class MemoryTrackingTest {
             bibo.transmit(new CommandAPDU(0x00, 0x03, 0x00, 0x00));
 
             Object objectArray = simulator.getBuffer("pro.javacard.engine.testapplets.MemoryTestApplet", 46); // line of 'objectArray = ...'
-            assertNotNull(objectArray, "Object array should be tracked");
+            assertNotNull(objectArray);
             if (objectArray instanceof Object[] oa) {
                 assertEquals(3, oa.length);
             } else {

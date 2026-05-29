@@ -69,24 +69,24 @@ public class PersonalizationTest {
             // 5. SELECT the applet via raw APDU - gp-pro does not expose application-level SELECT
             // for arbitrary applets, and the test-applet INS protocol below requires it selected.
             var select = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, appletAIDBytes, 256));
-            assertEquals(0x9000, select.getSW(), "SELECT of installed applet must succeed (GPC v2.3.1 11.9)");
+            assertEquals(0x9000, select.getSW());
 
             // 6. INS_PERSO_DATA: read back the STORE DATA payload captured by processData().
             var read = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_PERSO_DATA, 0x00, 0x00, 256));
             assertEquals(0x9000, read.getSW());
-            assertArrayEquals(persoData, read.getData(), "captured STORE DATA payload must match what was sent (GPC v2.3.1 11.11)");
+            assertArrayEquals(persoData, read.getData());
 
             // 7. INS_PERSO_AID: JCSystem.getAID() captured during processData() must be the
             // target's own AID, proving the JCRE context switch (GPC v2.3.1 7.3.2).
             var aidResp = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_PERSO_AID, 0x00, 0x00, 256));
             assertEquals(0x9000, aidResp.getSW());
-            assertArrayEquals(appletAIDBytes, aidResp.getData(), "JCSystem.getAID() during processData() must return the target applet's AID (GPC v2.3.1 7.3.2)");
+            assertArrayEquals(appletAIDBytes, aidResp.getData());
 
             // 8. INS_PERSO_PREVAID: JCSystem.getPreviousContextAID() captured during processData()
             // must be the invoking SD (the ISD here) - completing the context-switch contract.
             var prevAidResp = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_PERSO_PREVAID, 0x00, 0x00, 256));
             assertEquals(0x9000, prevAidResp.getSW());
-            assertArrayEquals(isdAIDBytes, prevAidResp.getData(), "JCSystem.getPreviousContextAID() during processData() must return the invoking SD AID (GPC v2.3.1 7.3.2)");
+            assertArrayEquals(isdAIDBytes, prevAidResp.getData());
         }
     }
 
@@ -117,13 +117,13 @@ public class PersonalizationTest {
             // Malformed INSTALL [for personalization] payload - SD must reject with 6A80 before
             // dispatching to the target.
             var malformed = gp.transmit(new CommandAPDU(GPSession.CLA_GP, GPSession.INS_INSTALL, 0x20, 0x00, new byte[]{0x01}, 256));
-            assertEquals(0x6A80, malformed.getSW(), "malformed INSTALL [for personalization] payload must be rejected with SW_WRONG_DATA (6A80) per GPC v2.3.1 11.5.3.2 / Table 11-55");
+            assertEquals(0x6A80, malformed.getSW());
 
             // Well-formed INSTALL [for personalization] against an applet that implements neither
             // Personalization nor Application must yield 6A80 per GPC v2.3.1 11.5.3.2.
             var finalGp = gp;
             var ex = assertThrows(GPException.class, () -> finalGp.installForPersonalization(jcaid));
-            assertEquals(0x6A80, ex.sw, "INSTALL [for personalization] of an applet implementing neither Personalization nor Application must yield SW_WRONG_DATA (6A80) per GPC v2.3.1 7.3.2 + 11.5.3.2 / Table 11-55");
+            assertEquals(0x6A80, ex.sw);
         }
     }
 
@@ -150,9 +150,9 @@ public class PersonalizationTest {
             // INSTALL [for install] only (Table 11-43): ELF | module | instance | privileges | C9 params | token.
             var installOnly = lv(pkgBytes, appletBytes, appletBytes, new byte[]{0x00}, new byte[]{(byte) 0xC9, 0x00}, new byte[0]);
             var r1 = gp.transmit(new CommandAPDU(GPSession.CLA_GP, GPSession.INS_INSTALL, GPSession.P1_INSTALL_FOR_INSTALL, 0x00, installOnly, 256));
-            assertEquals(0x9000, r1.getSW(), "INSTALL [for install] must succeed (GPC v2.3.1 9.3.6)");
+            assertEquals(0x9000, r1.getSW());
             // Install without the make selectable bit leaves the applet INSTALLED (GPC v2.3.1 11.1.1 Table 11-4).
-            assertEquals(0x03, appletLifeCycle(gp, jcaid), "install-only must leave the applet in the INSTALLED state (GPC v2.3.1 9.3.6)");
+            assertEquals(0x03, appletLifeCycle(gp, jcaid));
 
             // Fresh session for the make selectable phase - GPSession caches getRegistry() until its own
             // mutators dirty it, and a hand-built transmit() does not, so a new session forces a re-read.
@@ -161,9 +161,9 @@ public class PersonalizationTest {
             // Standalone INSTALL [for make selectable] (Table 11-44): empty | empty | App AID | privileges | params | token.
             var makeSel = lv(new byte[0], new byte[0], appletBytes, new byte[]{0x00}, new byte[0], new byte[0]);
             var r2 = gp.transmit(new CommandAPDU(GPSession.CLA_GP, GPSession.INS_INSTALL, GPSession.P1_INSTALL_FOR_MAKE_SELECTABLE, 0x00, makeSel, 256));
-            assertEquals(0x9000, r2.getSW(), "standalone INSTALL [for make selectable] must succeed (GPC v2.3.1 9.3.7)");
+            assertEquals(0x9000, r2.getSW());
             // Make selectable promotes INSTALLED -> SELECTABLE (GPC v2.3.1 9.3.7 / 5.3.1.2).
-            assertEquals(0x07, appletLifeCycle(gp, jcaid), "INSTALL [for make selectable] must promote the applet to SELECTABLE (GPC v2.3.1 9.3.7)");
+            assertEquals(0x07, appletLifeCycle(gp, jcaid));
         }
     }
 

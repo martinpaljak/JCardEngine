@@ -101,19 +101,18 @@ public class InstallExecuteAndObserveTest {
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             var registry = gp.getRegistry();
-            assertTrue(registry.allAppletAIDs().contains(jcaid),
-                    "Installed applet must be visible in the registry");
-            assertTrue(registry.allPackageAIDs().contains(gpAID(pkgAID)),
-                    "Loaded package must be visible in the registry");
-            assertTrue(registry.getISD().isPresent(), "ISD must be present");
+            assertTrue(registry.allAppletAIDs().contains(jcaid));
+            assertTrue(registry.allPackageAIDs().contains(gpAID(pkgAID)));
+            assertTrue(registry.getISD().isPresent());
 
             // 7: SELECT applet; round-trip install-param byte via INS_GET_IDENTITY.
             var sel = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(appletAID), 256));
-            assertEquals(0x9000, sel.getSW(), "SELECT applet");
+            assertEquals(0x9000, sel.getSW());
             var ident = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
             assertEquals(0x9000, ident.getSW());
             assertEquals(1, ident.getData().length);
-            assertEquals((byte) 0x55, ident.getData()[0], "install-param byte must round-trip");
+            // install-param byte round-trips
+            assertEquals((byte) 0x55, ident.getData()[0]);
         }
 
         // 8: reopen SCP to applet AID with ENC mode; SCP-encrypted INS 0x42 cgram round-trip.
@@ -142,8 +141,7 @@ public class InstallExecuteAndObserveTest {
         }
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
-            assertFalse(gp.getRegistry().allAppletAIDs().contains(jcaid),
-                    "deleted applet must be gone from the registry");
+            assertFalse(gp.getRegistry().allAppletAIDs().contains(jcaid));
         }
     }
 
@@ -168,8 +166,8 @@ public class InstallExecuteAndObserveTest {
             var registry = gp.getRegistry();
 
             for (var aid : aids) {
-                assertTrue(registry.allAppletAIDs().contains(gpAID(aid)),
-                        "Chunked GET STATUS must return all installed applets, missing " + aid);
+                // chunked GET STATUS returns every installed applet
+                assertTrue(registry.allAppletAIDs().contains(gpAID(aid)));
             }
         }
     }
@@ -189,9 +187,10 @@ public class InstallExecuteAndObserveTest {
             selectAID(bibo, B);
 
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_PEER_IDENTITY, 0x00, 0x00, AIDUtil.bytes(A), 256));
-            assertEquals(0x9000, r.getSW(), "shareable lookup + cross-context invocation");
+            assertEquals(0x9000, r.getSW());
             assertEquals(1, r.getData().length);
-            assertEquals(ID_A, r.getData()[0], "must return A's identity (0xA1), not B's");
+            // returns A's identity, not B's, proving cross-context dispatch
+            assertEquals(ID_A, r.getData()[0]);
         }
     }
 
@@ -206,7 +205,7 @@ public class InstallExecuteAndObserveTest {
             bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00,
                     AIDUtil.bytes(SecurityDomainApplet.OPEN_AID)));
             var unknown = bibo.transmit(new CommandAPDU(0x80, 0xCA, 0x12, 0x34, 256));
-            assertEquals(0x6A88, unknown.getSW(), "GET DATA with unknown tag must return 0x6A88");
+            assertEquals(0x6A88, unknown.getSW());
         }
     }
 
@@ -230,11 +229,10 @@ public class InstallExecuteAndObserveTest {
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("SSD package must be in the registry"));
             var modules = ssdPkg.getModules();
-            assertEquals(1, modules.size(), "SSD package modules must contain only the built-in SD module, found: " + modules);
-            assertTrue(modules.contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)),
-                    "SSD package must still contain SSD_MODULE_AID");
-            assertFalse(modules.contains(gpAID(userAppAid)),
-                    "User applet AID must not have been merged into the SSD package");
+            // only the built-in SD module, no merged user applet
+            assertEquals(1, modules.size());
+            assertTrue(modules.contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)));
+            assertFalse(modules.contains(gpAID(userAppAid)));
         }
     }
 
@@ -281,13 +279,13 @@ public class InstallExecuteAndObserveTest {
     // Appendix E); KVN coding is GPC v2.3.1 11.1.9.
     private static void assertKit(GPSession gp, SCPConfig config) throws Exception {
         var kit = gp.getKeyInfoTemplate();
-        assertEquals(3, kit.size(), "fresh ISD KIT must expose exactly 3 KIDs");
+        assertEquals(3, kit.size());
         var expectedType = config instanceof SCPConfig.SCP02 ? GPKeyInfo.GPKey.DES3 : GPKeyInfo.GPKey.AES;
         for (int i = 0; i < 3; i++) {
             var ki = kit.get(i);
-            assertEquals(0xFF, ki.getVersion(), "KID " + (i + 1) + " KVN");
-            assertEquals(i + 1, ki.getID(), "KID " + (i + 1) + " id");
-            assertEquals(expectedType, ki.getType(), "KID " + (i + 1) + " type");
+            assertEquals(0xFF, ki.getVersion());
+            assertEquals(i + 1, ki.getID());
+            assertEquals(expectedType, ki.getType());
         }
     }
 
@@ -303,8 +301,9 @@ public class InstallExecuteAndObserveTest {
         assertEquals((byte) 0x2A, data[2]);
         assertEquals((byte) 0x42, data[3]);
         assertEquals((byte) 0x42, data[4]);
+        // unused CPLC bytes are zero
         for (int i = 5; i <= 12; i++) {
-            assertEquals(0, data[i], "CPLC byte " + (i - 3) + " expected 0");
+            assertEquals(0, data[i]);
         }
         assertEquals((byte) 0x42, data[13]);
         assertEquals((byte) 0x42, data[14]);
@@ -314,8 +313,9 @@ public class InstallExecuteAndObserveTest {
         assertEquals((byte) 'N', data[18]);
         assertEquals((byte) 0x42, data[19]);
         assertEquals((byte) 0x42, data[20]);
+        // remaining CPLC bytes are zero
         for (int i = 21; i < 45; i++) {
-            assertEquals(0, data[i], "CPLC byte " + (i - 3) + " expected 0");
+            assertEquals(0, data[i]);
         }
     }
 
@@ -326,12 +326,11 @@ public class InstallExecuteAndObserveTest {
     private static void assertSsdLoadFilePlanted(GPSession gp) throws Exception {
         var registry = gp.getRegistry();
         var ssdPkgAid = gpAID(SecurityDomainApplet.SSD_PACKAGE_AID);
-        assertTrue(registry.allPackageAIDs().contains(ssdPkgAid),
-                "SSD package " + ssdPkgAid + " must be visible via GET STATUS");
+        assertTrue(registry.allPackageAIDs().contains(ssdPkgAid));
         var pkgEntry = registry.allPackages().stream().filter(e -> e.getAID().equals(ssdPkgAid)).findFirst().orElseThrow();
-        assertEquals((byte) 0x01, pkgEntry.getLifeCycle(), "SSD load file lifecycle must be LOADED (0x01)");
-        assertTrue(pkgEntry.getModules().contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)),
-                "SSD package modules must include " + gpAID(SecurityDomainApplet.SSD_MODULE_AID));
+        // lifecycle LOADED
+        assertEquals((byte) 0x01, pkgEntry.getLifeCycle());
+        assertTrue(pkgEntry.getModules().contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)));
     }
 
     private static JavaCardEngine freshEngine() {
@@ -350,6 +349,6 @@ public class InstallExecuteAndObserveTest {
 
     private static void selectAID(apdu4j.core.BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW(), "SELECT " + aid);
+        assertEquals(0x9000, r.getSW());
     }
 }

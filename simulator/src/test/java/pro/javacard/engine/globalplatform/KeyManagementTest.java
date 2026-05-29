@@ -45,22 +45,22 @@ public class KeyManagementTest {
     void fullKeystoreLifecycle(String name, Supplier<SCPConfig> cfgFactory, EnumSet<GPSession.APDUMode> mode) throws Exception {
         var sim = new JavaCardEngine.Builder().withSCP(cfgFactory.get()).build();
 
-        // 1. Fresh sim — KIT shows 3 KIDs (ENC/MAC/DEK) all at the factory KVN=0xFF.
+        // 1. Fresh sim - KIT shows 3 KIDs (ENC/MAC/DEK) all at the factory KVN=0xFF.
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo, mode);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size(), "fresh ISD must expose exactly the 3-KID factory keyset (SCP02/SCP03 convention; GPC v2.3.1 Appendix E + 11.1.9 KVN coding)");
-            assertTrue(allAtKvn(kit, 0xFF), "fresh ISD KIT must report all 3 KIDs at the factory KVN=0xFF");
+            assertEquals(3, kit.size());
+            assertTrue(allAtKvn(kit, 0xFF));
         }
 
-        // 2. PUT KEY add of KVN=0x01 with master_A — factory KVN=0xFF is evicted (engine
+        // 2. PUT KEY add of KVN=0x01 with master_A - factory KVN=0xFF is evicted (engine
         // factory-removal trigger; GPC v2.3.1 11.8 is silent on factory removal).
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo, mode);
             addKvn(gp, 0x01, MasterKeys.A);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size(), "factory KVN 0xFF must disappear after first non-factory PUT KEY add (engine convention; GPC v2.3.1 11.8 silent)");
-            assertTrue(allAtKvn(kit, 0x01), "after factory eviction, KIT must show only the new KVN=0x01");
+            assertEquals(3, kit.size());
+            assertTrue(allAtKvn(kit, 0x01));
         }
 
         // 3. Explicit setVersion(0xFF) forces IU P1=0xFF; the engine no longer holds KVN=0xFF
@@ -70,14 +70,13 @@ public class KeyManagementTest {
             var explicitFactory = PlaintextKeys.defaultKey();
             explicitFactory.setVersion(0xFF);
             assertThrows(GPException.class,
-                    () -> gp.openSecureChannel(explicitFactory, null, null, mode),
-                    "factory KVN 0xFF must no longer authenticate after first non-factory PUT KEY add (engine factory-removal rule)");
+                    () -> gp.openSecureChannel(explicitFactory, null, null, mode));
         }
 
-        // 4. IU P1=0 (kvn=0 leaves setVersion unset) — newest-selection picks the only keyset 0x01.
+        // 4. IU P1=0 (kvn=0 leaves setVersion unset) - newest-selection picks the only keyset 0x01.
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0, mode);
-            assertEquals(3, gp.getKeyInfoTemplate().size(), "IU P1=0 must resolve to KVN=0x01 (newest-keyset selection; GPC v2.3.1 D.4.1.3 implementation-defined)");
+            assertEquals(3, gp.getKeyInfoTemplate().size());
         }
 
         // 5. PUT KEY add of KVN=0x02 with master_B alongside 0x01 (no factory trigger: factory
@@ -86,24 +85,24 @@ public class KeyManagementTest {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0x01, mode);
             addKvn(gp, 0x02, MasterKeys.B);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(6, kit.size(), "two coexisting non-factory keysets must yield 3+3=6 KIT entries (no factory re-trigger; GPC v2.3.1 11.8)");
-            assertEquals(3, countAtKvn(kit, 0x01), "KVN=0x01 keyset must remain after add of KVN=0x02");
-            assertEquals(3, countAtKvn(kit, 0x02), "KVN=0x02 keyset must be present after add");
+            assertEquals(6, kit.size());
+            assertEquals(3, countAtKvn(kit, 0x01));
+            assertEquals(3, countAtKvn(kit, 0x02));
         }
 
-        // 6. IU P1=0 with master_B — newest-selection now resolves to KVN=0x02 (the most-recently
+        // 6. IU P1=0 with master_B - newest-selection now resolves to KVN=0x02 (the most-recently
         // added keyset wins; insertion-order, not lowest-KVN).
         try (var bibo = sim.connect()) {
             openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.B, 0, mode);
         }
 
         // 7. Explicit setVersion(0x01) bypasses newest-selection and authenticates against the
-        // older KVN — explicit P1 always wins over newest-pick.
+        // older KVN - explicit P1 always wins over newest-pick.
         try (var bibo = sim.connect()) {
             openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0x01, mode);
         }
 
-        // 8. PUT KEY replace at KVN=0x01 with master_C — old master_A no longer authenticates,
+        // 8. PUT KEY replace at KVN=0x01 with master_C - old master_A no longer authenticates,
         // master_C does. KVN slot stays the same; only the underlying ENC/MAC/DEK triple changes.
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0x01, mode);
@@ -114,40 +113,37 @@ public class KeyManagementTest {
             var stale = PlaintextKeys.fromMasterKey(MasterKeys.A);
             stale.setVersion(0x01);
             assertThrows(GPException.class,
-                    () -> gp.openSecureChannel(stale, null, null, mode),
-                    "PUT KEY replace at KVN=0x01 must invalidate the prior master (GPC v2.3.1 11.8.2.1: P1=KVN identifies an existing keyset to be replaced)");
+                    () -> gp.openSecureChannel(stale, null, null, mode));
         }
         try (var bibo = sim.connect()) {
             openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
         }
 
-        // 9. DELETE [key] for KVN=0x02 — KIT must lose all KIDs under 0x02; master_B no longer
+        // 9. DELETE [key] for KVN=0x02 - KIT must lose all KIDs under 0x02; master_B no longer
         // authenticates. Per-KVN deletion grain (engine model; GPC v2.3.1 11.2.2.3.2).
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
             gp.deleteKey(0x02, null);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size(), "after DELETE [key] of KVN=0x02 only the surviving KVN=0x01 (3 KIDs) must remain");
-            assertEquals(0, countAtKvn(kit, 0x02), "DELETE [key] with D2=0x02 must remove every KID under that KVN");
+            assertEquals(3, kit.size());
+            assertEquals(0, countAtKvn(kit, 0x02));
         }
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, GPTestUtils.gpAID(SecurityDomainApplet.OPEN_AID));
             var deleted = PlaintextKeys.fromMasterKey(MasterKeys.B);
             deleted.setVersion(0x02);
             assertThrows(GPException.class,
-                    () -> gp.openSecureChannel(deleted, null, null, mode),
-                    "deleted KVN=0x02 must no longer authenticate after DELETE [key] (GPC v2.3.1 11.2.2.3.2)");
+                    () -> gp.openSecureChannel(deleted, null, null, mode));
         }
 
-        // 10. PUT KEY at KVN=0xFF must be universally rejected — engine restricts the PUT KEY
+        // 10. PUT KEY at KVN=0xFF must be universally rejected - engine restricts the PUT KEY
         // KVN range to 0x01..0x7F (factory slot is reserved for boot-time seeding only).
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
             var atFactory = PlaintextKeys.fromMasterKey(MasterKeys.A);
             atFactory.setVersion(0xFF);
             assertThrows(GPException.class,
-                    () -> gp.putKeys(atFactory, true),
-                    "PUT KEY at KVN=0xFF must be rejected — KVN range is 0x01..0x7F (engine rule)");
+                    () -> gp.putKeys(atFactory, true));
         }
 
         // 11. PUT KEY add (replace=false) for an already-existing KVN must be rejected so the
@@ -157,8 +153,7 @@ public class KeyManagementTest {
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
             assertThrows(GPException.class,
-                    () -> addKvn(gp, 0x01, MasterKeys.B),
-                    "PUT KEY add for an existing KVN must be rejected (GPC v2.3.1 11.8.2.1)");
+                    () -> addKvn(gp, 0x01, MasterKeys.B));
         }
     }
 
@@ -171,7 +166,8 @@ public class KeyManagementTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var ex = assertThrows(GPException.class, () -> gp.deleteKey(null, 0x01));
-            assertEquals(0x6A81, ex.sw, "DELETE [key] by 'D0' alone must yield SW_FUNC_NOT_SUPPORTED (0x6A81) per GPC v2.3.1 11.2.2.3.2");
+            // SW_FUNC_NOT_SUPPORTED
+            assertEquals(0x6A81, ex.sw);
         }
     }
 
@@ -183,7 +179,8 @@ public class KeyManagementTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var ex = assertThrows(GPException.class, () -> gp.deleteKey(0x55, null));
-            assertEquals(0x6A88, ex.sw, "unknown KVN must yield SW_REFERENCED_DATA_NOT_FOUND (0x6A88) per GPC v2.3.1 11.2.3.2 / Table 11-26");
+            // SW_REFERENCED_DATA_NOT_FOUND
+            assertEquals(0x6A88, ex.sw);
         }
     }
 

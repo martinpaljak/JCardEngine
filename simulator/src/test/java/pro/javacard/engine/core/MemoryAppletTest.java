@@ -39,9 +39,9 @@ public class MemoryAppletTest {
             var persistent = Integer.toUnsignedLong(bb.getInt());
             var reset = Integer.toUnsignedLong(bb.getInt());
             var deselect = Integer.toUnsignedLong(bb.getInt());
-            assertTrue(persistent > 0, "persistent free should be > 0");
-            assertTrue(reset > 0, "transient-reset free should be > 0");
-            assertTrue(deselect > 0, "transient-deselect free should be > 0");
+            assertTrue(persistent > 0);
+            assertTrue(reset > 0);
+            assertTrue(deselect > 0);
         }
     }
 

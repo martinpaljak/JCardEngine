@@ -51,26 +51,25 @@ public class CardLifecycleAndPrivilegesTest {
             var gp = openIsd(bibo);
 
             // GPC v2.3.1 5.1.1.1: virgin card boots in OP_READY.
-            assertEquals((byte) 0x01, gp.getRegistry().getISD().get().getLifeCycle(),
-                    "Fresh card ISD lifecycle must be OP_READY (0x01)");
+            assertEquals((byte) 0x01, gp.getRegistry().getISD().get().getLifeCycle());
 
             // GPC v2.3.1 5.1.1.2: from OP_READY, only INITIALIZED is reachable. Direct skips and self-loop rejected.
-            assertSetStatusRejected(gp, 0x0F, "OP_READY -> SECURED skip");
-            assertSetStatusRejected(gp, 0x7F, "OP_READY -> CARD_LOCKED skip");
-            assertSetStatusRejected(gp, 0x01, "OP_READY -> OP_READY no-op");
-            assertEquals((byte) 0x01, gp.getRegistry().getISD().get().getLifeCycle(),
-                    "Lifecycle must remain OP_READY after rejected transitions");
+            assertSetStatusRejected(gp, 0x0F); // OP_READY -> SECURED skip
+            assertSetStatusRejected(gp, 0x7F); // OP_READY -> CARD_LOCKED skip
+            assertSetStatusRejected(gp, 0x01); // OP_READY -> OP_READY no-op
+            // lifecycle unchanged after rejected transitions
+            assertEquals((byte) 0x01, gp.getRegistry().getISD().get().getLifeCycle());
 
             // GPC v2.3.1 Table 11-86: P1 values other than 0x80 (card) and 0x40 (application) are unsupported.
             var p1Bad = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x60, 0x07));
-            assertEquals(0x6A81, p1Bad.getSW(), "SET STATUS with an unsupported P1 must return 0x6A81");
+            assertEquals(0x6A81, p1Bad.getSW());
 
             // GPC v2.3.1 5.1.1.2: OP_READY -> INITIALIZED.
             gp.setCardStatus(ISDLifeCycle.INITIALIZED);
             assertEquals((byte) 0x07, gp.getRegistry().getISD().get().getLifeCycle());
 
             // GPC v2.3.1 5.1.1.2: INITIALIZED is irreversible.
-            assertSetStatusRejected(gp, 0x01, "INITIALIZED -> OP_READY (irreversible)");
+            assertSetStatusRejected(gp, 0x01); // INITIALIZED -> OP_READY (irreversible)
 
             // GPC v2.3.1 5.1.1.3: INITIALIZED -> SECURED.
             gp.setCardStatus(ISDLifeCycle.SECURED);
@@ -86,10 +85,10 @@ public class CardLifecycleAndPrivilegesTest {
             gp.setCardStatus(ISDLifeCycle.TERMINATED);
 
             // GPC v2.3.1 5.1.1.5: TERMINATED is irreversible - no transition out, including self-loop.
-            assertSetStatusRejected(gp, 0x0F, "TERMINATED -> SECURED");
-            assertSetStatusRejected(gp, 0x07, "TERMINATED -> INITIALIZED");
-            assertSetStatusRejected(gp, 0x01, "TERMINATED -> OP_READY");
-            assertSetStatusRejected(gp, 0xFF, "TERMINATED -> TERMINATED no-op");
+            assertSetStatusRejected(gp, 0x0F); // TERMINATED -> SECURED
+            assertSetStatusRejected(gp, 0x07); // TERMINATED -> INITIALIZED
+            assertSetStatusRejected(gp, 0x01); // TERMINATED -> OP_READY
+            assertSetStatusRejected(gp, 0xFF); // TERMINATED -> TERMINATED no-op
         }
     }
 
@@ -106,20 +105,20 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.of(Privilege.CardLock));    // with CardLock
 
             selectAID(bibo, A);
-            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false,
-                    "lockCard without CardLock");
-            assertEquals((byte) 0x0F, openIsd(bibo).getRegistry().getISD().get().getLifeCycle(),
-                    "ISD lifecycle must remain SECURED after rejected lockCard");
+            // lockCard without CardLock
+            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false);
+            // ISD stays SECURED after rejected lockCard
+            assertEquals((byte) 0x0F, openIsd(bibo).getRegistry().getISD().get().getLifeCycle());
 
             selectAID(bibo, B);
-            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, true,
-                    "lockCard with CardLock from SECURED");
+            // lockCard with CardLock from SECURED
+            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, true);
             // GPSystem.getCardState (JC-API view) MUST track the actual ISD lifecycle byte
             // observable via GET STATUS - same source of truth, different surface.
             var rState = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_CARD_STATE, 0x00, 0x00, 256));
             assertEquals(0x9000, rState.getSW());
-            assertEquals((byte) 0x7F, rState.getData()[0],
-                    "getCardState after lockCard must report CARD_LOCKED (0x7F)");
+            // getCardState reports CARD_LOCKED after lockCard
+            assertEquals((byte) 0x7F, rState.getData()[0]);
         }
 
         // Right privilege, wrong source state: lockCard from OP_READY rejected by GPC v2.3.1 5.1.1.4.
@@ -127,8 +126,8 @@ public class CardLifecycleAndPrivilegesTest {
             var gp = openIsd(bibo);
             installWith(gp, A, EnumSet.of(Privilege.CardLock));    // no advanceToSecured
             selectAID(bibo, A);
-            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false,
-                    "lockCard from OP_READY (state machine rejects)");
+            // lockCard from OP_READY (state machine rejects)
+            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false);
         }
 
         // terminateCard requires CardTerminate; CardLock alone is insufficient. With the
@@ -141,12 +140,12 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.of(Privilege.CardTerminate));
 
             selectAID(bibo, A);
-            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_TERMINATE_CARD, false,
-                    "terminateCard without CardTerminate");
+            // terminateCard without CardTerminate
+            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_TERMINATE_CARD, false);
 
             selectAID(bibo, B);
-            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_TERMINATE_CARD, true,
-                    "terminateCard with CardTerminate");
+            // terminateCard with CardTerminate
+            assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_TERMINATE_CARD, true);
         }
     }
 
@@ -166,11 +165,10 @@ public class CardLifecycleAndPrivilegesTest {
         sim.reset();
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
-            assertEquals(0x9000, r.getSW(),
-                    "After install B with CardReset, only B (not A) may auto-select on reset");
+            // B (last CardReset holder) auto-selects on reset, not A
+            assertEquals(0x9000, r.getSW());
             assertEquals(1, r.getData().length);
-            assertEquals(ID_B, r.getData()[0],
-                    "Auto-selected holder identity must be B (0xB2), not A (0xA1)");
+            assertEquals(ID_B, r.getData()[0]);
         }
 
         try (var bibo = sim.connect()) {
@@ -181,8 +179,8 @@ public class CardLifecycleAndPrivilegesTest {
         sim.reset();
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x07, 0x00, 0x00, 256));
-            assertEquals(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED, (short) r.getSW(),
-                    "After deleting all CardReset holders, ISD must regain CardReset and process APDUs");
+            // ISD regains CardReset and processes APDUs once all holders are deleted
+            assertEquals(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED, (short) r.getSW());
         }
     }
 
@@ -199,16 +197,19 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
+            // self-query via null
             var rNull = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_SELF, 0x00, 0x00, 256));
-            assertEquals(0x9000, rNull.getSW(), "self-query via null");
+            assertEquals(0x9000, rNull.getSW());
             assertEquals(GPSystem.APPLICATION_SELECTABLE, rNull.getData()[0]);
 
+            // self-query via own AID
             var rSelf = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(A), 256));
-            assertEquals(0x9000, rSelf.getSW(), "self-query via own AID");
+            assertEquals(0x9000, rSelf.getSW());
             assertEquals(GPSystem.APPLICATION_SELECTABLE, rSelf.getData()[0]);
 
+            // unprivileged cross-applet query denied
             var rCross = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
-            assertEquals(0x6A82, rCross.getSW(), "Unprivileged cross-applet query must be denied (gate fired)");
+            assertEquals(0x6A82, rCross.getSW());
         }
 
         // With GlobalRegistry on A: cross-applet A->B succeeds (returns SELECTABLE for B).
@@ -219,8 +220,9 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
+            // GlobalRegistry-privileged cross-applet query succeeds
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
-            assertEquals(0x9000, r.getSW(), "GlobalRegistry-privileged cross-applet query must succeed");
+            assertEquals(0x9000, r.getSW());
             assertEquals(GPSystem.APPLICATION_SELECTABLE, r.getData()[0]);
         }
     }
@@ -243,21 +245,23 @@ public class CardLifecycleAndPrivilegesTest {
             // reflects the new value.
             var advance = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x0F, 0x00, 256));
             assertEquals(0x9000, advance.getSW());
-            assertEquals((byte) 0x01, advance.getData()[0], "advance to 0x0F must be accepted by the OPEN per GPC v2.3.1 5.3.1.5");
-            assertEquals((byte) 0x0F, advance.getData()[1], "current state must reflect the accepted transition");
+            // GPC v2.3.1 5.3.1.5: OPEN accepts app-specific forward transition
+            assertEquals((byte) 0x01, advance.getData()[0]);
+            assertEquals((byte) 0x0F, advance.getData()[1]);
 
             // Forward again to a higher app-specific state succeeds since the OPEN does not
             // constrain monotonicity of application-specific transitions.
             var advance2 = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x1F, 0x00, 256));
-            assertEquals((byte) 0x01, advance2.getData()[0], "advance to 0x1F must be accepted");
+            assertEquals((byte) 0x01, advance2.getData()[0]);
             assertEquals((byte) 0x1F, advance2.getData()[1]);
 
             // Regression to SELECTABLE (0x07) must be refused since INSTALLED -> SELECTABLE is
             // irreversible per GPC v2.3.1 5.3.1.2 and the resulting state would be lower than
             // the current value, which the canonical setState rules also forbid.
             var regress = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x07, 0x00, 256));
-            assertEquals((byte) 0x00, regress.getData()[0], "regression to SELECTABLE must be refused (GPC v2.3.1 5.3.1.2 irreversibility)");
-            assertEquals((byte) 0x1F, regress.getData()[1], "state must remain at 0x1F after refused regression");
+            // GPC v2.3.1 5.3.1.2: regression to SELECTABLE refused (irreversibility)
+            assertEquals((byte) 0x00, regress.getData()[0]);
+            assertEquals((byte) 0x1F, regress.getData()[1]);
 
             // Regression to INSTALLED (0x03) must be refused for the same reason.
             var toInstalled = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x03, 0x00, 256));
@@ -269,14 +273,16 @@ public class CardLifecycleAndPrivilegesTest {
             // b7..b1 of the new state are ignored on lock so the resulting lifecycle is
             // current OR 0x80 = 0x9F rather than the literal 0x83 passed in.
             var selfLock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x83, 0x00, 256));
-            assertEquals((byte) 0x01, selfLock.getData()[0], "self-LOCK must be accepted per GPC v2.3.1 5.3.1.3 + GP API export file 1.5");
-            assertEquals((byte) 0x9F, selfLock.getData()[1], "post-lock state must be (previous OR 0x80) per the API javadoc");
+            // GPC v2.3.1 5.3.1.3: self-LOCK accepted; result is previous OR 0x80
+            assertEquals((byte) 0x01, selfLock.getData()[0]);
+            assertEquals((byte) 0x9F, selfLock.getData()[1]);
 
             // After self-lock the applet is no longer in an application-specific state, so any
             // subsequent setCardContentState attempt must fail the API pre-condition (caller
             // must currently be in 0x07..0x7F with low 3 bits set).
             var unlockAttempt = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x07, 0x00, 256));
-            assertEquals((byte) 0x00, unlockAttempt.getData()[0], "self-unlock must be refused since setCardContentState requires caller to be in an application-specific state");
+            // self-unlock refused: caller no longer in an application-specific state
+            assertEquals((byte) 0x00, unlockAttempt.getData()[0]);
             assertEquals((byte) 0x9F, unlockAttempt.getData()[1]);
         }
     }
@@ -293,12 +299,14 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(openIsd(bibo), A, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
+            // GPC v2.3.1 5.3.1.3: self-LOCK via setState succeeds; 0x07 OR 0x80 = 0x87
             var lock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x83, 0x00, 256));
-            assertEquals((byte) 0x01, lock.getData()[0], "self-LOCK via getRegistryEntry(null).setState must succeed for the same 5.3.1.3 reason");
-            assertEquals((byte) 0x87, lock.getData()[1], "post-lock state via setState must be (previous OR 0x80); previous was 0x07 SELECTABLE so result is 0x87");
+            assertEquals((byte) 0x01, lock.getData()[0]);
+            assertEquals((byte) 0x87, lock.getData()[1]);
 
+            // self-unlock via setState refused: applet lacks Global Lock
             var unlock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x07, 0x00, 256));
-            assertEquals((byte) 0x00, unlock.getData()[0], "self-unlock via setState must be refused since the applet does not hold Global Lock");
+            assertEquals((byte) 0x00, unlock.getData()[0]);
             assertEquals((byte) 0x87, unlock.getData()[1]);
         }
     }
@@ -315,11 +323,11 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, A, EnumSet.noneOf(Privilege.class));
 
             // Freshly made-selectable applet starts at SELECTABLE (0x07).
-            assertEquals((byte) 0x07, appLifecycle(gp, A), "newly installed applet must be SELECTABLE");
+            assertEquals((byte) 0x07, appLifecycle(gp, A));
 
             // Unknown target AID -> 0x6A88 (referenced data not found).
             var unknown = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x80, AIDUtil.bytes(B)));
-            assertEquals(0x6A88, unknown.getSW(), "SET STATUS P1=0x40 for an unknown AID must return 0x6A88");
+            assertEquals(0x6A88, unknown.getSW());
         }
 
         // Lock (P2 b8=1) then unlock (P2 b8=0) the applet via the GPSession helper; the b8 LOCK
@@ -327,20 +335,20 @@ public class CardLifecycleAndPrivilegesTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             gp.lockUnlockApplet(gpAID(A), true);
-            assertEquals((byte) 0x87, appLifecycle(gp, A), "locked applet must be SELECTABLE | 0x80 = 0x87");
+            assertEquals((byte) 0x87, appLifecycle(gp, A));
         }
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             gp.lockUnlockApplet(gpAID(A), false);
-            assertEquals((byte) 0x07, appLifecycle(gp, A), "unlocked applet must return to SELECTABLE 0x07");
+            assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
 
         // Illegal transition: SELECTABLE (0x07) -> INSTALLED (0x03) is irreversible (GPC v2.3.1 5.3.1.2) -> 0x6985.
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var regress = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x03, AIDUtil.bytes(A)));
-            assertEquals(0x6985, regress.getSW(), "SELECTABLE -> INSTALLED must be rejected as an illegal transition");
-            assertEquals((byte) 0x07, appLifecycle(gp, A), "lifecycle must remain SELECTABLE after a rejected transition");
+            assertEquals(0x6985, regress.getSW());
+            assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
     }
 
@@ -418,18 +426,18 @@ public class CardLifecycleAndPrivilegesTest {
 
     private static void selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW(), "SELECT " + aid);
+        assertEquals(0x9000, r.getSW());
     }
 
-    private static void assertSetStatusRejected(GPSession gp, int newLcs, String label) throws Exception {
+    private static void assertSetStatusRejected(GPSession gp, int newLcs) throws Exception {
         var r = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, P1_CARD_LCS, newLcs));
-        assertEquals(0x6985, r.getSW(), label + " must be rejected");
+        assertEquals(0x6985, r.getSW());
     }
 
-    private static void assertGpSystemReturns(BIBO bibo, byte ins, boolean expected, String label) {
+    private static void assertGpSystemReturns(BIBO bibo, byte ins, boolean expected) {
         var r = bibo.transmit(new CommandAPDU(0x00, ins, 0x00, 0x00, 256));
-        assertEquals(0x9000, r.getSW(), label + ": SW");
-        assertEquals(1, r.getData().length, label + ": single-byte response");
-        assertEquals((byte) (expected ? 0x01 : 0x00), r.getData()[0], label);
+        assertEquals(0x9000, r.getSW());
+        assertEquals(1, r.getData().length);
+        assertEquals((byte) (expected ? 0x01 : 0x00), r.getData()[0]);
     }
 }
