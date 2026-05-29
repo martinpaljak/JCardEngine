@@ -45,6 +45,13 @@ public class SecurityDomainApplet extends Applet {
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
+        // SSD must hold SecurityDomain + TrustedPath.
+        short privOff = (short) (bOffset + 1 + bArray[bOffset]);
+        byte privLen = bArray[privOff];
+        var privs = EngineRegistryEntry.decodePrivileges(Arrays.copyOfRange(bArray, privOff + 1, privOff + 1 + privLen));
+        if (!privs.contains(Privilege.SecurityDomain) || !privs.contains(Privilege.TrustedPath)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         new SecurityDomainApplet().register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
@@ -335,11 +342,6 @@ public class SecurityDomainApplet extends Applet {
         // parameter stage with the spec-mandated 0x6985, before any registry mutation.
         if (sim.gp().lookup(instanceAid) != null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-        }
-
-        if (isSD && !decodedPrivileges.contains(Privilege.SecurityDomain)) {
-            log.warn("SSD install requires SecurityDomain privilege");
-            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
         // GPC v2.3.1 Table 11-43: Card Reset cannot be set when installing without making selectable.

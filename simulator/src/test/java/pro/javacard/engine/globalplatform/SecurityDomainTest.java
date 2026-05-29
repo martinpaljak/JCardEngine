@@ -60,10 +60,14 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
             var ssdEntry = findDomain(registry, SSD);
-            assertEquals(Kind.SSD, ssdEntry.getType(), "freshly-installed SSD must be classified Kind.SSD");
-            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), ssdEntry.getDomain(), "SSD parent must be the issuing ISD (GPC v2.3.1 6.5.1.6 Associated Security Domain AID)");
-            assertEquals((byte) 0x07, ssdEntry.getLifeCycle(), "newly-installed SSD must start at SELECTABLE (0x07) per GPC v2.3.1 Table 11-5");
-            assertTrue(ssdEntry.getPrivileges().contains(Privilege.SecurityDomain), "SSD entry must carry the SecurityDomain privilege (GPC v2.3.1 Table 6-1)");
+            assertEquals(Kind.SSD, ssdEntry.getType());
+            // SSD parent is the issuing ISD (GPC v2.3.1 6.5.1.6)
+            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), ssdEntry.getDomain());
+            // SELECTABLE per GPC v2.3.1 Table 11-5
+            assertEquals((byte) 0x07, ssdEntry.getLifeCycle());
+            assertTrue(ssdEntry.getPrivileges().contains(Privilege.SecurityDomain));
+            // install() insists on TrustedPath too
+            assertTrue(ssdEntry.getPrivileges().contains(Privilege.TrustedPath));
         }
 
         // 2. Bare SELECT [by AID] of the SSD must return 9000 with an FCI whose 84 (Application
@@ -73,14 +77,17 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var ssdBytes = AIDUtil.bytes(SSD);
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, ssdBytes, 256));
-            assertEquals(0x9000, r.getSW(), "SELECT of installed SSD must succeed (GPC v2.3.1 11.9)");
+            assertEquals(0x9000, r.getSW());
             var fci = r.getData();
-            assertEquals((byte) 0x6F, fci[0], "FCI template tag (GPC v2.3.1 11.9.3.1 / Table 11-82)");
-            assertEquals((byte) 0x84, fci[2], "Application AID tag inside FCI (GPC v2.3.1 11.9.3.1 / Table 11-82)");
+            // FCI template tag (GPC v2.3.1 11.9.3.1 / Table 11-82)
+            assertEquals((byte) 0x6F, fci[0]);
+            // Application AID tag inside FCI
+            assertEquals((byte) 0x84, fci[2]);
             int aidLen = fci[3] & 0xFF;
             byte[] aidInFci = new byte[aidLen];
             System.arraycopy(fci, 4, aidInFci, 0, aidLen);
-            assertArrayEquals(ssdBytes, aidInFci, "SELECT FCI must carry the selected SSD's own AID, not the ISD AID (GPC v2.3.1 11.9.3.1 / Table 11-82)");
+            // FCI carries the selected SSD's own AID, not the ISD AID
+            assertArrayEquals(ssdBytes, aidInFci);
         }
 
         // 3. Open SCP to the freshly-installed SSD with the bootstrap default key. The SSD owns
@@ -106,7 +113,7 @@ public class SecurityDomainTest {
         // GPC v2.3.1 5.3.2.3 / Table 11-5 (first PUT KEY of an owner key).
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals((byte) 0x0F, findDomain(registry, SSD).getLifeCycle(), "after owner PUT KEY, SSD must transition SELECTABLE -> PERSONALIZED (GPC v2.3.1 5.3.2.3)");
+            assertEquals((byte) 0x0F, findDomain(registry, SSD).getLifeCycle());
         }
 
         // 7. Owner master at KVN=0x01 authenticates the SSD directly (no parent walk).
@@ -120,8 +127,7 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, gpAID(SSD));
             assertThrows(GPException.class,
-                    () -> gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC)),
-                    "after PUT KEY, parent's default keys must not authenticate the SSD (GPC v2.3.1 7.1 key isolation)");
+                    () -> gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC)));
         }
 
         // 9. ISD's own keys are untouched: PUT KEY on the SSD must not have affected the ISD.
@@ -139,7 +145,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), findEntry(registry, APP).getDomain(), "fresh APP must be associated with the issuing ISD (GPC v2.3.1 6.5.1.6)");
+            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), findEntry(registry, APP).getDomain());
         }
 
         // 11. INSTALL [for extradition] of APP onto the SSD. After extradition, the registry's
@@ -150,7 +156,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain(), "after extradition, APP's associated SD must be the new SSD (GPC v2.3.1 9.4.1 Content Extradition)");
+            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain());
         }
 
         // 12. Post-extradition key resolution: SCP to APP with the SSD owner's master at KVN=0x01
@@ -162,8 +168,7 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, gpAID(APP));
             assertThrows(GPException.class,
-                    () -> gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC)),
-                    "after extradition, ISD's bootstrap key must no longer reach APP via the SSD chain (GPC v2.3.1 7.1)");
+                    () -> gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC)));
         }
     }
 
@@ -177,7 +182,7 @@ public class SecurityDomainTest {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
             var ex = assertThrows(GPException.class, () -> gp.extradite(gpAID(SSD), gpAID(SSD)));
-            assertEquals(0x6A80, ex.sw, "self-extradition must be rejected with SW_WRONG_DATA (6A80) per GPC v2.3.1 11.5.3.2 / Table 11-55");
+            assertEquals(0x6A80, ex.sw);
         }
     }
 
@@ -191,11 +196,11 @@ public class SecurityDomainTest {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
             var unknownTarget = assertThrows(GPException.class, () -> gp.extradite(gpAID(GHOST), gpAID(SSD)));
-            assertEquals(0x6A88, unknownTarget.sw, "unknown extradition target must be rejected with SW_REFERENCED_DATA_NOT_FOUND (6A88) per GPC v2.3.1 11.5.3.2 / Table 11-55");
+            assertEquals(0x6A88, unknownTarget.sw);
 
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(APP), gpAID(APP), EnumSet.noneOf(Privilege.class), new byte[0]);
             var unknownSd = assertThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(GHOST)));
-            assertEquals(0x6A88, unknownSd.sw, "unknown new SD must be rejected with SW_REFERENCED_DATA_NOT_FOUND (6A88) per GPC v2.3.1 11.5.3.2 / Table 11-55");
+            assertEquals(0x6A88, unknownSd.sw);
         }
     }
 
@@ -215,7 +220,7 @@ public class SecurityDomainTest {
         try (var bibo = simA.connect()) {
             var gp = openSdMac(bibo, SSD, MasterKeys.BOOTSTRAP, 0);
             var ex = assertThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(SSD)));
-            assertEquals(0x6982, ex.sw, "extradition by an SSD lacking AM must yield SW_SECURITY_STATUS_NOT_SATISFIED (6982) since AM is required per GPC v2.3.1 9.4.1 and 6.6.1");
+            assertEquals(0x6982, ex.sw);
         }
 
         // Scenario B: SSD WITH AM privilege - extradition must succeed and the registry flips.
@@ -232,7 +237,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = simB.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain(), "AM-privileged SSD must be allowed to extradite APP onto itself (GPC v2.3.1 9.4.1 / 11.5.2.3.4)");
+            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain());
         }
     }
 
@@ -253,14 +258,16 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var ssdBytes = AIDUtil.bytes(SSD);
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, ssdBytes, 256));
-            assertEquals(0x6283, r.getSW(), "Final Application SD selected while CARD_LOCKED must yield warning SW 6283 (GPC v2.3.1 11.9.3.2 / Table 11-83)");
+            // warning SW per GPC v2.3.1 11.9.3.2 / Table 11-83
+            assertEquals(0x6283, r.getSW());
             var fci = r.getData();
-            assertEquals((byte) 0x6F, fci[0], "warning response must still carry the FCI template (GPC v2.3.1 11.9.3.1 / Table 11-82)");
-            assertEquals((byte) 0x84, fci[2], "FCI must contain the Application AID tag");
+            // warning response still carries the FCI template
+            assertEquals((byte) 0x6F, fci[0]);
+            assertEquals((byte) 0x84, fci[2]);
             int aidLen = fci[3] & 0xFF;
             byte[] aidInFci = new byte[aidLen];
             System.arraycopy(fci, 4, aidInFci, 0, aidLen);
-            assertArrayEquals(ssdBytes, aidInFci, "FCI AID must be the selected SSD's own AID even under the warning condition");
+            assertArrayEquals(ssdBytes, aidInFci);
         }
     }
 
@@ -279,7 +286,8 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(SSD), 256));
-            assertEquals(0x9000, r.getSW(), "SSD without FinalApplication must still SELECT cleanly even when CARD_LOCKED, since the Table 11-83 warning is privilege-gated");
+            // warning is privilege-gated (Table 11-83): non-final SD selects cleanly
+            assertEquals(0x9000, r.getSW());
         }
     }
 
@@ -293,14 +301,15 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(SSD), 256));
-            assertEquals(0x9000, r.getSW(), "Final Application SD selected outside CARD_LOCKED must return SW 9000 since the Table 11-83 warning requires both conditions");
+            // warning needs both privilege AND CARD_LOCKED (Table 11-83); not locked -> clean
+            assertEquals(0x9000, r.getSW());
         }
     }
 
     // Look up a domain entry by AID from gp-pro's registry; fails the test if missing.
     private static GPRegistryEntry findDomain(GPRegistry registry, AID aid) {
         var found = registry.getDomain(gpAID(aid));
-        assertTrue(found.isPresent(), "domain entry must be present in registry: " + aid);
+        assertTrue(found.isPresent());
         return found.get();
     }
 
@@ -311,7 +320,7 @@ public class SecurityDomainTest {
         var found = StreamSupport.stream(registry.spliterator(), false)
                 .filter(e -> e.getAID().equals(gpaid))
                 .findFirst();
-        assertTrue(found.isPresent(), "registry entry must be present: " + aid);
+        assertTrue(found.isPresent());
         return found.get();
     }
 }

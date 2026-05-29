@@ -6,6 +6,7 @@ import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.Applet;
 import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Shareable;
 import javacard.framework.Util;
@@ -32,7 +33,23 @@ public final class CRSTestApplet extends Applet implements CRSApplication {
     private boolean approveRequests = true;
 
     public static void install(byte[] p, short off, byte len) {
+        // CRS role requires ContactlessActivation + GlobalRegistry.
+        short privOff = (short) (off + 1 + p[off]);
+        byte privLen = p[privOff];
+        if (!granted(p, (short) (privOff + 1), privLen, GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION)
+                || !granted(p, (short) (privOff + 1), privLen, GPRegistryEntry.PRIVILEGE_GLOBAL_REGISTRY)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         new CRSTestApplet().register(p, (short) (off + 1), p[off]);
+    }
+
+    // GP privilege bit n -> byte n>>3, mask 0x80 >> (n & 7).
+    private static boolean granted(byte[] b, short privOff, byte privLen, byte priv) {
+        short idx = (short) (priv >> 3);
+        if (idx >= privLen) {
+            return false;
+        }
+        return (b[(short) (privOff + idx)] & (0x80 >> (priv & 0x07))) != 0;
     }
 
     @Override

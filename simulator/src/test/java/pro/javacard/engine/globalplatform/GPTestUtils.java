@@ -50,9 +50,10 @@ final class GPTestUtils {
     }
 
     // INSTALL [for install and make selectable] of an SSD instance via the platform-built-in
-    // SSD load file (mirrors GPTool's --domain). Adds Privilege.SecurityDomain and any extras.
+    // SSD load file (mirrors GPTool's --domain). SecurityDomainApplet.install() insists on
+    // SecurityDomain + TrustedPath, so grant both here, plus any extras.
     static void installSSD(GPSession gp, AID instance, EnumSet<Privilege> extras) throws Exception {
-        var privs = EnumSet.of(Privilege.SecurityDomain);
+        var privs = EnumSet.of(Privilege.SecurityDomain, Privilege.TrustedPath);
         privs.addAll(extras);
         gp.installAndMakeSelectable(gpAID(SecurityDomainApplet.SSD_PACKAGE_AID), gpAID(SecurityDomainApplet.SSD_MODULE_AID), gpAID(instance), privs, new byte[0]);
     }
