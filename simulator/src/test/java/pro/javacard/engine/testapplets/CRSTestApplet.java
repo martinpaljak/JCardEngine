@@ -60,18 +60,24 @@ public final class CRSTestApplet extends Applet implements CRSApplication {
         byte[] buf = apdu.getBuffer();
         byte p2 = buf[ISO7816.OFFSET_P2];
         switch (buf[ISO7816.OFFSET_P1]) {
-            case 0x00 -> {
+            case 0x00: {
                 Util.arrayCopyNonAtomic(crelLog, (short) 0, buf, (short) 0, crelLen);
                 apdu.setOutgoingAndSend((short) 0, crelLen);
+                break;
             }
-            case 0x01 -> crelLen = 0;
-            case 0x02 -> approveRequests = p2 != 0;
-            case 0x03 -> {
+            case 0x01:
+                crelLen = 0;
+                break;
+            case 0x02:
+                approveRequests = p2 != 0;
+                break;
+            case 0x03: {
                 short lc = apdu.setIncomingAndReceive();
-                var target = GPCLSystem.getGPCLRegistryEntry(
+                GPCLRegistryEntry target = GPCLSystem.getGPCLRegistryEntry(
                         JCSystem.lookupAID(buf, ISO7816.OFFSET_CDATA, (byte) lc));
                 buf[0] = target.setCLState(p2);
                 apdu.setOutgoingAndSend((short) 0, (short) 1);
+                break;
             }
         }
     }

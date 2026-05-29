@@ -42,9 +42,14 @@ public final class GlobalServiceTestApplet extends Applet {
         short name = Util.getShort(buf, ISO7816.OFFSET_CDATA);
         try {
             switch (buf[ISO7816.OFFSET_P1]) {
-                case P1_REGISTER -> GPSystem.getRegistryEntry(null).registerService(name);
-                case P1_DEREGISTER -> GPSystem.getRegistryEntry(null).deregisterService(name);
-                default -> ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+                case P1_REGISTER:
+                    GPSystem.getRegistryEntry(null).registerService(name);
+                    break;
+                case P1_DEREGISTER:
+                    GPSystem.getRegistryEntry(null).deregisterService(name);
+                    break;
+                default:
+                    ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
             buf[0] = 0x01;
             apdu.setOutgoingAndSend((short) 0, (short) 1);

@@ -125,10 +125,9 @@
                             <artifactId>api_classic</artifactId>
                             <version>${javacard.version}</version>
                             <packaging>jar</packaging>
-                            <file>sdks/jc320v25.1_kit/lib/api_classic-${javacard.version}.jar</file>
+                            <file>sdks/jc320v26.0_kit/lib/api_classic-${javacard.version}.jar</file>
                         </configuration>
                     </execution>
-                    <!-- sha256: 3b1c025c528fd3148234b7be2ff7d027c65d8e6918d4003e54097a803de87e22 -->
                     <execution>
                         <id>globalplatform-api</id>
                         <phase>initialize</phase>
@@ -140,10 +139,9 @@
                             <artifactId>api</artifactId>
                             <version>${globalplatform.version}</version>
                             <packaging>jar</packaging>
-                            <file>gpapi-globalplatform.jar</file>
+                            <file>gpapi-globalplatform_${globalplatform.version}.jar</file>
                         </configuration>
                     </execution>
-                    <!-- sha256: 0673f2660556d1198c0d194be8087d3394d8bfe077e77ba3be2f2dc3fd0d975a -->
                     <execution>
                         <id>globalplatform-contactless</id>
                         <phase>initialize</phase>
@@ -155,7 +153,7 @@
                             <artifactId>contactless</artifactId>
                             <version>${globalplatform.contactless.version}</version>
                             <packaging>jar</packaging>
-                            <file>gpapi-contactless.jar</file>
+                            <file>gpapi-contactless_${globalplatform.contactless.version}.jar</file>
                         </configuration>
                     </execution>
                 </executions>
@@ -231,6 +229,24 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <configuration>
+                            <target>
+                                <ant antfile="build.xml" inheritAll="false"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <!-- Run the ASM based proxy code injector -->
             <plugin>

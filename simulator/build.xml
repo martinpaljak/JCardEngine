@@ -8,9 +8,23 @@
   </target>
   <target name="caps" depends="-bootstrap">
     <mkdir dir="target/caps"/>
-    <javacard jckit="sdks/jc320v25.1_kit">
+    <javacard jckit="sdks/jc320v26.0_kit">
       <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java">
         <applet class="pro.javacard.engine.testapplets.MemoryApplet" aid="D233000000774D454D2D303101"/>
+      </cap>
+      <cap targetsdk="3.0.4" aid="D2330000007743524C2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRELTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRELTestApplet.java">
+        <applet class="pro.javacard.engine.testapplets.CRELTestApplet" aid="D2330000007743524C2D303101"/>
+        <import jar="gpapi-globalplatform_1.6.jar"/>
+        <import jar="gpapi-contactless_1.2.jar"/>
+      </cap>
+      <cap targetsdk="3.0.4" aid="D233000000774352532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRSTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRSTestApplet.java">
+        <applet class="pro.javacard.engine.testapplets.CRSTestApplet" aid="D233000000774352532D303101"/>
+        <import jar="gpapi-globalplatform_1.6.jar"/>
+        <import jar="gpapi-contactless_1.2.jar"/>
+      </cap>
+      <cap targetsdk="3.0.4" aid="D233000000774753562D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/GlobalServiceTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/GlobalServiceTestApplet.java">
+        <applet class="pro.javacard.engine.testapplets.GlobalServiceTestApplet" aid="D233000000774753562D303101"/>
+        <import jar="gpapi-globalplatform_1.6.jar"/>
       </cap>
     </javacard>
   </target>

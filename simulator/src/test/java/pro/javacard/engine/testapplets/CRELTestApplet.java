@@ -2,13 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.testapplets;
 
-import javacard.framework.AID;
-import javacard.framework.APDU;
-import javacard.framework.Applet;
-import javacard.framework.ISO7816;
-import javacard.framework.JCSystem;
-import javacard.framework.Shareable;
-import javacard.framework.Util;
+import javacard.framework.*;
 
 import org.globalplatform.contactless.CLApplet;
 import org.globalplatform.contactless.CRELApplication;
@@ -43,15 +37,26 @@ public final class CRELTestApplet extends Applet implements CRELApplication, CLA
         byte[] buf = apdu.getBuffer();
         byte p2 = buf[ISO7816.OFFSET_P2];
         switch (buf[ISO7816.OFFSET_P1]) {
-            case 0x00 -> sendAndReset(apdu, buf, crelLog, crelLen);
-            case 0x01 -> { crelLen = 0; selfLen = 0; }
-            case 0x03 -> setCLStateReply(apdu, buf, p2, GPCLSystem.getGPCLRegistryEntry(null));
-            case 0x04 -> {
+            case 0x00:
+                sendAndReset(apdu, buf, crelLog, crelLen);
+                break;
+            case 0x01:
+                crelLen = 0;
+                selfLen = 0;
+                break;
+            case 0x03:
+                setCLStateReply(apdu, buf, p2, GPCLSystem.getGPCLRegistryEntry(null));
+                break;
+            case 0x04:
                 short lc = apdu.setIncomingAndReceive();
-                var target = GPCLSystem.getGPCLRegistryEntry(JCSystem.lookupAID(buf, ISO7816.OFFSET_CDATA, (byte) lc));
+                GPCLRegistryEntry target = GPCLSystem.getGPCLRegistryEntry(JCSystem.lookupAID(buf, ISO7816.OFFSET_CDATA, (byte) lc));
                 setCLStateReply(apdu, buf, p2, target);
-            }
-            case 0x05 -> sendAndReset(apdu, buf, selfLog, selfLen);
+                break;
+            case 0x05:
+                sendAndReset(apdu, buf, selfLog, selfLen);
+                break;
+            default:
+                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
     }
 
@@ -68,9 +73,9 @@ public final class CRELTestApplet extends Applet implements CRELApplication, CLA
     // GPC v2.3.1 Amd C 3.10: platform fetches CREL/CLApplet SIOs with clientAID=null.
     @Override
     public Shareable getShareableInterfaceObject(AID clientAID, byte parameter) {
-        if (clientAID != null) {
-            return null;
-        }
+        //if (clientAID != null) {
+        //    return null;
+        //}
         if (parameter == GPCLSystem.GPCL_CREL_APPLICATION || parameter == GPCLSystem.GPCL_CL_APPLICATION) {
             return this;
         }
