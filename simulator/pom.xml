@@ -234,14 +234,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.2.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.jacoco</groupId>
-                        <artifactId>org.jacoco.ant</artifactId>
-                        <!--classifier>nodeps</classifier-->
-                        <version>0.8.14</version>
-                    </dependency>
-                </dependencies>
                 <executions>
                     <!-- Build the test applet CAPs -->
                     <execution>
@@ -250,36 +242,6 @@
                         <configuration>
                             <target>
                                 <ant antfile="build.xml" inheritAll="false"/>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                    <!-- Run the modified variant of jacoco execution dump gatherer -->
-                    <execution>
-                        <id>jacoco-report</id>
-                        <phase>verify</phase>
-                        <configuration>
-                            <target>
-                                <typedef resource="org/jacoco/ant/antlib.xml"/>
-                                <report>
-                                    <executiondata>
-                                        <fileset dir="target" includes="jacoco*.exec"/>
-                                    </executiondata>
-                                    <structure name="${project.name}">
-                                        <group name="oink">
-                                            <classfiles>
-                                                <fileset dir="${basedir}/target/jacoco-dump"/>
-                                            </classfiles>
-                                            <sourcefiles>
-                                                <fileset dir="${basedir}/src/main/java"/>
-                                            </sourcefiles>
-                                        </group>
-                                    </structure>
-                                    <html destdir="${basedir}/target/site/jacoco"/>
-                                    <xml destfile="${basedir}/target/site/jacoco/jacoco.xml"/>
-                                </report>
                             </target>
                         </configuration>
                         <goals>
@@ -317,6 +279,11 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <configuration>
                     <excludes>
+                        <!-- Test applets run in the reloader with rewritten bytecode; instrumenting
+                             their application-loader copies too would clash in the dump report. They
+                             are test fixtures, not the engine under test. -->
+                        <exclude>com/licel/jcardsim/samples/**</exclude>
+                        <exclude>pro/javacard/engine/testapplets/**</exclude>
                         <exclude>java/lang/**</exclude>
                         <exclude>java/rmi/**</exclude>
                         <exclude>java/io/**</exclude>
@@ -341,17 +308,46 @@
                             <goal>prepare-agent</goal>
                         </goals>
                         <configuration>
-                            <classDumpDir>${project.build.directory}/jacoco-dump</classDumpDir>
-                            <exclClassLoaders>*AppClassLoader:*PlatformClassLoader</exclClassLoaders>
+                            <!-- Instrument the engine host code and the simulated platform it
+                                 provides. Applet packages are reloaded with rewritten bytecode by
+                                 IsolatingClassReloader and are excluded below to avoid clashing with
+                                 their application-loader copies; the JC API is loaded once, so it is
+                                 measured normally. -->
+                            <includes>
+                                <include>com/licel/jcardsim/**</include>
+                                <include>pro/javacard/engine/**</include>
+                                <include>javacard/**</include>
+                                <include>javacardx/**</include>
+                                <include>org/globalplatform/**</include>
+                            </includes>
                         </configuration>
                     </execution>
-                    <!--execution>
-                        <id>report</id>
+                    <!-- Engine host coverage: pro.javacard.engine.* and the com.licel.jcardsim
+                         simulator core, excluding the test-applet fixtures and the reloaded JC-API
+                         facades (measured, if at all, only inside the reloader). -->
+                    <execution>
+                        <id>host-report</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
-                    </execution-->
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                            <includes>
+                                <include>pro/javacard/engine/**</include>
+                                <include>com/licel/jcardsim/**</include>
+                                <include>javacard/**</include>
+                                <include>javacardx/**</include>
+                                <include>org/globalplatform/**</include>
+                            </includes>
+                            <excludes>
+                                <exclude>com/licel/jcardsim/samples/**</exclude>
+                                <exclude>pro/javacard/engine/testapplets/**</exclude>
+                                <!-- Build-time bytecode tool, runs at process-classes not under test. -->
+                                <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
                     <!-- Set current baseline for minimums -->
                     <!--execution>
                         <id>check</id>
