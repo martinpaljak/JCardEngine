@@ -6,9 +6,14 @@ import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.Applet;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.SystemException;
 import org.globalplatform.CVM;
 import org.globalplatform.GPRegistryEntry;
 import org.globalplatform.GPSystem;
+import org.globalplatform.contactless.GPCLRegistryEntry;
+import org.globalplatform.contactless.GPCLSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.JavaCardEngineException;
@@ -197,6 +202,82 @@ public class GlobalPlatformEngine {
     // The org.globalplatform registry API exposes selectable entries only - never ELFs (Kind.PKG).
     private static EngineRegistryEntry selectable(EngineRegistryEntry e) {
         return e != null && e.getKind() != Kind.PKG ? e : null;
+    }
+
+    // GPCLSystem.getNextGPCLRegistryEntry (GPC v2.3.1 Amd C): stateless cursor over CL-activated applets
+    // of the requested Application Family, in registry (AID) order. The caller's visible set follows the
+    // spec roles: GLOBAL REGISTRY or CONTACTLESS ACTIVATION sees all; a Security Domain sees its directly
+    // or indirectly associated applications; a CREL Application sees the applications referencing it. A
+    // caller holding none of these roles gets SW_CONDITIONS_NOT_SATISFIED.
+    public GPCLRegistryEntry nextContactlessEntry(GPCLRegistryEntry oEntry, short family) {
+        var caller = Simulator.current().caller();
+        if (caller == null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        EngineRegistryEntry cursor = null;
+        if (oEntry != null) {
+            if (!(oEntry instanceof EngineRegistryEntry o)) {
+                throw new SecurityException();
+            }
+            if (o.isDisabled()) {
+                SystemException.throwIt(SystemException.ILLEGAL_USE);
+            }
+            cursor = o;
+        }
+        boolean seesAll = caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_REGISTRY)
+                || caller.isPrivileged(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION);
+        boolean isSD = caller.isPrivileged(GPRegistryEntry.PRIVILEGE_SECURITY_DOMAIN);
+        AID callerAID = caller.getAID();
+        boolean referencedAsCREL = false;
+        var visible = new ArrayList<EngineRegistryEntry>();
+        for (var e : getApplets()) {
+            // A CREL relation counts even for a deactivated app: it authorizes the caller, just yields nothing here.
+            boolean crel = e.internalGetCRELs().contains(callerAID);
+            referencedAsCREL |= crel;
+            if (e.internalGetCLState() != GPCLRegistryEntry.STATE_CL_ACTIVATED || !familyMatches(e, family)) {
+                continue;
+            }
+            if (seesAll || crel || (isSD && associatedTo(e, caller))) {
+                visible.add(e);
+            }
+        }
+        if (!seesAll && !isSD && !referencedAsCREL) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        if (visible.isEmpty()) {
+            return null;
+        }
+        if (cursor == null) {
+            return visible.get(0);
+        }
+        int idx = visible.indexOf(cursor);
+        return idx < 0 || idx + 1 >= visible.size() ? null : visible.get(idx + 1);
+    }
+
+    // AFI_ANY matches all; otherwise compare the LSB (the AFI byte) against the stored Application Family,
+    // tolerating the 1-byte install value vs the 2-byte 00||AFI API form. Absent family never matches.
+    private static boolean familyMatches(EngineRegistryEntry e, short family) {
+        if (family == GPCLSystem.AFI_ANY) {
+            return true;
+        }
+        byte[] fam = e.infos.get(GPData.APPLICATION_FAMILY);
+        return fam != null && fam.length > 0 && (fam[fam.length - 1] & 0xFF) == (family & 0xFF);
+    }
+
+    // Directly or indirectly associated: walk the entry's associated-SD chain (ISD is self-parented).
+    private static boolean associatedTo(EngineRegistryEntry entry, EngineRegistryEntry sd) {
+        AID sdAID = sd.getAID();
+        for (var p = entry.getParentSD(); p != null; ) {
+            if (p.getAID().equals(sdAID)) {
+                return true;
+            }
+            var parent = p.getParentSD();
+            if (parent == p) {
+                break;
+            }
+            p = parent;
+        }
+        return false;
     }
 
     public EngineSecureChannel getSecureChannel() {

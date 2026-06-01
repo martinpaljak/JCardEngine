@@ -93,11 +93,6 @@ public final class GPData {
         return register(new GPInfo(name, id, Tag.ber(a1Tag), event));
     }
 
-    // info set only via setInfo (no install A1 sub-tag).
-    private static GPInfo info(String name, short id, short event) {
-        return register(new GPInfo(name, id, null, event));
-    }
-
     private static GPInfo register(GPInfo element) {
         if (BY_INFO.put(element.info(), element) != null) {
             throw new IllegalStateException("Duplicate GP info element: " + element.name());
@@ -107,7 +102,7 @@ public final class GPData {
 
     public static final GPInfo APPLICATION_FAMILY = info("Application Family", GPCLRegistryEntry.INFO_FAMILY_IDENTIFIER, 0x87, CLAppletEvent.EVENT_FAMILY_IDENTIFIER);
     public static final GPInfo DISPLAY_REQUIRED = info("Display Required Indicator", GPCLRegistryEntry.INFO_DISPLAY_REQUIREMENT, 0x88, CLAppletEvent.EVENT_DISPLAY_REQUIREMENT);
-    public static final GPInfo DISCRETIONARY_DATA = info("Discretionary Data", GPCLRegistryEntry.INFO_DISCRETIONARY_DATA, CLAppletEvent.EVENT_DISCRETIONARY_DATA);
+    public static final GPInfo DISCRETIONARY_DATA = info("Discretionary Data", GPCLRegistryEntry.INFO_DISCRETIONARY_DATA, 0xA6, CLAppletEvent.EVENT_DISCRETIONARY_DATA);
 
     public static Optional<GPInfo> byInfo(short info) {
         return Optional.ofNullable(BY_INFO.get(info));

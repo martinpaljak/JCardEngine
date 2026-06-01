@@ -24,9 +24,10 @@ public final class GPCLSystemProxy {
         return entry;
     }
 
+    // Same delegation shape as getGPCLRegistryEntry; the engine applies the caller privilege gate and
+    // returns the next activated entry of the requested Application Family in registry order.
     public static GPCLRegistryEntry getNextGPCLRegistryEntry(GPCLRegistryEntry entry, short family) {
-        ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
-        return null;
+        return Simulator.current().gp().nextContactlessEntry(entry, family);
     }
 
     public static void setVolatilePriority(GPCLRegistryEntry entry) {

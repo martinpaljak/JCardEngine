@@ -42,7 +42,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     // ---- CL state (applet-kind only; PKG entries throw on CL methods).
     private byte state = STATE_CL_DEACTIVATED;
     private final LinkedHashSet<AID> crels = new LinkedHashSet<>();
-    private final HashMap<GPInfo, byte[]> infos = new HashMap<>();
+    final HashMap<GPInfo, byte[]> infos = new HashMap<>();
 
     // Global Service registration (GPC v2.3.1 8.1.1).
     private final LinkedHashSet<Short> installedServices = new LinkedHashSet<>();

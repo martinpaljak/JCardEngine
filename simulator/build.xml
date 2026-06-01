@@ -22,6 +22,11 @@
         <import jar="gpapi-globalplatform_1.6.jar"/>
         <import jar="gpapi-contactless_1.2.jar"/>
       </cap>
+      <cap targetsdk="3.0.4" aid="D233000000775050532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/PPSEApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PPSEApplet.java">
+        <applet class="pro.javacard.engine.testapplets.PPSEApplet" aid="D233000000775050532D303101"/>
+        <import jar="gpapi-globalplatform_1.6.jar"/>
+        <import jar="gpapi-contactless_1.2.jar"/>
+      </cap>
       <cap targetsdk="3.0.4" aid="D233000000774753562D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/GlobalServiceTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/GlobalServiceTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.GlobalServiceTestApplet" aid="D233000000774753562D303101"/>
         <import jar="gpapi-globalplatform_1.6.jar"/>
