@@ -13,3 +13,4 @@ target/
 *~
 /GlobalPlatformPro
 pom.xml.versionsBackup
+/simulator/ant-javacard.jar

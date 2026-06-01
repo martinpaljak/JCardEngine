@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="jcardengine-applets" default="caps" basedir=".">
-  <property name="ant-javacard.jar" value="target/ant-javacard.jar"/>
+  <property name="ant-javacard.jar" value="ant-javacard.jar"/>
   <target name="-bootstrap">
     <mkdir dir="target"/>
     <get src="https://github.com/martinpaljak/ant-javacard/releases/latest/download/ant-javacard.jar" dest="${ant-javacard.jar}" usetimestamp="true" skipexisting="true"/>
