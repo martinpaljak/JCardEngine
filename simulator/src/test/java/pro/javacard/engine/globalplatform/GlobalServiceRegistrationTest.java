@@ -12,7 +12,6 @@ import pro.javacard.engine.testapplets.GlobalServiceTestApplet;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
 import pro.javacard.tlv.TLV;
-import pro.javacard.tlv.Tag;
 
 import java.util.EnumSet;
 
@@ -143,8 +142,8 @@ public class GlobalServiceRegistrationTest {
         if (cbName == null) {
             params = new byte[0];
         } else {
-            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xCB), cbName));
-            params = TLV.encode(TLV.of(Tag.ber(0xC9), new byte[0]), ef);
+            var ef = TLV.build(0xEF).add(0xCB, cbName);
+            params = TLV.encode(TLV.of(0xC9, new byte[0]), ef);
         }
         gp.installAndMakeSelectable(gpAID(PKG), gpAID(aid), gpAID(aid), EnumSet.of(Privilege.GlobalService), params);
     }

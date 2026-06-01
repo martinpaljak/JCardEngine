@@ -18,6 +18,7 @@ import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.data.BitField;
 import pro.javacard.tlv.LV;
 import pro.javacard.tlv.TLV;
+import pro.javacard.tlv.TLVs;
 import pro.javacard.tlv.Tag;
 
 import java.io.ByteArrayOutputStream;
@@ -357,11 +358,11 @@ public class SecurityDomainApplet extends Applet {
         // validation runs before internalInstallApplet so a bad block aborts with no partial
         // mutation - post-commit events cannot be unfired.
         byte[] appletParams = new byte[0];
-        List<TLV> top;
+        TLVs top;
         Optional<CLState> clState;
         try {
-            top = installParams.length == 0 ? List.<TLV>of() : TLV.parse(installParams);
-            appletParams = TLV.find(top, Tag.ber(TAG_APPLICATION_PARAMETERS_C9)).map(TLV::value).orElse(appletParams);
+            top = TLV.parse(installParams);
+            appletParams = top.find(TAG_APPLICATION_PARAMETERS_C9).map(TLV::value).orElse(appletParams);
             clState = clStateOf(top); // validate the CL-state byte before commit (rollback test relies on this)
         } catch (IllegalArgumentException e) {
             log.warn("INSTALL [install]: malformed install parameters: {}", e.getMessage());
@@ -451,11 +452,10 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
 
-        List<TLV> top;
+        TLVs top;
         Optional<CLState> clState;
         try {
-            var params = fields.get(4);
-            top = params.length == 0 ? List.<TLV>of() : TLV.parse(params);
+            top = TLV.parse(fields.get(4));
             clState = clStateOf(top); // validate the CL-state byte before any mutation
         } catch (IllegalArgumentException e) {
             log.warn("INSTALL [for registry update]: malformed parameters: {}", e.getMessage());
@@ -474,10 +474,8 @@ public class SecurityDomainApplet extends Applet {
 
     // CL activation state from EF { A0 { 81 } }, if present. Throws on a bad state byte (CLState.parse)
     // so callers can validate before the commit / first event fires.
-    private static Optional<CLState> clStateOf(List<TLV> top) {
-        return TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF))
-                .flatMap(e -> e.find(Tag.ber(TAG_CL_STATE_TEMPLATE_A0)))
-                .flatMap(a0 -> a0.find(Tag.ber(TAG_CL_STATE_81)))
+    private static Optional<CLState> clStateOf(TLVs top) {
+        return top.find(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF, TAG_CL_STATE_TEMPLATE_A0, TAG_CL_STATE_81)
                 .map(c -> CLState.parse(c.value()));
     }
 
@@ -486,17 +484,15 @@ public class SecurityDomainApplet extends Applet {
     // Amd C 11.2). Per 11.2.3 setInfoInternal deletes on zero-length / replaces otherwise; A3/A4 are
     // additive / subtractive (setInfoInternal bypasses the GP-API caller gate: the SD is the OPEN-side
     // actor). CL state (tag 81) is caller-applied; see clStateOf(). Shared by install and registry update.
-    private static void applyEF(EngineRegistryEntry entry, List<TLV> top) {
-        var ef = TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF));
-        var a1 = ef.flatMap(e -> e.find(Tag.ber(TAG_USER_INTERACTION_PARAMETERS_A1)));
-        for (var aid : a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_ADD_A3))).map(SecurityDomainApplet::parseCRELAids).orElse(List.of())) {
-            var b = AIDUtil.bytes(aid);
-            entry.addToCRELApplicationList(b, (short) 0, (short) b.length);
+    private static void applyEF(EngineRegistryEntry entry, TLVs top) {
+        for (var aid : crelAids(top, TAG_CREL_ADD_A3)) {
+            entry.addToCRELApplicationList(aid, (short) 0, (short) aid.length);
         }
-        for (var aid : a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_REMOVE_A4))).map(SecurityDomainApplet::parseCRELAids).orElse(List.of())) {
-            var b = AIDUtil.bytes(aid);
-            entry.removeFromCRELApplicationList(b, (short) 0, (short) b.length);
+        for (var aid : crelAids(top, TAG_CREL_REMOVE_A4)) {
+            entry.removeFromCRELApplicationList(aid, (short) 0, (short) aid.length);
         }
+        var ef = top.find(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF);
+        var a1 = ef.flatMap(e -> e.find(TAG_USER_INTERACTION_PARAMETERS_A1));
         a1.ifPresent(a -> {
             for (var element : GPData.installInfos()) {
                 a.find(element.tag()).ifPresent(sub -> {
@@ -1067,7 +1063,9 @@ public class SecurityDomainApplet extends Applet {
     }
 
     // GPC v2.3.1 Amd C Table 11-5: A3/A4 CREL lists carry a concatenation of 4F-tagged AID entries.
-    private static List<AID> parseCRELAids(TLV list) {
-        return list.findAll(Tag.ber(TAG_AID_4F)).stream().map(t -> AIDUtil.create(t.value())).toList();
+    // AID (4F) bytes listed in the EF/A1 CREL add/remove block (A3/A4); empty when the block is absent.
+    private static List<byte[]> crelAids(TLVs top, int crelTag) {
+        return top.findAll(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF, TAG_USER_INTERACTION_PARAMETERS_A1, crelTag, TAG_AID_4F)
+                .stream().map(TLV::value).toList();
     }
 }

@@ -94,8 +94,8 @@ public class ContactlessRegistryTest {
         // 2. GET DATA P1=00 P2=A5 returns the A5 template byte-identical to the SELECT FCI;
         // repeated SELECTs do not advance the counter (GPC v2.3.1 Amd C 3.11.6).
         try (var bibo = sim.connect()) {
-            byte[] fci = selectAID(bibo, CRS_AID);
-            byte[] fromSelect = innerProprietaryBytes(fci);
+            byte[] fromSelect = TLV.parse(selectAID(bibo, CRS_AID)).find(0x6F, 0xA5)
+                    .orElseThrow(() -> new AssertionError("FCI must carry tag A5")).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, P2_GET_DATA, 256));
             assertEquals(0x9000, resp.getSW());
             assertArrayEquals(fromSelect, resp.getData());
@@ -127,15 +127,18 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
-            int viaGetData = readGetDataCounter(bibo);
-            assertEquals(4, viaGetData);
+            var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, P2_GET_DATA, 256));
+            assertEquals(0x9000, resp.getSW());
+            byte[] ctr = TLV.parse(resp.getData()).get(0).find(0x80)
+                    .orElseThrow(() -> new AssertionError("80 missing from GET DATA body")).value();
+            assertEquals(4, ((ctr[0] & 0xFF) << 8) | (ctr[1] & 0xFF));
         }
 
         // 5. SET STATUS P1=01 P2=00 flips X to DEACTIVATED; CREL observes EVENT_DEACTIVATED,
         // state persists (GPC v2.3.1 Amd C 3.11.4.2.1 + 3.10.2).
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
-            byte[] data = TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
             assertEquals(0x9000, resp.getSW());
         }
@@ -180,7 +183,7 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
-            byte[] data = TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
             assertEquals(0x9000, resp.getSW());
         }
@@ -215,7 +218,7 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
-            byte[] filter = TLV.of(Tag.ber(0x4F), new byte[0]).encode();
+            byte[] filter = TLV.of(0x4F, new byte[0]).encode();
             var first = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, filter, 256));
             assertEquals(0x6310, first.getSW());
             assertTrue(first.getData().length > 0);
@@ -240,7 +243,7 @@ public class ContactlessRegistryTest {
             var seen = new ArrayList<AID>();
             for (var entry : entries) {
                 assertEquals(Tag.ber(0x61), entry.tag());
-                var aidTlv = TLV.find(TLV.parse(entry.value()), Tag.ber(0x4F)).orElse(null);
+                var aidTlv = entry.find(0x4F).orElse(null);
                 if (aidTlv != null) {
                     seen.add(AIDUtil.create(aidTlv.value()));
                 }
@@ -267,8 +270,8 @@ public class ContactlessRegistryTest {
         try (var bibo = simMulti.connect()) {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.encode(
-                    TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)),
-                    TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X2)));
+                    TLV.of(0x4F, AIDUtil.bytes(X)),
+                    TLV.of(0x4F, AIDUtil.bytes(X2)));
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
             assertEquals(0x9000, resp.getSW());
         }
@@ -296,8 +299,8 @@ public class ContactlessRegistryTest {
         try (var bibo = simMixed.connect()) {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.encode(
-                    TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)),
-                    TLV.of(Tag.ber(0x4F), unknown));
+                    TLV.of(0x4F, AIDUtil.bytes(X)),
+                    TLV.of(0x4F, unknown));
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
             assertEquals(0x6320, resp.getSW());
             var parsed = TLV.parse(resp.getData());
@@ -323,12 +326,12 @@ public class ContactlessRegistryTest {
             assertEquals(0x6A80, absent.getSW());
 
             // GET STATUS without any 4F tag in the data field -> 6A80.
-            byte[] no4f = TLV.of(Tag.ber(0x5C), new byte[]{0x4F}).encode();
+            byte[] no4f = TLV.of(0x5C, new byte[]{0x4F}).encode();
             var missing = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, no4f, 256));
             assertEquals(0x6A80, missing.getSW());
 
             // Empty 4F is the "match all" sentinel; returns CL entries, each in a 61 template.
-            byte[] match = TLV.of(Tag.ber(0x4F), new byte[0]).encode();
+            byte[] match = TLV.of(0x4F, new byte[0]).encode();
             byte[] body = getStatusAll(bibo);
             assertTrue(body.length > 0);
             for (var e : TLV.parse(body)) {
@@ -353,7 +356,7 @@ public class ContactlessRegistryTest {
 
             // SET STATUS unknown AID -> 6320 + A1 list with the failed AID (GPC v2.3.1 Amd C 3.11.4.3.1).
             byte[] unkAid = Hex.decode("A1A2A3A4A5");
-            byte[] unkData = TLV.of(Tag.ber(0x4F), unkAid).encode();
+            byte[] unkData = TLV.of(0x4F, unkAid).encode();
             var unk = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, unkData));
             assertEquals(0x6320, unk.getSW());
             var unkParsed = TLV.parse(unk.getData());
@@ -370,16 +373,16 @@ public class ContactlessRegistryTest {
 
             // CRS data field is a sequence of top-level 4F primitives; a 61-wrapped 4F must NOT
             // be accepted as top-level (GPC v2.3.1 Amd C Tables 3-14 / 3-23) -> both 6A80.
-            byte[] wrappedAid = TLV.build(Tag.ber(0x61)).add(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            byte[] wrappedAid = TLV.build(0x61).add(0x4F, AIDUtil.bytes(X)).encode();
             var wrappedSet = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, wrappedAid));
             assertEquals(0x6A80, wrappedSet.getSW());
-            byte[] wrappedFilter = TLV.build(Tag.ber(0x61)).add(Tag.ber(0x4F), new byte[0]).encode();
+            byte[] wrappedFilter = TLV.build(0x61).add(0x4F, new byte[0]).encode();
             var wrappedGet = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, wrappedFilter, 256));
             assertEquals(0x6A80, wrappedGet.getSW());
 
             // SET STATUS P2=NON_ACTIVATABLE rejected: only the applet itself may enter it
             // (GPC v2.3.1 Amd C 3.11.4.2.2) -> 6A86.
-            byte[] xData = TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            byte[] xData = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var na = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_NON_ACTIVATABLE, xData));
             assertEquals(0x6A86, na.getSW());
 
@@ -435,7 +438,7 @@ public class ContactlessRegistryTest {
         try (var bibo = simSelfOK.connect()) {
             var gp = openIsd(bibo);
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(t2), gpAID(t2), EnumSet.noneOf(Privilege.class), new byte[0]);
-            byte[] combined = TLV.encode(TLV.of(Tag.ber(0xC9), new byte[]{0x00}), buildEf(false, t2));
+            byte[] combined = TLV.encode(TLV.of(0xC9, new byte[]{0x00}), buildEf(false, t2));
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(T), gpAID(T), EnumSet.of(Privilege.ContactlessSelfActivation), combined);
         }
         try (var bibo = simSelfOK.connect()) {
@@ -557,10 +560,8 @@ public class ContactlessRegistryTest {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
             byte[] aidBytes = AIDUtil.bytes(T);
-            TLV a3 = TLV.of(Tag.ber(0xA3),
-                    TLV.of(Tag.ber(0x4F), aidBytes),
-                    TLV.of(Tag.ber(0x4F), aidBytes));
-            TLV efBlock = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), a3));
+            var a3 = TLV.build(0xA3).add(0x4F, aidBytes).add(0x4F, aidBytes);
+            var efBlock = TLV.build(0xEF).add(TLV.build(0xA1).add(a3));
             installXWithParams(gp, efBlock);
         }
         try (var bibo = simDup.connect()) {
@@ -577,10 +578,7 @@ public class ContactlessRegistryTest {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
             byte[] aidBytes = AIDUtil.bytes(T);
-            TLV efBlock = TLV.of(Tag.ber(0xEF),
-                    TLV.of(Tag.ber(0xA1),
-                            TLV.of(Tag.ber(0xA4),
-                                    TLV.of(Tag.ber(0x4F), aidBytes))));
+            var efBlock = TLV.build(0xEF).add(TLV.build(0xA1).add(TLV.build(0xA4).add(0x4F, aidBytes)));
             installXWithParams(gp, efBlock);
         }
         try (var bibo = simA4.connect()) {
@@ -596,7 +594,7 @@ public class ContactlessRegistryTest {
         try (var bibo = simEmpty.connect()) {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
-            installXWithParams(gp, TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), new byte[0])));
+            installXWithParams(gp, TLV.build(0xEF).add(0xA1, new byte[0]));
         }
         try (var bibo = simEmpty.connect()) {
             var events = dumpCrelEvents(bibo);
@@ -610,10 +608,9 @@ public class ContactlessRegistryTest {
         try (var bibo = simRollback.connect()) {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
-            TLV a3 = TLV.of(Tag.ber(0xA3), TLV.of(Tag.ber(0x4F), AIDUtil.bytes(T)));
-            TLV a1 = TLV.of(Tag.ber(0xA1), a3);
-            TLV a0 = TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{0x02}));
-            TLV efBlock = TLV.of(Tag.ber(0xEF), a1, a0);
+            var a1 = TLV.build(0xA1).add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(T)));
+            var a0 = TLV.build(0xA0).add(0x81, new byte[]{0x02});
+            var efBlock = TLV.build(0xEF).add(a1).add(a0);
             var ex = assertThrows(GPException.class, () -> installXWithParams(gp, efBlock));
             assertEquals(0x6A80, ex.sw);
         }
@@ -622,7 +619,7 @@ public class ContactlessRegistryTest {
             byte[] body = getStatusAll(bibo);
             byte[] xBytes = AIDUtil.bytes(X);
             for (var entry : TLV.parse(body)) {
-                var aidTlv = TLV.find(TLV.parse(entry.value()), Tag.ber(0x4F)).orElse(null);
+                var aidTlv = entry.find(0x4F).orElse(null);
                 if (aidTlv != null) {
                     assertFalse(Arrays.equals(aidTlv.value(), xBytes));
                 }
@@ -647,11 +644,11 @@ public class ContactlessRegistryTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
-            TLV ef = TLV.of(Tag.ber(0xEF),
-                    TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{STATE_CL_ACTIVATED})),
-                    TLV.of(Tag.ber(0xA1),
-                            TLV.of(Tag.ber(0xA3), TLV.of(Tag.ber(0x4F), AIDUtil.bytes(T))),
-                            TLV.of(Tag.ber(0x88), new byte[]{0x00})));
+            var ef = TLV.build(0xEF)
+                    .add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}))
+                    .add(TLV.build(0xA1)
+                            .add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(T)))
+                            .add(0x88, new byte[]{0x00}));
             installXWithParams(gp, ef);
         }
         try (var bibo = sim.connect()) {
@@ -660,7 +657,7 @@ public class ContactlessRegistryTest {
 
         // 1. Registry update with ONLY tag 88 -> 01. Display Required changes; nothing else sent.
         try (var bibo = sim.connect()) {
-            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[]{0x01})));
+            var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
             assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
         }
         try (var bibo = sim.connect()) {
@@ -678,7 +675,7 @@ public class ContactlessRegistryTest {
         // 2. CREL link retained: a CRS SET STATUS DEACTIVATED on X must still reach T's CREL log.
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
-            byte[] data = TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
             assertEquals(0x9000, resp.getSW());
         }
@@ -689,7 +686,7 @@ public class ContactlessRegistryTest {
 
         // 3. Registry update with ONLY tag 81 -> ACTIVATED. CL state changes; Display Required retained.
         try (var bibo = sim.connect()) {
-            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{STATE_CL_ACTIVATED})));
+            var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
             assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
         }
         try (var bibo = sim.connect()) {
@@ -701,7 +698,7 @@ public class ContactlessRegistryTest {
 
         // 4. Zero-length 88 deletes the indicator (GPC v2.3.1 Amd C 11.2.3); getInfo -> 6A83.
         try (var bibo = sim.connect()) {
-            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[0])));
+            var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[0]));
             assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
         }
         try (var bibo = sim.connect()) {
@@ -712,7 +709,7 @@ public class ContactlessRegistryTest {
 
         // 5. Unknown target AID -> 6A88 (GPC v2.3.1 9.4.2.1 existence check).
         try (var bibo = sim.connect()) {
-            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[]{0x01})));
+            var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
             assertEquals(0x6A88, registryUpdate(openIsd(bibo), AIDUtil.create("DEADBEEF00"), ef));
         }
     }
@@ -923,41 +920,19 @@ public class ContactlessRegistryTest {
 
     // Generic install: instance AID == module AID, params = C9 (empty) || efBlock.
     private static void installAtAidWithParams(GPSession gp, AID instanceAid, TLV efBlock) throws Exception {
-        byte[] combined = TLV.encode(TLV.of(Tag.ber(0xC9), new byte[]{0x00}), efBlock);
+        byte[] combined = TLV.encode(TLV.of(0xC9, new byte[]{0x00}), efBlock);
         gp.installAndMakeSelectable(gpAID(PKG), gpAID(instanceAid), gpAID(instanceAid), EnumSet.noneOf(Privilege.class), combined);
     }
 
     // Build EF { [A0 { 81 01 01 }], A1 { A3 { 4F <crelTarget> } } }. The A0 wrapper around the
     // initial-activation tag is mandatory (GPC v2.3.1 Amd C Table 11-3).
     private static TLV buildEf(boolean includeActivation, AID crelTarget) {
-        TLV a1 = TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0xA3), TLV.of(Tag.ber(0x4F), AIDUtil.bytes(crelTarget))));
+        var a1 = TLV.build(0xA1).add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(crelTarget)));
         if (includeActivation) {
-            TLV a0 = TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{0x01}));
-            return TLV.of(Tag.ber(0xEF), a0, a1);
+            var a0 = TLV.build(0xA0).add(0x81, new byte[]{0x01});
+            return TLV.build(0xEF).add(a0).add(a1);
         }
-        return TLV.of(Tag.ber(0xEF), a1);
-    }
-
-    // Encoded inner A5 proprietary template from a SELECT FCI; GET DATA must match it byte-for-byte.
-    private static byte[] innerProprietaryBytes(byte[] fci) {
-        var parsed = TLV.parse(fci);
-        assertEquals(1, parsed.size());
-        var children = TLV.parse(parsed.get(0).value());
-        var proprietary = TLV.find(children, Tag.ber(0xA5))
-                .orElseThrow(() -> new AssertionError("FCI must carry tag A5"));
-        return proprietary.encode();
-    }
-
-    // GET DATA over the current selection; decode the 2-byte big-endian update counter.
-    private static int readGetDataCounter(BIBO bibo) {
-        var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, P2_GET_DATA, 256));
-        assertEquals(0x9000, resp.getSW());
-        var parsed = TLV.parse(resp.getData());
-        var inner = TLV.parse(parsed.get(0).value());
-        byte[] counter = TLV.find(inner, Tag.ber(0x80))
-                .orElseThrow(() -> new AssertionError("80 missing from GET DATA body")).value();
-        assertEquals(2, counter.length);
-        return ((counter[0] & 0xFF) << 8) | (counter[1] & 0xFF);
+        return TLV.build(0xEF).add(a1);
     }
 
     // Validate SELECT CRS FCI shape (GPC v2.3.1 Amd C Table 3-30) and return the counter bytes.
@@ -966,14 +941,12 @@ public class ContactlessRegistryTest {
         assertEquals(1, parsed.size());
         var template = parsed.get(0);
         assertEquals(Tag.ber(0x6F), template.tag());
-        var children = TLV.parse(template.value());
-        var aidTlv = TLV.find(children, Tag.ber(0x84)).orElseThrow(() -> new AssertionError("FCI must carry tag 84 (AID)"));
+        var aidTlv = template.find(0x84).orElseThrow(() -> new AssertionError("FCI must carry tag 84 (AID)"));
         assertArrayEquals(AIDUtil.bytes(CRS_AID), aidTlv.value());
-        var proprietary = TLV.find(children, Tag.ber(0xA5)).orElseThrow(() -> new AssertionError("FCI must carry tag A5 (proprietary template)"));
-        var inner = TLV.parse(proprietary.value());
-        var versionTlv = TLV.find(inner, Tag.ber(0x9F08)).orElseThrow(() -> new AssertionError("A5 must carry tag 9F08 (version)"));
+        var proprietary = template.find(0xA5).orElseThrow(() -> new AssertionError("FCI must carry tag A5 (proprietary template)"));
+        var versionTlv = proprietary.find(0x9F08).orElseThrow(() -> new AssertionError("A5 must carry tag 9F08 (version)"));
         assertArrayEquals(new byte[]{0x01, 0x00}, versionTlv.value());
-        var counterTlv = TLV.find(inner, Tag.ber(0x80)).orElseThrow(() -> new AssertionError("A5 must carry tag 80 (Global Update Counter)"));
+        var counterTlv = proprietary.find(0x80).orElseThrow(() -> new AssertionError("A5 must carry tag 80 (Global Update Counter)"));
         return counterTlv.value();
     }
 
@@ -1015,7 +988,7 @@ public class ContactlessRegistryTest {
     // GET STATUS with the '4F 00' match-all filter, reassembling 6310 continuations.
     // Caller must have already SELECTed the CRS.
     private static byte[] getStatusAll(BIBO bibo) {
-        byte[] data = TLV.of(Tag.ber(0x4F), new byte[0]).encode();
+        byte[] data = TLV.of(0x4F, new byte[0]).encode();
         var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, data, 256));
         var assembled = new ByteArrayOutputStream();
         assembled.writeBytes(resp.getData());
@@ -1035,15 +1008,14 @@ public class ContactlessRegistryTest {
         byte[] targetBytes = AIDUtil.bytes(target);
         for (var entry : entries) {
             assertEquals(Tag.ber(0x61), entry.tag());
-            var children = TLV.parse(entry.value());
-            var aidTlv = TLV.find(children, Tag.ber(0x4F)).orElse(null);
+            var aidTlv = entry.find(0x4F).orElse(null);
             if (aidTlv == null) {
                 continue;
             }
             if (!Arrays.equals(aidTlv.value(), targetBytes)) {
                 continue;
             }
-            var stateTlv = TLV.find(children, Tag.ber(0x9F70)).orElseThrow(() -> new AssertionError("9F70 missing from 61 record"));
+            var stateTlv = entry.find(0x9F70).orElseThrow(() -> new AssertionError("9F70 missing from 61 record"));
             byte[] v = stateTlv.value();
             // 9F70 must be 2 bytes (lifecycle + clState).
             assertEquals(2, v.length);

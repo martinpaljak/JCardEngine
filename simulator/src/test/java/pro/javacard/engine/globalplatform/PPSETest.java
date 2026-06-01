@@ -15,13 +15,9 @@ import pro.javacard.tlv.TLV;
 import pro.javacard.tlv.Tag;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.EnumSet;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
-import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
+import static org.junit.jupiter.api.Assertions.*;
 
 // PPSE (EMVCo PPSE and Application Management for SE v1.0): one PPSEApplet class, several instances.
 // The directory instance (AID '2PAY.SYS.DDF01', GlobalRegistry) builds its FCI from the discretionary
@@ -54,14 +50,17 @@ public class PPSETest {
     }
 
     // Two activated financial apps set their discretionary data at runtime; the directory merges both.
+    // The labels push the merged body over 127 bytes (exercising BER long-form lengths), and PAY_B's
+    // BF0C over-claims its length: the directory must still copy only PAY_B's own bytes, never PAY_A's
+    // larger leftover in the shared scratch buffer.
     @Test
     public void directoryFromRuntimeUpdates() throws Exception {
         var sim = freshEngine();
-        var dirA = dirEntry(PAY_A, "A", 0x01);
-        var dirB = dirEntry(PAY_B, "B", 0x02);
+        var dirA = dirEntry(PAY_A, "A".repeat(80), 0x01); // larger, enumerated first
+        var dirB = dirEntry(PAY_B, "B".repeat(40), 0x02);
 
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp);
             installPayment(gp, PAY_A, AFI_FINANCIAL, null);
             installPayment(gp, PAY_B, AFI_FINANCIAL, null);
@@ -70,10 +69,12 @@ public class PPSETest {
             selectAID(bibo, PAY_A);
             updateDD(bibo, bf0c(dirA));
             selectAID(bibo, PAY_B);
-            updateDD(bibo, bf0c(dirB));
+            updateDD(bibo, overclaimedBf0c(dirB));
         }
         try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(dirA, dirB), selectAID(bibo, PPSE));
+            byte[] fci = selectAID(bibo, PPSE);
+            assertTrue(fci.length > 127);
+            assertArrayEquals(expectedFci(dirA, dirB), fci);
         }
     }
 
@@ -85,7 +86,7 @@ public class PPSETest {
         var v2 = dirEntry(PAY_A, "2", 0x01);
 
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp);
             installPayment(gp, PAY_A, AFI_FINANCIAL, v1); // A6 seed
         }
@@ -109,7 +110,7 @@ public class PPSETest {
         var dirC = dirEntry(PAY_C, "C", 0x01);
 
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp);
             installPayment(gp, PAY_A, AFI_FINANCIAL, dirA);
             installPayment(gp, PAY_C, AFI_OTHER, dirC);
@@ -124,10 +125,10 @@ public class PPSETest {
     public void emptyDirectory() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
-            installDirectory(openIsd(bibo));
+            installDirectory(GPTestUtils.openIsd(bibo));
         }
         try (var bibo = sim.connect()) {
-            byte[] expected = TLV.of(Tag.ber(0x6F), TLV.of(Tag.ber(0x84), AIDUtil.bytes(PPSE))).encode();
+            byte[] expected = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
             assertArrayEquals(expected, selectAID(bibo, PPSE));
         }
     }
@@ -139,7 +140,7 @@ public class PPSETest {
         var sim = freshEngine();
         var dirA = dirEntry(PAY_A, "A", 0x01);
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp, EnumSet.noneOf(Privilege.class)); // no GlobalRegistry
             installPayment(gp, PAY_A, AFI_FINANCIAL, dirA, PPSE);  // PAY_A references PPSE as a CREL
         }
@@ -155,12 +156,12 @@ public class PPSETest {
         var sim = freshEngine();
         var dirA = dirEntry(PAY_A, "A", 0x01);
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp, EnumSet.noneOf(Privilege.class)); // no GlobalRegistry, not a CREL of anything
             installPayment(gp, PAY_A, AFI_FINANCIAL, dirA);        // PAY_A does NOT reference PPSE
         }
         try (var bibo = sim.connect()) {
-            byte[] empty = TLV.of(Tag.ber(0x6F), TLV.of(Tag.ber(0x84), AIDUtil.bytes(PPSE))).encode();
+            byte[] empty = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
             assertArrayEquals(empty, selectAID(bibo, PPSE));
         }
     }
@@ -169,9 +170,9 @@ public class PPSETest {
     @Test
     public void externalModeReturnsStoredTemplate() throws Exception {
         var sim = freshEngine();
-        TLV a5 = TLV.of(Tag.ber(0xA5), TLV.of(Tag.ber(0xBF0C), dirEntry(PAY_A, "X", 0x01)));
+        var a5 = TLV.build(0xA5).add(TLV.build(0xBF0C).add(dirEntry(PAY_A, "X", 0x01)));
         try (var bibo = sim.connect()) {
-            installDirectory(openIsd(bibo)); // External does not enumerate; privilege is irrelevant
+            installDirectory(GPTestUtils.openIsd(bibo)); // External does not enumerate; privilege is irrelevant
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, PPSE);
@@ -179,7 +180,7 @@ public class PPSETest {
             putTemplate(bibo, a5.encode());
         }
         try (var bibo = sim.connect()) {
-            byte[] expected = TLV.of(Tag.ber(0x6F), TLV.of(Tag.ber(0x84), AIDUtil.bytes(PPSE)), a5).encode();
+            byte[] expected = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
             assertArrayEquals(expected, selectAID(bibo, PPSE));
         }
     }
@@ -191,14 +192,14 @@ public class PPSETest {
         var dirA = dirEntry(PAY_A, "A", 0x01);
         var dirB = dirEntry(PAY_B, "B", 0x02);
         try (var bibo = sim.connect()) {
-            installDirectory(openIsd(bibo), EnumSet.noneOf(Privilege.class)); // PPSE acts purely as a CREL
+            installDirectory(GPTestUtils.openIsd(bibo), EnumSet.noneOf(Privilege.class)); // PPSE acts purely as a CREL
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, PPSE);
             setMode(bibo, MODE_MUTEX);
         }
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = GPTestUtils.openIsd(bibo);
             installPayment(gp, PAY_A, AFI_FINANCIAL, dirA, PPSE);
             installPayment(gp, PAY_B, AFI_FINANCIAL, dirB, PPSE); // activating B deactivates A
         }
@@ -212,7 +213,7 @@ public class PPSETest {
     public void setModeRejectsInvalid() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
-            installDirectory(openIsd(bibo));
+            installDirectory(GPTestUtils.openIsd(bibo));
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, PPSE);
@@ -236,7 +237,7 @@ public class PPSETest {
     }
 
     private static void installDirectory(GPSession gp, EnumSet<Privilege> privs) throws Exception {
-        gp.installAndMakeSelectable(gpAID(PKG), gpAID(PPSE), gpAID(PPSE), privs, new byte[0]);
+        gp.installAndMakeSelectable(GPTestUtils.gpAID(PKG), GPTestUtils.gpAID(PPSE), GPTestUtils.gpAID(PPSE), privs, new byte[0]);
     }
 
     private static void installPayment(GPSession gp, AID aid, byte family, TLV initialDir) throws Exception {
@@ -245,35 +246,45 @@ public class PPSETest {
 
     // Activated app of the given family; optional CREL reference (A3) and A6 seed = BF0C { initialDir }.
     private static void installPayment(GPSession gp, AID aid, byte family, TLV initialDir, AID crel) throws Exception {
-        var a1 = new ArrayList<TLV>();
-        a1.add(TLV.of(Tag.ber(0x87), new byte[]{family}));
+        var a1 = TLV.build(0xA1).add(0x87, new byte[]{family});
         if (crel != null) {
-            a1.add(TLV.of(Tag.ber(0xA3), TLV.of(Tag.ber(0x4F), AIDUtil.bytes(crel))));
+            a1.add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(crel)));
         }
         if (initialDir != null) {
-            a1.add(TLV.of(Tag.ber(0xA6), TLV.of(Tag.ber(0xBF0C), initialDir)));
+            a1.add(TLV.build(0xA6).add(TLV.build(0xBF0C).add(initialDir)));
         }
-        TLV a0 = TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{0x01})); // STATE_CL_ACTIVATED
-        TLV ef = TLV.of(Tag.ber(0xEF), a0, TLV.of(Tag.ber(0xA1), a1.toArray(new TLV[0])));
-        byte[] params = TLV.encode(TLV.of(Tag.ber(0xC9), new byte[]{0x00}), ef);
-        gp.installAndMakeSelectable(gpAID(PKG), gpAID(aid), gpAID(aid), EnumSet.noneOf(Privilege.class), params);
+        var ef = TLV.build(0xEF)
+                .add(TLV.build(0xA0).add(0x81, new byte[]{0x01})) // STATE_CL_ACTIVATED
+                .add(a1);
+        byte[] params = TLV.encode(TLV.of(0xC9, new byte[]{0x00}), ef);
+        gp.installAndMakeSelectable(GPTestUtils.gpAID(PKG), GPTestUtils.gpAID(aid), GPTestUtils.gpAID(aid), EnumSet.noneOf(Privilege.class), params);
     }
 
     private static TLV dirEntry(AID aid, String label, int priority) {
-        return TLV.of(Tag.ber(0x61),
-                TLV.of(Tag.ber(0x4F), AIDUtil.bytes(aid)),
-                TLV.of(Tag.ber(0x50), label.getBytes(StandardCharsets.US_ASCII)),
-                TLV.of(Tag.ber(0x87), new byte[]{(byte) priority}));
+        return TLV.build(0x61)
+                .add(0x4F, AIDUtil.bytes(aid))
+                .add(0x50, label.getBytes(StandardCharsets.US_ASCII))
+                .add(0x87, new byte[]{(byte) priority});
     }
 
     private static byte[] bf0c(TLV dir) {
-        return TLV.of(Tag.ber(0xBF0C), dir).encode();
+        return TLV.build(0xBF0C).add(dir).encode();
+    }
+
+    // BF0C whose length octet claims 0x7F bytes but carries only the real directory entry.
+    private static byte[] overclaimedBf0c(TLV dir) {
+        byte[] entry = dir.encode();
+        byte[] out = new byte[3 + entry.length];
+        out[0] = (byte) 0xBF;
+        out[1] = 0x0C;
+        out[2] = 0x7F;
+        System.arraycopy(entry, 0, out, 3, entry.length);
+        return out;
     }
 
     private static byte[] expectedFci(TLV... dirs) {
-        TLV name = TLV.of(Tag.ber(0x84), AIDUtil.bytes(PPSE));
-        TLV a5 = TLV.of(Tag.ber(0xA5), TLV.of(Tag.ber(0xBF0C), dirs));
-        return TLV.of(Tag.ber(0x6F), name, a5).encode();
+        var a5 = TLV.build(0xA5).add(TLV.of(Tag.ber(0xBF0C), dirs)); // Tag.ber: the only varargs spread
+        return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
     }
 
     private static void updateDD(BIBO bibo, byte[] dd) {
