@@ -153,7 +153,9 @@ public class CardLifecycleAndPrivilegesTest {
     // After installing A then B both with CardReset, B holds the privilege and auto-selects on
     // the next power-up (its INS_GET_IDENTITY returns ID_B, not ID_A). Deleting B then A returns CardReset
     // to the ISD; the ISD then auto-selects on power-up and an unknown INS reaches it (returns
-    // SW_SECURITY_STATUS_NOT_SATISFIED rather than 6985 "no applet selected").
+    // SW_SECURITY_STATUS_NOT_SATISFIED rather than 6985 "no applet selected"). Finally, a CardReset
+    // holder whose select() refuses (JCRE 3.2 4.6.2) leaves nothing selected on power-up, so the
+    // following non-SELECT command returns SW_APPLET_SELECT_FAILED 0x6999 (JCRE 3.2 4.8).
     @Test
     public void cardResetTransferAndAutoSelect() throws Exception {
         var sim = freshEngine();
@@ -179,6 +181,17 @@ public class CardLifecycleAndPrivilegesTest {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x07, 0x00, 0x00, 256));
             // ISD regains CardReset and processes APDUs once all holders are deleted
             assertEquals(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED, (short) r.getSW());
+        }
+
+        // CardReset holder that refuses selection: nothing is selected after power-up.
+        var simReject = freshEngine();
+        try (var bibo = simReject.connect("*", true)) {
+            installWith(openIsd(bibo), A, EnumSet.of(Privilege.CardReset), ID_A, true);
+        }
+        try (var bibo = simReject.connect()) {
+            var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
+            // JCRE 3.2 4.8: non-SELECT command with no applet selected returns 0x6999
+            assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) r.getSW());
         }
     }
 
@@ -412,6 +425,12 @@ public class CardLifecycleAndPrivilegesTest {
 
     private static void installWith(GPSession gp, AID instance, EnumSet<Privilege> privs, byte identity) throws Exception {
         gp.installAndMakeSelectable(gpAID(PKG), gpAID(PKG), gpAID(instance), privs, new byte[]{identity});
+    }
+
+    // Install with a second app-specific param byte that drives GlobalPlatformTestApplet.select()
+    // to refuse selection.
+    private static void installWith(GPSession gp, AID instance, EnumSet<Privilege> privs, byte identity, boolean rejectSelect) throws Exception {
+        gp.installAndMakeSelectable(gpAID(PKG), gpAID(PKG), gpAID(instance), privs, new byte[]{identity, (byte) (rejectSelect ? 0x01 : 0x00)});
     }
 
     // Advance the ISD lifecycle from OP_READY through INITIALIZED to SECURED via SET STATUS

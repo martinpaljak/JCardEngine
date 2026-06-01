@@ -31,6 +31,7 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     byte[] data = new byte[128];
     short value = 0;
     byte identity = 0;
+    boolean rejectSelect = false;
 
     private final byte[] persoData = new byte[256];
     private short persoLen = 0;
@@ -45,7 +46,9 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
         offset += (short) (bArray[offset] + 1); // privileges - expect none
         byte paramsLen = bArray[offset];
         byte id = paramsLen > 0 ? bArray[(short) (offset + 1)] : 0;
-        GlobalPlatformTestApplet applet = new GlobalPlatformTestApplet(id);
+        // Second param byte, when non-zero, makes select() refuse selection.
+        boolean rejectSelect = paramsLen > 1 && bArray[(short) (offset + 2)] != 0;
+        GlobalPlatformTestApplet applet = new GlobalPlatformTestApplet(id, rejectSelect);
         if (JCSystem.getAID() != null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
@@ -67,8 +70,9 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     }
 
 
-    private GlobalPlatformTestApplet(byte id) {
+    private GlobalPlatformTestApplet(byte id, boolean rejectSelect) {
         identity = id;
+        this.rejectSelect = rejectSelect;
         value = TestLibrary.valueHelper();
     }
 
@@ -89,6 +93,9 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
 
     @Override
     public boolean select() {
+        if (rejectSelect) {
+            return false;
+        }
         // NOTE: these are redundant in real life, as OPEN would not allow to select such applet.
         // Here only for test coverage
         byte cs = GPSystem.getCardState();
