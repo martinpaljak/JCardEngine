@@ -35,8 +35,6 @@ public interface JavaCardEngine {
 
     Applet getApplet(AID aid);
 
-    void reset();
-
     byte[] getATR();
 
     // Connect with default settings (no timeout, any protocol, no reset on close)
@@ -103,7 +101,9 @@ public interface JavaCardEngine {
                 // Constructors use JCSystem so we need the "current" reference
                 gp.bootstrap();
             }
-            sim.reset();
+            // Power on the freshly bootstrapped card: a reset-on-close session arms the power-up
+            // that selects the default applet on the first command.
+            sim.connect("*", true).close();
             return sim;
         }
     }

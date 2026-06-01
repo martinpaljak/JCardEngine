@@ -155,16 +155,6 @@ public class SelectTest {
         assertTrue(UnselectableApplet.selectedCalled);
     }
 
-    @Test
-    public void testApduWithoutSelectedAppletFails() {
-        Simulator simulator = new Simulator();
-
-        try (var bibo = simulator.connect()) {
-            var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, (short) result.getSW());
-        }
-    }
-
     // JCRE 3.2 4.6.2 step 7: select() returning true with a transaction
     // in progress is a selection failure (SW=6999) and no applet stays selected.
     @Test
@@ -176,9 +166,9 @@ public class SelectTest {
         try (var bibo = simulator.connect()) {
             var sel = bibo.transmit(AIDUtil.select(aid));
             assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) sel.getSW());
-            // No applet is active on the channel - subsequent non-SELECT must be rejected.
+            // No applet is active on the channel - JCRE 3.2 4.8 rejects subsequent non-SELECT with 6999.
             var follow = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(ISO7816.SW_COMMAND_NOT_ALLOWED, (short) follow.getSW());
+            assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) follow.getSW());
         }
     }
 
@@ -188,7 +178,11 @@ public class SelectTest {
         Simulator simulator = new Simulator();
         simulator.installExposedApplet(aid, TransactionLeakingApplet.class);
 
-        assertFalse(simulator.selectApplet(aid));
+        try (var bibo = simulator.connect()) {
+            // select() returning true with a transaction in progress is a selection failure
+            var sel = bibo.transmit(AIDUtil.select(aid));
+            assertEquals(0x6999, sel.getSW());
+        }
     }
 
     // GPC v2.3.1 6.4.2.1.2: on SELECT lookup miss, the currently selected
@@ -200,10 +194,13 @@ public class SelectTest {
 
         Simulator simulator = new Simulator();
         simulator.installApplet(good, MultiInstanceApplet.class);
-        assertTrue(simulator.selectApplet(good));
-        assertFalse(simulator.selectApplet(bad));
 
         try (var bibo = simulator.connect()) {
+            assertEquals(0x9000, bibo.transmit(AIDUtil.select(good)).getSW());   // good selected
+            // SELECT miss is dispatched to the current applet (good), not a reselection: good
+            // rejects the ISO CLA of the SELECT command
+            assertEquals(0x6E00, bibo.transmit(AIDUtil.select(bad)).getSW());
+            // good is still selected
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
             assertEquals(0x9000, actual.getSW());
             assertArrayEquals(AIDUtil.bytes(good), actual.getData());

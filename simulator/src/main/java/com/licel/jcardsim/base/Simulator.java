@@ -84,6 +84,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // If applet selection is ongoing - FIXME: refactor
     private boolean selecting = false;
 
+
     // transaction depth
     private byte transactionDepth = 0;
 
@@ -169,19 +170,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // These load the applet without class isolation, so that internals are exposed to caller.
     public AID installExposedApplet(AID aid, Class<? extends Applet> appletClass, byte[] params) {
         return installApplet(aid, appletClass, params, true);
-    }
-
-    // Set an applet to selected state. This is mostly for internal use, external users should send SELECT APDU
-    public boolean selectApplet(AID aid) throws SystemException {
-        if (creator != Thread.currentThread()) {
-            log.error("Do not call from a different thread.");
-        }
-        lock.acquireUninterruptibly();
-        try (var sim = asCurrent()) {
-            return _select(globalPlatform.lookup(aid));
-        } finally {
-            lock.release();
-        }
     }
 
     // Keeps track of selected applet and triggers deselect/select invocation
@@ -462,6 +450,15 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
 
         try (var sim = asCurrent()) {
+            // Set before the applet's select() runs, so getProtocol() reports the command's interface.
+            currentAPDU.protocol = protocol;
+            if (command_counter == 1) {
+                // First command since reset (counter 0->1): power up on this interface and select the default applet.
+                var implicit = RegistryPolicy.implicitlySelectedEntry(globalPlatform);
+                if (!_select(implicit)) {
+                    log.warn("Auto-select on power-up failed: {}", implicit);
+                }
+            }
             log.trace("APDU: {}", Hex.toHexString(command));
             final var apduCase = APDUHelper.getAPDUCase(command);
             final var theSW = new byte[2];
@@ -483,7 +480,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
-                    // GPC v2.3.1 6.4.2.1.2: miss with nothing selected -> 6A82; else dispatch to current.
+                    // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected
+                    // and the SELECT is dispatched to it; with nothing selected the OPEN returns 6A82.
                     if (activeAID == null) {
                         Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
                         return theSW;
@@ -495,9 +493,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                     applet = newEntry.getApplet();
                 }
             } else {
-                // Nothing selected and not a SELECT applet - done
+                // Non-SELECT command with no applet active: JCRE 3.2 4.8 mandates 6999.
                 if (activeAID == null) {
-                    Util.setShort(theSW, (short) 0, ISO7816.SW_COMMAND_NOT_ALLOWED);
+                    Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
                     return theSW;
                 }
                 applet = globalPlatform.lookup(activeAID).getApplet();
@@ -522,7 +520,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                         throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
                     }
                 }
-                currentAPDU.reset(protocol, command);
+                currentAPDU.reset(command);
                 contextStack.push(activeAID);
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
@@ -625,11 +623,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         responseBufferSize = Util.arrayCopyNonAtomic(buffer, bOff, responseBuffer, responseBufferSize, len);
     }
 
-    /**
-     * powerdown/powerup
-     */
-    @Override
-    public void reset() {
+    // Power down: clear volatile state and arm power-up. Reachable only through a session that
+    // closes with resetOnClose (SimulatorSession), never as a bare call.
+    void reset() {
         // FIXME: lock
         // lock.acquireUninterruptibly();
         Arrays.fill(responseBuffer, (byte) 0);
@@ -640,7 +636,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         command_counter = 0;
         transientMemory.clearOnReset();
         globalPlatform.reset();
-        autoSelectOnReset();
         // lock.release();
     }
 
@@ -943,16 +938,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
         log.info("Registering {} as {} in {}", instance.getClass().getName(), instanceAID, System.identityHashCode(this));
         globalPlatform.register(instanceAID, instance, opts.exposed(), opts.privileges(), opts.pkg());
-    }
-
-    // On power-up, drive selection of the OPEN's implicitly selected Application
-    private void autoSelectOnReset() {
-        try (var sim = asCurrent()) {
-            var entry = RegistryPolicy.implicitlySelectedEntry(globalPlatform);
-            if (!_select(entry)) {
-                log.warn("Auto-select on reset failed: {}", entry);
-            }
-        }
     }
 
     public void correct() {

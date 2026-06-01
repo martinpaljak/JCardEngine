@@ -32,6 +32,7 @@ public class DualInterfaceApplet extends Applet {
 
     private final byte[] store;
     private short storeLen = 0;
+    private byte selectProtocol;
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
         new DualInterfaceApplet().register();
@@ -39,6 +40,11 @@ public class DualInterfaceApplet extends Applet {
 
     protected DualInterfaceApplet() {
         store = new byte[255];
+    }
+
+    public boolean select() {
+        selectProtocol = APDU.getProtocol();
+        return true;
     }
 
     public void process(APDU apdu) {
@@ -53,6 +59,10 @@ public class DualInterfaceApplet extends Applet {
         }
 
         if (selectingApplet()) {
+            // getProtocol() during select() must equal the SELECT command's own interface
+            if (selectProtocol != APDU.getProtocol()) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
             return;
         }
 

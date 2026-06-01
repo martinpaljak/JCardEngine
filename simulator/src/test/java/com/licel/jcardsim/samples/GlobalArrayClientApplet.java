@@ -75,6 +75,10 @@ public class GlobalArrayClientApplet extends Applet {
     }
 
     private void readGlobalArrayByte(APDU apdu) {
+        // This client provides no Shareable of its own, so requesting one from itself returns null.
+        if (JCSystem.getAppletShareableInterfaceObject(JCSystem.getAID(), (byte) 0) != null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         GlobalArrayAccess shared = (GlobalArrayAccess) JCSystem.getAppletShareableInterfaceObject(serverAppletAID, (byte) 0);
         byte[] globalArrayByte = (byte[]) shared.getGlobalArrayRef(GPSystem.getRegistryEntry(null));
 

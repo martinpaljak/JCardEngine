@@ -864,7 +864,8 @@ public class AppletProcessExceptionTest {
         AID appletAID = AIDUtil.create(appletAIDStr);
 
         instance.installApplet(appletAID, RuntimeExceptionApplet.class);
-        instance.selectApplet(appletAID);
-        return instance.connect();
+        var bibo = instance.connect();
+        bibo.transmit(AIDUtil.select(appletAID));
+        return bibo;
     }
 }

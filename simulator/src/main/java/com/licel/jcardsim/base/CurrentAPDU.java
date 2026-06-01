@@ -42,7 +42,7 @@ public class CurrentAPDU {
 
     private int current_pos = 0; // NOTE: must be int or will overflow due to header
     private short remaining_bytes = 0;
-    private byte protocol = APDU.PROTOCOL_T0;
+    byte protocol = APDU.PROTOCOL_T0;
     private byte state = APDU.STATE_INITIAL;
     private boolean noChaining = false;
 
@@ -653,7 +653,7 @@ public class CurrentAPDU {
     /**
      * clear internal state of the APDU
      */
-    void reset(byte protocol, byte[] inputBuffer) {
+    void reset(byte[] inputBuffer) {
         Arrays.fill(apdu_buffer, (byte) 0);
         Arrays.fill(ramVars, (short) 0);
         incoming_buffer = inputBuffer.clone();
@@ -661,7 +661,6 @@ public class CurrentAPDU {
         // Reset state
         state = APDU.STATE_INITIAL;
         noChaining = false;
-        this.protocol = protocol;
         available = true; // make available as current APDU
         int apduCase = APDUHelper.getAPDUCase(inputBuffer);
         extended = APDUHelper.isExtendedAPDU(apduCase);

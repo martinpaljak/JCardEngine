@@ -151,32 +151,30 @@ public class CardLifecycleAndPrivilegesTest {
 
     // GPC v2.3.1 6.6.2: install with CardReset transfers the privilege from the current holder.
     // After installing A then B both with CardReset, B holds the privilege and auto-selects on
-    // reset (its INS_GET_IDENTITY returns ID_B, not ID_A). Deleting B then A returns CardReset
-    // to the ISD; the ISD then auto-selects on reset and an unknown INS reaches it (returns
+    // the next power-up (its INS_GET_IDENTITY returns ID_B, not ID_A). Deleting B then A returns CardReset
+    // to the ISD; the ISD then auto-selects on power-up and an unknown INS reaches it (returns
     // SW_SECURITY_STATUS_NOT_SATISFIED rather than 6985 "no applet selected").
     @Test
     public void cardResetTransferAndAutoSelect() throws Exception {
         var sim = freshEngine();
-        try (var bibo = sim.connect()) {
+        try (var bibo = sim.connect("*", true)) {
             var gp = openIsd(bibo);
             installWith(gp, A, EnumSet.of(Privilege.CardReset), ID_A);
             installWith(gp, B, EnumSet.of(Privilege.CardReset), ID_B);
         }
-        sim.reset();
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
-            // B (last CardReset holder) auto-selects on reset, not A
+            // B (last CardReset holder) auto-selects on power-up, not A
             assertEquals(0x9000, r.getSW());
             assertEquals(1, r.getData().length);
             assertEquals(ID_B, r.getData()[0]);
         }
 
-        try (var bibo = sim.connect()) {
+        try (var bibo = sim.connect("*", true)) {
             var gp = openIsd(bibo);
             gp.deleteAID(gpAID(B), false);
             gp.deleteAID(gpAID(A), false);
         }
-        sim.reset();
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x07, 0x00, 0x00, 256));
             // ISD regains CardReset and processes APDUs once all holders are deleted

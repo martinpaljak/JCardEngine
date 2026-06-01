@@ -62,5 +62,12 @@ public class ProtocolTest {
             response = conn.transmit(new CommandAPDU(CLA, INS_WRITE, 0, 0, new byte[]{(byte) 0xBA, (byte) 0xD0}));
             assertEquals(ISO7816.SW_CONDITIONS_NOT_SATISFIED, (short) response.getSW());
         }
+
+        // After a contactless session, selecting on a contact session: select() must observe the
+        // contact interface, not the previous contactless protocol. The applet rejects a SELECT
+        // whose select()-time protocol differs from process()-time, so 9000 proves it matched.
+        try (var conn = simulator.connect("*")) {
+            assertEquals(ISO7816.SW_NO_ERROR, (short) conn.transmit(AIDUtil.select(aid)).getSW());
+        }
     }
 }

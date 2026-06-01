@@ -21,8 +21,9 @@ public class MemoryAppletTest {
         var sim = new Simulator();
         var aid = AIDUtil.create(AID_HEX);
         sim.installApplet(aid, MemoryApplet.class);
-        sim.selectApplet(aid);
-        return sim.connect();
+        var bibo = sim.connect();
+        bibo.transmit(AIDUtil.select(aid));
+        return bibo;
     }
 
     @Test

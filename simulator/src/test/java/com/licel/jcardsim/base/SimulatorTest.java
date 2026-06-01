@@ -41,7 +41,9 @@ public class SimulatorTest {
         System.out.println("installApplet");
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertTrue(instance.selectApplet(TEST_APPLET_AID));
+        try (var bibo = instance.connect()) {
+            assertEquals(0x9000, bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
     }
 
     @Test
@@ -63,16 +65,6 @@ public class SimulatorTest {
     }
 
     /**
-     * Test of selectApplet method, of class Simulator.
-     */
-    @Test
-    public void testSelectApplet() {
-        Simulator instance = new Simulator();
-        instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertTrue(instance.selectApplet(TEST_APPLET_AID));
-    }
-
-    /**
      * Test of transceive method, of class Simulator.
      */
     @Test
@@ -89,19 +81,21 @@ public class SimulatorTest {
     }
 
     /**
-     * Test of reset method, of class Simulator.
+     * A reset-on-close session power-cycles the card.
      */
     @Test
     public void testReset() {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        instance.reset();
-        // after reset installed applets not deleted
-        assertTrue(instance.selectApplet(TEST_APPLET_AID));
+        instance.connect("*", true).close();
+        // installed applets survive a power cycle
+        try (var bibo = instance.connect()) {
+            assertEquals(0x9000, bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
     }
 
     /**
-     * Test of selectApplet method, of class Simulator.
+     * Each simulator has an independent registry: an applet is selectable only where installed.
      */
     @Test
     public void testSelectAppletWith2Simulators() {
@@ -110,20 +104,32 @@ public class SimulatorTest {
         Simulator instance2 = new Simulator();
 
         instance1.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertTrue(instance1.selectApplet(TEST_APPLET_AID));
-        assertFalse(instance2.selectApplet(TEST_APPLET_AID));
+        // present only on instance1
+        try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
+            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
 
         instance2.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
-        assertTrue(instance1.selectApplet(TEST_APPLET_AID));
-        assertTrue(instance2.selectApplet(TEST_APPLET_AID));
+        // now present on both
+        try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
+            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(0x9000, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
 
         instance2.deleteApplet(TEST_APPLET_AID);
-        assertTrue(instance1.selectApplet(TEST_APPLET_AID));
-        assertFalse(instance2.selectApplet(TEST_APPLET_AID));
+        // deleted from instance2 only
+        try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
+            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
 
         instance1.deleteApplet(TEST_APPLET_AID);
-        assertFalse(instance1.selectApplet(TEST_APPLET_AID));
-        assertFalse(instance2.selectApplet(TEST_APPLET_AID));
+        // gone from both
+        try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
+            assertEquals(0x6A82, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+        }
     }
 
     @Test

@@ -65,6 +65,7 @@ public class SecurityDomainApplet extends Applet {
 
     static final byte[] DEFAULT_CPLC = Hex.decode("4242000000000000000042424A43454E4242000000000000000000000000000000000000000000000000");
 
+    private static final byte INS_SELECT = (byte) 0xA4;
     private static final byte INS_GET_DATA = (byte) 0xCA;
     private static final byte INS_PUT_KEY = (byte) 0xD8;
     private static final byte INS_STORE_DATA = (byte) 0xE2;
@@ -159,6 +160,12 @@ public class SecurityDomainApplet extends Applet {
                 ISOException.throwIt(SW_CARD_LOCKED);
             }
             return;
+        }
+
+        // A SELECT [by name] reaching the ISD while it is already selected is an OPEN miss dispatched to
+        // the current Application (GPC v2.3.1 6.4.2.1.2): answer application not found.
+        if (ins == INS_SELECT) {
+            ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
         }
 
         if (ins == EngineSecureChannel.INS_INITIALIZE_UPDATE || ins == EngineSecureChannel.INS_EXTERNAL_AUTHENTICATE) {
