@@ -15,6 +15,7 @@ import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPException;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
+import pro.javacard.tlv.LV;
 import pro.javacard.tlv.TLV;
 import pro.javacard.tlv.Tag;
 
@@ -62,6 +63,7 @@ public class ContactlessRegistryTest {
     private static final short EVENT_SELECTABLE = 0x0012;
     private static final short EVENT_DELETED = 0x0014;
     private static final short EVENT_CREL_ADDED = 0x000E;
+    private static final short EVENT_DISPLAY_REQUIREMENT = 0x0015;
 
     // CL state byte values (GPCLRegistryEntry).
     private static final byte STATE_CL_DEACTIVATED = 0x00;
@@ -118,15 +120,15 @@ public class ContactlessRegistryTest {
             assertEvent(events.get(2), EVENT_ACTIVATED, X);
         }
 
-        // 4. X is ACTIVATED; update counter advanced by 3 - per-mutation bumps: INSTALL T, INSTALL X,
-        // and X's initial CL activation (GPC v2.3.1 Amd C 3.11.2.3, each install/delete/counter event counts).
+        // 4. X is ACTIVATED; update counter advanced by 4 - per-mutation bumps: INSTALL T, INSTALL X,
+        // X's CREL add (T) and X's initial CL activation (GPC v2.3.1 Amd C 3.11.2.3, each registry event counts).
         try (var bibo = sim.connect()) {
             assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
             int viaGetData = readGetDataCounter(bibo);
-            assertEquals(3, viaGetData);
+            assertEquals(4, viaGetData);
         }
 
         // 5. SET STATUS P1=01 P2=00 flips X to DEACTIVATED; CREL observes EVENT_DEACTIVATED,
@@ -632,6 +634,89 @@ public class ContactlessRegistryTest {
         }
     }
 
+    // INSTALL [for registry update] (GPC v2.3.1 11.5.2.3.5; Amd C 11.2): partial, per-tag update of a
+    // live Application. Sending only Display Required (tag 88) must update it and RETAIN CL state and the
+    // CREL link; sending only CL state (tag 81) must retain Display Required; zero-length 88 deletes it
+    // (11.2.3); unknown AID -> 6A88 (9.4.2.1 existence check).
+    @Test
+    public void registryUpdateContactlessParams() throws Exception {
+        // X is a CRELTestApplet here (freshEngine loads it at X), so it can read its own getInfo.
+        var sim = freshEngine();
+
+        // Install X: ACTIVATED, CREL list = T, Display Required = 00 (requires display).
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            installCRELTestApplet(gp);
+            TLV ef = TLV.of(Tag.ber(0xEF),
+                    TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{STATE_CL_ACTIVATED})),
+                    TLV.of(Tag.ber(0xA1),
+                            TLV.of(Tag.ber(0xA3), TLV.of(Tag.ber(0x4F), AIDUtil.bytes(T))),
+                            TLV.of(Tag.ber(0x88), new byte[]{0x00})));
+            installXWithParams(gp, ef);
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(0x00, readDisplayRequired(bibo, X));
+        }
+
+        // 1. Registry update with ONLY tag 88 -> 01. Display Required changes; nothing else sent.
+        try (var bibo = sim.connect()) {
+            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[]{0x01})));
+            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(0x01, readDisplayRequired(bibo, X)); // tag 88 updated
+        }
+        // GPC v2.3.1 Amd C 3.10.2 / 3.10.3: the User Interaction parameter change notifies X's CRELs (T).
+        try (var bibo = sim.connect()) {
+            var events = dumpCrelEvents(bibo);
+            assertEvent(events.get(events.size() - 1), EVENT_DISPLAY_REQUIREMENT, X);
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X)); // A0/81 retained
+        }
+
+        // 2. CREL link retained: a CRS SET STATUS DEACTIVATED on X must still reach T's CREL log.
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, CRS_AID);
+            byte[] data = TLV.of(Tag.ber(0x4F), AIDUtil.bytes(X)).encode();
+            var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
+            assertEquals(0x9000, resp.getSW());
+        }
+        try (var bibo = sim.connect()) {
+            var events = dumpCrelEvents(bibo);
+            assertEvent(events.get(events.size() - 1), EVENT_DEACTIVATED, X);
+        }
+
+        // 3. Registry update with ONLY tag 81 -> ACTIVATED. CL state changes; Display Required retained.
+        try (var bibo = sim.connect()) {
+            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA0), TLV.of(Tag.ber(0x81), new byte[]{STATE_CL_ACTIVATED})));
+            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(0x01, readDisplayRequired(bibo, X)); // tag 88 retained across an 81-only update
+        }
+
+        // 4. Zero-length 88 deletes the indicator (GPC v2.3.1 Amd C 11.2.3); getInfo -> 6A83.
+        try (var bibo = sim.connect()) {
+            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[0])));
+            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+        }
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, X);
+            var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x06, 0x00, 256));
+            assertEquals(0x6A83, resp.getSW()); // SW_RECORD_NOT_FOUND
+        }
+
+        // 5. Unknown target AID -> 6A88 (GPC v2.3.1 9.4.2.1 existence check).
+        try (var bibo = sim.connect()) {
+            TLV ef = TLV.of(Tag.ber(0xEF), TLV.of(Tag.ber(0xA1), TLV.of(Tag.ber(0x88), new byte[]{0x01})));
+            assertEquals(0x6A88, registryUpdate(openIsd(bibo), AIDUtil.create("DEADBEEF00"), ef));
+        }
+    }
+
     // Single-holder privilege lifecycle (GPC v2.3.1 6.6.2): TRANSFER on INSTALL, RESTORE to ISD
     // on DELETE. Exercises FinalApplication; CardReset/ContactlessActivation share the plumbing.
     @Test
@@ -799,6 +884,23 @@ public class ContactlessRegistryTest {
     }
 
     // ------------------- helpers ------------------- //
+
+    // INSTALL [for registry update] (P1=0x40) over the open ISD SCP session. GPSession has no
+    // registry-update method, so build the 6-field LV body (GPC v2.3.1 Table 11-46: SD AID | (empty) |
+    // App AID | Privileges | Params | Token) and wrap via the public transmit(). Returns the SW.
+    private static int registryUpdate(GPSession gp, AID target, TLV ef) {
+        byte[] body = LV.encode(null, null, AIDUtil.bytes(target), null, ef.encode(), null);
+        return gp.transmit(new CommandAPDU(0x80, 0xE6, 0x40, 0x00, body)).getSW();
+    }
+
+    // SELECT the (CRELTestApplet) app and read its own Display Required Indicator (P1=0x06). Asserts 9000.
+    private static int readDisplayRequired(BIBO bibo, AID app) {
+        selectAID(bibo, app);
+        var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x06, 0x00, 256));
+        assertEquals(0x9000, resp.getSW());
+        assertEquals(1, resp.getData().length);
+        return resp.getData()[0] & 0xFF;
+    }
 
     // Fresh engine pre-loaded with both CRELTestApplet modules under a single PKG load file.
     private static JavaCardEngine freshEngine() {

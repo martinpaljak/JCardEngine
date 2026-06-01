@@ -13,7 +13,8 @@ public sealed interface GPNamedElement permits GPNamedElement.GPTag, GPNamedElem
     record GPTag(String name, Tag tag) implements GPNamedElement {
     }
 
-    // A Contactless Application Information element (GPC v2.3.1 Amd C 11.2.3)
-    record GPInfo(String name, short info, Tag tag) implements GPNamedElement {
+    // A Contactless Application Information element (GPC v2.3.1 Amd C 11.2.3). event is the CLAppletEvent
+    // raised on a value change (GPC v2.3.1 Amd C 3.10.2: a User Interaction parameter update notifies CREL/CRS).
+    record GPInfo(String name, short info, Tag tag, short event) implements GPNamedElement {
     }
 }

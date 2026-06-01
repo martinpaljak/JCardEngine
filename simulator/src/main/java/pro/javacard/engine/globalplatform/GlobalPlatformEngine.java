@@ -100,7 +100,7 @@ public class GlobalPlatformEngine {
         log.trace("Searching registry for {}", lookupAid);
         var entry = registry.get(lookupAid);
         if (entry == null) {
-            log.warn("Application not found: {}", lookupAid);
+            log.trace("Application not found: {}", lookupAid);
         }
         return entry;
     }
@@ -283,6 +283,17 @@ public class GlobalPlatformEngine {
             bumpUpdateCounter();
         }
         return true;
+    }
+
+    // STORE DATA tag 4F (GPC v2.3.1 11.11.2.3): adopt a new ISD AID by re-keying the registry.
+    public void renameISD(AID newAid) {
+        if (lookup(newAid) != null) {
+            throw new IllegalArgumentException("AID already in use: " + newAid);
+        }
+        registry.remove(isd.getAID());
+        isd.setAID(newAid);
+        registry.put(newAid, isd);
+        bumpUpdateCounter();
     }
 
     // INSTALL [for extradition] (GPC v2.3.1 11.5.2.3.4): rebind target's associated SD.

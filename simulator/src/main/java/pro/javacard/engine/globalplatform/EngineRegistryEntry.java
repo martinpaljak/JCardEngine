@@ -28,7 +28,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
     private static final short SW_FUNC_NOT_SUPPORTED = 0x6A81;
 
-    private final AID aid;
+    private AID aid;                        // mutable: STORE DATA tag 4F renames the ISD (GPC v2.3.1 11.11.2.3)
     private final Object instance;          // null for PKG
     private final boolean exposed;          // ignored for PKG
     private EnumSet<Privilege> privileges;
@@ -218,6 +218,11 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         return aid;
     }
 
+    // The registry key must be re-pointed in lockstep; only GlobalPlatformEngine.renameISD calls this.
+    void setAID(AID aid) {
+        this.aid = aid;
+    }
+
     @Override
     public byte getState() {
         checkAlive();
@@ -404,6 +409,8 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         requireAppletKind();
         var crelAid = new AID(buf, offset, (byte) length);
         if (crels.add(crelAid)) {
+            // GPC v2.3.1 Amd C 3.11.2.3: a CREL-list change is a counted registry event, like setInfo/setCLState.
+            Simulator.current().gp().bumpUpdateCounter();
             // GPC v2.3.1 Amd C 3.8.2: notify after mutation so the callee sees itself in the set.
             ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_ADDED);
         }
@@ -415,6 +422,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         requireAppletKind();
         var crelAid = new AID(buf, offset, (byte) length);
         if (crels.remove(crelAid)) {
+            Simulator.current().gp().bumpUpdateCounter();
             ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_REMOVED);
         }
     }
@@ -566,12 +574,19 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     // Install-path bypass of the caller-identity gate: SD writes Application Information from the
     // INSTALL TLV. Length 0 clears the slot (GPC v2.3.1 Amd C 11.2.3).
     short setInfoInternal(byte[] buffer, short offset, short length, GPInfo element) {
+        boolean changed;
         if (length == 0) {
-            infos.remove(element);
+            changed = infos.remove(element) != null;
         } else {
             var copy = new byte[length];
             System.arraycopy(buffer, offset, copy, 0, length);
-            infos.put(element, copy);
+            changed = !Arrays.equals(infos.put(element, copy), copy);
+        }
+        // GPC v2.3.1 Amd C 3.10.2 / 3.10.3 + 3.11.2.3: a User Interaction parameter change notifies the
+        // CREL / CRS Applications and advances the update counter, exactly like a CL activation change.
+        if (changed) {
+            Simulator.current().gp().bumpUpdateCounter();
+            ContactlessEngine.notifyContactlessEvent(this, element.event());
         }
         return (short) (offset + length);
     }

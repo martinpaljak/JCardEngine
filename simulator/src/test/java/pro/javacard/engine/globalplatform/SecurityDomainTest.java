@@ -46,6 +46,7 @@ public class SecurityDomainTest {
     private static final AID APP = AIDUtil.create("0102030405060708A1");
     private static final AID SSD = AIDUtil.create("D2330000007753534402");
     private static final AID GHOST = AIDUtil.create("DEADBEEFCAFEBABE99");
+    private static final AID NEW_ISD = AIDUtil.create("A0000001515555");
 
     @Test
     void ssdLifecycleAndKeyResolution() throws Exception {
@@ -303,6 +304,34 @@ public class SecurityDomainTest {
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(SSD), 256));
             // warning needs both privilege AND CARD_LOCKED (Table 11-83); not locked -> clean
             assertEquals(0x9000, r.getSW());
+        }
+    }
+
+    // STORE DATA tag 4F renames the ISD (GPC v2.3.1 11.11.2.3: 4F is a settable Issuer Security
+    // Domain data object); the engine re-keys the ISD in the registry. gp-pro's --rename-isd drives
+    // this via GPSession.renameISD(). The new AID only takes over after a reconnect (real cards: a
+    // card reset clears the live selection), modelled here by closing a reset-on-close session.
+    @Test
+    void renameISDViaStoreData() throws Exception {
+        var sim = new JavaCardEngine.Builder().build();
+
+        try (var bibo = sim.connect("*", true)) {
+            var gp = openIsd(bibo);
+            // First try a collision: an already-registered AID (here the ISD's own current AID) is
+            // refused with 6A80, registry untouched. Then rename to a free AID on the same session.
+            var ex = assertThrows(GPException.class, () -> gp.renameISD(gpAID(SecurityDomainApplet.OPEN_AID)));
+            assertEquals(0x6A80, ex.sw);
+            gp.renameISD(gpAID(NEW_ISD));
+        }
+
+        try (var bibo = sim.connect()) {
+            var gp = GPSession.connect(bibo, gpAID(NEW_ISD));
+            gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            var registry = gp.getRegistry();
+            // ISD now registered under the new AID, with the original bootstrap keys intact
+            assertEquals(gpAID(NEW_ISD), registry.getISD().orElseThrow().getAID());
+            // the original ISD AID is gone from the registry
+            assertTrue(registry.getDomain(gpAID(SecurityDomainApplet.OPEN_AID)).isEmpty());
         }
     }
 

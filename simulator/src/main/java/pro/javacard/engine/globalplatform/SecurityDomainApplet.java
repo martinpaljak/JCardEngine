@@ -16,6 +16,7 @@ import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.data.BitField;
+import pro.javacard.tlv.LV;
 import pro.javacard.tlv.TLV;
 import pro.javacard.tlv.Tag;
 
@@ -108,6 +109,7 @@ public class SecurityDomainApplet extends Applet {
     private static final byte P1_BIT_MAKE_SELECTABLE = (byte) 0x08;
     private static final byte P1_INSTALL_FOR_EXTRADITION = (byte) 0x10;
     private static final byte P1_INSTALL_FOR_PERSONALIZATION = (byte) 0x20;
+    private static final byte P1_INSTALL_FOR_REGISTRY_UPDATE = (byte) 0x40;
 
     // GET STATUS chunked-response state.
     private byte[] pendingStatus;
@@ -182,7 +184,7 @@ public class SecurityDomainApplet extends Applet {
         sc.unwrap(buffer, ISO7816.OFFSET_CLA, (short) (ISO7816.OFFSET_CDATA + len));
         byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (buffer[ISO7816.OFFSET_LC] & 0xFF));
 
-        // Funnel malformed-data IllegalArgumentException (AIDUtil.create, parse_lv) to SW_WRONG_DATA.
+        // Funnel malformed-data IllegalArgumentException (AIDUtil.create, LV.parse) to SW_WRONG_DATA.
         try {
             switch (ins) {
                 case INS_INSTALL -> handleInstall(apdu, buffer, payload);
@@ -232,8 +234,8 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
         }
 
-        var fields = parse_lv(payload);
-        dump_lv(fields);
+        var fields = LV.parse(payload);
+        LV.visualize(payload).forEach(log::info);
 
         if (fields.size() != INSTALL_LV_FIELD_COUNT) {
             throw new IllegalArgumentException("INSTALL: expected " + INSTALL_LV_FIELD_COUNT + " LV fields, got " + fields.size());
@@ -242,6 +244,7 @@ public class SecurityDomainApplet extends Applet {
         switch (p1) {
             case P1_INSTALL_FOR_PERSONALIZATION -> installForPersonalization(apdu, buffer, fields);
             case P1_INSTALL_FOR_EXTRADITION -> installForExtradition(apdu, buffer, fields);
+            case P1_INSTALL_FOR_REGISTRY_UPDATE -> installForRegistryUpdate(apdu, buffer, fields);
             default -> {
                 boolean makeSelectable = (p1 & P1_BIT_MAKE_SELECTABLE) != 0;
                 if ((p1 & P1_BIT_INSTALL) != 0) {
@@ -354,42 +357,16 @@ public class SecurityDomainApplet extends Applet {
         // validation runs before internalInstallApplet so a bad block aborts with no partial
         // mutation - post-commit events cannot be unfired.
         byte[] appletParams = new byte[0];
-        Optional<CLState> initialCLState = Optional.empty();
-        List<AID> addCRELs = List.of();
-        List<AID> removeCRELs = List.of();
-        Map<GPInfo, byte[]> infoUpdates = Map.of();
-        List<Short> installedServices = List.of();
-        Map<GPTag, byte[]> systemParams = Map.of();
+        List<TLV> top;
+        Optional<CLState> clState;
         try {
-            var top = installParams.length == 0 ? List.<TLV>of() : TLV.parse(installParams);
+            top = installParams.length == 0 ? List.<TLV>of() : TLV.parse(installParams);
             appletParams = TLV.find(top, Tag.ber(TAG_APPLICATION_PARAMETERS_C9)).map(TLV::value).orElse(appletParams);
-            // EF { A0 { 81 = initial CL state } ; A1 = User Interaction Parameters
-            //      (Table 11-5): A3/A4 = CREL add/remove, 87/88/... = Application Info slots ;
-            //      CB = Global Service Parameters ; C7/C8/D7/D8/CA/CF = opaque system params }
-            var ef = TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF));
-            initialCLState = ef.flatMap(e -> e.find(Tag.ber(TAG_CL_STATE_TEMPLATE_A0))).flatMap(a0 -> a0.find(Tag.ber(TAG_CL_STATE_81))).map(c -> CLState.parse(c.value()));
-            var a1 = ef.flatMap(e -> e.find(Tag.ber(TAG_USER_INTERACTION_PARAMETERS_A1)));
-            addCRELs = a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_ADD_A3))).map(SecurityDomainApplet::parseCRELAids).orElse(addCRELs);
-            removeCRELs = a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_REMOVE_A4))).map(SecurityDomainApplet::parseCRELAids).orElse(removeCRELs);
-            // Each GPData CL info element present as an A1 sub-tag becomes a setInfoInternal call post-commit.
-            if (a1.isPresent()) {
-                var updates = new HashMap<GPInfo, byte[]>();
-                for (var element : GPData.installInfos()) {
-                    a1.get().find(element.tag()).ifPresent(sub -> updates.put(element, sub.value()));
-                }
-                infoUpdates = updates;
-            }
-            // CB Global Service Parameters (GPC v2.3.1 8.1.1): one or more 2-byte service names.
-            installedServices = ef.flatMap(e -> e.find(GPData.GLOBAL_SERVICE_PARAMETERS.tag())).map(cb -> parseServiceNames(cb.value())).orElse(installedServices);
-            // Opaque EF system params (GPC v2.3.1 Table 11-49): store raw, no validation.
-            var params = new LinkedHashMap<GPTag, byte[]>();
-            for (var element : EF_SYSTEM_PARAMS) {
-                ef.flatMap(e -> e.find(element.tag())).ifPresent(sub -> params.put(element, sub.value()));
-            }
-            systemParams = params;
+            clState = clStateOf(top); // validate the CL-state byte before commit (rollback test relies on this)
         } catch (IllegalArgumentException e) {
             log.warn("INSTALL [install]: malformed install parameters: {}", e.getMessage());
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            return; // unreachable; throwIt always throws
         }
 
         var pkgEntry = sim.gp().lookup(pkg);
@@ -403,26 +380,7 @@ public class SecurityDomainApplet extends Applet {
         // everything fed below was validated above.
         var newEntry = sim.gp().lookup(instanceAid);
         if (newEntry != null && newEntry.getKind() != Kind.PKG) {
-            for (var aid : addCRELs) {
-                var bytes = AIDUtil.bytes(aid);
-                newEntry.addToCRELApplicationList(bytes, (short) 0, (short) bytes.length);
-            }
-            for (var aid : removeCRELs) {
-                var bytes = AIDUtil.bytes(aid);
-                newEntry.removeFromCRELApplicationList(bytes, (short) 0, (short) bytes.length);
-            }
-            // setInfoInternal bypasses the GP-API caller gate (SD is the OPEN-side installer).
-            for (var update : infoUpdates.entrySet()) {
-                var bytes = update.getValue();
-                newEntry.setInfoInternal(bytes, (short) 0, (short) bytes.length, update.getKey());
-            }
-            // CB service names recorded (not uniqueness-checked); opaque EF params stored raw.
-            for (var name : installedServices) {
-                newEntry.recordInstalledService(name);
-            }
-            for (var param : systemParams.entrySet()) {
-                newEntry.putSystemParam(param.getKey(), param.getValue());
-            }
+            applyEF(newEntry, top);
             // GPC v2.3.1 Amd C 8.3: EVENT_SELECTABLE and the initial CL activation state apply when the
             // Application is made selectable - here for install & make selectable, or later via a standalone
             // INSTALL [for make selectable]. Install-only (b3 without b4) stays INSTALLED and fires nothing.
@@ -430,8 +388,8 @@ public class SecurityDomainApplet extends Applet {
                 ContactlessEngine.notifyContactlessEvent(newEntry, CLAppletEvent.EVENT_SELECTABLE);
                 // Platform-issued transition, skips the cross-applet gate.
                 // TODO: GPC v2.3.1 Amd C 8.3 / Table 11-7 - warning 6200 when activation cannot be honored.
-                if (initialCLState.isPresent()) {
-                    ContactlessEngine.applyCLState(newEntry, initialCLState.get());
+                if (clState.isPresent()) {
+                    ContactlessEngine.applyCLState(newEntry, clState.get());
                 }
             } else {
                 newEntry.internalForceState(GPSystem.APPLICATION_INSTALLED);
@@ -467,6 +425,94 @@ public class SecurityDomainApplet extends Applet {
         // verification are out of scope (see installForInstallAndMakeSelectable TODO).
         buffer[0] = 0x00;
         apdu.setOutgoingAndSend((short) 0, (short) 1);
+    }
+
+    // INSTALL [for registry update] - update a live Application's contactless / system registry
+    // parameters in place (GPC v2.3.1 11.5.2.3.5; Amd C 11.2). Field layout mirrors install:
+    // SD AID | (empty) | App AID | Privileges | Registry Update Params | Token. Only the App AID and
+    // the params are consumed; privilege change, SD re-association and token verification are out of scope.
+    private void installForRegistryUpdate(APDU apdu, byte[] buffer, List<byte[]> fields) {
+        var sim = Simulator.current();
+        var self = sim.gp().getRegistryEntry(null);
+        checkCardNotLocked();
+        checkInstallerAuthorized(self);
+
+        // GPC v2.3.1 9.4.2.1: the Application being updated must exist in the registry.
+        var appAid = AIDUtil.create(fields.get(2));
+        var entry = sim.gp().lookup(appAid);
+        if (entry == null || entry.getKind() == Kind.PKG) {
+            log.warn("INSTALL [for registry update]: application not in registry: {}", appAid);
+            ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
+        }
+        // GPC v2.3.1 9.4.2.1: only the target's associated SD may update its registry; a cross-SD update
+        // needs Global Registry (consent of the associated SD is not modelled). Same gate as SET STATUS.
+        if (!entry.getParentSD().getAID().equals(self.getAID()) && !self.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_REGISTRY)) {
+            log.warn("INSTALL [for registry update]: {} not associated with caller {}", appAid, self.getAID());
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+
+        List<TLV> top;
+        Optional<CLState> clState;
+        try {
+            var params = fields.get(4);
+            top = params.length == 0 ? List.<TLV>of() : TLV.parse(params);
+            clState = clStateOf(top); // validate the CL-state byte before any mutation
+        } catch (IllegalArgumentException e) {
+            log.warn("INSTALL [for registry update]: malformed parameters: {}", e.getMessage());
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            return; // unreachable; throwIt always throws
+        }
+        applyEF(entry, top);
+        // GPC v2.3.1 Amd C 11.2 / 8.3: tag 81 updates the CL activation state in place. No EVENT_SELECTABLE -
+        // the Application's selectable lifecycle is unchanged by a registry update.
+        if (clState.isPresent()) {
+            ContactlessEngine.applyCLState(entry, clState.get());
+        }
+        buffer[0] = 0x00;
+        apdu.setOutgoingAndSend((short) 0, (short) 1);
+    }
+
+    // CL activation state from EF { A0 { 81 } }, if present. Throws on a bad state byte (CLState.parse)
+    // so callers can validate before the commit / first event fires.
+    private static Optional<CLState> clStateOf(List<TLV> top) {
+        return TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF))
+                .flatMap(e -> e.find(Tag.ber(TAG_CL_STATE_TEMPLATE_A0)))
+                .flatMap(a0 -> a0.find(Tag.ber(TAG_CL_STATE_81)))
+                .map(c -> CLState.parse(c.value()));
+    }
+
+    // Apply EF { A1 (Table 11-5): A3/A4 = CREL add/remove, 87/88/... = Application Info slots ;
+    // CB = Global Service Parameters ; opaque system params } to a registry entry in place (GPC v2.3.1
+    // Amd C 11.2). Per 11.2.3 setInfoInternal deletes on zero-length / replaces otherwise; A3/A4 are
+    // additive / subtractive (setInfoInternal bypasses the GP-API caller gate: the SD is the OPEN-side
+    // actor). CL state (tag 81) is caller-applied; see clStateOf(). Shared by install and registry update.
+    private static void applyEF(EngineRegistryEntry entry, List<TLV> top) {
+        var ef = TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF));
+        var a1 = ef.flatMap(e -> e.find(Tag.ber(TAG_USER_INTERACTION_PARAMETERS_A1)));
+        for (var aid : a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_ADD_A3))).map(SecurityDomainApplet::parseCRELAids).orElse(List.of())) {
+            var b = AIDUtil.bytes(aid);
+            entry.addToCRELApplicationList(b, (short) 0, (short) b.length);
+        }
+        for (var aid : a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_REMOVE_A4))).map(SecurityDomainApplet::parseCRELAids).orElse(List.of())) {
+            var b = AIDUtil.bytes(aid);
+            entry.removeFromCRELApplicationList(b, (short) 0, (short) b.length);
+        }
+        a1.ifPresent(a -> {
+            for (var element : GPData.installInfos()) {
+                a.find(element.tag()).ifPresent(sub -> {
+                    var v = sub.value();
+                    entry.setInfoInternal(v, (short) 0, (short) v.length, element);
+                });
+            }
+        });
+        ef.flatMap(e -> e.find(GPData.GLOBAL_SERVICE_PARAMETERS.tag())).ifPresent(cb -> {
+            for (var name : parseServiceNames(cb.value())) {
+                entry.recordInstalledService(name);
+            }
+        });
+        for (var element : EF_SYSTEM_PARAMS) {
+            ef.flatMap(e -> e.find(element.tag())).ifPresent(sub -> entry.putSystemParam(element, sub.value()));
+        }
     }
 
     // INSTALL [for extradition] - rebind an APP/SSD/PKG to a new associated SD (GPC v2.3.1 11.5.2.3.4).
@@ -593,6 +639,12 @@ public class SecurityDomainApplet extends Applet {
             } else if (element == GPData.CPLC) {                 // full CPLC overwrite is not allowed
                 log.warn("STORE DATA: CPLC (9F7F) is read-only");
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            } else if (element == GPData.AID) {                  // tag 4F renames the ISD (GPC v2.3.1 11.11.2.3)
+                if (self.getKind() != Kind.ISD) {                // 4F is settable only on the Issuer SD, not an SSD
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                }
+                // AIDUtil.create rejects length outside 5..16, renameISD rejects a collision: both -> 6A80.
+                Simulator.current().gp().renameISD(AIDUtil.create(value));
             } else if (element == null) {                        // only GPData-defined data objects are stored
                 log.warn("STORE DATA: unknown data object {}", tlv.tag().toHex());
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -1000,27 +1052,6 @@ public class SecurityDomainApplet extends Applet {
         }
         tlv.add(Tag.ber(TAG_ASSOCIATED_SD_AID_CC), AIDUtil.bytes(e.getParentSD().getAID()));
         return tlv;
-    }
-
-    static List<byte[]> parse_lv(byte[] data) {
-        var result = new ArrayList<byte[]>();
-        var bb = ByteBuffer.wrap(data);
-        while (bb.position() < bb.limit()) {
-            int len = bb.get() & 0xFF;
-            if (bb.remaining() < len) {
-                throw new IllegalArgumentException("LV truncated: length " + len + " exceeds remaining " + bb.remaining());
-            }
-            var value = new byte[len];
-            bb.get(value);
-            result.add(value);
-        }
-        return result;
-    }
-
-    static void dump_lv(List<byte[]> lv) {
-        for (var f : lv) {
-            log.info("[%02X] %s".formatted(f.length, Hex.toHexString(f)));
-        }
     }
 
     // GPC v2.3.1 8.1.3: CB value is one or more 2-byte service names (family, id). Each short = name.

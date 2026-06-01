@@ -18,6 +18,7 @@ import org.globalplatform.contactless.GPCLSystem;
 //   0x03 self  setCLState(P2)   response = resulting state byte
 //   0x04 cross setCLState(P2)   CDATA = target AID, response = resulting state byte
 //   0x05 dump self log   event-hi | event-lo records
+//   0x06 read own Display Required Indicator   response = INFO_DISPLAY_REQUIREMENT value (6A83 if unset)
 public final class CRELTestApplet extends Applet implements CRELApplication, CLApplet {
 
     private final byte[] crelLog = new byte[256];
@@ -54,6 +55,10 @@ public final class CRELTestApplet extends Applet implements CRELApplication, CLA
                 break;
             case 0x05:
                 sendAndReset(apdu, buf, selfLog, selfLen);
+                break;
+            case 0x06:
+                short n = GPCLSystem.getGPCLRegistryEntry(null).getInfo(buf, (short) 0, GPCLRegistryEntry.INFO_DISPLAY_REQUIREMENT);
+                apdu.setOutgoingAndSend((short) 0, n);
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
