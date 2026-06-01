@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.BIBO;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
 import pro.javacard.engine.core.ContextStackProxy;
@@ -1029,7 +1029,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     @Override
-    public EngineSession connectFor(Duration timeout, String protocol, boolean resetOnClose) {
+    public BIBO connectFor(Duration timeout, String protocol, boolean resetOnClose) {
         log.info("Connecting for {} with {} reset={}", timeout, protocol, resetOnClose);
         return new SimulatorSession(this, protocol, timeout, resetOnClose);
     }

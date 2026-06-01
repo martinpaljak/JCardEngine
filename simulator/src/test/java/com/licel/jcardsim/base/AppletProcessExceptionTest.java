@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.samples.RuntimeExceptionApplet;
 import com.licel.jcardsim.utils.AIDUtil;
@@ -15,7 +16,6 @@ import javacardx.framework.string.StringException;
 import javacardx.framework.tlv.TLVException;
 import javacardx.framework.util.UtilException;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.EngineSession;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -859,7 +859,7 @@ public class AppletProcessExceptionTest {
         }
     }
 
-    private EngineSession getReadySimulator() {
+    private BIBO getReadySimulator() {
         Simulator instance = new Simulator();
         AID appletAID = AIDUtil.create(appletAIDStr);
 

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBO;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -31,7 +31,7 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
     // 0x04 - get ATR . replied with 0xXXYY length + atr
     // Everything else - command APDU, followed with response APDU.
     // See https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#creating-a-virtual-smart-card
-    public VSmartCardClient(Function<String, EngineSession> sim) {
+    public VSmartCardClient(Function<String, BIBO> sim) {
         super(sim);
         port = DEFAULT_VSMARTCARD_PORT;
         host = DEFAULT_VSMARTCARD_HOST;

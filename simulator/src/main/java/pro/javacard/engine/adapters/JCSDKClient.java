@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.nio.channels.SocketChannel;
 import java.util.function.Function;
 
 // Reverse of the server
-public class JCSDKClient implements Function<String, EngineSession>, EngineSession {
+public class JCSDKClient implements Function<String, BIBO>, BIBO {
     private static final Logger log = LoggerFactory.getLogger(JCSDKClient.class);
 
     final String host;
@@ -116,7 +116,7 @@ public class JCSDKClient implements Function<String, EngineSession>, EngineSessi
     }
 
     @Override
-    public EngineSession apply(String protocol) {
+    public BIBO apply(String protocol) {
         try {
             JCSDKClient connection = new JCSDKClient(host, port);
             connection.channel = AbstractTCPAdapter.connect(host, port);

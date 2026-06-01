@@ -225,8 +225,8 @@ public class JCardTool {
             if (options.has(OPT_CONTROL)) {
                 adapters.forEach(exec::submit);
                 boolean connected = true;
-                // This seems to be the trick to keep ctrl-c working with keypress detection
-                TerminalBuilder tb = TerminalBuilder.builder().nativeSignals(false);
+                // nativeSignals seems to be the trick to keep ctrl-c working with raw mode
+                TerminalBuilder tb = TerminalBuilder.builder().nativeSignals(false).system(true).graphemeCluster(false);
                 try (Terminal terminal = tb.build()) {
                     terminal.enterRawMode();
                     NonBlockingReader reader = terminal.reader();

@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
+import apdu4j.core.BIBO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 
 import java.time.Duration;
 import java.util.concurrent.*;
 
 // Session object lifetime guards the held lock for the simulator
 // XXX: opportunistic locking requires timed release.
-public class SimulatorSession implements EngineSession {
+public class SimulatorSession implements BIBO {
     private static final Logger log = LoggerFactory.getLogger(SimulatorSession.class);
 
     // I like my threads with nice names.

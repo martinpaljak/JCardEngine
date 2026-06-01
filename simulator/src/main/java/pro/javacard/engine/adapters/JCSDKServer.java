@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBO;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -38,7 +38,7 @@ public final class JCSDKServer extends AbstractTCPAdapter {
 
     ServerSocketChannel server;
 
-    public JCSDKServer(Function<String, EngineSession> sim) {
+    public JCSDKServer(Function<String, BIBO> sim) {
         super(sim);
         host = DEFAULT_JCSDK_HOST;
         port = DEFAULT_JCSDK_PORT;

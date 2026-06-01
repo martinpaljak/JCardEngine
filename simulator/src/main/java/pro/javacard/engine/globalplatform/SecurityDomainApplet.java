@@ -125,7 +125,7 @@ public class SecurityDomainApplet extends Applet {
 
     // Minimal SD SELECT response (GPC v2.3.1 11.9.3.1): 6F { 84 <aid> | A5 { 9F65 01 FF } }
     static byte[] fci(AID aid) {
-        return TLV.build(Tag.ber(TAG_FCI_6F)).add(Tag.ber(TAG_DF_NAME_84), AIDUtil.bytes(aid)).add(TLV.build(Tag.ber(TAG_FCI_PROPRIETARY_A5)).addByte(GPData.MAX_COMMAND_DATA_LENGTH.tag(), (byte) 0xFF)).encode();
+        return TLV.build(Tag.ber(TAG_FCI_6F)).add(Tag.ber(TAG_DF_NAME_84), AIDUtil.bytes(aid)).add(TLV.build(Tag.ber(TAG_FCI_PROPRIETARY_A5)).add(GPData.MAX_COMMAND_DATA_LENGTH.tag(), new byte[]{(byte) 0xFF})).encode();
     }
 
     @Override
@@ -362,29 +362,29 @@ public class SecurityDomainApplet extends Applet {
         Map<GPTag, byte[]> systemParams = Map.of();
         try {
             var top = installParams.length == 0 ? List.<TLV>of() : TLV.parse(installParams);
-            appletParams = TLV.findOne(top, Tag.ber(TAG_APPLICATION_PARAMETERS_C9)).map(TLV::value).orElse(appletParams);
+            appletParams = TLV.find(top, Tag.ber(TAG_APPLICATION_PARAMETERS_C9)).map(TLV::value).orElse(appletParams);
             // EF { A0 { 81 = initial CL state } ; A1 = User Interaction Parameters
             //      (Table 11-5): A3/A4 = CREL add/remove, 87/88/... = Application Info slots ;
             //      CB = Global Service Parameters ; C7/C8/D7/D8/CA/CF = opaque system params }
-            var ef = TLV.findOne(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF));
-            initialCLState = ef.flatMap(e -> e.findOne(Tag.ber(TAG_CL_STATE_TEMPLATE_A0))).flatMap(a0 -> a0.findOne(Tag.ber(TAG_CL_STATE_81))).map(c -> CLState.parse(c.value()));
-            var a1 = ef.flatMap(e -> e.findOne(Tag.ber(TAG_USER_INTERACTION_PARAMETERS_A1)));
-            addCRELs = a1.flatMap(a -> a.findOne(Tag.ber(TAG_CREL_ADD_A3))).map(SecurityDomainApplet::parseCRELAids).orElse(addCRELs);
-            removeCRELs = a1.flatMap(a -> a.findOne(Tag.ber(TAG_CREL_REMOVE_A4))).map(SecurityDomainApplet::parseCRELAids).orElse(removeCRELs);
+            var ef = TLV.find(top, Tag.ber(TAG_SYSTEM_SPECIFIC_PARAMETERS_EF));
+            initialCLState = ef.flatMap(e -> e.find(Tag.ber(TAG_CL_STATE_TEMPLATE_A0))).flatMap(a0 -> a0.find(Tag.ber(TAG_CL_STATE_81))).map(c -> CLState.parse(c.value()));
+            var a1 = ef.flatMap(e -> e.find(Tag.ber(TAG_USER_INTERACTION_PARAMETERS_A1)));
+            addCRELs = a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_ADD_A3))).map(SecurityDomainApplet::parseCRELAids).orElse(addCRELs);
+            removeCRELs = a1.flatMap(a -> a.find(Tag.ber(TAG_CREL_REMOVE_A4))).map(SecurityDomainApplet::parseCRELAids).orElse(removeCRELs);
             // Each GPData CL info element present as an A1 sub-tag becomes a setInfoInternal call post-commit.
             if (a1.isPresent()) {
                 var updates = new HashMap<GPInfo, byte[]>();
                 for (var element : GPData.installInfos()) {
-                    a1.get().findOne(element.tag()).ifPresent(sub -> updates.put(element, sub.value()));
+                    a1.get().find(element.tag()).ifPresent(sub -> updates.put(element, sub.value()));
                 }
                 infoUpdates = updates;
             }
             // CB Global Service Parameters (GPC v2.3.1 8.1.1): one or more 2-byte service names.
-            installedServices = ef.flatMap(e -> e.findOne(GPData.GLOBAL_SERVICE_PARAMETERS.tag())).map(cb -> parseServiceNames(cb.value())).orElse(installedServices);
+            installedServices = ef.flatMap(e -> e.find(GPData.GLOBAL_SERVICE_PARAMETERS.tag())).map(cb -> parseServiceNames(cb.value())).orElse(installedServices);
             // Opaque EF system params (GPC v2.3.1 Table 11-49): store raw, no validation.
             var params = new LinkedHashMap<GPTag, byte[]>();
             for (var element : EF_SYSTEM_PARAMS) {
-                ef.flatMap(e -> e.findOne(element.tag())).ifPresent(sub -> params.put(element, sub.value()));
+                ef.flatMap(e -> e.find(element.tag())).ifPresent(sub -> params.put(element, sub.value()));
             }
             systemParams = params;
         } catch (IllegalArgumentException e) {
@@ -631,15 +631,15 @@ public class SecurityDomainApplet extends Applet {
 
         // GPC v2.3.1 Tables 11-23 / 11-24: top-level tag layouts for DELETE [card content]
         // vs DELETE [key].
-        var d0 = TLV.findOne(tlvs, Tag.ber(TAG_KEY_IDENTIFIER_D0)).orElse(null);
-        var d2 = TLV.findOne(tlvs, Tag.ber(TAG_KEY_VERSION_NUMBER_D2)).orElse(null);
+        var d0 = TLV.find(tlvs, Tag.ber(TAG_KEY_IDENTIFIER_D0)).orElse(null);
+        var d2 = TLV.find(tlvs, Tag.ber(TAG_KEY_VERSION_NUMBER_D2)).orElse(null);
         if (d0 != null || d2 != null) {
             handleDeleteKey(apdu, buffer, d0, d2);
             return;
         }
 
         // DELETE [card content] (Table 11-23): '4F' Lc AID [further CRT tags...].
-        var aidTlv = TLV.findOne(tlvs, Tag.ber(TAG_AID_4F));
+        var aidTlv = TLV.find(tlvs, Tag.ber(TAG_AID_4F));
         if (aidTlv.isEmpty()) {
             log.warn("DELETE: missing 4F AID tag");
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -968,38 +968,38 @@ public class SecurityDomainApplet extends Applet {
     // Build the full GET STATUS response (concatenated E3 templates) for the given P1.
     private static byte[] buildStatusResponse(byte p1) {
         var sim = Simulator.current();
-        var bo = new ByteArrayOutputStream();
+        var entries = new ArrayList<TLV>();
 
         switch (p1 & 0xFF) {
-            case 0x80 -> sim.gp().getApplets().stream().filter(e -> e.getKind() == Kind.ISD).forEach(e -> bo.writeBytes(encodeAppletEntry(e)));
+            case 0x80 -> sim.gp().getApplets().stream().filter(e -> e.getKind() == Kind.ISD).forEach(e -> entries.add(encodeAppletEntry(e)));
             case 0x40 ->
-                    sim.gp().getApplets().stream().filter(e -> e.getKind() == Kind.APP || e.getKind() == Kind.SSD).forEach(e -> bo.writeBytes(encodeAppletEntry(e)));
-            case 0x20 -> sim.gp().getPackages().forEach(e -> bo.writeBytes(encodePackageEntry(e, false)));
-            case 0x10 -> sim.gp().getPackages().forEach(e -> bo.writeBytes(encodePackageEntry(e, true)));
+                    sim.gp().getApplets().stream().filter(e -> e.getKind() == Kind.APP || e.getKind() == Kind.SSD).forEach(e -> entries.add(encodeAppletEntry(e)));
+            case 0x20 -> sim.gp().getPackages().forEach(e -> entries.add(encodePackageEntry(e, false)));
+            case 0x10 -> sim.gp().getPackages().forEach(e -> entries.add(encodePackageEntry(e, true)));
             default -> ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        return bo.toByteArray();
+        return TLV.encode(entries);
     }
 
-    private static byte[] encodeAppletEntry(EngineRegistryEntry e) {
-        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).addByte(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.getState()).add(Tag.ber(TAG_PRIVILEGES_C5), BitField.encode(e.getPrivileges(), 3));
+    private static TLV encodeAppletEntry(EngineRegistryEntry e) {
+        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).add(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.lifecycleState()).add(Tag.ber(TAG_PRIVILEGES_C5), BitField.encode(e.getPrivileges(), 3));
         AID pkg = e.getPackageAID();
         if (pkg != null) {
             tlv.add(Tag.ber(TAG_LOAD_FILE_AID_C4), AIDUtil.bytes(pkg));
         }
         tlv.add(Tag.ber(TAG_ASSOCIATED_SD_AID_CC), AIDUtil.bytes(e.getParentSD().getAID()));
-        return tlv.encode();
+        return tlv;
     }
 
-    private static byte[] encodePackageEntry(EngineRegistryEntry e, boolean withModules) {
-        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).addByte(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.getState());
+    private static TLV encodePackageEntry(EngineRegistryEntry e, boolean withModules) {
+        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).add(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.lifecycleState());
         if (withModules) {
             for (var moduleAid : e.getModules().keySet()) {
                 tlv.add(Tag.ber(TAG_DF_NAME_84), AIDUtil.bytes(moduleAid));
             }
         }
         tlv.add(Tag.ber(TAG_ASSOCIATED_SD_AID_CC), AIDUtil.bytes(e.getParentSD().getAID()));
-        return tlv.encode();
+        return tlv;
     }
 
     static List<byte[]> parse_lv(byte[] data) {

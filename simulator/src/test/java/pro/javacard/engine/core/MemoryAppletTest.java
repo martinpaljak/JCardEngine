@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.core;
 
+import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
 import org.junit.jupiter.api.Test;
-import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.testapplets.MemoryApplet;
 
 import java.nio.ByteBuffer;
@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class MemoryAppletTest {
     private static final String AID_HEX = "D23300000077" + "4D454D2D3031" + "01";
 
-    private static EngineSession selectFresh() {
+    private static BIBO selectFresh() {
         var sim = new Simulator();
         var aid = AIDUtil.create(AID_HEX);
         sim.installApplet(aid, MemoryApplet.class);

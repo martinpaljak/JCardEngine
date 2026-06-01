@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -31,7 +31,7 @@ public final class JSONAdapter extends AbstractTCPAdapter {
     ServerSocketChannel server;
     private JsonNode lastRequest;
 
-    public JSONAdapter(Function<String, EngineSession> sim) {
+    public JSONAdapter(Function<String, BIBO> sim) {
         super(sim);
         host = DEFAULT_JSON_HOST;
         port = DEFAULT_JSON_PORT;

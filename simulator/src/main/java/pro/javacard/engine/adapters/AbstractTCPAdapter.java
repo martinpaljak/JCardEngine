@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.adapters;
 
+import apdu4j.core.BIBO;
 import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pro.javacard.engine.EngineSession;
 import pro.javacard.engine.adapters.RemoteMessage.Type;
 
 import java.io.EOFException;
@@ -44,7 +44,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     protected abstract SocketChannel getSocket() throws IOException;
 
-    protected final Function<String, EngineSession> sim;
+    protected final Function<String, BIBO> sim;
     protected byte[] atr = DEFAULT_ATR;
     protected String configuredProtocol = "*"; // CLI-set protocol, "*" means dynamic
     protected String protocol = "*"; // runtime protocol, may be set by incoming messages
@@ -52,13 +52,13 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     protected int port;
 
     private volatile Thread thread; // Used to interrupt the adapter
-    private volatile EngineSession session;
+    private volatile BIBO session;
     private AdapterState currentState = AdapterState.CONNECTED;
 
     private final AtomicReference<AdapterState> targetState = new AtomicReference<>(null);
     private final Semaphore semaphore = new Semaphore(1);
 
-    protected AbstractTCPAdapter(Function<String, EngineSession> sim) {
+    protected AbstractTCPAdapter(Function<String, BIBO> sim) {
         this.sim = sim;
     }
 

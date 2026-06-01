@@ -16,7 +16,6 @@ import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.tlv.TLV;
 import pro.javacard.tlv.Tag;
 
-import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -243,7 +242,7 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
 
     // GPC v2.3.1 Amd C Table 3-15: 61 template per matching applet (4F AID + 9F70 appLifecycle || clState)
     private byte[] buildGetStatusResponse(byte[] aidFilter) {
-        var bo = new ByteArrayOutputStream();
+        var templates = new ArrayList<TLV>();
         for (var entry : Simulator.current().gp().getApplets()) {
             if (entry.getKind() == Kind.PKG) {
                 continue;
@@ -253,13 +252,11 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
             if (aidFilter.length > 0 && !hasPrefix(aidBytes, aidFilter)) {
                 continue;
             }
-            byte[] stateBlob = new byte[]{entry.getState(), entry.getCLState()};
-            bo.writeBytes(TLV.build(Tag.ber(TAG_APPLICATION_TEMPLATE))
+            templates.add(TLV.build(Tag.ber(TAG_APPLICATION_TEMPLATE))
                     .add(Tag.ber(TAG_AID), aidBytes)
-                    .add(Tag.ber(TAG_LIFECYCLE), stateBlob)
-                    .encode());
+                    .add(Tag.ber(TAG_LIFECYCLE), entry.lifecycleState()));
         }
-        return bo.toByteArray();
+        return TLV.encode(templates);
     }
 
     // GPC v2.3.1 Amd C 3.11.4: SET STATUS (Availability State). P2 = new CL state (00=DEACTIVATED,

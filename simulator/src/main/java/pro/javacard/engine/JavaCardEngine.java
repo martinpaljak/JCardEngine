@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine;
 
+import apdu4j.core.BIBO;
 import apdu4j.pcsc.sim.SynthesizedCardTerminal;
 import apdu4j.pcsc.sim.SynthesizedCardTerminals;
 import com.licel.jcardsim.base.Simulator;
@@ -39,19 +40,19 @@ public interface JavaCardEngine {
     byte[] getATR();
 
     // Connect with default settings (no timeout, any protocol, no reset on close)
-    default EngineSession connect() {
+    default BIBO connect() {
         return connectFor(Duration.ZERO, "*", false);
     }
 
-    default EngineSession connect(String protocol) {
+    default BIBO connect(String protocol) {
         return connectFor(Duration.ZERO, protocol, false);
     }
 
-    default EngineSession connect(String protocol, boolean resetOnClose) {
+    default BIBO connect(String protocol, boolean resetOnClose) {
         return connectFor(Duration.ZERO, protocol, resetOnClose);
     }
 
-    EngineSession connectFor(Duration duration, String protocol, boolean resetOnClose);
+    BIBO connectFor(Duration duration, String protocol, boolean resetOnClose);
 
     // pcsc-sim integration: factory mode backed by this engine
     default SynthesizedCardTerminal toTerminal() {

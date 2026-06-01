@@ -224,6 +224,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         return lifecycle;
     }
 
+    // GPC v2.3.1 Amd C 11.4.3.1 / Table 8-1: 9F70 value is [Life Cycle State, Contactless Activation
+    // State]. PKG entries never leave CL DEACTIVATED, so the second byte is 00 as required for ELF.
+    byte[] lifecycleState() {
+        return new byte[]{lifecycle, state};
+    }
+
     // Bare mutator bypassing GP-API validation; for engine plumbing (setCardLifecycleState, boot).
     void internalForceState(byte newState) {
         this.lifecycle = newState;
