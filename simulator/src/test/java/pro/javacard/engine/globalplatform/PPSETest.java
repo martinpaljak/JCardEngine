@@ -9,6 +9,7 @@ import javacard.framework.AID;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.PPSEApplet;
+import pro.javacard.engine.testapplets.PaymentApplet;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
 import pro.javacard.tlv.TLV;
@@ -19,10 +20,10 @@ import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// PPSE (EMVCo PPSE and Application Management for SE v1.0): one PPSEApplet class, several instances.
-// The directory instance (AID '2PAY.SYS.DDF01', GlobalRegistry) builds its FCI from the discretionary
-// data of activated financial applications; payment instances are the same class, set their own
-// discretionary data via INS_UPDATE_DD, and are enumerated through getNextGPCLRegistryEntry.
+// PPSE (EMVCo PPSE and Application Management for SE v1.0). The PPSEApplet directory instance (AID
+// '2PAY.SYS.DDF01', GlobalRegistry) builds its FCI from the discretionary data of activated financial
+// applications; the PaymentApplet instances set their own discretionary data via INS_UPDATE_DD and are
+// enumerated through getNextGPCLRegistryEntry.
 public class PPSETest {
 
     private static final AID PKG = AIDUtil.create("0102030405");
@@ -36,6 +37,7 @@ public class PPSETest {
 
     private static final byte INS_UPDATE_DD = (byte) 0xDA;
     private static final byte INS_PUT_TEMPLATE = (byte) 0xD2;
+    private static final byte INS_GET_TEMPLATE = (byte) 0xD4;
     private static final byte INS_SET_MODE = (byte) 0xD6;
     private static final byte MODE_EXTERNAL = (byte) 0x01;
     private static final byte MODE_MUTEX = (byte) 0x03;
@@ -43,9 +45,9 @@ public class PPSETest {
     private static JavaCardEngine freshEngine() {
         var sim = new JavaCardEngine.Builder().build();
         sim.loadApplet(PKG, PPSE, PPSEApplet.class);
-        sim.loadApplet(PKG, PAY_A, PPSEApplet.class);
-        sim.loadApplet(PKG, PAY_B, PPSEApplet.class);
-        sim.loadApplet(PKG, PAY_C, PPSEApplet.class);
+        sim.loadApplet(PKG, PAY_A, PaymentApplet.class);
+        sim.loadApplet(PKG, PAY_B, PaymentApplet.class);
+        sim.loadApplet(PKG, PAY_C, PaymentApplet.class);
         return sim;
     }
 
@@ -182,6 +184,10 @@ public class PPSETest {
         try (var bibo = sim.connect()) {
             byte[] expected = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
             assertArrayEquals(expected, selectAID(bibo, PPSE));
+            // GET TEMPLATE returns the same FCI a SELECT would (Table 3-1, R3.8.3)
+            var r = bibo.transmit(new CommandAPDU(0x80, INS_GET_TEMPLATE, 0x01, 0x00));
+            assertEquals(0x9000, r.getSW());
+            assertArrayEquals(expected, r.getData());
         }
     }
 

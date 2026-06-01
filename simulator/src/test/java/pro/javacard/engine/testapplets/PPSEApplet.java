@@ -9,7 +9,8 @@ import org.globalplatform.contactless.CRELApplication;
 import org.globalplatform.contactless.GPCLRegistryEntry;
 import org.globalplatform.contactless.GPCLSystem;
 
-// Multi-mode PPSE (EMVCo PPSE and Application Management for SE v1.0). On SELECT it returns the FCI per
+// Multi-mode PPSE (EMVCo PPSE and Application Management for SE v1.0). The supported instructions are
+// those of Table 3-1: SELECT, PUT TEMPLATE, GET TEMPLATE and SET MODE. On SELECT it returns the FCI per
 // the current mode (set via SET MODE, default Internal):
 //   External (01) - returns the FCI Proprietary Template the device pushed with PUT TEMPLATE.
 //   Internal (02) - builds the FCI by enumerating activated financial applications (Table 3-5):
@@ -20,9 +21,8 @@ import org.globalplatform.contactless.GPCLSystem;
 // Each payment application's INFO_DISCRETIONARY_DATA is a BF0C TLV; the merged 61 Directory Entries go
 // under one BF0C. With no application to list, the Table 3-4 form (6F { 84 ... }) is returned.
 //
-// INS_UPDATE_DD (CLA=0x80, INS=0xDA) writes the caller's OWN discretionary data (CDATA = BF0C{61}),
-// letting a payment application register its Directory Entry at runtime. Single-byte lengths only; the
-// device/antenna interface is not distinguished (commands are accepted regardless of interface).
+// GET TEMPLATE (CLA=0x80, INS=0xD4) returns the same FCI a SELECT would. The device/antenna interface
+// is not distinguished, so the Table 3-3 device-interface tags (89, 9F08) are not emitted.
 public final class PPSEApplet extends Applet implements CRELApplication {
 
     private static final byte MODE_EXTERNAL = (byte) 0x01;
@@ -30,8 +30,8 @@ public final class PPSEApplet extends Applet implements CRELApplication {
     private static final byte MODE_MUTEX = (byte) 0x03;
 
     private static final byte INS_PUT_TEMPLATE = (byte) 0xD2;
+    private static final byte INS_GET_TEMPLATE = (byte) 0xD4;
     private static final byte INS_SET_MODE = (byte) 0xD6;
-    private static final byte INS_UPDATE_DD = (byte) 0xDA;
 
     private static final byte PUT_TEMPLATE_STORE = (byte) 0x01;
     private static final byte PUT_TEMPLATE_DELETE = (byte) 0x05;
@@ -68,9 +68,11 @@ public final class PPSEApplet extends Applet implements CRELApplication {
             case INS_PUT_TEMPLATE:
                 putTemplate(apdu, buf);
                 return;
-            case INS_UPDATE_DD:
-                short lc = apdu.setIncomingAndReceive();
-                GPCLSystem.getGPCLRegistryEntry(null).setInfo(buf, ISO7816.OFFSET_CDATA, lc, GPCLRegistryEntry.INFO_DISCRETIONARY_DATA);
+            case INS_GET_TEMPLATE:
+                if (buf[ISO7816.OFFSET_P1] < 0x01 || buf[ISO7816.OFFSET_P1] > 0x04) {
+                    ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+                }
+                buildFci(apdu);
                 return;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
