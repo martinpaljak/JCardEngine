@@ -69,6 +69,7 @@
     </modules>
 
     <build>
+        <defaultGoal>clean verify</defaultGoal>
         <plugins>
             <!-- Code formatter; invoked on demand via `make format` -->
             <plugin>
