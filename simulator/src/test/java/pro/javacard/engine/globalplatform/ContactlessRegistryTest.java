@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,9 +44,9 @@ public class ContactlessRegistryTest {
 
     // Host (X) and CREL target (T) AIDs used across scenarios.
     private static final AID PKG = AIDUtil.create("01020304050607080F");
-    private static final AID X = AIDUtil.create("D2450000007702BBBB");
-    private static final AID X2 = AIDUtil.create("D2450000007702CCCC");
-    private static final AID T = AIDUtil.create("D24500000077010101");
+    private static final AID X = GPTestUtils.test_aid("BBBB");
+    private static final AID X2 = GPTestUtils.test_aid("CCCC");
+    private static final AID T = GPTestUtils.test_aid("0101");
 
     // CRS APDU surface (engine-side mirror of EngineCRSApplet's private constants).
     private static final byte CRS_CLA = (byte) 0x80;
@@ -120,10 +121,12 @@ public class ContactlessRegistryTest {
             assertEvent(events.get(2), EVENT_ACTIVATED, X);
         }
 
-        // 4. X is ACTIVATED; update counter advanced by 4 - per-mutation bumps: INSTALL T, INSTALL X,
-        // X's CREL add (T) and X's initial CL activation (GPC v2.3.1 Amd C 3.11.2.3, each registry event counts).
+        // 4. Global counter advanced by 4: INSTALL T and INSTALL X bump it directly; X's CREL add and X's
+        // initial CL activation each bump X's own counter, which cascades to the global one (GPC v2.3 Amd C
+        // 3.11.2.3). X's per-Application counter is therefore 2 - distinct from the global 4.
         try (var bibo = sim.connect()) {
             assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(2, findUpdateCounterInGetStatus(bibo, X));
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
@@ -149,6 +152,8 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim.connect()) {
             assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X));
+            // deactivation is another CRS event on X: per-Application counter 2 -> 3.
+            assertEquals(3, findUpdateCounterInGetStatus(bibo, X));
         }
 
         // 6. DELETE fires EVENT_DELETED to the host's CREL list but NOT to the host itself
@@ -386,9 +391,69 @@ public class ContactlessRegistryTest {
             var na = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_NON_ACTIVATABLE, xData));
             assertEquals(0x6A86, na.getSW());
 
+            // P1=04 (OPEN scope) is unsupported; only the Applications scope (P1=40) is implemented -> 6A86.
+            var openScope = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, 0x04, 0x00, match, 256));
+            assertEquals(0x6A86, openScope.getSW());
+
             // Wrong CLA (anything outside {0x80, 0x84}) -> 6E00.
             var wrongCla = bibo.transmit(new CommandAPDU(0x00, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00));
             assertEquals(0x6E00, wrongCla.getSW());
+        }
+
+        // 5. Filterable query (GPC v2.3.1 Amd C 3.11.3 + Table 3-9). X is installed with 87 (family) +
+        // 88 (display required = 01) and ACTIVATED; T carries no Application Information.
+        byte family = 0x20;
+        var simFilter = freshEngine();
+        try (var bibo = simFilter.connect()) {
+            var gp = openIsd(bibo);
+            installCRELTestApplet(gp);
+            installXWithParams(gp, TLV.build(0xEF)
+                    .add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}))
+                    .add(TLV.build(0xA1).add(0x87, new byte[]{family}).add(0x88, new byte[]{0x01})));
+        }
+        try (var bibo = simFilter.connect()) {
+            selectAID(bibo, CRS_AID);
+
+            // No 5C -> all available data (4F, 9F70, 87, 88) for X.
+            var x = find61(getStatus(bibo, X), X);
+            assertTrue(x.find(0x4F).isPresent() && x.find(0x9F70).isPresent());
+            assertArrayEquals(new byte[]{family}, val(x, 0x87));
+            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
+
+            // Absent 88 still materializes the 3.6 default; T (no Application Information) reads 88 01 00.
+            assertArrayEquals(new byte[]{0x00}, val(find61(getStatus(bibo, T), T), 0x88));
+
+            // 5C = {88, 9F70}: those plus the always-present 4F+9F70; 87 excluded.
+            x = find61(getStatus(bibo, X, tagList(0x88, 0x9F70)), X);
+            assertTrue(x.find(0x4F).isPresent() && x.find(0x9F70).isPresent());
+            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
+            assertTrue(x.find(0x87).isEmpty());
+
+            // Search criteria AND together: family 87 + activated 9F70 matches X, not T.
+            byte[] matched = getStatus(bibo, null, TLV.of(0x87, new byte[]{family}), TLV.of(0x9F70, new byte[]{0x00, STATE_CL_ACTIVATED}));
+            assertTrue(hasEntry(matched, X));
+            assertFalse(hasEntry(matched, T));
+
+            // 9F70 as a criterion ignores the first (lifecycle) byte; only the CL-state byte matters.
+            assertTrue(hasEntry(getStatus(bibo, X, TLV.of(0x9F70, new byte[]{0x7F, STATE_CL_ACTIVATED})), X));
+
+            // 5C naming only A6, which no match carries -> 6A88 (GPC v2.3.1 Amd C 3.11.3.3.1).
+            byte[] df = TLV.encode(TLV.of(0x4F, AIDUtil.bytes(X)), tagList(0xA6));
+            var err = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, df, 256));
+            assertEquals(0x6A88, err.getSW());
+        }
+
+        // SET STATUS (F0) changes only the 9F70 CL-state byte, never the descriptive 88.
+        try (var bibo = simFilter.connect()) {
+            selectAID(bibo, CRS_AID);
+            var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, TLV.of(0x4F, AIDUtil.bytes(X)).encode()));
+            assertEquals(0x9000, resp.getSW());
+        }
+        try (var bibo = simFilter.connect()) {
+            selectAID(bibo, CRS_AID);
+            var x = find61(getStatus(bibo, X), X);
+            assertEquals(STATE_CL_DEACTIVATED, val(x, 0x9F70)[1]);
+            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
         }
     }
 
@@ -433,7 +498,7 @@ public class ContactlessRegistryTest {
         // the host's CRELs. Observer t2 listens (originator-aware fan-out skips the host).
         var simSelfOK = new JavaCardEngine.Builder().build();
         simSelfOK.loadApplet(PKG, T, CRELTestApplet.class);
-        var t2 = AIDUtil.create("D2450000007701020D");
+        var t2 = GPTestUtils.test_aid("020D");
         simSelfOK.loadApplet(PKG, t2, CRELTestApplet.class);
         try (var bibo = simSelfOK.connect()) {
             var gp = openIsd(bibo);
@@ -493,7 +558,7 @@ public class ContactlessRegistryTest {
         var simCrossOK = new JavaCardEngine.Builder().build();
         simCrossOK.loadApplet(PKG, T, CRELTestApplet.class);
         simCrossOK.loadApplet(PKG, X, GlobalPlatformTestApplet.class);
-        var caller = AIDUtil.create("D24500000077029999");
+        var caller = GPTestUtils.test_aid("9999");
         simCrossOK.loadApplet(PKG, caller, CRELTestApplet.class);
         try (var bibo = simCrossOK.connect()) {
             var gp = openIsd(bibo);
@@ -985,41 +1050,93 @@ public class ContactlessRegistryTest {
         return aidLen == 0 ? null : AIDUtil.create(Arrays.copyOfRange(rec, 3, 3 + aidLen));
     }
 
-    // GET STATUS with the '4F 00' match-all filter, reassembling 6310 continuations.
-    // Caller must have already SELECTed the CRS.
+    // GET STATUS with the '4F 00' match-all filter. Caller must have already SELECTed the CRS.
     private static byte[] getStatusAll(BIBO bibo) {
-        byte[] data = TLV.of(0x4F, new byte[0]).encode();
-        var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, data, 256));
+        return getStatus(bibo, TLV.of(0x4F, new byte[0]).encode());
+    }
+
+    // GET STATUS with the given command data field, reassembling 6310 continuations. SW asserted 9000.
+    // Caller must have already SELECTed the CRS.
+    private static byte[] getStatus(BIBO bibo, byte[] dataField) {
+        var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, dataField, 256));
         var assembled = new ByteArrayOutputStream();
         assembled.writeBytes(resp.getData());
         while (resp.getSW() == 0x6310) {
-            resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x01, data, 256));
+            resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x01, dataField, 256));
             assembled.writeBytes(resp.getData());
         }
         assertEquals(0x9000, resp.getSW());
         return assembled.toByteArray();
     }
 
+    // GET STATUS for a 4F filter (null = match all) plus optional extra qualifiers (5C / search criteria).
+    private static byte[] getStatus(BIBO bibo, AID filter, TLV... more) {
+        var tlvs = new ArrayList<TLV>();
+        tlvs.add(TLV.of(0x4F, filter == null ? new byte[0] : AIDUtil.bytes(filter)));
+        tlvs.addAll(Arrays.asList(more));
+        return getStatus(bibo, TLV.encode(tlvs));
+    }
+
+    // A 5C tag list from the given tags (bare concatenation, multi-byte tags expanded).
+    private static TLV tagList(int... tags) {
+        var out = new ByteArrayOutputStream();
+        for (int t : tags) {
+            out.writeBytes(Tag.ber(t).bytes());
+        }
+        return TLV.of(0x5C, out.toByteArray());
+    }
+
+    // The value of a (required) data object inside a 61 template.
+    private static byte[] val(TLV entry, int tag) {
+        return entry.find(tag).orElseThrow(() -> new AssertionError("tag " + Integer.toHexString(tag) + " missing")).value();
+    }
+
+    // Locate the 61 template for an AID in a GET STATUS body.
+    private static Optional<TLV> entryFor(byte[] body, AID target) {
+        byte[] want = AIDUtil.bytes(target);
+        for (var e : TLV.parse(body)) {
+            var aid = e.find(0x4F).orElse(null);
+            if (aid != null && Arrays.equals(aid.value(), want)) {
+                return Optional.of(e);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static TLV find61(byte[] body, AID target) {
+        return entryFor(body, target).orElseThrow(() -> new AssertionError("GET STATUS did not return an entry for " + target));
+    }
+
+    private static boolean hasEntry(byte[] body, AID target) {
+        return entryFor(body, target).isPresent();
+    }
+
     // Find the given AID's GET STATUS entry; return its clState byte (2nd byte of 9F70).
     private static byte findClStateInGetStatus(BIBO bibo, AID target) {
+        var v = findEntryInGetStatus(bibo, target).find(0x9F70)
+                .orElseThrow(() -> new AssertionError("9F70 missing from 61 record")).value();
+        // 9F70 must be 2 bytes (lifecycle + clState).
+        assertEquals(2, v.length);
+        return v[1];
+    }
+
+    // The per-Application Update Counter (tag 80) reported for an entry in GET STATUS.
+    private static int findUpdateCounterInGetStatus(BIBO bibo, AID target) {
+        var v = findEntryInGetStatus(bibo, target).find(0x80)
+                .orElseThrow(() -> new AssertionError("80 missing from 61 record")).value();
+        assertEquals(2, v.length);
+        return ((v[0] & 0xFF) << 8) | (v[1] & 0xFF);
+    }
+
+    private static TLV findEntryInGetStatus(BIBO bibo, AID target) {
         selectAID(bibo, CRS_AID);
-        byte[] body = getStatusAll(bibo);
-        var entries = TLV.parse(body);
         byte[] targetBytes = AIDUtil.bytes(target);
-        for (var entry : entries) {
+        for (var entry : TLV.parse(getStatusAll(bibo))) {
             assertEquals(Tag.ber(0x61), entry.tag());
             var aidTlv = entry.find(0x4F).orElse(null);
-            if (aidTlv == null) {
-                continue;
+            if (aidTlv != null && Arrays.equals(aidTlv.value(), targetBytes)) {
+                return entry;
             }
-            if (!Arrays.equals(aidTlv.value(), targetBytes)) {
-                continue;
-            }
-            var stateTlv = entry.find(0x9F70).orElseThrow(() -> new AssertionError("9F70 missing from 61 record"));
-            byte[] v = stateTlv.value();
-            // 9F70 must be 2 bytes (lifecycle + clState).
-            assertEquals(2, v.length);
-            return v[1];
         }
         throw new AssertionError("GET STATUS did not return an entry for " + target);
     }

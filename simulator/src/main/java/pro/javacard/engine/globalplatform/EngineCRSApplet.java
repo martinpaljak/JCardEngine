@@ -12,7 +12,9 @@ import org.globalplatform.contactless.GPCLRegistryEntry;
 import org.globalplatform.contactless.GPCLSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.globalplatform.GPNamedElement.GPInfo;
 import pro.javacard.gp.GPRegistryEntry.Kind;
+import pro.javacard.tlv.BERTag;
 import pro.javacard.tlv.TLV;
 import pro.javacard.tlv.Tag;
 
@@ -59,6 +61,16 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
     private static final int TAG_UPDATE_COUNTER = 0x80;
     private static final int TAG_LIFECYCLE = 0x9F70;
     private static final int TAG_FAILED_APPS = 0xA1;
+    private static final int TAG_TAG_LIST = 0x5C;
+
+    // Cached Tag instances for the frequently compared GET STATUS tags.
+    private static final Tag T_AID = Tag.ber(TAG_AID);
+    private static final Tag T_LIFECYCLE = Tag.ber(TAG_LIFECYCLE);
+    private static final Tag T_TAG_LIST = Tag.ber(TAG_TAG_LIST);
+
+    // GPC v2.3.1 Amd C 3.6: when display-required (88) was never installed, GET STATUS reports the
+    // default "display not required". Synthesized here only; the GP-API getInfo() still reports unset.
+    private static final byte[] DISPLAY_NOT_REQUIRED = new byte[]{0x00};
 
     // GPC v2.3.1 Amd C 3.11.5: CRS v1.0
     private static final byte[] CRS_VERSION_V1 = new byte[]{(byte) 0x01, (byte) 0x00};
@@ -131,8 +143,8 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
     // GPC v2.3.1 Amd C 3.11.5.2 / Table 3-30: SELECT FCI
     //   6F LL { 84 LA <CRS AID>, A5 LL { 9F08 02 01 00, 80 02 <Global Update Counter> } }
     private void sendFci(APDU apdu, byte[] buffer) {
-        byte[] fci = TLV.build(Tag.ber(TAG_FCI))
-                .add(Tag.ber(TAG_FCI_AID), AIDUtil.bytes(JCSystem.getAID()))
+        byte[] fci = TLV.build(TAG_FCI)
+                .add(TAG_FCI_AID, AIDUtil.bytes(JCSystem.getAID()))
                 .add(buildProprietaryTemplate())
                 .encode();
         Util.arrayCopyNonAtomic(fci, (short) 0, buffer, (short) 0, (short) fci.length);
@@ -141,9 +153,9 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
 
     static TLV buildProprietaryTemplate() {
         byte[] counter = Simulator.current().gp().getUpdateCounterBytes();
-        return TLV.build(Tag.ber(TAG_FCI_PROPRIETARY))
-                .add(Tag.ber(TAG_CRS_VERSION), CRS_VERSION_V1)
-                .add(Tag.ber(TAG_UPDATE_COUNTER), counter);
+        return TLV.build(TAG_FCI_PROPRIETARY)
+                .add(TAG_CRS_VERSION, CRS_VERSION_V1)
+                .add(TAG_UPDATE_COUNTER, counter);
     }
 
     // GPC v2.3.1 Amd C 3.11.3: GET STATUS (Applications). Response is a sequence of 61 templates
@@ -169,8 +181,8 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
                 // Initial request: drop any stale cursor before building a new response.
                 pagingBuffer[0] = null;
                 pagingOffset[0] = 0;
-                byte[] aidFilter = parseAidFilter(apdu, buffer);
-                pagingBuffer[0] = buildGetStatusResponse(aidFilter);
+                Query query = parseQuery(apdu, buffer);
+                pagingBuffer[0] = buildGetStatusResponse(query);
                 pagingOffset[0] = 0;
             }
             sendNextChunk(apdu, buffer);
@@ -206,25 +218,59 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
         ISOException.throwIt(SW_MORE_DATA);
     }
 
-    // GPC v2.3.1 Amd C Table 3-14: exactly one top-level 4F mandatory. Empty 4F value = match all.
-    private byte[] parseAidFilter(APDU apdu, byte[] buffer) {
+    // GPC v2.3.1 Amd C 3.11.3: the parsed GET STATUS query. aidFilter (mandatory 4F, empty = match all)
+    // and AND-combined search criteria pick the rows; tagList (optional 5C) picks the columns, null when
+    // absent so all available data is returned.
+    private record Query(byte[] aidFilter, List<TLV> criteria, List<Tag> tagList) {
+    }
+
+    // GPC v2.3.1 Amd C Table 3-14 / 3-9: data field is 4F (mandatory) + optional 5C tag list + optional
+    // AND-filter criteria. Empty 4F value = match all. Any unsupported top-level tag -> 6A80.
+    private Query parseQuery(APDU apdu, byte[] buffer) {
         short lc = apdu.setIncomingAndReceive();
         if (lc <= 0) {
             ISOException.throwIt(SW_INCORRECT_VALUES);
         }
         byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (lc & 0xFFFF));
+        byte[] aidFilter = null;
+        var criteria = new ArrayList<TLV>();
+        List<Tag> tagList = null;
         try {
-            var aids = topLevelAidValues(payload);
-            if (aids.size() != 1) {
-                log.warn("CRS GET STATUS: expected exactly one top-level 4F, got {}", aids.size());
-                ISOException.throwIt(SW_INCORRECT_VALUES);
+            for (var t : TLV.parse(payload)) {
+                Tag tag = t.tag();
+                if (tag.equals(T_AID)) {
+                    if (aidFilter != null) {
+                        throw new IllegalArgumentException("duplicate 4F search qualifier");
+                    }
+                    aidFilter = t.value();
+                } else if (tag.equals(T_TAG_LIST)) {
+                    if (tagList != null) {
+                        throw new IllegalArgumentException("duplicate 5C tag list");
+                    }
+                    tagList = BERTag.parseTags(t.value());
+                } else if (isSearchCriterion(tag)) {
+                    criteria.add(t);
+                } else {
+                    throw new IllegalArgumentException("unsupported search qualifier " + tag.toHex());
+                }
             }
-            return aids.get(0);
-        } catch (IllegalArgumentException e) {
-            log.warn("CRS GET STATUS: malformed TLV in data field: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("CRS GET STATUS: malformed query: {}", e.getMessage());
             ISOException.throwIt(SW_INCORRECT_VALUES);
-            return null;
         }
+        // GPC v2.3.1 Amd C 3.11.3.2.3: 4F is the mandatory search qualifier.
+        if (aidFilter == null) {
+            ISOException.throwIt(SW_INCORRECT_VALUES);
+        }
+        return new Query(aidFilter, criteria, tagList);
+    }
+
+    // GPC v2.3.1 Amd C Table 3-9 SC=Yes for the data objects the engine models: 9F70 (CL state) plus the
+    // searchable Application Information (87 family, 88 display required). A6 is return-only.
+    private static boolean isSearchCriterion(Tag tag) {
+        return tag.equals(T_LIFECYCLE)
+                || tag.equals(GPData.APPLICATION_FAMILY.tag())
+                || tag.equals(GPData.DISPLAY_REQUIRED.tag());
     }
 
     // GPC v2.3.1 Amd C Tables 3-14 / 3-23: top-level 4F primitives. Throw loud on any other top-level
@@ -240,23 +286,101 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
         return out;
     }
 
-    // GPC v2.3.1 Amd C Table 3-15: 61 template per matching applet (4F AID + 9F70 appLifecycle || clState)
-    private byte[] buildGetStatusResponse(byte[] aidFilter) {
+    // GPC v2.3.1 Amd C Table 3-15: one 61 template per matching applet. The tag list (when present)
+    // selects the returned objects; 4F + 9F70 are always included (Table 3-9).
+    private byte[] buildGetStatusResponse(Query query) {
         var templates = new ArrayList<TLV>();
+        boolean anyMatch = false;
+        boolean anyListedPresent = false;
         for (var entry : Simulator.current().gp().getApplets()) {
-            if (entry.getKind() == Kind.PKG) {
+            if (entry.getKind() == Kind.PKG || !matches(entry, query)) {
                 continue;
             }
-            byte[] aidBytes = AIDUtil.bytes(entry.getAID());
-            // Empty filter (4F 00) means match all.
-            if (aidFilter.length > 0 && !hasPrefix(aidBytes, aidFilter)) {
-                continue;
+            anyMatch = true;
+            var template = TLV.build(TAG_APPLICATION_TEMPLATE);
+            for (var obj : availableObjects(entry)) {
+                boolean always = obj.tag().equals(T_AID) || obj.tag().equals(T_LIFECYCLE);
+                boolean listed = query.tagList() != null && containsTag(query.tagList(), obj.tag());
+                if (query.tagList() == null || always || listed) {
+                    template.add(obj);
+                }
+                if (listed) {
+                    anyListedPresent = true;
+                }
             }
-            templates.add(TLV.build(Tag.ber(TAG_APPLICATION_TEMPLATE))
-                    .add(Tag.ber(TAG_AID), aidBytes)
-                    .add(Tag.ber(TAG_LIFECYCLE), entry.lifecycleState()));
+            templates.add(template);
+        }
+        // GPC v2.3.1 Amd C 3.11.3.3.1: with a tag list, no matching entry carrying any listed object is an error.
+        if (query.tagList() != null && anyMatch && !anyListedPresent) {
+            ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
         }
         return TLV.encode(templates);
+    }
+
+    // GPC v2.3.1 Amd C Table 3-9: data objects available for one entry, in response order. 4F + 9F70 + 80
+    // are always present (the 80 Application Update Counter is filterable but never unset); Application
+    // Information (87, 88, A6) follows when set, with the 88 default applied.
+    private static List<TLV> availableObjects(EngineRegistryEntry entry) {
+        var objs = new ArrayList<TLV>();
+        objs.add(TLV.of(T_AID, AIDUtil.bytes(entry.getAID())));
+        objs.add(TLV.of(T_LIFECYCLE, entry.lifecycleState()));
+        objs.add(TLV.of(TAG_UPDATE_COUNTER, entry.updateCounterBytes()));
+        for (var info : GPData.installInfos()) {
+            byte[] v = infoValue(entry, info);
+            if (v != null) {
+                objs.add(TLV.of(info.tag(), v));
+            }
+        }
+        return objs;
+    }
+
+    // Effective Application Information value for GET STATUS: the stored value, or the 88 default when
+    // display-required was never installed. null = not available for this entry.
+    private static byte[] infoValue(EngineRegistryEntry entry, GPInfo info) {
+        byte[] v = entry.infos.get(info);
+        if (v != null) {
+            return v;
+        }
+        return info.equals(GPData.DISPLAY_REQUIRED) ? DISPLAY_NOT_REQUIRED : null;
+    }
+
+    // GPC v2.3.1 Amd C 3.11.3.2.3: 4F prefix plus the AND-combined search criteria.
+    private static boolean matches(EngineRegistryEntry entry, Query query) {
+        byte[] aidBytes = AIDUtil.bytes(entry.getAID());
+        if (query.aidFilter().length > 0 && !hasPrefix(aidBytes, query.aidFilter())) {
+            return false;
+        }
+        for (var c : query.criteria()) {
+            if (!matchesCriterion(entry, c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean matchesCriterion(EngineRegistryEntry entry, TLV criterion) {
+        Tag tag = criterion.tag();
+        byte[] want = criterion.value();
+        // GPC v2.3.1 Amd C 3.11.3.2.3: the application lifecycle byte is ignored; match the CL state byte.
+        if (tag.equals(T_LIFECYCLE)) {
+            return want.length == 2 && entry.lifecycleState()[1] == want[1];
+        }
+        for (var info : GPData.installInfos()) {
+            if (tag.equals(info.tag())) {
+                byte[] have = infoValue(entry, info);
+                return have != null && Arrays.equals(have, want);
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsTag(List<Tag> tags, Tag tag) {
+        for (var t : tags) {
+            if (t.equals(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // GPC v2.3.1 Amd C 3.11.4: SET STATUS (Availability State). P2 = new CL state (00=DEACTIVATED,
@@ -331,9 +455,9 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
         }
 
         // GPC v2.3.1 Amd C 3.11.4.3.1: A1 template of failed AIDs, then warning 6320 (Table 3-28)
-        var list = TLV.build(Tag.ber(TAG_FAILED_APPS));
+        var list = TLV.build(TAG_FAILED_APPS);
         for (var aidBytes : failed) {
-            list.add(Tag.ber(TAG_AID), aidBytes);
+            list.add(TAG_AID, aidBytes);
         }
         byte[] response = list.encode();
         int budget = buffer.length - 2;

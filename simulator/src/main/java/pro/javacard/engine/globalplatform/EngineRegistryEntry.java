@@ -44,6 +44,9 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     private final LinkedHashSet<AID> crels = new LinkedHashSet<>();
     final HashMap<GPInfo, byte[]> infos = new HashMap<>();
 
+    // GPC v2.3 Amd C 3.11.2.3: per-Application update counter (0..65535, cyclic), advanced on each CRS API event.
+    private int updateCounter = 0;
+
     // Global Service registration (GPC v2.3.1 8.1.1).
     private final LinkedHashSet<Short> installedServices = new LinkedHashSet<>();
     private final LinkedHashSet<Short> registeredServices = new LinkedHashSet<>();
@@ -409,8 +412,8 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         requireAppletKind();
         var crelAid = new AID(buf, offset, (byte) length);
         if (crels.add(crelAid)) {
-            // GPC v2.3.1 Amd C 3.11.2.3: a CREL-list change is a counted registry event, like setInfo/setCLState.
-            Simulator.current().gp().bumpUpdateCounter();
+            // GPC v2.3 Amd C 3.11.2.3: a CREL-list change is a counted registry event, like setInfo/setCLState.
+            bumpUpdateCounter();
             // GPC v2.3.1 Amd C 3.8.2: notify after mutation so the callee sees itself in the set.
             ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_ADDED);
         }
@@ -422,7 +425,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         requireAppletKind();
         var crelAid = new AID(buf, offset, (byte) length);
         if (crels.remove(crelAid)) {
-            Simulator.current().gp().bumpUpdateCounter();
+            bumpUpdateCounter();
             ContactlessEngine.notifyCRELListChange(this, crelAid, CLAppletEvent.EVENT_CREL_REMOVED);
         }
     }
@@ -432,6 +435,13 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     public short getInfo(byte[] buffer, short offset, short info) {
         checkAlive();
         requireAppletKind();
+        // GPC v2.3 Amd C 3.11.2.3: the Application Update Counter is read-only and always available;
+        // it is computed, not stored in the infos map (setInfo rejects it - not a GPData info element).
+        if (info == GPCLRegistryEntry.INFO_COUNTER_UPDATE) {
+            byte[] counter = updateCounterBytes();
+            System.arraycopy(counter, 0, buffer, offset, counter.length);
+            return (short) (offset + counter.length);
+        }
         var element = GPData.byInfo(info).orElse(null);
         if (element == null) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -585,10 +595,22 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         // GPC v2.3.1 Amd C 3.10.2 / 3.10.3 + 3.11.2.3: a User Interaction parameter change notifies the
         // CREL / CRS Applications and advances the update counter, exactly like a CL activation change.
         if (changed) {
-            Simulator.current().gp().bumpUpdateCounter();
+            bumpUpdateCounter();
             ContactlessEngine.notifyContactlessEvent(this, element.event());
         }
         return (short) (offset + length);
+    }
+
+    // GPC v2.3 Amd C 3.11.2.3: a CRS API event advances this Application's counter and, in turn, the
+    // global counter (the global one tracks every per-Application increment).
+    void bumpUpdateCounter() {
+        updateCounter = (updateCounter + 1) & 0xFFFF;
+        Simulator.current().gp().bumpUpdateCounter();
+    }
+
+    // 2-byte big-endian Application Update Counter (GET STATUS tag 80, API INFO_COUNTER_UPDATE).
+    byte[] updateCounterBytes() {
+        return new byte[]{(byte) ((updateCounter >>> 8) & 0xFF), (byte) (updateCounter & 0xFF)};
     }
 
     // Opaque INSTALL EF System Specific Parameter store (GPC v2.3.1 Table 11-49). Raw value bytes,

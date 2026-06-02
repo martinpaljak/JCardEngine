@@ -71,7 +71,7 @@ public class SignatureProxy {
                 try {
                     instance = new AsymmetricSignatureImpl(algorithm);
                 } catch (Exception e) {
-                    log.error("getInstance of asymmetric algo: " + algorithm + " is NOT OK! : {}", e.getClass().getSimpleName());
+                    log.warn("getInstance of asymmetric algo: " + algorithm + " is NOT OK! : {}", e.getClass().getSimpleName());
                     CryptoException.throwIt(CryptoException.INVALID_INIT);
                 }
                 break;

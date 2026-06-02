@@ -172,7 +172,7 @@ public final class ContactlessEngine {
     static byte applyCLState(EngineRegistryEntry cl, CLState newState) {
         if (cl.internalApplyCLState(newState.value)) {
             log.info("{} -> {}", cl.getAID(), newState);
-            Simulator.current().gp().bumpUpdateCounter();
+            cl.bumpUpdateCounter();
             notifyContactlessEvent(cl, newState.event);
         }
         return cl.internalGetCLState();

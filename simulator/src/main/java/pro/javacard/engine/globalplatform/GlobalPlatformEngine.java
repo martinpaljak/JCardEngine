@@ -337,7 +337,6 @@ public class GlobalPlatformEngine {
             return false;
         }
         isd.internalForceState(newState);
-        bumpUpdateCounter();
         return true;
     }
 
@@ -354,14 +353,8 @@ public class GlobalPlatformEngine {
         if (!newAppSpecific && !newLocked) {
             return false;
         }
-        byte before = caller.getState();
         if (!caller.setState(newState)) {
             return false;
-        }
-        // GPC v2.3.1 Amd C 3.11.2.3: bump only when the lifecycle actually moved - setState succeeds on a
-        // same-state no-op, which is not a content change.
-        if (caller.getState() != before) {
-            bumpUpdateCounter();
         }
         return true;
     }
@@ -374,12 +367,10 @@ public class GlobalPlatformEngine {
         registry.remove(isd.getAID());
         isd.setAID(newAid);
         registry.put(newAid, isd);
-        bumpUpdateCounter();
     }
 
     // INSTALL [for extradition] (GPC v2.3.1 11.5.2.3.4): rebind target's associated SD.
     public void extradite(EngineRegistryEntry target, EngineRegistryEntry newSD) {
         target.setParentSD(newSD);
-        bumpUpdateCounter();
     }
 }

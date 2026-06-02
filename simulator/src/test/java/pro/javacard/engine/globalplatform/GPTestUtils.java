@@ -18,6 +18,16 @@ final class GPTestUtils {
     private GPTestUtils() {
     }
 
+    // Prefix for throwaway test instance AIDs: D233 00000077 + "TEST" (54 45 53 54). The 4-byte "TEST"
+    // PIX can never collide with the 3-char CDN-NN codenames of real CAP-backed applets (build.xml), so
+    // these share the 77 provider yet read unmistakably as test scaffolding. Build with test_aid("XXYY").
+    static final String TEST_AID = "D2330000007754455354";
+
+    // A throwaway test instance AID: the TEST_AID prefix plus a hex discriminator (e.g. "BBBB").
+    static AID test_aid(String suffix) {
+        return AIDUtil.create(TEST_AID + suffix);
+    }
+
     // Master keys reused across PutKey/DeleteKey/NewestKeyset/SSDPersonalization tests. A/B/C
     // are arbitrary distinct values; BOOTSTRAP is the platform default the ISD ships with.
     static final class MasterKeys {

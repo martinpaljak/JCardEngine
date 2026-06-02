@@ -48,7 +48,7 @@ public class SecurityDomainTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
     private static final AID APP = AIDUtil.create("0102030405060708A1");
-    private static final AID SSD = AIDUtil.create("D2330000007753534402");
+    private static final AID SSD = GPTestUtils.test_aid("5344");
     private static final AID GHOST = AIDUtil.create("DEADBEEFCAFEBABE99");
     private static final AID NEW_ISD = AIDUtil.create("A0000001515555");
 

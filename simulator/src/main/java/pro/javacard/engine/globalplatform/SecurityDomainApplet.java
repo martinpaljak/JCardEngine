@@ -129,7 +129,7 @@ public class SecurityDomainApplet extends Applet {
 
     // Minimal SD SELECT response (GPC v2.3.1 11.9.3.1): 6F { 84 <aid> | A5 { 9F65 01 FF } }
     static byte[] fci(AID aid) {
-        return TLV.build(Tag.ber(TAG_FCI_6F)).add(Tag.ber(TAG_DF_NAME_84), AIDUtil.bytes(aid)).add(TLV.build(Tag.ber(TAG_FCI_PROPRIETARY_A5)).add(GPData.MAX_COMMAND_DATA_LENGTH.tag(), new byte[]{(byte) 0xFF})).encode();
+        return TLV.build(TAG_FCI_6F).add(TAG_DF_NAME_84, AIDUtil.bytes(aid)).add(TLV.build(TAG_FCI_PROPRIETARY_A5).add(GPData.MAX_COMMAND_DATA_LENGTH.tag(), new byte[]{(byte) 0xFF})).encode();
     }
 
     @Override
@@ -686,15 +686,15 @@ public class SecurityDomainApplet extends Applet {
 
         // GPC v2.3.1 Tables 11-23 / 11-24: top-level tag layouts for DELETE [card content]
         // vs DELETE [key].
-        var d0 = TLV.find(tlvs, Tag.ber(TAG_KEY_IDENTIFIER_D0)).orElse(null);
-        var d2 = TLV.find(tlvs, Tag.ber(TAG_KEY_VERSION_NUMBER_D2)).orElse(null);
+        var d0 = TLV.find(tlvs, TAG_KEY_IDENTIFIER_D0).orElse(null);
+        var d2 = TLV.find(tlvs, TAG_KEY_VERSION_NUMBER_D2).orElse(null);
         if (d0 != null || d2 != null) {
             handleDeleteKey(apdu, buffer, d0, d2);
             return;
         }
 
         // DELETE [card content] (Table 11-23): '4F' Lc AID [further CRT tags...].
-        var aidTlv = TLV.find(tlvs, Tag.ber(TAG_AID_4F));
+        var aidTlv = TLV.find(tlvs, TAG_AID_4F);
         if (aidTlv.isEmpty()) {
             log.warn("DELETE: missing 4F AID tag");
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -1037,23 +1037,23 @@ public class SecurityDomainApplet extends Applet {
     }
 
     private static TLV encodeAppletEntry(EngineRegistryEntry e) {
-        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).add(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.lifecycleState()).add(Tag.ber(TAG_PRIVILEGES_C5), BitField.encode(e.getPrivileges(), 3));
+        var tlv = TLV.build(TAG_REGISTRY_DATA_E3).add(TAG_AID_4F, AIDUtil.bytes(e.getAID())).add(TAG_LIFECYCLE_STATE_9F70, e.lifecycleState()).add(TAG_PRIVILEGES_C5, BitField.encode(e.getPrivileges(), 3));
         AID pkg = e.getPackageAID();
         if (pkg != null) {
-            tlv.add(Tag.ber(TAG_LOAD_FILE_AID_C4), AIDUtil.bytes(pkg));
+            tlv.add(TAG_LOAD_FILE_AID_C4, AIDUtil.bytes(pkg));
         }
-        tlv.add(Tag.ber(TAG_ASSOCIATED_SD_AID_CC), AIDUtil.bytes(e.getParentSD().getAID()));
+        tlv.add(TAG_ASSOCIATED_SD_AID_CC, AIDUtil.bytes(e.getParentSD().getAID()));
         return tlv;
     }
 
     private static TLV encodePackageEntry(EngineRegistryEntry e, boolean withModules) {
-        var tlv = TLV.build(Tag.ber(TAG_REGISTRY_DATA_E3)).add(Tag.ber(TAG_AID_4F), AIDUtil.bytes(e.getAID())).add(Tag.ber(TAG_LIFECYCLE_STATE_9F70), e.lifecycleState());
+        var tlv = TLV.build(TAG_REGISTRY_DATA_E3).add(TAG_AID_4F, AIDUtil.bytes(e.getAID())).add(TAG_LIFECYCLE_STATE_9F70, e.lifecycleState());
         if (withModules) {
             for (var moduleAid : e.getModules().keySet()) {
-                tlv.add(Tag.ber(TAG_DF_NAME_84), AIDUtil.bytes(moduleAid));
+                tlv.add(TAG_DF_NAME_84, AIDUtil.bytes(moduleAid));
             }
         }
-        tlv.add(Tag.ber(TAG_ASSOCIATED_SD_AID_CC), AIDUtil.bytes(e.getParentSD().getAID()));
+        tlv.add(TAG_ASSOCIATED_SD_AID_CC, AIDUtil.bytes(e.getParentSD().getAID()));
         return tlv;
     }
 

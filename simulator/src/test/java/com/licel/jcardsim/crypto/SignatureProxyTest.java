@@ -47,7 +47,7 @@ public class SignatureProxyTest {
                 if (ex.getReason() == CryptoException.NO_SUCH_ALGORITHM) {
                     log.warn("Implemented: getInstance({})", alg_field.getName());
                 } else {
-                    log.error("Invalid implementation: {}", alg_field.getName());
+                    log.warn("Invalid implementation: {}", alg_field.getName());
                 }
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
@@ -62,7 +62,7 @@ public class SignatureProxyTest {
                         log.info("Implemented: getInstance({}, {}, {})", md.getName(), ca.getName(), pad.getName());
                     } catch (CryptoException e) {
                         if (e.getReason() != CryptoException.NO_SUCH_ALGORITHM) {
-                            log.error("Invalid implementation: {}, {}, {}", md.getName(), ca.getName(), pad.getName());
+                            log.warn("Invalid implementation: {}, {}, {}", md.getName(), ca.getName(), pad.getName());
                         }
                         // No point in spamming the log.
                     } catch (IllegalAccessException e) {

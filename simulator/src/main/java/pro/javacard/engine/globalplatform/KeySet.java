@@ -3,7 +3,6 @@
 package pro.javacard.engine.globalplatform;
 
 import pro.javacard.tlv.TLV;
-import pro.javacard.tlv.Tag;
 
 import java.util.List;
 import java.util.SortedMap;
@@ -50,7 +49,7 @@ public record KeySet(byte kvn, SortedMap<Byte, KeyEntry> entries) {
     // GPC v2.3.1 11.3.3.1.1 (Table 11-28, Basic) - one C0 per KID. Caller wraps the list in E0.
     public List<TLV> keyInfoEntries() {
         return entries.entrySet().stream()
-                .map(e -> TLV.of(Tag.ber(0xC0), new byte[]{
+                .map(e -> TLV.of(0xC0, new byte[]{
                         e.getKey(),
                         kvn,
                         e.getValue().type(),

@@ -28,9 +28,9 @@ public class PPSETest {
 
     private static final AID PKG = AIDUtil.create("0102030405");
     private static final AID PPSE = AIDUtil.create("325041592E5359532E4444463031"); // '2PAY.SYS.DDF01'
-    private static final AID PAY_A = AIDUtil.create("D23300000077AA01");
-    private static final AID PAY_B = AIDUtil.create("D23300000077BB01"); // AID > PAY_A: enumerated after it
-    private static final AID PAY_C = AIDUtil.create("D23300000077CC01"); // non-financial, must be excluded
+    private static final AID PAY_A = GPTestUtils.test_aid("AA01");
+    private static final AID PAY_B = GPTestUtils.test_aid("BB01"); // AID > PAY_A: enumerated after it
+    private static final AID PAY_C = GPTestUtils.test_aid("CC01"); // non-financial, must be excluded
 
     private static final byte AFI_FINANCIAL = 0x20;
     private static final byte AFI_OTHER = 0x30;
@@ -289,7 +289,7 @@ public class PPSETest {
     }
 
     private static byte[] expectedFci(TLV... dirs) {
-        var a5 = TLV.build(0xA5).add(TLV.of(Tag.ber(0xBF0C), dirs)); // Tag.ber: the only varargs spread
+        var a5 = TLV.build(0xA5).add(TLV.of(0xBF0C, dirs));
         return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
     }
 

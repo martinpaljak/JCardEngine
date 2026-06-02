@@ -26,8 +26,8 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 public class GlobalServiceRegistrationTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
-    private static final AID A = AIDUtil.create("D24500000077039001");
-    private static final AID B = AIDUtil.create("D24500000077039002");
+    private static final AID A = GPTestUtils.test_aid("9001");
+    private static final AID B = GPTestUtils.test_aid("9002");
 
     private static final byte SVC_CLA = (byte) 0x80;
     private static final byte SVC_INS = (byte) 0xEE;
