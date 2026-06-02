@@ -3,6 +3,7 @@
 package pro.javacard.engine.testapplets;
 
 import javacard.framework.*;
+import org.globalplatform.CVM;
 import org.globalplatform.GPRegistryEntry;
 import org.globalplatform.GPSystem;
 import org.globalplatform.Personalization;
@@ -27,6 +28,10 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     public static final byte INS_SET_OWN_LCS_VIA_REGISTRY = (byte) 0x65; // GPSystem.getRegistryEntry(null).setState(P1)
     public static final byte INS_QUERY_AID = (byte) 0xCA;     // GPSystem.getRegistryEntry(<AID from cdata>)
     public static final byte INS_QUERY_SELF = (byte) 0xCB;    // GPSystem.getRegistryEntry(null)
+    public static final byte INS_QUERY_PRIVS = (byte) 0x0B;   // getRegistryEntry(null).getPrivileges(buf, off)
+    // Global PIN CVM driver. P1 sub-op: 0 status, 1 setTryLimit(P2), 2 update, 3 verify, 4 block,
+    // 5 resetAndUnblock, 6 reset. P2 carries the CVM format (0 -> FORMAT_HEX) for update/verify.
+    public static final byte INS_CVM = (byte) 0x66;
 
     byte[] data = new byte[128];
     short value = 0;
@@ -290,6 +295,60 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
                     }
                     buffer[0] = self.getState();
                     apdu.setOutgoingAndSend((short) 0, (short) 1);
+                    return;
+                }
+                case INS_QUERY_PRIVS: {
+                    // org.globalplatform GPRegistryEntry.getPrivileges(byte[], short): own 3-byte privilege bitmap.
+                    short end = GPSystem.getRegistryEntry(null).getPrivileges(buffer, (short) 0);
+                    apdu.setOutgoingAndSend((short) 0, end);
+                    return;
+                }
+                case INS_CVM: {
+                    CVM cvm = GPSystem.getCVM(GPSystem.CVM_GLOBAL_PIN);
+                    byte fmt = buffer[ISO7816.OFFSET_P2] == 0 ? CVM.FORMAT_HEX : buffer[ISO7816.OFFSET_P2];
+                    switch (buffer[ISO7816.OFFSET_P1]) {
+                        case 0x00:
+                            buffer[0] = (byte) (cvm.isActive() ? 1 : 0);
+                            buffer[1] = (byte) (cvm.isSubmitted() ? 1 : 0);
+                            buffer[2] = (byte) (cvm.isVerified() ? 1 : 0);
+                            buffer[3] = (byte) (cvm.isBlocked() ? 1 : 0);
+                            buffer[4] = cvm.getTriesRemaining();
+                            apdu.setOutgoingAndSend((short) 0, (short) 5);
+                            return;
+                        case 0x01:
+                            buffer[0] = (byte) (cvm.setTryLimit(buffer[ISO7816.OFFSET_P2]) ? 1 : 0);
+                            apdu.setOutgoingAndSend((short) 0, (short) 1);
+                            return;
+                        case 0x02: {
+                            short lc = apdu.setIncomingAndReceive();
+                            buffer[0] = (byte) (cvm.update(buffer, apdu.getOffsetCdata(), (byte) lc, fmt) ? 1 : 0);
+                            apdu.setOutgoingAndSend((short) 0, (short) 1);
+                            return;
+                        }
+                        case 0x03: {
+                            short lc = apdu.setIncomingAndReceive();
+                            short r = cvm.verify(buffer, apdu.getOffsetCdata(), (byte) lc, fmt);
+                            Util.setShort(buffer, (short) 0, r);
+                            buffer[2] = (byte) (cvm.isVerified() ? 1 : 0);
+                            buffer[3] = cvm.getTriesRemaining();
+                            apdu.setOutgoingAndSend((short) 0, (short) 4);
+                            return;
+                        }
+                        case 0x04:
+                            buffer[0] = (byte) (cvm.blockState() ? 1 : 0);
+                            apdu.setOutgoingAndSend((short) 0, (short) 1);
+                            return;
+                        case 0x05:
+                            buffer[0] = (byte) (cvm.resetAndUnblockState() ? 1 : 0);
+                            apdu.setOutgoingAndSend((short) 0, (short) 1);
+                            return;
+                        case 0x06:
+                            buffer[0] = (byte) (cvm.resetState() ? 1 : 0);
+                            apdu.setOutgoingAndSend((short) 0, (short) 1);
+                            return;
+                        default:
+                            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+                    }
                     return;
                 }
                 case INS_QUERY_AID: {

@@ -8,6 +8,7 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.ISO7816;
+import org.globalplatform.CVM;
 import org.globalplatform.GPSystem;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.JavaCardEngine;
@@ -19,6 +20,7 @@ import pro.javacard.gp.GPSession;
 import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
@@ -235,6 +237,12 @@ public class CardLifecycleAndPrivilegesTest {
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
             assertEquals(0x9000, r.getSW());
             assertEquals(GPSystem.APPLICATION_SELECTABLE, r.getData()[0]);
+
+            // getPrivileges returns the 3-byte bitmap; A holds GlobalRegistry, so it is non-zero.
+            var privs = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_PRIVS, 0x00, 0x00, 256));
+            assertEquals(0x9000, privs.getSW());
+            assertEquals(3, privs.getData().length);
+            assertTrue((privs.getData()[0] | privs.getData()[1] | privs.getData()[2]) != 0);
         }
     }
 
@@ -361,6 +369,110 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals(0x6985, regress.getSW());
             assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
+    }
+
+    // GPC v2.3.1 8.2 Global PIN (CVM): the org.globalplatform.CVM held by GPSystem.getCVM(CVM_GLOBAL_PIN).
+    // update/setTryLimit/blockState/resetAndUnblockState require the caller to hold CVM Management
+    // (GPC v2.3.1 Table 6-1); A holds it, B does not. verify drives the retry counter to BLOCKED and
+    // back, and a power-up returns a VALIDATED PIN to ACTIVE while BLOCKED survives (GPC v2.3.1 8.2.2.2.1).
+    private static final byte[] PIN = {0x12, 0x34};
+    private static final byte[] WRONG = {0x00, 0x00};
+    private static final byte FORMAT_ASCII = 1; // CVM.FORMAT_ASCII, to drive update's format-mismatch path
+
+    @Test
+    public void globalPinCvmLifecycle() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            installWith(gp, A, EnumSet.of(Privilege.CVMManagement)); // CVM Management holder
+            installWith(gp, B, EnumSet.noneOf(Privilege.class));      // no CVM Management
+        }
+
+        try (var bibo = sim.connect("*", true)) { // reset on close so onCardReset runs before the next phase
+            selectAID(bibo, A);
+
+            // Uninitialised: not active; verify and the management ops that require an active CVM fail.
+            assertEquals(0, cvm(bibo, 0x00, 0, null)[0]);
+            assertEquals(CVM.CVM_FAILURE, verify(bibo, PIN));
+            assertEquals(0, cvm(bibo, 0x05, 0, null)[0]); // resetAndUnblock on INACTIVE
+            assertEquals(0, cvm(bibo, 0x04, 0, null)[0]); // block on INACTIVE
+
+            // setTryLimit alone does not activate (no value yet); update installs the value and activates.
+            assertEquals(1, cvm(bibo, 0x01, 3, null)[0]);
+            assertEquals(0, cvm(bibo, 0x00, 0, null)[0]); // still inactive
+            assertEquals(1, cvm(bibo, 0x02, 0, PIN)[0]);   // update, FORMAT_HEX
+            byte[] st = cvm(bibo, 0x00, 0, null);
+            assertEquals(1, st[0]); // active
+            assertEquals(3, st[4]); // tries
+
+            // Non-HEX format is rejected by update.
+            assertEquals(0, cvm(bibo, 0x02, FORMAT_ASCII, PIN)[0]);
+
+            // Wrong then right: failure decrements the counter, success validates and restores it.
+            assertEquals(CVM.CVM_FAILURE, verify(bibo, WRONG));
+            assertEquals(2, cvm(bibo, 0x00, 0, null)[4]);
+            assertEquals(CVM.CVM_SUCCESS, verify(bibo, PIN));
+            assertEquals(1, cvm(bibo, 0x00, 0, null)[2]); // verified
+            assertEquals(3, cvm(bibo, 0x00, 0, null)[4]);
+
+            // resetState drops VALIDATED back to ACTIVE without clearing the value.
+            assertEquals(1, cvm(bibo, 0x06, 0, null)[0]);
+            assertEquals(0, cvm(bibo, 0x00, 0, null)[2]); // not verified
+
+            // Drive the counter to zero -> BLOCKED; a blocked CVM rejects further verification.
+            verify(bibo, WRONG);
+            verify(bibo, WRONG);
+            verify(bibo, WRONG);
+            assertEquals(1, cvm(bibo, 0x00, 0, null)[3]); // blocked
+            assertEquals(CVM.CVM_FAILURE, verify(bibo, PIN));
+
+            // setTryLimit(0) is rejected; resetAndUnblock clears BLOCKED and restores the counter.
+            assertEquals(0, cvm(bibo, 0x01, 0, null)[0]);
+            assertEquals(1, cvm(bibo, 0x05, 0, null)[0]);
+            assertEquals(0, cvm(bibo, 0x00, 0, null)[3]); // not blocked
+            assertEquals(3, cvm(bibo, 0x00, 0, null)[4]);
+
+            // Explicit block then unblock, then validate to set up the power-up reset probe below.
+            assertEquals(1, cvm(bibo, 0x04, 0, null)[0]);
+            assertEquals(1, cvm(bibo, 0x05, 0, null)[0]);
+            assertEquals(CVM.CVM_SUCCESS, verify(bibo, PIN));
+
+            // B lacks CVM Management: every management op fails, regardless of CVM state.
+            selectAID(bibo, B);
+            assertEquals(0, cvm(bibo, 0x01, 5, null)[0]); // setTryLimit
+            assertEquals(0, cvm(bibo, 0x02, 0, PIN)[0]);  // update
+            assertEquals(0, cvm(bibo, 0x04, 0, null)[0]); // block
+            assertEquals(0, cvm(bibo, 0x05, 0, null)[0]); // resetAndUnblock
+        }
+
+        // Power-up returns the VALIDATED PIN to ACTIVE.
+        try (var bibo = sim.connect("*", true)) { // reset on close so the block below survives into the next phase
+            selectAID(bibo, A);
+            assertEquals(0, cvm(bibo, 0x00, 0, null)[2]); // no longer verified
+            assertEquals(1, cvm(bibo, 0x00, 0, null)[0]); // still active
+            assertEquals(1, cvm(bibo, 0x04, 0, null)[0]); // block it
+        }
+        // BLOCKED survives a power-up.
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, A);
+            assertEquals(1, cvm(bibo, 0x00, 0, null)[3]); // still blocked
+        }
+    }
+
+    // Drive the test applet's CVM sub-op (INS_CVM). data == null for the no-argument ops.
+    private static byte[] cvm(BIBO bibo, int p1, int p2, byte[] data) {
+        var c = data == null
+                ? new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_CVM, p1, p2, 256)
+                : new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_CVM, p1, p2, data, 256);
+        var r = bibo.transmit(c);
+        assertEquals(0x9000, r.getSW());
+        return r.getData();
+    }
+
+    // CVM verify sub-op returns [resultHi, resultLo, verified, tries]; first short is the CVM result.
+    private static short verify(BIBO bibo, byte[] pin) {
+        var d = cvm(bibo, 0x03, 0, pin);
+        return (short) ((d[0] << 8) | (d[1] & 0xFF));
     }
 
     // Read an applet's GET STATUS lifecycle byte via the gp-pro registry (tag 9F70 = getLifeCycle).

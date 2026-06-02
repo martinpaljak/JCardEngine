@@ -48,6 +48,7 @@ public class InstallExecuteAndObserveTest {
         byte[] custom256 = Hex.decode("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
         return Stream.of(
                 Arguments.of("SCP02-MAC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.MAC)),
+                Arguments.of("SCP02-ENC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.ENC)),
                 Arguments.of("SCP03-MAC", new SCPConfig.SCP03(), null, EnumSet.of(GPSession.APDUMode.MAC)),
                 Arguments.of("SCP03-S16-ENC", new SCPConfig.SCP03(true), null, EnumSet.of(GPSession.APDUMode.ENC)),
                 Arguments.of("Custom128-SCP03-ENC", new SCPConfig.SCP03(custom128), custom128, EnumSet.of(GPSession.APDUMode.ENC)),
@@ -263,6 +264,16 @@ public class InstallExecuteAndObserveTest {
             gp.deleteAID(gpAID(PKG), false);
             // After DELETE the ELF is gone from the registry.
             assertFalse(gp.getRegistry().allPackageAIDs().contains(gpAID(PKG)));
+        }
+
+        // DELETE negatives (GPC v2.3.1 11.2): unknown AID -> 6A88, the ISD cannot be deleted -> 6985,
+        // and a DELETE whose data field carries no '4F' AID tag -> 6A80.
+        try (var bibo = sim.connect()) {
+            var gp = GPTestUtils.openIsd(bibo);
+            assertEquals(0x6A88, assertThrows(GPException.class, () -> gp.deleteAID(gpAID(A), false)).sw);
+            assertEquals(0x6985, assertThrows(GPException.class, () -> gp.deleteAID(gpAID(SecurityDomainApplet.OPEN_AID), false)).sw);
+            var noAid = gp.transmit(new CommandAPDU(0x80, 0xE4, 0x00, 0x00, new byte[]{0x4E, 0x01, 0x00}));
+            assertEquals(0x6A80, noAid.getSW());
         }
     }
 

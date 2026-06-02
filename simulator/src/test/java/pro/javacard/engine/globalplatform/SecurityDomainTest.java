@@ -5,6 +5,7 @@ package pro.javacard.engine.globalplatform;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
+import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
@@ -16,8 +17,11 @@ import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
+import pro.javacard.tlv.TLV;
 
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
@@ -332,6 +336,50 @@ public class SecurityDomainTest {
             assertEquals(gpAID(NEW_ISD), registry.getISD().orElseThrow().getAID());
             // the original ISD AID is gone from the registry
             assertTrue(registry.getDomain(gpAID(SecurityDomainApplet.OPEN_AID)).isEmpty());
+        }
+    }
+
+    // GPC v2.3.1 11.11.2 STORE DATA [GP data] on the ISD. The CPLC perso (9F66) and pre-perso (9F67)
+    // slices are read-modify-written into the card's read-only 9F7F CPLC at fixed offsets; the full
+    // CPLC, an unknown data object, a wrong-length slice and the encrypted P1 format are each
+    // rejected with 6A80. A slice split across two blocks proves multi-block accumulation. Driven
+    // through gp-pro's GPSession.storeData (last-block bit and block numbering managed by gp-pro).
+    @Test
+    public void storeDataCplcSlicesAndRejects() throws Exception {
+        var sim = new JavaCardEngine.Builder().build();
+        byte[] perso = Hex.decode("1122334455667788");
+        byte[] preperso = Hex.decode("99AABBCCDDEEFF00");
+
+        try (var bibo = sim.connect("*", true)) {
+            var gp = openIsd(bibo);
+            gp.storeData(TLV.of(0x9F66, perso).encode(), 0x00);
+            gp.storeData(TLV.of(0x9F67, preperso).encode(), 0x00);
+
+            // 9F7F is read-only; an unknown tag and a wrong-length slice all reject.
+            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F7F, new byte[8]).encode(), 0x00)).sw);
+            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F50, new byte[2]).encode(), 0x00)).sw);
+            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F66, new byte[7]).encode(), 0x00)).sw);
+
+            // Encrypted STORE DATA format (P1 bits 0x18) is unsupported. gp-pro's storeData refuses
+            // to build it, so wrap a hand-built last-block command (P1=0x98) through the channel.
+            var enc = gp.transmit(new CommandAPDU(0x80, 0xE2, 0x98, 0x00, TLV.of(0x9F66, perso).encode()));
+            assertEquals(0x6A80, enc.getSW());
+        }
+
+        // Multi-block: a single 9F67 slice split into two STORE DATA blocks is accumulated then committed.
+        try (var bibo = sim.connect("*", true)) {
+            var gp = openIsd(bibo);
+            byte[] t = TLV.of(0x9F67, preperso).encode();
+            gp.storeData(List.of(Arrays.copyOfRange(t, 0, 4), Arrays.copyOfRange(t, 4, t.length)), 0x00);
+        }
+
+        // GET DATA 9F7F (public, unauthenticated): both slices landed at offsets 26 and 34.
+        try (var bibo = sim.connect()) {
+            var r = bibo.transmit(new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 256));
+            assertEquals(0x9000, r.getSW());
+            byte[] cplc = TLV.parse(r.getData()).find(0x9F7F).orElseThrow().value();
+            assertArrayEquals(preperso, Arrays.copyOfRange(cplc, 26, 34));
+            assertArrayEquals(perso, Arrays.copyOfRange(cplc, 34, 42));
         }
     }
 
