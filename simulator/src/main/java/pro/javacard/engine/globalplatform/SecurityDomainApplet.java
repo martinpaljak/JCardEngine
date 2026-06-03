@@ -289,6 +289,10 @@ public class SecurityDomainApplet extends Applet {
         }
     }
 
+    private static EngineRegistryEntry isd() {
+        return Simulator.current().gp().isd();
+    }
+
     // INSTALL [for Personalization] - sets the STORE DATA target on the OPEN.
     // Field layout (GPC v2.3.1 11.5.2.3.6, Table 11-47): empty | empty | Application AID | empty | empty | empty.
     private void installForPersonalization(APDU apdu, byte[] buffer, List<byte[]> fields) {
@@ -393,12 +397,11 @@ public class SecurityDomainApplet extends Applet {
             // Application is made selectable - here for install & make selectable, or later via a standalone
             // INSTALL [for make selectable]. Install-only (b3 without b4) stays INSTALLED and fires nothing.
             if (makeSelectable) {
+                clState.ifPresent(s -> newEntry.initial = s);
                 ContactlessEngine.notifyContactlessEvent(newEntry, CLAppletEvent.EVENT_SELECTABLE);
-                // Platform-issued transition, skips the cross-applet gate.
+                // GPC v2.3.1 Amd C 8.3: first make-selectable attempts the Initial Contactless Activation State.
                 // TODO: GPC v2.3.1 Amd C 8.3 / Table 11-7 - warning 6200 when activation cannot be honored.
-                if (clState.isPresent()) {
-                    ContactlessEngine.applyCLState(newEntry, clState.get());
-                }
+                ContactlessEngine.applyInitial(newEntry);
             } else {
                 newEntry.internalForceState(GPSystem.APPLICATION_INSTALLED);
             }
@@ -427,8 +430,10 @@ public class SecurityDomainApplet extends Applet {
         // internalForceState bypasses the GP-API setState gate, which deliberately rejects INSTALLED ->
         // SELECTABLE so the promotion happens only through this command (GPC v2.3.1 5.3.1.2).
         entry.internalForceState(GPSystem.APPLICATION_SELECTABLE);
-        // GPC v2.3.1 Amd C 8.3: EVENT_SELECTABLE fires when the Application is made selectable.
+        // GPC v2.3.1 Amd C 8.3: EVENT_SELECTABLE fires when the Application is made selectable, and the
+        // OPEN attempts the Initial Contactless Activation State on this first transition to SELECTABLE.
         ContactlessEngine.notifyContactlessEvent(entry, CLAppletEvent.EVENT_SELECTABLE);
+        ContactlessEngine.applyInitial(entry);
         // Privileges (field 3) / Make Selectable Params (field 4) registry update and Token (field 5)
         // verification are out of scope (see installForInstallAndMakeSelectable TODO).
         buffer[0] = 0x00;
@@ -445,8 +450,33 @@ public class SecurityDomainApplet extends Applet {
         checkCardNotLocked();
         checkInstallerAuthorized(self);
 
+        byte[] aidField = fields.get(2);
+        TLVs top;
+        Optional<CLState> clState;
+        try {
+            top = TLV.parse(fields.get(4));
+            clState = clStateOf(top); // validate the CL-state byte before any mutation
+        } catch (IllegalArgumentException e) {
+            log.warn("INSTALL [for registry update]: malformed parameters: {}", e.getMessage());
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            return; // unreachable; throwIt always throws
+        }
+
+        // GPC v2.3.1 Amd C 8.3 / 4.2: an empty AID field updates the OPEN-owned default Initial Contactless
+        // Activation State, modifiable only by the Issuer Security Domain. Other OPEN params are out of scope.
+        if (aidField.length == 0) {
+            if (self != isd()) {
+                log.warn("INSTALL [for registry update]: OPEN default update requires the ISD: {}", self.getAID());
+                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+            }
+            clState.ifPresent(s -> sim.gp().defaultInitial = s);
+            buffer[0] = 0x00;
+            apdu.setOutgoingAndSend((short) 0, (short) 1);
+            return;
+        }
+
         // GPC v2.3.1 9.4.2.1: the Application being updated must exist in the registry.
-        var appAid = AIDUtil.create(fields.get(2));
+        var appAid = AIDUtil.create(aidField);
         var entry = sim.gp().lookup(appAid);
         if (entry == null || entry.getKind() == Kind.PKG) {
             log.warn("INSTALL [for registry update]: application not in registry: {}", appAid);
@@ -458,23 +488,10 @@ public class SecurityDomainApplet extends Applet {
             log.warn("INSTALL [for registry update]: {} not associated with caller {}", appAid, self.getAID());
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
-
-        TLVs top;
-        Optional<CLState> clState;
-        try {
-            top = TLV.parse(fields.get(4));
-            clState = clStateOf(top); // validate the CL-state byte before any mutation
-        } catch (IllegalArgumentException e) {
-            log.warn("INSTALL [for registry update]: malformed parameters: {}", e.getMessage());
-            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            return; // unreachable; throwIt always throws
-        }
         applyEF(entry, top);
-        // GPC v2.3.1 Amd C 11.2 / 8.3: tag 81 updates the CL activation state in place. No EVENT_SELECTABLE -
-        // the Application's selectable lifecycle is unchanged by a registry update.
-        if (clState.isPresent()) {
-            ContactlessEngine.applyCLState(entry, clState.get());
-        }
+        // GPC v2.3.1 Amd C 8.3 / Table 11-3: tag 81 updates the stored Initial Contactless Activation State.
+        // The current activation state is untouched (that is SET STATUS / CRS), so no event and no counter bump.
+        clState.ifPresent(s -> entry.initial = s);
         buffer[0] = 0x00;
         apdu.setOutgoingAndSend((short) 0, (short) 1);
     }

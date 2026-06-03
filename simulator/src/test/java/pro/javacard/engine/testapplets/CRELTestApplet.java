@@ -5,6 +5,7 @@ package pro.javacard.engine.testapplets;
 import javacard.framework.*;
 
 import org.globalplatform.contactless.CLApplet;
+import org.globalplatform.contactless.CLAppletActivationPolicy;
 import org.globalplatform.contactless.CRELApplication;
 import org.globalplatform.contactless.GPCLRegistryEntry;
 import org.globalplatform.contactless.GPCLSystem;
@@ -19,12 +20,20 @@ import org.globalplatform.contactless.GPCLSystem;
 //   0x04 cross setCLState(P2)   CDATA = target AID, response = resulting state byte
 //   0x05 dump self log   event-hi | event-lo records
 //   0x06 read own Display Required Indicator   response = INFO_DISPLAY_REQUIREMENT value (6A83 if unset)
-public final class CRELTestApplet extends Applet implements CRELApplication, CLApplet {
+//
+// SET_CONFIG (CLA=0x80, INS=0x42): CDATA = array of 0x00/0x01 flags indexed by CFG_*. Flag
+// CFG_ACCEPT_ACTIVATION (default accept) is the acceptActivation() verdict (GPC v2.3.1 Amd C 8.2).
+public final class CRELTestApplet extends Applet implements CRELApplication, CLApplet, CLAppletActivationPolicy {
+
+    private static final byte INS_SET_CONFIG = 0x42;
+    private static final short CFG_ACCEPT_ACTIVATION = 0;
 
     private final byte[] crelLog = new byte[256];
     private final byte[] selfLog = new byte[64];
+    private final byte[] config = new byte[8];
     private short crelLen;
     private short selfLen;
+    private short configLen;
 
     public static void install(byte[] p, short off, byte len) {
         new CRELTestApplet().register(p, (short) (off + 1), p[off]);
@@ -36,6 +45,11 @@ public final class CRELTestApplet extends Applet implements CRELApplication, CLA
             return;
         }
         byte[] buf = apdu.getBuffer();
+        if (buf[ISO7816.OFFSET_INS] == INS_SET_CONFIG) {
+            configLen = apdu.setIncomingAndReceive();
+            Util.arrayCopyNonAtomic(buf, ISO7816.OFFSET_CDATA, config, (short) 0, configLen);
+            return;
+        }
         byte p2 = buf[ISO7816.OFFSET_P2];
         switch (buf[ISO7816.OFFSET_P1]) {
             case 0x00:
@@ -81,10 +95,22 @@ public final class CRELTestApplet extends Applet implements CRELApplication, CLA
         //if (clientAID != null) {
         //    return null;
         //}
-        if (parameter == GPCLSystem.GPCL_CREL_APPLICATION || parameter == GPCLSystem.GPCL_CL_APPLICATION) {
+        if (parameter == GPCLSystem.GPCL_CREL_APPLICATION || parameter == GPCLSystem.GPCL_CL_APPLICATION
+                || parameter == GPCLSystem.GPCL_CL_APPLICATION_ACTIVATION_POLICY) {
             return this;
         }
         return null;
+    }
+
+    // GPC v2.3.1 Amd C 8.2: default accept; SET_CONFIG flag 0x00 makes the OPEN refuse activation.
+    @Override
+    public boolean acceptActivation() {
+        return CFG_ACCEPT_ACTIVATION >= configLen || config[CFG_ACCEPT_ACTIVATION] != 0;
+    }
+
+    @Override
+    public short getNextApplicationConflictInfo(byte[] outBuffer, short outOffset) {
+        return 0;
     }
 
     @Override

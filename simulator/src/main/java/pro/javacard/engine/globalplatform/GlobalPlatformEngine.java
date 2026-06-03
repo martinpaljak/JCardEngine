@@ -36,6 +36,10 @@ public class GlobalPlatformEngine {
     // GPC CL Global Update Counter
     private int updateCounter = 0;
 
+    // GPC v2.3.1 Amd C 8.3 / 4.2: the OPEN-owned default Initial Contactless Activation State, applied to an
+    // Application installed without its own tag 81. ISD-settable via empty-AID INSTALL [for registry update].
+    CLState defaultInitial = CLState.DEACTIVATED;
+
     public GlobalPlatformEngine(SCPConfig scpConfig) {
         Objects.requireNonNull(scpConfig, "GlobalPlatform requires an SCP configuration");
         KeySet factoryKeys;
@@ -92,6 +96,10 @@ public class GlobalPlatformEngine {
     public void bootstrap() {
         var crsEntry = EngineRegistryEntry.forApplet(EngineCRSApplet.CRS_AID, new EngineCRSApplet(), true,
                 EnumSet.of(Privilege.ContactlessActivation, Privilege.GlobalRegistry), EngineCRSApplet.CRS_PACKAGE_AID, isd);
+        // GPC v2.3.1 Amd C 8.1: the CRS is contactless-ACTIVATED from boot, else it is unreachable over the
+        // contactless interface it exists to manage.
+        crsEntry.initial = CLState.ACTIVATED;
+        crsEntry.state = GPCLRegistryEntry.STATE_CL_ACTIVATED;
         registry.put(EngineCRSApplet.CRS_AID, crsEntry);
         addBuiltinPackage(EngineCRSApplet.CRS_PACKAGE_AID, EngineCRSApplet.CRS_AID, EngineCRSApplet.class);
     }

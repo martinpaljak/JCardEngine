@@ -40,7 +40,11 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     private final Map<AID, Class<? extends Applet>> modules; // PKG only
 
     // ---- CL state (applet-kind only; PKG entries throw on CL methods).
-    private byte state = STATE_CL_DEACTIVATED;
+    byte state = STATE_CL_DEACTIVATED;
+    // GPC v2.3.1 Amd C 8.3 Initial Contactless Activation State: the OPEN attempts this state at first
+    // make-selectable and on unlock. Independent of the current state above. null = use the OPEN-owned
+    // default (GlobalPlatformEngine.defaultInitial); see ContactlessEngine.applyInitial.
+    CLState initial;
     private final LinkedHashSet<AID> crels = new LinkedHashSet<>();
     final HashMap<GPInfo, byte[]> infos = new HashMap<>();
 
@@ -100,7 +104,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
     // ISD factory used by bootstrap. The ISD self-parents (GPC v2.3.1 7.2) and is not extraditable.
     static EngineRegistryEntry forISD(AID aid, Object instance, AID packageAID) {
-        return new EngineRegistryEntry(aid, instance, true, copyPrivileges(SecurityDomainApplet.ISD_DEFAULT_PRIVILEGES), Kind.ISD, packageAID, GPSystem.CARD_OP_READY, null);
+        var isd = new EngineRegistryEntry(aid, instance, true, copyPrivileges(SecurityDomainApplet.ISD_DEFAULT_PRIVILEGES), Kind.ISD, packageAID, GPSystem.CARD_OP_READY, null);
+        // GPC v2.3.1 Amd C 8.1: the ISD is contactless-ACTIVATED from boot, else the card is unreachable
+        // over the contactless interface (no prior contact-interface activation would be possible).
+        isd.initial = CLState.ACTIVATED;
+        isd.state = STATE_CL_ACTIVATED;
+        return isd;
     }
 
     // PKG factory. associatedSD is the SD that issued the load (real GP: INSTALL [for load]).
@@ -279,6 +288,10 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
                 return false;
             }
             this.lifecycle = (byte) (this.lifecycle | 0x80);
+            // GPC v2.3.1 Amd C 8.1: an ACTIVATED Application becomes DEACTIVATED when locked.
+            if (isContactlessCapable() && state == STATE_CL_ACTIVATED) {
+                ContactlessEngine.applyCLState(this, CLState.DEACTIVATED);
+            }
             return true;
         }
         if (!newLocked && curLocked) {
@@ -286,6 +299,11 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
                 return false;
             }
             this.lifecycle = (byte) (this.lifecycle & 0x7F);
+            // GPC v2.3.1 Amd C 8.1: on unlock a NON_ACTIVATABLE Application stays so; otherwise the OPEN
+            // attempts its Initial Contactless Activation State (failed activation lands on DEACTIVATED).
+            if (isContactlessCapable() && state != STATE_CL_NON_ACTIVATABLE) {
+                ContactlessEngine.applyInitial(this);
+            }
             return true;
         }
         if (curLocked) {
@@ -309,6 +327,10 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         }
         this.lifecycle = newState;
         return true;
+    }
+
+    boolean isLocked() {
+        return (lifecycle & (byte) 0x80) != 0;
     }
 
     @Override
@@ -624,6 +646,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
             // PKG implements GPCLRegistryEntry only for the cast rule; no CL lifecycle.
             SystemException.throwIt(SystemException.ILLEGAL_USE);
         }
+    }
+
+    // Only APP/SSD carry a contactless activation state; the ISD lifecycle is the card LCS and PKGs
+    // have none, so neither follows the lock/unlock CL adjustment rules.
+    private boolean isContactlessCapable() {
+        return kind == Kind.APP || kind == Kind.SSD;
     }
 
     // JC GP API privilege byte (PRIVILEGE_*, an identifier 0x00..0x13) <-> GPPro Privilege.

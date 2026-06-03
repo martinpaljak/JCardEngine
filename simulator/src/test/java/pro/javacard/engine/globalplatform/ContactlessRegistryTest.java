@@ -71,6 +71,10 @@ public class ContactlessRegistryTest {
     private static final byte STATE_CL_ACTIVATED = 0x01;
     private static final byte STATE_CL_NON_ACTIVATABLE = (byte) 0x80;
 
+    // Application life cycle bytes for SET STATUS [for application] (GPC v2.3.1 11.1.1; b8 = LOCK).
+    private static final byte APP_SELECTABLE = 0x07;
+    private static final byte APP_LOCKED = (byte) 0x87;
+
     // CRELTestApplet APDU surface.
     private static final byte CREL_CLA = (byte) 0x80;
     private static final byte CREL_INS_DUMP = (byte) 0xEE;
@@ -78,6 +82,7 @@ public class ContactlessRegistryTest {
     private static final byte CREL_P1_SELF_SETCLSTATE = (byte) 0x03;
     private static final byte CREL_P1_CROSS_SETCLSTATE = (byte) 0x04;
     private static final byte CREL_P1_READ_SELF = (byte) 0x05;
+    private static final byte INS_SET_CONFIG = (byte) 0x42;
 
     // CRS happy path: SELECT, GET DATA, INSTALL fan-out, GET STATUS, SET STATUS, DELETE
     // (with GPC v2.3.1 Amd C 3.10.4 self-dispatch suppression), reinstall.
@@ -292,33 +297,41 @@ public class ContactlessRegistryTest {
             assertEvent(tail.get(1), EVENT_ACTIVATED, X2);
         }
 
-        // 3. Mixed SET STATUS: valid X + unknown AID -> X transitions, unknown lands in A1
-        // failed list, SW=6320 (GPC v2.3.1 Amd C 3.11.4.3.1).
+        // 3. Mixed SET STATUS: valid X activates while an unknown AID and a self-NON_ACTIVATABLE applet
+        // both land in the A1 failed list (GPC v2.3.1 Amd C 3.11.4.2 / 3.11.4.3.1), SW=6320; processing
+        // continues past each failure.
         var simMixed = freshEngine();
         try (var bibo = simMixed.connect()) {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
             installXWithParams(gp, buildEf(false, T));
         }
+        // T transitions itself to NON_ACTIVATABLE (GPC v2.3.1 Amd C 8.1); only the applet itself may.
+        try (var bibo = simMixed.connect()) {
+            selectAID(bibo, T);
+            var na = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_NON_ACTIVATABLE));
+            assertEquals(STATE_CL_NON_ACTIVATABLE, na.getData()[0]);
+        }
         byte[] unknown = Hex.decode("DEADBEEF00");
         try (var bibo = simMixed.connect()) {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.encode(
                     TLV.of(0x4F, AIDUtil.bytes(X)),
-                    TLV.of(0x4F, unknown));
+                    TLV.of(0x4F, unknown),
+                    TLV.of(0x4F, AIDUtil.bytes(T)));
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
             assertEquals(0x6320, resp.getSW());
-            var parsed = TLV.parse(resp.getData());
-            assertEquals(1, parsed.size());
-            var a1 = parsed.get(0);
+            var a1 = TLV.parse(resp.getData()).get(0);
             assertEquals(Tag.ber(0xA1), a1.tag());
+            // Both the unknown AID and the NON_ACTIVATABLE T are listed, in command order; X is not.
             var failed = TLV.parse(a1.value());
-            assertEquals(1, failed.size());
-            assertEquals(Tag.ber(0x4F), failed.get(0).tag());
+            assertEquals(2, failed.size());
             assertArrayEquals(unknown, failed.get(0).value());
+            assertArrayEquals(AIDUtil.bytes(T), failed.get(1).value());
         }
         try (var bibo = simMixed.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));        // valid AID processed
+            assertEquals(STATE_CL_NON_ACTIVATABLE, findClStateInGetStatus(bibo, T));  // refusal left T untouched
         }
 
         // 4. Malformed / parameter-bound rejections.
@@ -553,11 +566,12 @@ public class ContactlessRegistryTest {
             assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X));
         }
 
-        // 4. Cross-applet ACTIVATE with the privilege succeeds; EVENT_ACTIVATED on the target's
-        // CREL fan-out. Caller picks up ContactlessActivation via install-time TRANSFER (7.1).
+        // 4. Cross-applet ACTIVATE needs the privilege AND the target's acceptActivation() consent
+        // (GPC v2.3.1 Amd C 7.1 + 8.2). Caller picks up ContactlessActivation via install-time TRANSFER.
+        // X first refuses via its CLAppletActivationPolicy (6985), then consents -> 9000 + EVENT_ACTIVATED.
         var simCrossOK = new JavaCardEngine.Builder().build();
         simCrossOK.loadApplet(PKG, T, CRELTestApplet.class);
-        simCrossOK.loadApplet(PKG, X, GlobalPlatformTestApplet.class);
+        simCrossOK.loadApplet(PKG, X, CRELTestApplet.class);
         var caller = GPTestUtils.test_aid("9999");
         simCrossOK.loadApplet(PKG, caller, CRELTestApplet.class);
         try (var bibo = simCrossOK.connect()) {
@@ -566,6 +580,21 @@ public class ContactlessRegistryTest {
             installXWithParams(gp, buildEf(false, T));
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(caller), gpAID(caller),
                     EnumSet.of(Privilege.GlobalRegistry, Privilege.ContactlessActivation), new byte[0]);
+        }
+        // X's policy refuses (SET_CONFIG flag 0 = 00): cross-activation aborts, X stays DEACTIVATED.
+        try (var bibo = simCrossOK.connect()) {
+            selectAID(bibo, X);
+            bibo.transmit(new CommandAPDU(CREL_CLA, INS_SET_CONFIG, 0x00, 0x00, new byte[]{0x00}));
+        }
+        try (var bibo = simCrossOK.connect()) {
+            selectAID(bibo, caller);
+            var refused = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_CROSS_SETCLSTATE, STATE_CL_ACTIVATED, AIDUtil.bytes(X)));
+            assertEquals(0x6985, refused.getSW());
+        }
+        // X now consents (flag 0 = 01): the same cross-activation succeeds and fans EVENT_ACTIVATED to T.
+        try (var bibo = simCrossOK.connect()) {
+            selectAID(bibo, X);
+            bibo.transmit(new CommandAPDU(CREL_CLA, INS_SET_CONFIG, 0x00, 0x00, new byte[]{0x01}));
         }
         try (var bibo = simCrossOK.connect()) {
             selectAID(bibo, caller);
@@ -749,16 +778,49 @@ public class ContactlessRegistryTest {
             assertEvent(events.get(events.size() - 1), EVENT_DEACTIVATED, X);
         }
 
-        // 3. Registry update with ONLY tag 81 -> ACTIVATED. CL state changes; Display Required retained.
+        // 3. Registry update with ONLY tag 81 sets X's INITIAL Contactless Activation State (GPC v2.3.1
+        //    Amd C 8.3 / Table 11-3); it does NOT touch the live CL state (that is SET STATUS / CRS). Set it
+        //    to DEACTIVATED, differing from the install-time 01: X stays DEACTIVATED from step 2 either way.
         try (var bibo = sim.connect()) {
-            var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
+            var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_DEACTIVATED}));
             assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X)); // current state untouched by tag 81
         }
         try (var bibo = sim.connect()) {
             assertEquals(0x01, readDisplayRequired(bibo, X)); // tag 88 retained across an 81-only update
+        }
+
+        // 3b. The stored initial governs unlock (GPC v2.3.1 Amd C 8.1): lock X, then unlock; the OPEN
+        //     re-applies the initial, which is DEACTIVATED here, so X does not re-activate.
+        try (var bibo = sim.connect()) {
+            assertEquals(0x9000, setAppLifecycle(openIsd(bibo), X, APP_LOCKED));
+        }
+        // GPC v2.3.1 Amd C 8.1: a LOCKED Application cannot be activated; CRS SET STATUS refuses it (6320).
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, CRS_AID);
+            byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
+            var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
+            assertEquals(0x6320, resp.getSW());
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(0x9000, setAppLifecycle(openIsd(bibo), X, APP_SELECTABLE));
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X)); // initial=DEACTIVATED honored on unlock
+        }
+
+        // 3c. Flip the initial to ACTIVATED via registry update: the next unlock re-activates X (Amd C 8.1).
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
+            assertEquals(0x9000, registryUpdate(gp, X, ef));
+            assertEquals(0x9000, setAppLifecycle(gp, X, APP_LOCKED));
+            assertEquals(0x9000, setAppLifecycle(gp, X, APP_SELECTABLE));
+        }
+        try (var bibo = sim.connect()) {
+            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X)); // initial=ACTIVATED re-applied on unlock
         }
 
         // 4. Zero-length 88 deletes the indicator (GPC v2.3.1 Amd C 11.2.3); getInfo -> 6A83.
@@ -776,6 +838,25 @@ public class ContactlessRegistryTest {
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
             assertEquals(0x6A88, registryUpdate(openIsd(bibo), AIDUtil.create("DEADBEEF00"), ef));
+        }
+    }
+
+    // GPC v2.3.1 Amd C 8.3 / 4.2: the OPEN owns a default Initial Contactless Activation State, set by the
+    // ISD ("root") via an empty-AID INSTALL [for registry update]. An Application installed without its own
+    // tag 81 inherits that default and is activated on make-selectable accordingly.
+    @Test
+    public void openDefaultInitialActivation() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            // ISD sets the OPEN default to ACTIVATED, then installs T with no contactless params.
+            var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
+            assertEquals(0x9000, registryUpdateOpenDefault(gp, ef));
+            installCRELTestApplet(gp);
+        }
+        // T carried no tag 81, so it inherits the OPEN default and comes up ACTIVATED.
+        try (var bibo = sim.connect()) {
+            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, T));
         }
     }
 
@@ -953,6 +1034,18 @@ public class ContactlessRegistryTest {
     private static int registryUpdate(GPSession gp, AID target, TLV ef) {
         byte[] body = LV.encode(null, null, AIDUtil.bytes(target), null, ef.encode(), null);
         return gp.transmit(new CommandAPDU(0x80, 0xE6, 0x40, 0x00, body)).getSW();
+    }
+
+    // Empty-AID INSTALL [for registry update]: updates the OPEN-owned default Initial Contactless
+    // Activation State (GPC v2.3.1 Amd C 8.3 / 4.2). Valid only on the ISD session.
+    private static int registryUpdateOpenDefault(GPSession gp, TLV ef) {
+        byte[] body = LV.encode(null, null, null, null, ef.encode(), null);
+        return gp.transmit(new CommandAPDU(0x80, 0xE6, 0x40, 0x00, body)).getSW();
+    }
+
+    // SET STATUS [for application] (P1=0x40): set the target's life cycle state (data = target AID).
+    private static int setAppLifecycle(GPSession gp, AID target, byte state) {
+        return gp.transmit(new CommandAPDU(0x80, 0xF0, 0x40, state & 0xFF, AIDUtil.bytes(target))).getSW();
     }
 
     // SELECT the (CRELTestApplet) app and read its own Display Required Indicator (P1=0x06). Asserts 9000.

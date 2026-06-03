@@ -439,6 +439,11 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
             // throws so one bad entry can't truncate the batch (mid-list abort would silently
             // strand the unprocessed tail).
             try {
+                // GPC v2.3.1 Amd C 3.11.4.2: activating a NON_ACTIVATABLE Application is not an error; skip, list in A1.
+                if (p2 == GPCLRegistryEntry.STATE_CL_ACTIVATED && entry.getCLState() == GPCLRegistryEntry.STATE_CL_NON_ACTIVATABLE) {
+                    failed.add(aidBytes);
+                    continue;
+                }
                 // applyCLState bumps the update counter per moved entry (GPC v2.3.1 Amd C 3.11.2.3).
                 ContactlessEngine.setCLState(entry, p2);
             } catch (Exception e) {

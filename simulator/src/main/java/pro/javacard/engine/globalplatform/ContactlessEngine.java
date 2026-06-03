@@ -125,6 +125,12 @@ public final class ContactlessEngine {
             return 0;
         }
         boolean self = caller.getAID().equals(cl.getAID());
+        // GPC v2.3.1 Amd C 8.1: a LOCKED or NON_ACTIVATABLE Application cannot be activated,
+        // regardless of caller privilege. Refused outright, never delegated to the CRS.
+        if (state == GPCLRegistryEntry.STATE_CL_ACTIVATED
+                && (cl.isLocked() || cl.internalGetCLState() == GPCLRegistryEntry.STATE_CL_NON_ACTIVATABLE)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         boolean allowed = switch (state) {
             case GPCLRegistryEntry.STATE_CL_DEACTIVATED -> true;
             case GPCLRegistryEntry.STATE_CL_NON_ACTIVATABLE -> self;
@@ -140,8 +146,20 @@ public final class ContactlessEngine {
             }
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
+        // GPC v2.3.1 Amd C 8.2: before activating another Application that is currently DEACTIVATED,
+        // the OPEN asks its CLAppletActivationPolicy whether it accepts.
+        if (state == GPCLRegistryEntry.STATE_CL_ACTIVATED && !self
+                && cl.internalGetCLState() == GPCLRegistryEntry.STATE_CL_DEACTIVATED && !acceptsActivation(cl)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         // Only the three known state bytes reach here, so the lookup cannot fail.
         return applyCLState(cl, CLState.ofByte(state).orElseThrow());
+    }
+
+    // GPC v2.3.1 Amd C 8.2: no policy implemented => accept; otherwise the applet's own verdict.
+    private static boolean acceptsActivation(EngineRegistryEntry cl) {
+        var sio = Simulator.current().getSystemSharedObject(cl.getAID(), GPCLSystem.GPCL_CL_APPLICATION_ACTIVATION_POLICY);
+        return !(sio instanceof CLAppletActivationPolicy policy) || policy.acceptActivation();
     }
 
     // Route via the CRS (current holder of PRIVILEGE_CONTACTLESS_ACTIVATION; transferable, GPC v2.3.1 Amd C 7.1).
@@ -176,5 +194,12 @@ public final class ContactlessEngine {
             notifyContactlessEvent(cl, newState.event);
         }
         return cl.internalGetCLState();
+    }
+
+    // GPC v2.3.1 Amd C 8.3: the OPEN attempts an Application's Initial Contactless Activation State - its
+    // own if set, else the OPEN-owned default - at first make-selectable and on unlock. OPEN-issued, so it
+    // skips the cross-applet authorization gate that setCLState enforces.
+    static byte applyInitial(EngineRegistryEntry cl) {
+        return applyCLState(cl, cl.initial != null ? cl.initial : Simulator.current().gp().defaultInitial);
     }
 }
