@@ -87,6 +87,13 @@
             <version>2.21.4</version>
         </dependency>
         <!-- unit tests -->
+        <!-- transport adapters: only the JSONAdapter integration test needs them (main engine does not) -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>jcardengine-adapters</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

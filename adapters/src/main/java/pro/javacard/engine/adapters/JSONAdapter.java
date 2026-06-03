@@ -6,7 +6,6 @@ import apdu4j.core.BIBO;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
 import java.util.function.Function;
 
 // JSON-over-TCP adapter. Each TCP connection carries one JSON request/response.
@@ -75,7 +75,7 @@ public final class JSONAdapter extends AbstractTCPAdapter {
                 yield new RemoteMessage(RemoteMessage.Type.POWERUP);
             }
             case "apdu" -> {
-                byte[] apdu = Hex.decode(json.path("data").asText());
+                byte[] apdu = HexFormat.of().parseHex(json.path("data").asText());
                 yield new RemoteMessage(RemoteMessage.Type.APDU, apdu);
             }
             case "close" -> new RemoteMessage(RemoteMessage.Type.POWERDOWN);
@@ -88,13 +88,13 @@ public final class JSONAdapter extends AbstractTCPAdapter {
         ObjectNode json = lastRequest != null ? ((ObjectNode) lastRequest).deepCopy() : mapper.createObjectNode();
         switch (message.getType()) {
             case ATR:
-                json.put("response", Hex.toHexString(message.getPayload()));
+                json.put("response", HexFormat.of().formatHex(message.getPayload()));
                 break;
             case POWERUP:
-                json.put("response", Hex.toHexString(atr));
+                json.put("response", HexFormat.of().formatHex(atr));
                 break;
             case APDU:
-                json.put("response", Hex.toHexString(message.getPayload()));
+                json.put("response", HexFormat.of().formatHex(message.getPayload()));
                 break;
             case POWERDOWN:
                 break;

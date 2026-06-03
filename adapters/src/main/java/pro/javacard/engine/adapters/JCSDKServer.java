@@ -3,7 +3,6 @@
 package pro.javacard.engine.adapters;
 
 import apdu4j.core.BIBO;
-import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +11,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.HexFormat;
 import java.util.function.Function;
 
 public final class JCSDKServer extends AbstractTCPAdapter {
@@ -32,7 +32,7 @@ public final class JCSDKServer extends AbstractTCPAdapter {
         buffer.position(4);
         buffer.put(data);
         buffer.rewind();
-        log.info(Hex.toHexString(buffer.array()));
+        log.info(HexFormat.of().formatHex(buffer.array()));
         return buffer;
     }
 
@@ -59,7 +59,7 @@ public final class JCSDKServer extends AbstractTCPAdapter {
             throw new EOFException("Peer closed connection");
         }
         byte b1 = hdr.get(0);
-        log.info("Received {}", Hex.toHexString(hdr.array()));
+        log.info("Received {}", HexFormat.of().formatHex(hdr.array()));
         switch (b1) {
             case (byte) 0xF0:
                 return new RemoteMessage(RemoteMessage.Type.ATR);
@@ -71,7 +71,7 @@ public final class JCSDKServer extends AbstractTCPAdapter {
                 channel.read(cmd);
                 return new RemoteMessage(RemoteMessage.Type.APDU, cmd.array());
             default:
-                throw new IOException("Unknown command header: %s" + Hex.toHexString(hdr.array()));
+                throw new IOException("Unknown command header: %s" + HexFormat.of().formatHex(hdr.array()));
         }
     }
 

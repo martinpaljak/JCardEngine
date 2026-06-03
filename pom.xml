@@ -65,6 +65,7 @@
 
     <modules>
         <module>simulator</module>
+        <module>adapters</module>
         <module>tool</module>
     </modules>
 

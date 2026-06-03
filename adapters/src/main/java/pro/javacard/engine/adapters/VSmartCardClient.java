@@ -3,7 +3,6 @@
 package pro.javacard.engine.adapters;
 
 import apdu4j.core.BIBO;
-import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +10,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.HexFormat;
 import java.util.function.Function;
 
 public final class VSmartCardClient extends AbstractTCPAdapter {
@@ -66,7 +66,7 @@ public final class VSmartCardClient extends AbstractTCPAdapter {
                 return;
         }
         if (message.getType() != RemoteMessage.Type.ATR) {
-            log.trace("Sending {}", Hex.toHexString(msg.array()));
+            log.trace("Sending {}", HexFormat.of().formatHex(msg.array()));
         }
         channel.write(msg);
     }

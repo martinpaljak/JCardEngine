@@ -4,7 +4,6 @@ package pro.javacard.engine.adapters;
 
 import apdu4j.core.BIBO;
 import apdu4j.core.BIBOException;
-import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +11,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.HexFormat;
 import java.util.function.Function;
 
 // Reverse of the server
@@ -39,7 +39,7 @@ public class JCSDKClient implements Function<String, BIBO>, BIBO {
             throw new EOFException("Peer closed connection");
         }
         byte b1 = hdr.get(0);
-        log.info("Received {}", Hex.toHexString(hdr.array()));
+        log.info("Received {}", HexFormat.of().formatHex(hdr.array()));
         switch (b1) {
             case (byte) 0xF0:
                 int atrlen = hdr.getShort(2);
@@ -55,7 +55,7 @@ public class JCSDKClient implements Function<String, BIBO>, BIBO {
                 } while (cmd.position() < cmd.limit());
                 return new RemoteMessage(RemoteMessage.Type.APDU, cmd.array());
             default:
-                throw new IOException("Unknown command header: %s" + Hex.toHexString(hdr.array()));
+                throw new IOException("Unknown command header: %s" + HexFormat.of().formatHex(hdr.array()));
         }
     }
 
@@ -77,7 +77,7 @@ public class JCSDKClient implements Function<String, BIBO>, BIBO {
                 log.warn("Unknown message for protocol: " + message.getType());
         }
         RemoteMessage received = recv(channel);
-        log.trace("Received {}: {}", received.getType(), Hex.toHexString(received.getPayload()));
+        log.trace("Received {}: {}", received.getType(), HexFormat.of().formatHex(received.getPayload()));
         return received;
     }
 

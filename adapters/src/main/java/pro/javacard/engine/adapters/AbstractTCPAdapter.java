@@ -3,7 +3,6 @@
 package pro.javacard.engine.adapters;
 
 import apdu4j.core.BIBO;
-import org.bouncycastle.util.encoders.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.engine.adapters.RemoteMessage.Type;
@@ -17,6 +16,7 @@ import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,7 +28,7 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
     private final Logger log = LoggerFactory.getLogger(AbstractTCPAdapter.class);
 
     public static final String DEFAULT_ATR_HEX = "3B80800101";
-    static final byte[] DEFAULT_ATR = Hex.decode(DEFAULT_ATR_HEX);
+    static final byte[] DEFAULT_ATR = HexFormat.of().parseHex(DEFAULT_ATR_HEX);
 
     protected void start() throws IOException {
         // No special steps needed for clients.
@@ -206,17 +206,17 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
                                                 session = sim.apply(protocol);
                                             }
                                             byte[] cmd = msg.getPayload();
-                                            if (Arrays.equals(cmd, Hex.decode("FFCA000000")) && protocol.equals("T=CL")) {
+                                            if (Arrays.equals(cmd, HexFormat.of().parseHex("FFCA000000")) && protocol.equals("T=CL")) {
                                                 log.info("Intercepting GET UID");
                                                 // NOTE: Normally it is the task of a reader driver to fetch the UID from the card
                                                 // As we have basic virtual adapters, must intercept this ourselves.
                                                 // TODO: parametrize
-                                                send(channel, new RemoteMessage(Type.APDU, Hex.decode("040102039000")));
+                                                send(channel, new RemoteMessage(Type.APDU, HexFormat.of().parseHex("040102039000")));
                                                 break;
                                             }
-                                            log.info(">> {}", Hex.toHexString(cmd));
+                                            log.info(">> {}", HexFormat.of().formatHex(cmd));
                                             byte[] response = session.transceive(cmd);
-                                            log.info("<< {}", Hex.toHexString(response));
+                                            log.info("<< {}", HexFormat.of().formatHex(response));
                                             send(channel, new RemoteMessage(Type.APDU, response));
                                             break;
                                         default:
@@ -277,6 +277,6 @@ public abstract class AbstractTCPAdapter implements Callable<Boolean> {
 
     @Override
     public String toString() {
-        return String.format("%s{host=%s port=%d atr=%s protocol=%s}", this.getClass().getSimpleName(), host, port, Hex.toHexString(atr), protocol);
+        return String.format("%s{host=%s port=%d atr=%s protocol=%s}", this.getClass().getSimpleName(), host, port, HexFormat.of().formatHex(atr), protocol);
     }
 }
