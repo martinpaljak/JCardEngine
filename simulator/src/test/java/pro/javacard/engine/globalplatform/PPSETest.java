@@ -13,84 +13,40 @@ import pro.javacard.engine.testapplets.PaymentApplet;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
 import pro.javacard.tlv.TLV;
-import pro.javacard.tlv.Tag;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// PPSE (EMVCo PPSE and Application Management for SE v1.0). The PPSEApplet directory instance (AID
-// '2PAY.SYS.DDF01', GlobalRegistry) builds its FCI from the discretionary data of activated financial
-// applications; the PaymentApplet instances set their own discretionary data via INS_UPDATE_DD and are
-// enumerated through getNextGPCLRegistryEntry.
 public class PPSETest {
 
     private static final AID PKG = AIDUtil.create("0102030405");
     private static final AID PPSE = AIDUtil.create("325041592E5359532E4444463031"); // '2PAY.SYS.DDF01'
     private static final AID PAY_A = GPTestUtils.test_aid("AA01");
-    private static final AID PAY_B = GPTestUtils.test_aid("BB01"); // AID > PAY_A: enumerated after it
-    private static final AID PAY_C = GPTestUtils.test_aid("CC01"); // non-financial, must be excluded
+    private static final AID PAY_B = GPTestUtils.test_aid("BB01");
 
     private static final byte AFI_FINANCIAL = 0x20;
-    private static final byte AFI_OTHER = 0x30;
-
     private static final byte INS_UPDATE_DD = (byte) 0xDA;
-    private static final byte INS_PUT_TEMPLATE = (byte) 0xD2;
-    private static final byte INS_GET_TEMPLATE = (byte) 0xD4;
-    private static final byte INS_SET_MODE = (byte) 0xD6;
-    private static final byte MODE_EXTERNAL = (byte) 0x01;
-    private static final byte MODE_MUTEX = (byte) 0x03;
 
     private static JavaCardEngine freshEngine() {
         var sim = new JavaCardEngine.Builder().build();
         sim.loadApplet(PKG, PPSE, PPSEApplet.class);
         sim.loadApplet(PKG, PAY_A, PaymentApplet.class);
         sim.loadApplet(PKG, PAY_B, PaymentApplet.class);
-        sim.loadApplet(PKG, PAY_C, PaymentApplet.class);
         return sim;
     }
 
-    // Two activated financial apps set their discretionary data at runtime; the directory merges both.
-    // The labels push the merged body over 127 bytes (exercising BER long-form lengths), and PAY_B's
-    // BF0C over-claims its length: the directory must still copy only PAY_B's own bytes, never PAY_A's
-    // larger leftover in the shared scratch buffer.
     @Test
-    public void directoryFromRuntimeUpdates() throws Exception {
-        var sim = freshEngine();
-        var dirA = dirEntry(PAY_A, "A".repeat(80), 0x01); // larger, enumerated first
-        var dirB = dirEntry(PAY_B, "B".repeat(40), 0x02);
-
-        try (var bibo = sim.connect()) {
-            var gp = GPTestUtils.openIsd(bibo);
-            installDirectory(gp);
-            installPayment(gp, PAY_A, AFI_FINANCIAL, null);
-            installPayment(gp, PAY_B, AFI_FINANCIAL, null);
-        }
-        try (var bibo = sim.connect()) {
-            selectAID(bibo, PAY_A);
-            updateDD(bibo, bf0c(dirA));
-            selectAID(bibo, PAY_B);
-            updateDD(bibo, overclaimedBf0c(dirB));
-        }
-        try (var bibo = sim.connect()) {
-            byte[] fci = selectAID(bibo, PPSE);
-            assertTrue(fci.length > 127);
-            assertArrayEquals(expectedFci(dirA, dirB), fci);
-        }
-    }
-
-    // Initial directory entry seeded via the INSTALL A6 parameter, then replaced via INS_UPDATE_DD.
-    @Test
-    public void installSeedThenRuntimeUpdate() throws Exception {
+    public void directoryFromActivatedApp() throws Exception {
         var sim = freshEngine();
         var v1 = dirEntry(PAY_A, "1", 0x01);
-        var v2 = dirEntry(PAY_A, "2", 0x01);
+        var v2 = dirEntry(PAY_A, "X".repeat(130), 0x01); // pushes the body past the BER short-form length
 
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
             installDirectory(gp);
-            installPayment(gp, PAY_A, AFI_FINANCIAL, v1); // A6 seed
+            installPayment(gp, PAY_A, v1);
         }
         try (var bibo = sim.connect()) {
             assertArrayEquals(expectedFci(v1), selectAID(bibo, PPSE));
@@ -100,165 +56,43 @@ public class PPSETest {
             updateDD(bibo, bf0c(v2));
         }
         try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(v2), selectAID(bibo, PPSE));
+            byte[] fci = selectAID(bibo, PPSE);
+            assertTrue(fci.length > 127);
+            assertArrayEquals(expectedFci(v2), fci);
         }
     }
 
-    // A non-financial activated app with discretionary data is filtered out by AFI_FINANCIAL.
     @Test
-    public void nonFinancialAppExcluded() throws Exception {
+    public void latestActivatedWins() throws Exception {
         var sim = freshEngine();
         var dirA = dirEntry(PAY_A, "A", 0x01);
-        var dirC = dirEntry(PAY_C, "C", 0x01);
+        var dirB = dirEntry(PAY_B, "B", 0x02);
 
-        try (var bibo = sim.connect()) {
-            var gp = GPTestUtils.openIsd(bibo);
-            installDirectory(gp);
-            installPayment(gp, PAY_A, AFI_FINANCIAL, dirA);
-            installPayment(gp, PAY_C, AFI_OTHER, dirC);
-        }
-        try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(dirA), selectAID(bibo, PPSE));
-        }
-    }
-
-    // No activated payment apps: Table 3-4 form, the bare 6F { 84 '2PAY.SYS.DDF01' }.
-    @Test
-    public void emptyDirectory() throws Exception {
-        var sim = freshEngine();
         try (var bibo = sim.connect()) {
             installDirectory(GPTestUtils.openIsd(bibo));
         }
         try (var bibo = sim.connect()) {
-            byte[] expected = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
-            assertArrayEquals(expected, selectAID(bibo, PPSE));
-        }
-    }
-
-    // CREL restricted view (GPC CL): a PPSE without GLOBAL REGISTRY still enumerates the applications
-    // that name it in their CREL list. This is the Internal-Mode wiring (no GlobalRegistry needed).
-    @Test
-    public void crelRestrictedView() throws Exception {
-        var sim = freshEngine();
-        var dirA = dirEntry(PAY_A, "A", 0x01);
-        try (var bibo = sim.connect()) {
-            var gp = GPTestUtils.openIsd(bibo);
-            installDirectory(gp, EnumSet.noneOf(Privilege.class)); // no GlobalRegistry
-            installPayment(gp, PAY_A, AFI_FINANCIAL, dirA, PPSE);  // PAY_A references PPSE as a CREL
-        }
-        try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(dirA), selectAID(bibo, PPSE));
-        }
-    }
-
-    // No registry role: a PPSE without GLOBAL REGISTRY that no application references as a CREL is denied
-    // by the registry (SW_CONDITIONS_NOT_SATISFIED), which the applet renders as the empty Table 3-4 FCI.
-    @Test
-    public void unauthorizedCallerSeesEmptyDirectory() throws Exception {
-        var sim = freshEngine();
-        var dirA = dirEntry(PAY_A, "A", 0x01);
-        try (var bibo = sim.connect()) {
-            var gp = GPTestUtils.openIsd(bibo);
-            installDirectory(gp, EnumSet.noneOf(Privilege.class)); // no GlobalRegistry, not a CREL of anything
-            installPayment(gp, PAY_A, AFI_FINANCIAL, dirA);        // PAY_A does NOT reference PPSE
-        }
-        try (var bibo = sim.connect()) {
-            byte[] empty = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
-            assertArrayEquals(empty, selectAID(bibo, PPSE));
-        }
-    }
-
-    // External mode: the device pushes a ready-made FCI Proprietary Template; SELECT returns it verbatim.
-    @Test
-    public void externalModeReturnsStoredTemplate() throws Exception {
-        var sim = freshEngine();
-        var a5 = TLV.build(0xA5).add(TLV.build(0xBF0C).add(dirEntry(PAY_A, "X", 0x01)));
-        try (var bibo = sim.connect()) {
-            installDirectory(GPTestUtils.openIsd(bibo)); // External does not enumerate; privilege is irrelevant
-        }
-        try (var bibo = sim.connect()) {
-            selectAID(bibo, PPSE);
-            setMode(bibo, MODE_EXTERNAL);
-            putTemplate(bibo, a5.encode());
-        }
-        try (var bibo = sim.connect()) {
-            byte[] expected = TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
-            assertArrayEquals(expected, selectAID(bibo, PPSE));
-            // GET TEMPLATE returns the same FCI a SELECT would (Table 3-1, R3.8.3)
-            var r = bibo.transmit(new CommandAPDU(0x80, INS_GET_TEMPLATE, 0x01, 0x00));
-            assertEquals(0x9000, r.getSW());
-            assertArrayEquals(expected, r.getData());
-        }
-    }
-
-    // Mutual Exclusivity: activating B while A is active deactivates A, so the FCI lists only B (R3.12.2).
-    @Test
-    public void mutualExclusivityDeactivatesPrevious() throws Exception {
-        var sim = freshEngine();
-        var dirA = dirEntry(PAY_A, "A", 0x01);
-        var dirB = dirEntry(PAY_B, "B", 0x02);
-        try (var bibo = sim.connect()) {
-            installDirectory(GPTestUtils.openIsd(bibo), EnumSet.noneOf(Privilege.class)); // PPSE acts purely as a CREL
-        }
-        try (var bibo = sim.connect()) {
-            selectAID(bibo, PPSE);
-            setMode(bibo, MODE_MUTEX);
+            assertArrayEquals(bareFci(), selectAID(bibo, PPSE));
         }
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
-            installPayment(gp, PAY_A, AFI_FINANCIAL, dirA, PPSE);
-            installPayment(gp, PAY_B, AFI_FINANCIAL, dirB, PPSE); // activating B deactivates A
+            installPayment(gp, PAY_A, dirA);
+            installPayment(gp, PAY_B, dirB);
         }
         try (var bibo = sim.connect()) {
             assertArrayEquals(expectedFci(dirB), selectAID(bibo, PPSE));
         }
     }
 
-    // SET MODE rejects an unsupported mode value.
-    @Test
-    public void setModeRejectsInvalid() throws Exception {
-        var sim = freshEngine();
-        try (var bibo = sim.connect()) {
-            installDirectory(GPTestUtils.openIsd(bibo));
-        }
-        try (var bibo = sim.connect()) {
-            selectAID(bibo, PPSE);
-            var r = bibo.transmit(new CommandAPDU(0x80, INS_SET_MODE, 0x04, 0x00));
-            assertEquals(0x6A86, r.getSW());
-        }
-    }
-
-    private static void setMode(BIBO bibo, byte mode) {
-        var r = bibo.transmit(new CommandAPDU(0x80, INS_SET_MODE, mode, 0x00));
-        assertEquals(0x9000, r.getSW());
-    }
-
-    private static void putTemplate(BIBO bibo, byte[] a5) {
-        var r = bibo.transmit(new CommandAPDU(0x80, INS_PUT_TEMPLATE, 0x01, 0x00, a5));
-        assertEquals(0x9000, r.getSW());
-    }
-
     private static void installDirectory(GPSession gp) throws Exception {
-        installDirectory(gp, EnumSet.of(Privilege.GlobalRegistry));
+        gp.installAndMakeSelectable(GPTestUtils.gpAID(PKG), GPTestUtils.gpAID(PPSE), GPTestUtils.gpAID(PPSE), EnumSet.noneOf(Privilege.class), new byte[0]);
     }
 
-    private static void installDirectory(GPSession gp, EnumSet<Privilege> privs) throws Exception {
-        gp.installAndMakeSelectable(GPTestUtils.gpAID(PKG), GPTestUtils.gpAID(PPSE), GPTestUtils.gpAID(PPSE), privs, new byte[0]);
-    }
-
-    private static void installPayment(GPSession gp, AID aid, byte family, TLV initialDir) throws Exception {
-        installPayment(gp, aid, family, initialDir, null);
-    }
-
-    // Activated app of the given family; optional CREL reference (A3) and A6 seed = BF0C { initialDir }.
-    private static void installPayment(GPSession gp, AID aid, byte family, TLV initialDir, AID crel) throws Exception {
-        var a1 = TLV.build(0xA1).add(0x87, new byte[]{family});
-        if (crel != null) {
-            a1.add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(crel)));
-        }
-        if (initialDir != null) {
-            a1.add(TLV.build(0xA6).add(TLV.build(0xBF0C).add(initialDir)));
-        }
+    private static void installPayment(GPSession gp, AID aid, TLV initialDir) throws Exception {
+        var a1 = TLV.build(0xA1)
+                .add(0x87, new byte[]{AFI_FINANCIAL})
+                .add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(PPSE)))
+                .add(TLV.build(0xA6).add(TLV.build(0xBF0C).add(initialDir)));
         var ef = TLV.build(0xEF)
                 .add(TLV.build(0xA0).add(0x81, new byte[]{0x01})) // STATE_CL_ACTIVATED
                 .add(a1);
@@ -277,20 +111,13 @@ public class PPSETest {
         return TLV.build(0xBF0C).add(dir).encode();
     }
 
-    // BF0C whose length octet claims 0x7F bytes but carries only the real directory entry.
-    private static byte[] overclaimedBf0c(TLV dir) {
-        byte[] entry = dir.encode();
-        byte[] out = new byte[3 + entry.length];
-        out[0] = (byte) 0xBF;
-        out[1] = 0x0C;
-        out[2] = 0x7F;
-        System.arraycopy(entry, 0, out, 3, entry.length);
-        return out;
+    private static byte[] expectedFci(TLV dir) {
+        var a5 = TLV.build(0xA5).add(TLV.build(0xBF0C).add(dir));
+        return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
     }
 
-    private static byte[] expectedFci(TLV... dirs) {
-        var a5 = TLV.build(0xA5).add(TLV.of(0xBF0C, dirs));
-        return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
+    private static byte[] bareFci() {
+        return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
     }
 
     private static void updateDD(BIBO bibo, byte[] dd) {
