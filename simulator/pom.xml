@@ -90,8 +90,8 @@
         <!-- transport adapters: only the JSONAdapter integration test needs them (main engine does not) -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
-            <artifactId>jcardengine-adapters</artifactId>
-            <version>${project.version}</version>
+            <artifactId>apdu4j-remote</artifactId>
+            <version>${apdu4j.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

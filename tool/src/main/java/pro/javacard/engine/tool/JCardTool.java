@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.tool;
 
+import apdu4j.remote.AbstractTCPAdapter;
+import apdu4j.remote.JCSDKClient;
+import apdu4j.remote.JCSDKServer;
+import apdu4j.remote.JSONAdapter;
+import apdu4j.remote.VSmartCardClient;
 import com.licel.jcardsim.base.InstallSpec;
 import javacard.framework.Applet;
 import javacard.framework.SystemException;
@@ -15,11 +20,6 @@ import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.NonBlockingReader;
 import pro.javacard.capfile.CAPFile;
 import pro.javacard.engine.JavaCardEngine;
-import pro.javacard.engine.adapters.AbstractTCPAdapter;
-import pro.javacard.engine.adapters.JCSDKClient;
-import pro.javacard.engine.adapters.JCSDKServer;
-import pro.javacard.engine.adapters.JSONAdapter;
-import pro.javacard.engine.adapters.VSmartCardClient;
 
 import java.io.File;
 import java.nio.file.Files;

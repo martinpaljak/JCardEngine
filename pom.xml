@@ -41,8 +41,8 @@
         <project.build.outputTimestamp>2026-04-20T08:59:54Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <apdu4j.version>26.04.21-SNAPSHOT</apdu4j.version>
-        <gppro.version>26.05.31-SNAPSHOT</gppro.version>
+        <apdu4j.version>26.06.04-SNAPSHOT</apdu4j.version>
+        <gppro.version>26.06.04-SNAPSHOT</gppro.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
@@ -65,7 +65,6 @@
 
     <modules>
         <module>simulator</module>
-        <module>adapters</module>
         <module>tool</module>
     </modules>
 

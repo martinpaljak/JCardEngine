@@ -19,8 +19,8 @@
         <!-- Transport adapters (JCSDK, VSmartCard, JSON) -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>
-            <artifactId>jcardengine-adapters</artifactId>
-            <version>${project.version}</version>
+            <artifactId>apdu4j-remote</artifactId>
+            <version>${apdu4j.version}</version>
         </dependency>
         <!-- XXX: this is to please intellij, which would not know about unprocessed simulator code -->
         <dependency>
