@@ -29,6 +29,12 @@ public class PPSETest {
     private static final byte AFI_FINANCIAL = 0x20;
     private static final byte INS_UPDATE_DD = (byte) 0xDA;
 
+    private static final AID CRS_AID = AIDUtil.create("A00000015143525300");
+    private static final byte CRS_CLA = (byte) 0x80;
+    private static final byte INS_SET_STATUS = (byte) 0xF0;
+    private static final byte P1_SET_AVAILABILITY = (byte) 0x01;
+    private static final byte STATE_CL_DEACTIVATED = 0x00;
+
     private static JavaCardEngine freshEngine() {
         var sim = new JavaCardEngine.Builder().build();
         sim.loadApplet(PKG, PPSE, PPSEApplet.class);
@@ -60,6 +66,17 @@ public class PPSETest {
             assertTrue(fci.length > 127);
             assertArrayEquals(expectedFci(v2), fci);
         }
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, CRS_AID);
+            byte[] data = TLV.of(0x4F, AIDUtil.bytes(PAY_A)).encode();
+            var r = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
+            assertEquals(0x9000, r.getSW());
+        }
+        try (var bibo = sim.connect()) {
+            // tracked applet deactivated: PPSE falls back to 6A82
+            var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(PPSE), 256));
+            assertEquals(0x6A82, r.getSW());
+        }
     }
 
     @Test
@@ -72,7 +89,9 @@ public class PPSETest {
             installDirectory(GPTestUtils.openIsd(bibo));
         }
         try (var bibo = sim.connect()) {
-            assertArrayEquals(bareFci(), selectAID(bibo, PPSE));
+            // no applet active yet: Internal-Mode PPSE returns 6A82 (R3.5.1)
+            var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(PPSE), 256));
+            assertEquals(0x6A82, r.getSW());
         }
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
@@ -114,10 +133,6 @@ public class PPSETest {
     private static byte[] expectedFci(TLV dir) {
         var a5 = TLV.build(0xA5).add(TLV.build(0xBF0C).add(dir));
         return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).add(a5).encode();
-    }
-
-    private static byte[] bareFci() {
-        return TLV.build(0x6F).add(0x84, AIDUtil.bytes(PPSE)).encode();
     }
 
     private static void updateDD(BIBO bibo, byte[] dd) {

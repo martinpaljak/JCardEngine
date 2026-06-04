@@ -32,6 +32,11 @@ public final class PPSEApplet extends Applet implements CRELApplication {
     }
 
     private void buildFci(APDU apdu) {
+        // Internal Mode: no application in the active state means Application not found
+        // (EMVCo PPSE and Application Management for SE v1.0 R3.5.1).
+        if (current == null) {
+            ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
+        }
         byte[] b = apdu.getBuffer();
         short off = 0;
         b[off++] = 0x6F;
@@ -39,16 +44,14 @@ public final class PPSEApplet extends Applet implements CRELApplication {
         b[off++] = (byte) 0x84;
         b[off++] = (byte) DF_NAME.length;
         off = Util.arrayCopyNonAtomic(DF_NAME, (short) 0, b, off, (short) DF_NAME.length);
-        if (current != null) {
-            b[off] = (byte) 0xA5;
-            short lenA5 = (short) (off + 1);
-            try {
-                short end = current.getInfo(b, (short) (off + 2), GPCLRegistryEntry.INFO_DISCRETIONARY_DATA);
-                off = setBerLen(b, lenA5, end);
-            } catch (ISOException e) {
-                if (e.getReason() != ISO7816.SW_RECORD_NOT_FOUND) {
-                    throw e;
-                }
+        b[off] = (byte) 0xA5;
+        short lenA5 = (short) (off + 1);
+        try {
+            short end = current.getInfo(b, (short) (off + 2), GPCLRegistryEntry.INFO_DISCRETIONARY_DATA);
+            off = setBerLen(b, lenA5, end);
+        } catch (ISOException e) {
+            if (e.getReason() != ISO7816.SW_RECORD_NOT_FOUND) {
+                throw e;
             }
         }
         off = setBerLen(b, lenFci, off);
@@ -74,8 +77,23 @@ public final class PPSEApplet extends Applet implements CRELApplication {
 
     @Override
     public void notifyCLEvent(GPCLRegistryEntry target, short event) {
-        if (event == CLAppletEvent.EVENT_ACTIVATED) {
-            current = target;
+        boolean same = current != null && current.getAID().equals(target.getAID());
+        switch (event) {
+            case CLAppletEvent.EVENT_ACTIVATED:
+                current = target;
+                break;
+            // EMVCo PPSE and Application Management for SE v1.0 R3.12.3: a previously activated
+            // application is no longer activated.
+            case CLAppletEvent.EVENT_DEACTIVATED:
+            case CLAppletEvent.EVENT_NON_ACTIVATABLE:
+            case CLAppletEvent.EVENT_DELETED:
+            case CLAppletEvent.EVENT_LOCKED:
+            case CLAppletEvent.EVENT_CREL_REMOVED:
+            case CLAppletEvent.EVENT_GROUP_MEMBER_REMOVED:
+                if (same) {
+                    current = null;
+                }
+                break;
         }
     }
 }
