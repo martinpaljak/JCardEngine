@@ -30,12 +30,13 @@ public enum CLState {
         return Optional.empty();
     }
 
-    // Parse a 1-byte CL state value (e.g. INSTALL tag 81). Throws on bad length or unknown value.
+    // Parse the Initial Contactless Activation State byte (INSTALL tag 81). GPC v2.3.1 Amd C 8.3 permits
+    // only 0x00 (DEACTIVATED) or 0x01 (ACTIVATED); NON_ACTIVATABLE (0x80) is a runtime state, not an initial value.
     public static CLState parse(byte[] v) {
         if (v.length != 1) {
             throw new IllegalArgumentException("CL state must be 1 byte, got " + v.length);
         }
-        return ofByte(v[0]).orElseThrow(() -> new IllegalArgumentException(
-                "CL state must be 0x00 / 0x01 / 0x80; got 0x%02X".formatted(v[0] & 0xFF)));
+        return ofByte(v[0]).filter(s -> s != NON_ACTIVATABLE).orElseThrow(() -> new IllegalArgumentException(
+                "Initial CL activation state must be 0x00 or 0x01; got 0x%02X".formatted(v[0] & 0xFF)));
     }
 }

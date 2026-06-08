@@ -695,18 +695,21 @@ public class ContactlessRegistryTest {
             assertTrue(events.isEmpty());
         }
 
-        // 4. Reserved initial-activation byte (0x02, GPC v2.3.1 Amd C Table 11-3) is rejected at parse
-        // BEFORE install commits: registry unchanged, no CREL events fan out (even with an A3
-        // add-list present). SW=6A80 (GPC v2.3.1 Table 11-55).
+        // 4. An initial-activation byte outside {0x00, 0x01} is rejected at parse BEFORE install commits:
+        // registry unchanged, no CREL events fan out (even with an A3 add-list present). SW=6A80 (GPC
+        // v2.3.1 Table 11-55). Reserved 0x02 and NON_ACTIVATABLE 0x80 both fail: Amd C 8.3 limits the
+        // Initial Contactless Activation State to DEACTIVATED / ACTIVATED.
         var simRollback = freshEngine();
         try (var bibo = simRollback.connect()) {
             var gp = openIsd(bibo);
             installCRELTestApplet(gp);
             var a1 = TLV.build(0xA1).add(TLV.build(0xA3).add(0x4F, AIDUtil.bytes(T)));
-            var a0 = TLV.build(0xA0).add(0x81, new byte[]{0x02});
-            var efBlock = TLV.build(0xEF).add(a1).add(a0);
-            var ex = assertThrows(GPException.class, () -> installXWithParams(gp, efBlock));
-            assertEquals(0x6A80, ex.sw);
+            for (byte bad : new byte[]{0x02, (byte) 0x80}) {
+                var a0 = TLV.build(0xA0).add(0x81, new byte[]{bad});
+                var efBlock = TLV.build(0xEF).add(a1).add(a0);
+                var ex = assertThrows(GPException.class, () -> installXWithParams(gp, efBlock));
+                assertEquals(0x6A80, ex.sw);
+            }
         }
         try (var bibo = simRollback.connect()) {
             selectAID(bibo, CRS_AID);
