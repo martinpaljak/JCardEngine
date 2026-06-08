@@ -14,6 +14,7 @@
         <javacard.version>3.0.5</javacard.version>
         <globalplatform.version>1.8</globalplatform.version>
         <globalplatform.contactless.version>1.4</globalplatform.contactless.version>
+        <coverage.dir>${project.basedir}/../coverage</coverage.dir>
     </properties>
 
     <dependencies>
@@ -280,17 +281,11 @@
                     <includePluginDependencies>true</includePluginDependencies>
                 </configuration>
             </plugin>
-            <!-- Make Jacoco report -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <configuration>
                     <excludes>
-                        <!-- Test applets run in the reloader with rewritten bytecode; instrumenting
-                             their application-loader copies too would clash in the dump report. They
-                             are test fixtures, not the engine under test. -->
-                        <exclude>com/licel/jcardsim/samples/**</exclude>
-                        <exclude>pro/javacard/engine/testapplets/**</exclude>
                         <exclude>java/lang/**</exclude>
                         <exclude>java/rmi/**</exclude>
                         <exclude>java/io/**</exclude>
@@ -306,83 +301,6 @@
                         <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
                     </excludes>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>agent</id>
-                        <!-- NOTE: the phase binding here is hacky, set to test-compile to make sure test has the agent -->
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                        <configuration>
-                            <!-- Instrument the engine host code and the simulated platform it
-                                 provides. Applet packages are reloaded with rewritten bytecode by
-                                 IsolatingClassReloader and are excluded below to avoid clashing with
-                                 their application-loader copies; the JC API is loaded once, so it is
-                                 measured normally. -->
-                            <includes>
-                                <include>com/licel/jcardsim/**</include>
-                                <include>pro/javacard/engine/**</include>
-                                <include>javacard/**</include>
-                                <include>javacardx/**</include>
-                                <include>org/globalplatform/**</include>
-                            </includes>
-                        </configuration>
-                    </execution>
-                    <!-- Engine host coverage: pro.javacard.engine.* and the com.licel.jcardsim
-                         simulator core, excluding the test-applet fixtures and the reloaded JC-API
-                         facades (measured, if at all, only inside the reloader). -->
-                    <execution>
-                        <id>host-report</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
-                            <includes>
-                                <include>pro/javacard/engine/**</include>
-                                <include>com/licel/jcardsim/**</include>
-                                <include>javacard/**</include>
-                                <include>javacardx/**</include>
-                                <include>org/globalplatform/**</include>
-                            </includes>
-                            <excludes>
-                                <exclude>com/licel/jcardsim/samples/**</exclude>
-                                <exclude>pro/javacard/engine/testapplets/**</exclude>
-                                <!-- Build-time bytecode tool, runs at process-classes not under test. -->
-                                <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
-                            </excludes>
-                        </configuration>
-                    </execution>
-                    <!-- Set current baseline for minimums -->
-                    <!--execution>
-                        <id>check</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.50</minimum>
-                                        </limit>
-                                        <limit>
-                                            <counter>INSTRUCTION</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.50</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
-                    </execution-->
-                </executions>
             </plugin>
             <!-- Run tests, so that the classes have already been processed with proxy code -->
             <plugin>
@@ -418,5 +336,139 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>simulator-coverage</id>
+            <activation>
+                <property>
+                    <name>!applet.coverage</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>agent</id>
+                                <phase>test-compile</phase>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>com/licel/jcardsim/**</include>
+                                        <include>pro/javacard/engine/**</include>
+                                        <include>javacard/**</include>
+                                        <include>javacardx/**</include>
+                                        <include>org/globalplatform/**</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>host-report</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${coverage.dir}/host</outputDirectory>
+                                    <includes>
+                                        <include>pro/javacard/engine/**</include>
+                                        <include>com/licel/jcardsim/**</include>
+                                        <include>javacard/**</include>
+                                        <include>javacardx/**</include>
+                                        <include>org/globalplatform/**</include>
+                                    </includes>
+                                    <excludes>
+                                        <exclude>com/licel/jcardsim/samples/**</exclude>
+                                        <exclude>pro/javacard/engine/testapplets/**</exclude>
+                                        <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
+                                    </excludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>applet-coverage</id>
+            <activation>
+                <property>
+                    <name>applet.coverage</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>agent</id>
+                                <phase>test-compile</phase>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <classDumpDir>${project.build.directory}/jacoco-dump</classDumpDir>
+                                    <exclClassLoaders>*AppClassLoader:*PlatformClassLoader</exclClassLoaders>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.jacoco</groupId>
+                                <artifactId>org.jacoco.ant</artifactId>
+                                <version>0.8.14</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
+                            <execution>
+                                <id>applet-coverage-report</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <typedef resource="org/jacoco/ant/antlib.xml"/>
+                                        <report>
+                                            <executiondata>
+                                                <fileset dir="${project.build.directory}" includes="jacoco*.exec"/>
+                                            </executiondata>
+                                            <structure name="${project.name} (test applets)">
+                                                <group name="test applets">
+                                                    <classfiles>
+                                                        <fileset dir="${project.build.directory}/jacoco-dump">
+                                                            <include name="com/licel/jcardsim/samples/**"/>
+                                                            <include name="pro/javacard/engine/testapplets/**"/>
+                                                        </fileset>
+                                                    </classfiles>
+                                                    <sourcefiles>
+                                                        <fileset dir="${basedir}/src/test/java"/>
+                                                    </sourcefiles>
+                                                </group>
+                                            </structure>
+                                            <html destdir="${coverage.dir}/applets"/>
+                                            <xml destfile="${coverage.dir}/applets/jacoco.xml"/>
+                                        </report>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
 
