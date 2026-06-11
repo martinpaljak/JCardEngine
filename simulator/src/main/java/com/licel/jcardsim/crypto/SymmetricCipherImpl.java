@@ -140,6 +140,9 @@ public class SymmetricCipherImpl extends Cipher {
             case ALG_DES_ECB_PKCS5:
                 engine = new PaddedBufferedBlockCipher(key.getCipher(), new PKCS7Padding());
                 break;
+            case ALG_AES_CBC_ISO9797_M1:
+                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ZeroBytePadding());
+                break;
             case ALG_AES_CBC_ISO9797_M2:
                 engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ISO7816d4Padding());
                 break;
