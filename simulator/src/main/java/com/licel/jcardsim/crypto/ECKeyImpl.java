@@ -188,8 +188,9 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
      * @see ECDomainParameters
      */
     final void setDomainParameters(ECDomainParameters parameters) {
-        a.setBigInteger(parameters.getCurve().getA().toBigInteger());
-        b.setBigInteger(parameters.getCurve().getB().toBigInteger());
+        int commonSize = Math.max(parameters.getCurve().getA().toBigInteger().toByteArray().length, parameters.getCurve().getB().toBigInteger().toByteArray().length);
+        a.setBigInteger(parameters.getCurve().getA().toBigInteger(), commonSize);
+        b.setBigInteger(parameters.getCurve().getB().toBigInteger(), commonSize);
         // generator
         g.setBytes(parameters.getG().getEncoded(false));
         // order

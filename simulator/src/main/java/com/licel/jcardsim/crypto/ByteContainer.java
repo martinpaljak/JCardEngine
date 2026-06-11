@@ -86,6 +86,27 @@ public final class ByteContainer {
     }
 
     /**
+     * Fills <code>ByteContainer</code>by byte representation of <code>BigInteger</code> to a byte container of a specific size - left padded with zeros
+     * @param bInteger <code>BigInteger</code> object
+     * @param size size of final container
+     * @throws java.lang.IllegalArgumentException if bInteger is negative
+     */
+    public void setBigInteger(BigInteger bInteger, int size) {
+        if (bInteger.signum() < 0) {
+            throw new IllegalArgumentException("Negative bInteger");
+        }
+        
+        byte[] source = bInteger.toByteArray();
+        if(source.length < size) {
+            byte[] array = new byte[size];
+            System.arraycopy(source, 0, array, size - source.length, source.length);
+            setBytes(array);
+        } else {
+            setBytes(source);
+        }
+    }
+
+    /**
      * Fills <code>ByteContainer</code>by defined byte array
      * @param buff byte array
      */
