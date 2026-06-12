@@ -41,8 +41,9 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
         setParameters(params);
     }
   
-     public void setParameters(CipherParameters params){
-        s.setBigInteger(((ECPrivateKeyParameters)params).getD());
+     public void setParameters(CipherParameters params) {
+        int commonSize = Math.max(((ECPrivateKeyParameters)params).getParameters().getN().toByteArray().length, ((ECPrivateKeyParameters)params).getD().toByteArray().length);
+        s.setBigInteger(((ECPrivateKeyParameters)params).getD(), commonSize);
     }
 
     public void setS(byte[] buffer, short offset, short length) throws CryptoException {
