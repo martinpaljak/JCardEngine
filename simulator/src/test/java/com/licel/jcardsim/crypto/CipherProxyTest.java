@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.security.AESKey;
+import javacard.security.CryptoException;
+import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
+import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -10,7 +15,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class CipherProxyTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+public class CipherProxyTest extends SimulatorCoreTest {
 
     // The deprecated cipher algorithm list is created because JavaCard 3.0.5 API uses only javadoc annotation @deprecated
     // And not use the Java annotation @Deprecated, which can be read by java.lang.reflect.Field
@@ -46,5 +55,52 @@ public class CipherProxyTest {
             }
         }
 
+    }
+
+    @Test
+    public void testOneShotAndCipherPaddingResolution() {
+        // 3-arg getInstance maps (cipher, padding) pair to the corresponding ALG_* constant
+        assertEquals(Cipher.ALG_RSA_NOPAD, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_NOPAD, false).getAlgorithm());
+        assertEquals(Cipher.ALG_RSA_PKCS1, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1, false).getAlgorithm());
+        assertEquals(Cipher.ALG_RSA_PKCS1_OAEP, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1_OAEP, false).getAlgorithm());
+        assertEquals(Cipher.ALG_DES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_DES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
+        assertEquals(Cipher.ALG_AES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_AES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
+        // an unsupported (cipher, padding) combination throws NO_SUCH_ALGORITHM
+        try {
+            Cipher.getInstance(Cipher.CIPHER_AES_ECB, Cipher.PAD_PKCS5, false);
+            fail("No exception");
+        } catch (CryptoException e) {
+            assertEquals(CryptoException.NO_SUCH_ALGORITHM, e.getReason());
+        }
+
+        // Cipher.OneShot: AES-128 ECB encrypt/decrypt round trip; update() must throw ILLEGAL_USE
+        AESKey key = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+        key.setKey(Hex.decode("000102030405060708090A0B0C0D0E0F"), (short) 0);
+        byte[] msg = Hex.decode("00112233445566778899AABBCCDDEEFF");
+        byte[] ct = new byte[16];
+        byte[] back = new byte[16];
+
+        Cipher.OneShot enc = Cipher.OneShot.open(Cipher.CIPHER_AES_ECB, Cipher.PAD_NOPAD);
+        try {
+            enc.init(key, Cipher.MODE_ENCRYPT);
+            assertEquals(16, enc.doFinal(msg, (short) 0, (short) msg.length, ct, (short) 0));
+            try {
+                enc.update(msg, (short) 0, (short) msg.length, ct, (short) 0);
+                fail("No exception");
+            } catch (CryptoException e) {
+                assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+            }
+        } finally {
+            enc.close();
+        }
+
+        Cipher.OneShot dec = Cipher.OneShot.open(Cipher.CIPHER_AES_ECB, Cipher.PAD_NOPAD);
+        try {
+            dec.init(key, Cipher.MODE_DECRYPT);
+            assertEquals(16, dec.doFinal(ct, (short) 0, (short) ct.length, back, (short) 0));
+        } finally {
+            dec.close();
+        }
+        assertTrue(Arrays.equals(msg, back));
     }
 }
