@@ -132,12 +132,8 @@ public class UtilProxy {
      */
     public static short arrayFillNonAtomic(byte[] bArray, short bOff, short bLen, byte bValue)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
-        if (bLen < 0) {
+        if (bLen < 0 || bOff < 0 || bOff + bLen > bArray.length) {
             throw new ArrayIndexOutOfBoundsException();
-        }
-        if (bLen != 0) {
-            // Trigger array bounds if fill range is outside of margins
-            byte tester = bArray[(bOff + bLen) - 1];
         }
         while (bLen > 0) {
             bArray[bOff++] = bValue;
@@ -183,13 +179,9 @@ public class UtilProxy {
      */
     public static byte arrayCompare(byte[] src, short srcOff, byte[] dest, short destOff, short length)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
-        if (length < 0) {
+        if (length < 0 || srcOff < 0 || destOff < 0
+                || srcOff + length > src.length || destOff + length > dest.length) {
             throw new ArrayIndexOutOfBoundsException();
-        }
-        if (length != 0) {
-            // Trigger array bounds if offset is outside of margins
-            byte tester = src[(srcOff + length) - 1];
-            tester = dest[(destOff + length) - 1];
         }
         for (short i = 0; i < length; i++) {
             if (src[srcOff + i] != dest[destOff + i]) {

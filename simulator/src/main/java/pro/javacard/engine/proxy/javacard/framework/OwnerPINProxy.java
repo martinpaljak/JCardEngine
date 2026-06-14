@@ -141,7 +141,9 @@ public class OwnerPINProxy implements PIN {
             decrementTriesRemaining();
         }
         if (length > 0) {
-            byte tester = pin[(short) ((offset + length) - 1)];
+            if (offset < 0 || offset + length > pin.length) {
+                throw new ArrayIndexOutOfBoundsException();
+            }
             if (length != pinSize || noMoreTries) {
                 return false;
             }
