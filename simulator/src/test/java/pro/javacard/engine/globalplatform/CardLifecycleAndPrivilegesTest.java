@@ -362,11 +362,17 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
 
-        // Illegal transition: SELECTABLE (0x07) -> INSTALLED (0x03) is irreversible (GPC v2.3.1 5.3.1.2) -> 0x6985.
+        // GPC v2.3.1 11.10.2.2: for another application an SD may only lock/unlock (b8). Any non-lock
+        // state push - a regression to INSTALLED (0x03) or an app-specific state (0x1F) - is rejected
+        // with 0x6985 and the lifecycle is left at SELECTABLE (0x07).
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var regress = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x03, AIDUtil.bytes(A)));
             assertEquals(0x6985, regress.getSW());
+            assertEquals((byte) 0x07, appLifecycle(gp, A));
+
+            var arbitrary = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x1F, AIDUtil.bytes(A)));
+            assertEquals(0x6985, arbitrary.getSW());
             assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
     }

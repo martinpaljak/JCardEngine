@@ -939,8 +939,8 @@ public class SecurityDomainApplet extends Applet {
     }
 
     // SET STATUS [for application] (P1=0x40): the data field is the raw target Application AID,
-    // P2 is the new life cycle state (b8 = LOCK per GPC v2.3.1 5.3.1). The associated SD may set
-    // the state of its own applications; Global Lock permits locking/unlocking any application.
+    // P2 is the new life cycle state (b8 = LOCK per GPC v2.3.1 5.3.1). The associated SD may
+    // lock/unlock its own applications; Global Lock permits locking/unlocking any application.
     private void handleSetApplicationStatus(APDU apdu, byte[] buffer, byte[] payload, byte p2) {
         var sim = Simulator.current();
         var target = sim.gp().lookup(AIDUtil.create(payload));
@@ -960,9 +960,13 @@ public class SecurityDomainApplet extends Applet {
         if (!associated && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
-        // Admin authorization passed: the guarded transition then enforces only GPC v2.3.1 5.3.1
-        // transition legality, with lock/unlock permitted.
-        if (!target.transition(p2, true, true)) {
+        // GPC v2.3.1 11.10.2.2: for another Application only b8 is relevant - an SD may LOCK or
+        // UNLOCK it, never push an app-specific state. Keep the current low bits and flip only b8.
+        byte locked = (byte) ((target.getState() & 0x7F) | (p2 & 0x80));
+        if (locked == target.getState()) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        if (!target.transition(locked, true, true)) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         buffer[0] = 0x00;
