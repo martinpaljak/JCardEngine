@@ -277,8 +277,9 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     boolean transition(byte newState, boolean lockAllowed, boolean unlockAllowed) {
         int current = this.lifecycle & 0xFF;
         int next = newState & 0xFF;
+        // GPC v2.3.1 11.10.2.2: a transition to the current life cycle state is not a legal transition.
         if (current == next) {
-            return true;
+            return false;
         }
         boolean newLocked = (newState & (byte) 0x80) != 0;
         boolean curLocked = (this.lifecycle & (byte) 0x80) != 0;
