@@ -89,6 +89,11 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             if ((buffer[ISO7816.OFFSET_P1] & ~(SecureChannel.C_MAC | SecureChannel.C_DECRYPTION | SecureChannel.R_MAC | SecureChannel.R_ENCRYPTION)) != 0) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
+            // SCP03 Amendment D v1.2 7.1.2.3 Table 7-6: C-DECRYPTION implies C-MAC, R-ENCRYPTION implies R-MAC.
+            if (((buffer[ISO7816.OFFSET_P1] & SecureChannel.C_DECRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.C_MAC) == 0)
+                    || ((buffer[ISO7816.OFFSET_P1] & SecureChannel.R_ENCRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.R_MAC) == 0)) {
+                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+            }
             if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
