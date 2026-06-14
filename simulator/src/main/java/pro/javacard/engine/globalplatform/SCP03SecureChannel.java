@@ -171,7 +171,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 process_mac(bytes, offset, length);
             }
             log.trace("Cryptogram len={} {}", cryptogram.length, Hex.toHexString(cryptogram));
-            if ((bytes[ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
+            if ((bytes[offset + ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
                 // GPC v2.3.1 Amd D 6.2.6: increment the counter even with no data field, to stay
                 // in sync with GPPro's wrapper.
                 GPCrypto.buffer_increment(enc_counter);
