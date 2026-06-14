@@ -898,7 +898,8 @@ public class SecurityDomainApplet extends Applet {
             byte[] computed = type == KeySet.TYPE_AES ? GPCrypto.kcv_aes(keyValue) : GPCrypto.kcv_3des(keyValue);
             if (kcvLen > computed.length || !Arrays.equals(wireKcv, 0, kcvLen, computed, 0, kcvLen)) {
                 log.warn("PUT KEY: KCV mismatch");
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                // GPC v2.3.1 11.8.3.2 Table 11-78: invalid key check value -> 6982
+                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             }
             kcvOut.writeBytes(Arrays.copyOf(computed, 3));
         } else {
