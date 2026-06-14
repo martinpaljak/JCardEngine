@@ -117,7 +117,7 @@ public final class ContactlessEngine {
     }
 
     // Caller-authorized CL state change (GPC v2.3.1 Amd C 3.11.4.2.2 + 7.1/7.2). Auth:
-    // DEACTIVATED any caller | ACTIVATED self=SELF_ACTIVATION cross=CONTACTLESS_ACTIVATION | NON_ACTIVATABLE self only.
+    // DEACTIVATED self|CONTACTLESS_ACTIVATION|CREL | ACTIVATED self=SELF_ACTIVATION cross=CONTACTLESS_ACTIVATION | NON_ACTIVATABLE self only.
     public static byte setCLState(EngineRegistryEntry cl, byte state) {
         var caller = Simulator.current().caller();
         if (caller == null) {
@@ -132,7 +132,11 @@ public final class ContactlessEngine {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         boolean allowed = switch (state) {
-            case GPCLRegistryEntry.STATE_CL_DEACTIVATED -> true;
+            // GPC v2.3.1 Amd C 8.1 / 3.8.2: self, the CONTACTLESS_ACTIVATION holder, or a CREL on cl's
+            // list may deactivate; any other caller is a cross-applet contactless DoS.
+            case GPCLRegistryEntry.STATE_CL_DEACTIVATED -> self
+                    || caller.isPrivileged(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION)
+                    || cl.internalGetCRELs().contains(caller.getAID());
             case GPCLRegistryEntry.STATE_CL_NON_ACTIVATABLE -> self;
             case GPCLRegistryEntry.STATE_CL_ACTIVATED -> self
                     ? cl.isPrivileged(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_SELF_ACTIVATION)
