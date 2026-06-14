@@ -571,7 +571,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         final var p1 = apdu[ISO7816.OFFSET_P1];
         final var p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
 
-        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
+        // GPC v2.3.1 Table 11-81: P2 b2 distinguishes [first or only occurrence] (0x00) from [next occurrence] (0x02)
+        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && (p2 == 0x00 || p2 == 0x02);
     }
 
     /**
