@@ -319,6 +319,12 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(openIsd(bibo), A, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
+            // GPC v2.3.1 11.10.2.2: a transition to the CURRENT life cycle state is not legal. The
+            // applet sits at SELECTABLE (0x07); setState(0x07) is a no-op transition and is refused.
+            var same = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x07, 0x00, 256));
+            assertEquals((byte) 0x00, same.getData()[0]);
+            assertEquals((byte) 0x07, same.getData()[1]);
+
             // GPC v2.3.1 5.3.1.3: self-LOCK via setState succeeds; 0x07 OR 0x80 = 0x87
             var lock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x83, 0x00, 256));
             assertEquals((byte) 0x01, lock.getData()[0]);

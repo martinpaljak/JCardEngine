@@ -2,16 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.globalplatform;
 
+import apdu4j.core.CommandAPDU;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPException;
 import pro.javacard.gp.GPKeyInfo;
 import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
+import java.io.ByteArrayOutputStream;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
@@ -182,6 +185,86 @@ public class KeyManagementTest {
             // SW_REFERENCED_DATA_NOT_FOUND
             assertEquals(0x6A88, ex.sw);
         }
+    }
+
+    // PUT KEY body-level guards (GPC v2.3.1 11.8). gp-pro's putKeys only builds well-formed
+    // commands, so each malformed case is hand-assembled (valid DEK-encrypted AES-16 blocks via
+    // gp.encryptDEK) and sent through the SCP-wrapped channel with gp.transmit. One channel carries
+    // every probe: a rejected PUT KEY leaves the SCP sequence counter untouched (only a successful
+    // PUT KEY resets it, GPC v2.3.1 E.1.2), and the lone addKvn resets host and card symmetrically.
+    @Test
+    void putKeyBodyRejects() throws Exception {
+        var sim = new JavaCardEngine.Builder().build();
+        byte[] key16 = MasterKeys.A;
+
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+
+            // KCV length 0 - mandatory for DES/AES (GPC v2.3.1 11.8.2.3.3) -> 6A80.
+            // P1=00 add, KVN=05, P2=81 (multi-key flag, first KID=01), single block.
+            assertEquals(0x6A80, gp.transmit(putKey(0x00, 0x81, 0x05, aesBlockNoKcv(gp, key16))).getSW());
+
+            // KCV does not match the key value (GPC v2.3.1 11.8.3.2 Table 11-78) -> 6982.
+            assertEquals(0x6982, gp.transmit(putKey(0x00, 0x81, 0x05, aesBlock(gp, key16, new byte[]{0x00, 0x00, 0x00}))).getSW());
+
+            // Consecutive KIDs must stay within 00..7F (GPC v2.3.1 11.8.2.2). First KID 0x7F + a second
+            // block makes the next KID 0x80, out of range -> 6A80 (the second block is never parsed).
+            var body = concat(aesBlock(gp, key16, GPCrypto.kcv_aes(key16)), new byte[]{(byte) 0x80, 0x01, 0x00});
+            assertEquals(0x6A80, gp.transmit(putKey(0x00, 0xFF, 0x06, body)).getSW());
+
+            // The replace-path guards need an existing keyset. Add a real KVN=0x10 (AES, KIDs 1/2/3) -
+            // the only successful PUT KEY here, so the only point the SCP counter resets.
+            addKvn(gp, 0x10, MasterKeys.A);
+
+            // Replacing a KVN with a block whose KID is absent from the existing keyset
+            // (GPC v2.3.1 11.8.2.3.3) -> 6A88. KVN 0x10 holds KIDs 1/2/3; first KID 0x05 is absent.
+            var miss = aesBlock(gp, key16, GPCrypto.kcv_aes(key16));
+            assertEquals(0x6A88, gp.transmit(putKey(0x10, 0x85, 0x10, miss)).getSW()); // P2=85: first KID=05
+
+            // A replacement key must keep the existing type and length (GPC v2.3.1 11.8.2.3.3) -> 6A80.
+            // Existing KID 1 at KVN 0x10 is AES-16; replace it with an AES-32 block.
+            byte[] key32 = concat(key16, key16); // a 32-byte AES key value
+            var widen = aesBlock(gp, key32, GPCrypto.kcv_aes(key32));
+            assertEquals(0x6A80, gp.transmit(putKey(0x10, 0x81, 0x10, widen)).getSW()); // P2=81: first KID=01 (AES-16)
+        }
+    }
+
+    // Assemble a PUT KEY command (CLA 80, INS D8). Body = newKVN || keyBlocks.
+    private static CommandAPDU putKey(int p1, int p2, int kvn, byte[] blocks) {
+        return new CommandAPDU(0x80, 0xD8, p1, p2, concat(new byte[]{(byte) kvn}, blocks));
+    }
+
+    // A valid AES key component block: 88 || blockLen || actualKeyLen || DEK-cgram || kcvLen || kcv.
+    // The cgram is the key value DEK-encrypted exactly as gp-pro's encodeKey does (gp.encryptDEK).
+    private static byte[] aesBlock(GPSession gp, byte[] keyValue, byte[] kcv) throws Exception {
+        byte[] cgram = gp.encryptDEK(keyValue); // AES-CBC under the session DEK
+        var bo = new ByteArrayOutputStream();
+        bo.write(0x88);                  // GPKey.AES type
+        bo.write(cgram.length + 1);      // block length (+1 for the actual-key-length byte)
+        bo.write(keyValue.length);       // actual key length
+        bo.writeBytes(cgram);
+        bo.write(kcv.length);
+        bo.writeBytes(kcv);
+        return bo.toByteArray();
+    }
+
+    // Same AES block but with a zero-length KCV field (kcvLen=0, no KCV bytes).
+    private static byte[] aesBlockNoKcv(GPSession gp, byte[] keyValue) throws Exception {
+        byte[] cgram = gp.encryptDEK(keyValue);
+        var bo = new ByteArrayOutputStream();
+        bo.write(0x88);
+        bo.write(cgram.length + 1);
+        bo.write(keyValue.length);
+        bo.writeBytes(cgram);
+        bo.write(0x00);                  // kcvLen = 0
+        return bo.toByteArray();
+    }
+
+    private static byte[] concat(byte[] a, byte[] b) {
+        var bo = new ByteArrayOutputStream();
+        bo.writeBytes(a);
+        bo.writeBytes(b);
+        return bo.toByteArray();
     }
 
     // True iff every entry in the KIT carries the given KVN. Drives the factory-eviction and

@@ -193,6 +193,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         boolean needIV = mode == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD;
         if (needIV) {
             byte[] iv = Hex.decode(testData[1]);
+            // JC 3.2 Cipher.init: a CBC IV that is not the 16-byte AES block length is ILLEGAL_VALUE.
+            try {
+                engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) (iv.length - 1));
+                fail("No exception");
+            } catch (CryptoException e) {
+                assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+            }
             engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length);
         } else {
             engine.init(aesKey, Cipher.MODE_ENCRYPT);
