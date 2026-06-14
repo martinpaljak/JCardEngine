@@ -934,8 +934,7 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         // The update counter is bumped by gp().setCardLifecycleState() on success (GPC v2.3.1 Amd C 3.11.2.3).
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        // GPC v2.3.1 11.10.3.1: the data field of the response message shall not be present.
     }
 
     // SET STATUS [for application] (P1=0x40): the data field is the raw target Application AID,
@@ -969,8 +968,7 @@ public class SecurityDomainApplet extends Applet {
         if (!target.transition(locked, true, true)) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        // GPC v2.3.1 11.10.3.1: the data field of the response message shall not be present.
     }
 
     // GPC v2.3.1 11.4: tagged GET STATUS only (P2 bit 1 required). P1 = scope, P2 bit 0 =
