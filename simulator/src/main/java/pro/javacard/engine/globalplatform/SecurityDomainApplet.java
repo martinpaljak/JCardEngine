@@ -778,7 +778,8 @@ public class SecurityDomainApplet extends Applet {
     // Response: new_KVN | one 3-byte KCV per key in command order.
     private void handlePutKey(APDU apdu, byte[] buffer, byte[] payload) {
         var sim = Simulator.current();
-        byte p1 = buffer[ISO7816.OFFSET_P1];
+        // GPC v2.3.1 Table 11-65: b8 = more-commands flag, b7-b1 = Key Version Number.
+        byte p1 = (byte) (buffer[ISO7816.OFFSET_P1] & 0x7F);
         byte p2 = buffer[ISO7816.OFFSET_P2];
         // GPC v2.3.1 11.8.2.2 Table 11-66: b8 = multiple-keys flag, b7-b1 = KID of the first key
         // (subsequent keys take consecutive KIDs). KID is coded '00'..'7F'.
