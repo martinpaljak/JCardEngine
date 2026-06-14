@@ -50,9 +50,12 @@ public class RSACipherTest extends SimulatorCoreTest {
         cipher.doFinal(msg, (short) 0, (short) msg.length, encryptedMsg, (short) 0);
 
         cipher.init(privateKey, Cipher.MODE_DECRYPT);
-        byte[] decryptedMsg = new byte[msg.length];
-        cipher.doFinal(encryptedMsg, (short) 0, (short) encryptedMsg.length, decryptedMsg, (short) 0);
-
-        assertEquals(true, Arrays.areEqual(msg, decryptedMsg));
+        // a real card returns ALG_RSA_NOPAD decrypt output at the full modulus width: a 63-byte
+        // plaintext comes back as one leading zero byte followed by msg.
+        byte[] decryptedMsg = new byte[64];
+        short len = cipher.doFinal(encryptedMsg, (short) 0, (short) encryptedMsg.length, decryptedMsg, (short) 0);
+        assertEquals(64, len);
+        assertEquals(0, decryptedMsg[0]);
+        assertEquals(true, Arrays.areEqual(msg, Arrays.copyOfRange(decryptedMsg, 1, 64)));
     }
 }

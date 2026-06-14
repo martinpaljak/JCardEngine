@@ -94,9 +94,20 @@ public class AsymmetricCipherImpl extends Cipher {
         }
         try {
             byte[] data = engine.processBlock(buffer, (short) 0, bufferPos);
-            Util.arrayCopyNonAtomic(data, (short) 0, outBuff, outOffset, (short) data.length);
+            short resultLen = (short) data.length;
+            // BouncyCastle strips leading zeros from c^d mod N, but real cards return the full
+            // modulus-width block left-padded with zeros, so pad the result back to modulus width
+            // (buffer.length; a decrypt init sizes buffer to exactly that width).
+            if (algorithm == ALG_RSA_NOPAD && initMode == MODE_DECRYPT && resultLen < (short) buffer.length) {
+                short padLen = (short) (buffer.length - resultLen);
+                Util.arrayFillNonAtomic(outBuff, outOffset, padLen, (byte) 0x00);
+                Util.arrayCopyNonAtomic(data, (short) 0, outBuff, (short) (outOffset + padLen), resultLen);
+                bufferPos = 0;
+                return (short) buffer.length;
+            }
+            Util.arrayCopyNonAtomic(data, (short) 0, outBuff, outOffset, resultLen);
             bufferPos = 0;
-            return (short) data.length;
+            return resultLen;
         } catch (InvalidCipherTextException | DataLengthException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
