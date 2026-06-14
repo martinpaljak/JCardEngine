@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.*;
@@ -183,7 +184,7 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
             engine.init(theMode == MODE_SIGN, key.getParameters());
         } else {
             ParametersWithRandom params;
-            params = new ParametersWithRandom(((KeyWithParameters) theKey).getParameters(), new SecureRandomNullProvider());
+            params = new ParametersWithRandom(((KeyWithParameters) theKey).getParameters(), Simulator.current().rng());
             engine.init(theMode == MODE_SIGN, params);
         }
         this.key = theKey;

@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.security.CryptoException;
 import javacard.security.RandomData;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.prng.DigestRandomGenerator;
 import org.bouncycastle.crypto.prng.RandomGenerator;
 
-import java.security.GeneralSecurityException;
-import java.security.SecureRandom;
 import java.util.Arrays;
 
 /**
@@ -23,20 +22,12 @@ public class RandomDataImpl extends RandomData {
     byte algorithm;
     // TODO: should settle on just a single one, clarify assumptions on seeding.
     RandomGenerator engine;
-    static SecureRandom random;
-
-    static {
-        try {
-            random = SecureRandom.getInstanceStrong();
-        } catch (GeneralSecurityException e) {
-            throw new RuntimeException("No random?");
-        }
-    }
 
     public RandomDataImpl(byte algorithm) {
         this.algorithm = algorithm;
         this.engine = new DigestRandomGenerator(new SHA1Digest());
-        this.engine.addSeedMaterial(random.generateSeed(8));
+        // GH #20: seed from the per-card RNG
+        this.engine.addSeedMaterial(Simulator.current().rng().generateSeed(8));
     }
 
     public void generateData(byte[] buffer, short offset, short length) throws CryptoException {

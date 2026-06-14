@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.Util;
 import javacard.security.RandomData;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Test for <code>RandomDataImpl</code>
  */
 @SuppressWarnings("deprecation")
-public class RandomDataImplTest {
+public class RandomDataImplTest extends SimulatorCoreTest {
 
     /**
      * Test of generateData method, of class RandomDataImpl.

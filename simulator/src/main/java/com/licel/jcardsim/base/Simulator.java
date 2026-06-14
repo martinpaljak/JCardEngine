@@ -4,6 +4,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.BIBO;
+import com.licel.jcardsim.crypto.DeterministicRandom;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
@@ -24,6 +25,7 @@ import pro.javacard.engine.globalplatform.SCPConfig;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -97,12 +99,20 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // Fault injection configuration
     private final FaultyConfig faultConfig;
 
-    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
+    // GH #20: one SecureRandom per card. Real and non-blocking by default; deterministic when seeded.
+    private final SecureRandom rng;
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform, Long seed) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = globalPlatform;
         this.currentAPDU = new CurrentAPDU();
         this.classLoader = new IsolatingClassReloader(loader);
         this.faultConfig = faultConfig;
+        this.rng = seed == null ? new SecureRandom() : new DeterministicRandom(seed);
+    }
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
+        this(loader, faultConfig, globalPlatform, null);
     }
 
     public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
@@ -119,6 +129,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
     public Simulator() throws RuntimeException {
         this(Simulator.class.getClassLoader(), null);
+    }
+
+    @Override
+    public SecureRandom rng() {
+        return rng;
     }
 
     // When applet code calls back for the internal facade of the simulator,

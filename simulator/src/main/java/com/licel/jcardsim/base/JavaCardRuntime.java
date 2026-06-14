@@ -8,6 +8,8 @@ import javacard.framework.Shareable;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 
+import java.security.SecureRandom;
+
 // The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
 
@@ -72,4 +74,7 @@ public interface JavaCardRuntime {
 
     // Registry and secure channel
     GlobalPlatformEngine gp();
+
+    // The per-card random source (GH #20: one SecureRandom per card)
+    SecureRandom rng();
 }

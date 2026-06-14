@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.base.Simulator;
 import javacard.security.*;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
@@ -29,7 +30,6 @@ public final class KeyPairImpl {
     AsymmetricCipherKeyPairGenerator engine;
     PrivateKey privateKey;
     PublicKey publicKey;
-    SecureRandom rnd = new SecureRandomNullProvider();
     KeyGenerationParameters keyGenerationParameters;
 
     /**
@@ -205,6 +205,8 @@ public final class KeyPairImpl {
      * Init key pair generation engine
      */
     private void initEngine() {
+        // GH #20: per-card RNG resolved at use, never cached
+        SecureRandom rnd = Simulator.current().rng();
         // only public key params, see specification
         if (publicKey != null) {
             keyGenerationParameters = ((KeyImpl) publicKey).getKeyGenerationParameters(rnd);
