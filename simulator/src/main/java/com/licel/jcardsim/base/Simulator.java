@@ -920,7 +920,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             if (activeAID != null) {
                 deselect(globalPlatform.lookup(activeAID));
             }
-            return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
+            // Install as the ISD, so install() sees getPreviousContextAID() == ISD like a GP install.
+            contextStack.push(globalPlatform.isd().getAID());
+            try {
+                return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
+            } finally {
+                contextStack.pop();
+            }
         }
     }
 
