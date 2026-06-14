@@ -827,6 +827,18 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
+        // GPC v2.3.1 11.8.2.3.3: replacing a key must keep the same type and length per KID.
+        if (p1 != 0) {
+            var existing = keys.get(newKvn);
+            for (var e : entries.entrySet()) {
+                var old = existing.entries().get(e.getKey());
+                if (old.type() != e.getValue().type() || old.value().length != e.getValue().value().length) {
+                    log.warn("PUT KEY: replacement key type/length differs from existing KVN");
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                }
+            }
+        }
+
         if (keys.size() == 1) {
             keys.remove(FACTORY_KVN);
         }
