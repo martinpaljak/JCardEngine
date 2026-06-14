@@ -477,7 +477,10 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             // check if there is an applet to be selected
             if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
                 log.trace("Current AID {}, looking up applet ...", activeAID);
-                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase);
+                // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after activeAID.
+                final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
+                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase, activeAID,
+                        nextOccurrence);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected

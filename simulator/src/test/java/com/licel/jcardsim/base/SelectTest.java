@@ -115,6 +115,14 @@ public class SelectTest {
             byte[] expected = Hex.decode("d0000cafe000019000");
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
             assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+
+            // GPC v2.3.1 6.4.2.1.2: SELECT [by name] [next occurrence] (P2 b2) walks past the first partial
+            // match to the next one - d0000cafe00002.
+            var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe0")));
+            assertEquals(0x9000, next.getSW());
+            byte[] expectedNext = Hex.decode("d0000cafe000029000");
+            var actualNext = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(Arrays.toString(expectedNext), Arrays.toString(actualNext.getBytes()));
         }
     }
 
