@@ -894,18 +894,17 @@ public class SecurityDomainApplet extends Applet {
         byte[] wireKcv = new byte[kcvLen];
         bb.get(wireKcv);
 
-        if (kcvLen > 0) {
-            byte[] computed = type == KeySet.TYPE_AES ? GPCrypto.kcv_aes(keyValue) : GPCrypto.kcv_3des(keyValue);
-            if (kcvLen > computed.length || !Arrays.equals(wireKcv, 0, kcvLen, computed, 0, kcvLen)) {
-                log.warn("PUT KEY: KCV mismatch");
-                // GPC v2.3.1 11.8.3.2 Table 11-78: invalid key check value -> 6982
-                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-            }
-            kcvOut.writeBytes(Arrays.copyOf(computed, 3));
-        } else {
-            // No KCV on the wire - emit zeros to keep the response shape stable.
-            kcvOut.writeBytes(new byte[3]);
+        // GPC v2.3.1 11.8.2.3.3: for DES/AES (the only key types parsed here) the KCV is mandatory.
+        if (kcvLen == 0) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
+        byte[] computed = type == KeySet.TYPE_AES ? GPCrypto.kcv_aes(keyValue) : GPCrypto.kcv_3des(keyValue);
+        if (kcvLen > computed.length || !Arrays.equals(wireKcv, 0, kcvLen, computed, 0, kcvLen)) {
+            log.warn("PUT KEY: KCV mismatch");
+            // GPC v2.3.1 11.8.3.2 Table 11-78: invalid key check value -> 6982
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        kcvOut.writeBytes(Arrays.copyOf(computed, 3));
         return new KeySet.KeyEntry(type, keyValue);
     }
 
