@@ -641,8 +641,7 @@ public class SecurityDomainApplet extends Applet {
         if ((p1 & 0x80) != 0) {
             commitStoreGPData();
         }
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        // GPC v2.3.1 11.11.3.1: ISO case 3 STORE DATA returns no response data field.
     }
 
     private void commitStoreGPData() {
