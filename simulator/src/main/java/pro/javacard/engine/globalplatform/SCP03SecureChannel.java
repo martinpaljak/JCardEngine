@@ -65,6 +65,12 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
             resetSession();
+            // SCP03 Amd D v1.2 6.2.2.1: advance the per-key-set sequence counter at INITIALIZE
+            // UPDATE so each card challenge is unique; reject when it would overflow.
+            if (Arrays.equals(ssc, Hex.decode("FFFFFF"))) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+            GPCrypto.buffer_increment(ssc);
             byte[] kdd = sessionKDD();
             PlaintextKeys keys = initializeMasterKey(buffer[ISO7816.OFFSET_P1]);
             keys.diversify(GPSecureChannelVersion.SCP.SCP03, kdd);
@@ -109,7 +115,6 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 ISOException.throwIt((short) 0x6300);
             }
             state = (byte) (SecureChannel.AUTHENTICATED | buffer[ISO7816.OFFSET_P1]);
-            GPCrypto.buffer_increment(ssc);
             log.debug("Secure channel #{} state is now {}", Hex.toHexString(ssc), String.format("%02x", state));
             return 0;
         } else {
@@ -144,7 +149,6 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
     }
-
 
     @Override
     public short wrap(byte[] bytes, short i, short i1) throws ISOException {
