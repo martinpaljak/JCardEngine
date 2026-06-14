@@ -82,6 +82,9 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
 
         // check match of values
         assertEquals(true, Arrays.areEqual(secret1, secret2));
+        // DH secret is always prime-length; leading zero bytes are not stripped
+        assertEquals(keySize / 8, secret1Size);
+        assertEquals(keySize / 8, secret2Size);
     }
 
     /**

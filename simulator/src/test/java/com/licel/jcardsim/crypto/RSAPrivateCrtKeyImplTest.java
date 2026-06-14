@@ -3,9 +3,13 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,5 +40,26 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
         assertFalse(key.isInitialized());
         key.setPQ(Hex.decode(PQ), (short)0, compLen);
         assertTrue(key.isInitialized());
+    }
+
+    /**
+     * Generated CRT components read back at half the modulus length regardless of leading zeros.
+     */
+    @Test
+    public void testComponentsHalfModulusLength() {
+        BigInteger p = new BigInteger(P, 16);
+        BigInteger q = new BigInteger(Q, 16);
+        BigInteger dp = new BigInteger(DP, 16);
+        BigInteger dq = new BigInteger(DQ, 16);
+        // full-width p/q/dp/dq keep no spurious sign byte; a tiny qInv is left-padded, not trimmed (issue #24)
+        BigInteger qInv = BigInteger.valueOf(0x010001);
+        RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short) 2048);
+        key.setParameters(new RSAPrivateCrtKeyParameters(p.multiply(q), null, null, p, q, dp, dq, qInv));
+        byte[] buf = new byte[128];
+        assertEquals(128, key.getP(buf, (short) 0));
+        assertEquals(128, key.getQ(buf, (short) 0));
+        assertEquals(128, key.getDP1(buf, (short) 0));
+        assertEquals(128, key.getDQ1(buf, (short) 0));
+        assertEquals(128, key.getPQ(buf, (short) 0));
     }
 }

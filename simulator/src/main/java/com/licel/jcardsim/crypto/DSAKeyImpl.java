@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
 import javacard.security.KeyBuilder;
@@ -23,9 +24,9 @@ import java.security.SecureRandom;
  */
 public class DSAKeyImpl extends KeyImpl implements DSAKey {
 
-    protected ByteContainer p = new ByteContainer();
-    protected ByteContainer q = new ByteContainer();
-    protected ByteContainer g = new ByteContainer();
+    protected final ByteContainer p;
+    protected final ByteContainer q;
+    protected final ByteContainer g;
     protected boolean isPrivate;
 
     /**
@@ -39,12 +40,18 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
     public DSAKeyImpl(byte keyType, short keySize) {
         this.size = keySize;
         type = keyType;
+        // p and g take the prime width; q has no canonical width, so it gets a prime-width
+        // buffer and reads back at its actual length
+        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
+        g = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
+        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
     }
 
     public void setParameters(CipherParameters params) {
-        p.setBigInteger(((DSAKeyParameters) params).getParameters().getP());
-        q.setBigInteger(((DSAKeyParameters) params).getParameters().getQ());
-        g.setBigInteger(((DSAKeyParameters) params).getParameters().getG());
+        var dsa = ((DSAKeyParameters) params).getParameters();
+        p.setBigInteger(dsa.getP());
+        q.setBigInteger(dsa.getQ());
+        g.setBigInteger(dsa.getG());
     }
 
     public void clearKey() {

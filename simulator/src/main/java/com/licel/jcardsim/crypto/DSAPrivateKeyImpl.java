@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DSAPrivateKey;
 import javacard.security.KeyBuilder;
@@ -17,7 +18,7 @@ import org.bouncycastle.crypto.params.DSAPrivateKeyParameters;
  */
 public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
 
-    protected ByteContainer x = new ByteContainer();
+    protected final ByteContainer x;
 
     /**
      * Construct not-initialized dsa private key
@@ -26,6 +27,8 @@ public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
      */
     public DSAPrivateKeyImpl(short keySize) {
         super(KeyBuilder.TYPE_DSA_PRIVATE, keySize);
+        // x is mod q so always fits a prime-width buffer; reads back at its actual length
+        x = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
     }
 
     public void setParameters(CipherParameters params) {

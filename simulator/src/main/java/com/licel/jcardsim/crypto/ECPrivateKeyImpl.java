@@ -15,7 +15,7 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
  */
 public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
 
-    protected ByteContainer s;
+    protected final ByteContainer s;
 
     /**
      * Construct not-initialized ecc private key
@@ -26,23 +26,12 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
      */
     public ECPrivateKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
-        s = new ByteContainer(memoryType);
+        // the secret scalar is stored verbatim within an order-width buffer
+        s = new ByteContainer(memoryType, orderBytes(keyType, keySize), true);
     }
 
-    /**
-     * Construct and initialize ecc key with ECPrivateKeyParameters.
-     * Use in KeyPairImpl
-     * @see javacard.security.KeyPair
-     * @see ECPrivateKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public ECPrivateKeyImpl(ECPrivateKeyParameters params) {
-        super(params);
-        setParameters(params);
-    }
-  
-     public void setParameters(CipherParameters params){
-        s.setBigInteger(((ECPrivateKeyParameters)params).getD());
+    public void setParameters(CipherParameters params) {
+        s.setBigInteger(((ECPrivateKeyParameters) params).getD());
     }
 
     public void setS(byte[] buffer, short offset, short length) throws CryptoException {

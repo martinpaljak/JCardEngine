@@ -17,7 +17,7 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
  */
 public class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivateKey {
 
-    protected ByteContainer s;
+    protected final ByteContainer s;
 
     /**
      * Construct not-initialized ecc private key
@@ -31,7 +31,8 @@ public class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivate
      */
     public ECPrivateKeySharedImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl sharedDomain) {
         super(keyType, keySize, memoryType, sharedDomain);
-        s = new ByteContainer(memoryType);
+        // the secret scalar is stored verbatim within an order-width buffer
+        s = new ByteContainer(memoryType, ECKeyImpl.orderBytes(keyType, keySize), true);
     }
 
     public void setParameters(CipherParameters params) {

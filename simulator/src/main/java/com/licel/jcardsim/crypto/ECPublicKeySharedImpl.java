@@ -19,7 +19,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
  */
 public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKey {
 
-    protected ByteContainer w;
+    protected final ByteContainer w;
 
     /**
      * Construct not-initialized ecc public key
@@ -32,7 +32,8 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
      */
     public ECPublicKeySharedImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl sharedDomain) {
         super(keyType, keySize, memoryType, sharedDomain);
-        w = new ByteContainer(memoryType);
+        // public point W is an uncompressed point: 04 || X || Y
+        w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
     }
 
     public void setParameters(CipherParameters params) {

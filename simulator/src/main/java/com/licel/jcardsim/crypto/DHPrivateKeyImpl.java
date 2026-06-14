@@ -2,27 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DHPrivateKey;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.params.DHKeyParameters;
 import org.bouncycastle.crypto.params.DHParameters;
 import org.bouncycastle.crypto.params.DHPrivateKeyParameters;
 
 public final class DHPrivateKeyImpl extends DHKeyImpl implements DHPrivateKey {
         
-    protected ByteContainer x = new ByteContainer();
-    
+    protected final ByteContainer x;
+
     public DHPrivateKeyImpl(short size) {
-        this.size = size;
+        super(size);
         type = KeyBuilder.TYPE_DH_PRIVATE;
+        // x is bounded by p, so a prime-width buffer suffices; returns only significant bytes
+        x = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8, true);
     }
-    
-    public DHPrivateKeyImpl(DHKeyParameters params) {
-        setParameters(params);
-    }
-    
+
     @Override
     public void setParameters(CipherParameters params) {
         super.setParameters(((DHPrivateKeyParameters) params).getParameters());

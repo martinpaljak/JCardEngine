@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.KeyAgreement;
@@ -88,7 +89,11 @@ public class KeyAgreementImpl extends KeyAgreement {
             BigInteger pubKey = new ByteContainer(publicData, publicOffset, publicLength).getBigInteger();
             DHParameters baseParam = ((DHKeyParameters) ((DHPrivateKeyImpl) privateKey).getParameters()).getParameters();
             BigInteger retAgreement = engine.calculateAgreement(new DHPublicKeyParameters(pubKey, baseParam));
-            return new ByteContainer(retAgreement).getBytes(secret, secretOffset);
+            // the shared secret is padded to the prime length, not trimmed
+            var primeBytes = (baseParam.getP().bitLength() + 7) / 8;
+            var out = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, primeBytes);
+            out.setBigInteger(retAgreement);
+            return out.getBytes(secret, secretOffset);
         } else {
             byte[] publicKey = new byte[publicLength];
             Util.arrayCopyNonAtomic(publicData, publicOffset, publicKey, (short) 0, publicLength);
