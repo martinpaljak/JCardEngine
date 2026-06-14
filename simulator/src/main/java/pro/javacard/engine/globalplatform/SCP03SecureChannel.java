@@ -106,6 +106,10 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             if (buffer[ISO7816.OFFSET_LC] != (s16 ? 16 : 8) * 2) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
+            // No session keys means no preceding INITIALIZE UPDATE. GPC v2.3.1 E.1.2.1.
+            if (macKey == null) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
             process_mac(buffer, ISO7816.OFFSET_CLA, apdu.getIncomingLength() + ISO7816.OFFSET_CDATA);
 
             // Verify challenge
