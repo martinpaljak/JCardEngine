@@ -111,7 +111,8 @@ public class AsymmetricCipherImpl extends Cipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         bufferPos = (short) (bufferPos + Util.arrayCopyNonAtomic(inBuff, inOffset, buffer, bufferPos, inLength));
-        return bufferPos;
+        // JC 3.2: asymmetric update only buffers input, writes nothing, always returns 0
+        return 0;
     }
 
     public byte getPaddingAlgorithm() {
