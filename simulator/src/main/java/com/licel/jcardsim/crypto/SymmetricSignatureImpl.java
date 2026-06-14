@@ -165,6 +165,9 @@ public class SymmetricSignatureImpl extends Signature {
         byte[] sig = new byte[getLength()];
         engine.doFinal(sig, (short) 0);
         engine.reset();
+        if (sigLength != (short) sig.length) {
+            return false;
+        }
         return Util.arrayCompare(sig, (short) 0, sigBuff, sigOffset, (short) sig.length) == 0;
     }
 

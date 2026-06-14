@@ -403,6 +403,12 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         }
         assertEquals(true, engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
                 (short) 0, (short) macEtalon.length));
-
+        // a wrong sigLength must fail verification, not match a fixed MAC-size slice
+        byte[] padded = new byte[macEtalon.length + 1];
+        System.arraycopy(macEtalon, 0, padded, 0, macEtalon.length);
+        assertEquals(false, engine.verify(msg, (short) 0, (short) msg.length, padded,
+                (short) 0, (short) padded.length));
+        assertEquals(false, engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
+                (short) 0, (short) (macEtalon.length - 1)));
     }
 }
