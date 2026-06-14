@@ -771,23 +771,19 @@ public class SecurityDomainApplet extends Applet {
         apdu.setOutgoingAndSend((short) 0, (short) 1);
     }
 
-    // PUT KEY (GPC v2.3.1 11.8). P1 = 0 adds a new KVN, else replaces that KVN. P2 = first KID
-    // | 0x80 (multi-key flag); gp-pro sends 0x81 + ENC/MAC/DEK in one APDU.
-    // Body: new_KVN | block_ENC | block_MAC | block_DEK, each block:
+    // PUT KEY (GPC v2.3.1 11.8). P1 = 0 adds a new KVN, else replaces that KVN.
+    // Body: new_KVN | one or more key blocks (gp-pro sends ENC/MAC/DEK in one APDU), each block:
     //   AES  88 | block_len | actual_key_len | cgram | kcv_len | kcv
     //   DES3 80 | block_len | cgram | kcv_len | kcv
-    // Response: new_KVN | KCV_KID1 | KCV_KID2 | KCV_KID3 (3 bytes each).
+    // Response: new_KVN | one 3-byte KCV per key in command order.
     private void handlePutKey(APDU apdu, byte[] buffer, byte[] payload) {
         var sim = Simulator.current();
         byte p1 = buffer[ISO7816.OFFSET_P1];
         byte p2 = buffer[ISO7816.OFFSET_P2];
-        if ((p2 & 0x80) == 0) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
-        byte firstKid = (byte) (p2 & 0x7F);
-        if (firstKid != KeySet.KID_ENC) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
+        // GPC v2.3.1 11.8.2.2 Table 11-66: b8 = multiple-keys flag, b7-b1 = KID of the first key
+        // (subsequent keys take consecutive KIDs). KID is coded '00'..'7F'.
+        boolean multikey = (p2 & 0x80) != 0;
+        byte firstkid = (byte) (p2 & 0x7F);
 
         var bb = ByteBuffer.wrap(payload);
         if (!bb.hasRemaining()) {
@@ -820,10 +816,16 @@ public class SecurityDomainApplet extends Applet {
         var kcvOut = new ByteArrayOutputStream();
         kcvOut.write(newKvn & 0xFF);
 
-        for (byte kid = KeySet.KID_ENC; kid <= KeySet.KID_DEK; kid++) {
-            entries.put(kid, parseKeyBlock(bb, sc, payload, kcvOut));
+        int kid = firstkid & 0xFF;
+        while (bb.hasRemaining()) {
+            // Consecutive KIDs must stay within the '00'..'7F' coding (GPC v2.3.1 11.8.2.2).
+            if (kid > 0x7F) {
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+            entries.put((byte) kid, parseKeyBlock(bb, sc, payload, kcvOut));
+            kid++;
         }
-        if (bb.hasRemaining()) {
+        if (entries.isEmpty() || (!multikey && entries.size() > 1)) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
@@ -832,6 +834,9 @@ public class SecurityDomainApplet extends Applet {
             var existing = keys.get(newKvn);
             for (var e : entries.entrySet()) {
                 var old = existing.entries().get(e.getKey());
+                if (old == null) {
+                    ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
+                }
                 if (old.type() != e.getValue().type() || old.value().length != e.getValue().value().length) {
                     log.warn("PUT KEY: replacement key type/length differs from existing KVN");
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
