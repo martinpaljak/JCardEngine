@@ -259,7 +259,8 @@ public class CurrentAPDU {
      * @see #getOutBlockSize()
      */
     public void setOutgoingLength(short len) throws APDUException {
-        final short max = extended ? Short.MAX_VALUE : T0_OBS;
+        // Short APDU max outgoing is 256; T0_OBS (258) is the block size, not the outgoing-length cap
+        final short max = extended ? Short.MAX_VALUE : 256;
         if (state != APDU.STATE_OUTGOING) {
             APDUException.throwIt(APDUException.ILLEGAL_USE);
         }
