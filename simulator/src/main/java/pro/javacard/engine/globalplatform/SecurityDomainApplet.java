@@ -126,6 +126,18 @@ public class SecurityDomainApplet extends Applet {
     // Multi-block STORE DATA accumulator for the GP-data path.
     private ByteArrayOutputStream storeDataBuffer;
 
+    // GP command chaining (GPC v2.3.1 11.1.5.1): a wrapped DELETE/INSTALL/PUT KEY whose data exceeds
+    // the short-APDU limit arrives as a sequence of chunks, each repeating the header with P1.b8 set
+    // on all but the last. Set on the first chunk and cleared after the final one; chainCLA/INS/P2
+    // lock the header that every subsequent chunk must repeat.
+    private ByteArrayOutputStream chainBuffer;
+    private byte chainCLA, chainINS, chainP2;
+
+    // GPC v2.3.1 11.1.5.1: only these commands accept the P1.b8 more-data chaining bit.
+    // Tables 11-41 (INSTALL) and 11-65 (PUT KEY) reserve b8 for this, with the real P1 payload in
+    // b7-b1, so a non-final chunk is identified by P1.b8 alone, independent of chunk size.
+    private static final List<Byte> CHAINABLE_INS = List.of(INS_DELETE, INS_INSTALL, INS_PUT_KEY);
+
     // Keys owned by this Security Domain.
     private final LinkedHashMap<Byte, KeySet> keys = new LinkedHashMap<>();
 
@@ -150,6 +162,11 @@ public class SecurityDomainApplet extends Applet {
         if (ins != INS_STORE_DATA) {
             personalizationTarget = null;
             storeDataBuffer = null;
+        }
+
+        // A command of a different INS discards any in-flight chain buffer.
+        if (chainBuffer != null && !CHAINABLE_INS.contains(ins)) {
+            chainBuffer = null;
         }
 
         if (selectingApplet()) {
@@ -191,9 +208,47 @@ public class SecurityDomainApplet extends Applet {
         }
 
         short len = apdu.setIncomingAndReceive();
+
+        // INSTALL [for load] is unsupported (the engine runs real classes, not CAP). Rejected before
+        // any chaining buffer engages; GPC v2.3.1 11.1.5.1 permits an error at any point in a chain,
+        // so the first chunk of a chained load fails here.
+        if (ins == INS_INSTALL && (buffer[ISO7816.OFFSET_P1] & P1_BIT_LOAD) != 0) {
+            log.warn("INSTALL [for load] not supported");
+            ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
+        }
+
+        // GP command chaining (GPC v2.3.1 11.1.5.1): accumulate chunks of a DELETE/INSTALL/PUT KEY
+        // until the final chunk arrives, then dispatch the reassembled payload. The C-MAC covers the
+        // entire unsegmented command, so MAC verification runs after reassembly.
+        boolean more = CHAINABLE_INS.contains(ins) && (buffer[ISO7816.OFFSET_P1] & 0x80) != 0;
+        if (more || chainBuffer != null) {
+            if (chainBuffer == null) {
+                chainBuffer = new ByteArrayOutputStream();
+                chainCLA = buffer[ISO7816.OFFSET_CLA];
+                chainINS = ins;
+                chainP2 = buffer[ISO7816.OFFSET_P2];
+            } else if (buffer[ISO7816.OFFSET_CLA] != chainCLA || ins != chainINS || buffer[ISO7816.OFFSET_P2] != chainP2) {
+                // 11.1.5.1: chained commands must repeat the same header (Lc and P1.b8 aside).
+                chainBuffer = null;
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+            chainBuffer.write(buffer, ISO7816.OFFSET_CDATA, len);
+            if (more) {
+                return;
+            }
+            byte[] wrapped = chainBuffer.toByteArray();
+            chainBuffer = null;
+            byte[] payload = sc.unwrapReassembled(buffer[ISO7816.OFFSET_CLA], ins, buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2], wrapped);
+            dispatch(ins, apdu, buffer, payload);
+            return;
+        }
+
         sc.unwrap(buffer, ISO7816.OFFSET_CLA, (short) (ISO7816.OFFSET_CDATA + len));
         byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (buffer[ISO7816.OFFSET_LC] & 0xFF));
+        dispatch(ins, apdu, buffer, payload);
+    }
 
+    private void dispatch(byte ins, APDU apdu, byte[] buffer, byte[] payload) {
         // Funnel malformed-data IllegalArgumentException (AIDUtil.create, LV.parse) to SW_WRONG_DATA.
         try {
             switch (ins) {
@@ -238,11 +293,6 @@ public class SecurityDomainApplet extends Applet {
 
     private void handleInstall(APDU apdu, byte[] buffer, byte[] payload) {
         byte p1 = (byte) (buffer[ISO7816.OFFSET_P1] & 0x7F);
-
-        if ((p1 & P1_BIT_LOAD) != 0) {
-            log.warn("INSTALL [for load] not supported");
-            ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
-        }
 
         var fields = LV.parse(payload);
         LV.visualize(payload).forEach(log::info);

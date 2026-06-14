@@ -128,30 +128,42 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
     }
 
     void process_mac(byte[] buffer, int offset, int length) {
-        // FIXME: handle chaining
         final int maclen = s16 ? 16 : 8;
         byte[] mac = Arrays.copyOfRange(buffer, offset + length - maclen, offset + length);
-        log.trace("mac: {}", Hex.toHexString(mac));
         byte[] payload = Arrays.copyOfRange(buffer, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
-        ByteArrayOutputStream bo = new ByteArrayOutputStream();
-        bo.writeBytes(chaining);
-        bo.write(buffer[offset + ISO7816.OFFSET_CLA]);
-        bo.write(buffer[offset + ISO7816.OFFSET_INS]);
-        bo.write(buffer[offset + ISO7816.OFFSET_P1]);
-        bo.write(buffer[offset + ISO7816.OFFSET_P2]);
-        bo.write(buffer[offset + ISO7816.OFFSET_LC]);
-        bo.writeBytes(payload);
-        byte[] cmac_input = bo.toByteArray();
-        log.trace("mac input: {}", Hex.toHexString(cmac_input));
-        byte[] cmac = GPCrypto.aes_cmac(macKey, cmac_input, 128);
-        // set new chaining value
-        System.arraycopy(cmac, 0, chaining, 0, chaining.length);
+        byte[] cmac = cmac(buffer[offset + ISO7816.OFFSET_CLA], buffer[offset + ISO7816.OFFSET_INS],
+                buffer[offset + ISO7816.OFFSET_P1], buffer[offset + ISO7816.OFFSET_P2],
+                new byte[]{buffer[offset + ISO7816.OFFSET_LC]}, payload);
         byte[] check = Arrays.copyOf(cmac, maclen);
         if (!Arrays.equals(check, mac)) {
             log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
             resetSecurity();
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
+    }
+
+    // SCP03 C-MAC covers: chaining value, command header, Lc, then command data (MAC excluded).
+    // Lc is one byte for short APDUs or the 3-byte extended form when reassembled data exceeds 255 bytes.
+    // Updates the chaining value in place; returns the full 16-byte CMAC for the caller to truncate.
+    private byte[] cmac(byte cla, byte ins, byte p1, byte p2, byte[] lc, byte[] data) {
+        var bo = new ByteArrayOutputStream();
+        bo.writeBytes(chaining);
+        bo.write(cla);
+        bo.write(ins);
+        bo.write(p1);
+        bo.write(p2);
+        bo.writeBytes(lc);
+        bo.writeBytes(data);
+        byte[] cmac = GPCrypto.aes_cmac(macKey, bo.toByteArray(), 128);
+        System.arraycopy(cmac, 0, chaining, 0, chaining.length);
+        return cmac;
+    }
+
+    // Decrypts an SCP03 C-DECRYPTION cryptogram: IV derived by encrypting the counter under S-ENC,
+    // then AES-CBC decrypt with 80-byte unpadding. Counter increment is the caller's responsibility.
+    private byte[] decryptCommand(byte[] cryptogram) throws GeneralSecurityException {
+        byte[] iv = GPCrypto.aes_cbc(enc_counter, encKey, new byte[16]);
+        return GPCrypto.unpad80(GPCrypto.aes_cbc_decrypt(cryptogram, encKey, iv));
     }
 
     @Override
@@ -176,9 +188,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 // in sync with GPPro's wrapper.
                 GPCrypto.buffer_increment(enc_counter);
                 if (cryptogram.length > 0) {
-                    byte[] iv = GPCrypto.aes_cbc(enc_counter, encKey, new byte[16]);
-                    byte[] payload = GPCrypto.aes_cbc_decrypt(cryptogram, encKey, iv);
-                    payload = GPCrypto.unpad80(payload);
+                    byte[] payload = decryptCommand(cryptogram);
                     log.trace("Unwrapped: {}", Hex.toHexString(payload));
                     Util.arrayCopyNonAtomic(payload, (short) 0, bytes, (short) (offset + ISO7816.OFFSET_CDATA), (short) payload.length);
                     bytes[offset + ISO7816.OFFSET_LC] = (byte) payload.length; // TODO: extlen
@@ -197,6 +207,44 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             return 0;
         }
+    }
+
+    @Override
+    public byte[] unwrapReassembled(byte cla, byte ins, byte p1, byte p2, byte[] wrapped) {
+        requireAuthenticated();
+        final int maclen = s16 ? 16 : 8;
+        byte[] body = wrapped;
+        if ((state & SecureChannel.C_MAC) == SecureChannel.C_MAC) {
+            if (wrapped.length < maclen) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+            }
+            byte[] mac = Arrays.copyOfRange(wrapped, wrapped.length - maclen, wrapped.length);
+            byte[] data = Arrays.copyOf(wrapped, wrapped.length - maclen);
+            // Lc covers the whole wrapped payload including MAC; encoded as 3-byte extended form
+            // once it exceeds 255 bytes (GPC v2.3.1 11.1.5.1), matching what was MAC'd off-card.
+            byte[] cmac = cmac(cla, ins, p1, p2, GPUtils.encodeLcLength(wrapped.length, 256), data);
+            if (!Arrays.equals(Arrays.copyOf(cmac, maclen), mac)) {
+                log.error("MAC mismatch on reassembled chained command");
+                resetSecurity();
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+            body = data;
+        }
+        if ((cla & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
+            GPCrypto.buffer_increment(enc_counter);
+            if (body.length == 0) {
+                return new byte[0];
+            }
+            try {
+                return decryptCommand(body);
+            } catch (GeneralSecurityException e) {
+                log.error("Decryption failed", e);
+                resetSecurity();
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                return null;
+            }
+        }
+        return body;
     }
 
     @Override

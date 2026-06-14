@@ -80,6 +80,11 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
         }
     }
 
+    // Unwrap a command reassembled from GP command-chaining chunks (GPC v2.3.1 11.1.5.1), returning
+    // its plaintext payload. The C-MAC covers the full reassembled command, so MAC verification
+    // runs once over the concatenated chunk data, not per chunk.
+    public abstract byte[] unwrapReassembled(byte cla, byte ins, byte p1, byte p2, byte[] wrapped);
+
     // Max plaintext response payload that fits in a 256-byte APDU response after wrap().
     abstract short maxResponseLength();
 

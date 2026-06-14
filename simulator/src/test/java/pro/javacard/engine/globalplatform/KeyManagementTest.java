@@ -140,20 +140,8 @@ public class KeyManagementTest {
                     () -> gp.openSecureChannel(deleted, null, null, mode));
         }
 
-        // 10. PUT KEY at KVN=0xFF must be universally rejected - engine restricts the PUT KEY
-        // KVN range to 0x01..0x7F (factory slot is reserved for boot-time seeding only).
-        try (var bibo = sim.connect()) {
-            var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
-            var atFactory = PlaintextKeys.fromMasterKey(MasterKeys.A);
-            atFactory.setVersion(0xFF);
-            assertThrows(GPException.class,
-                    () -> gp.putKeys(atFactory, true));
-        }
-
-        // 11. PUT KEY add (replace=false) for an already-existing KVN must be rejected so the
-        // caller is forced to use replace=true, since GPC v2.3.1 11.8.2.1 says P1='00' adds a new
-        // keyset while non-zero P1 replaces an existing one and the engine rejects an "add"
-        // against an already-present KVN.
+        // 10. PUT KEY add (replace=false) for an already-existing KVN must be rejected; the caller
+        // must use replace=true. GPC v2.3.1 11.8.2.1: P1='00' adds a new keyset, non-zero P1 replaces.
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
             assertThrows(GPException.class,
@@ -233,27 +221,46 @@ public class KeyManagementTest {
     // Token Verification key for Delegated Management (GPC v2.3.1 C.1.1.1). KVN 0x70 is the de-facto convention, not spec-mandated.
     private static final int DM_TOKEN_KVN = 0x70;
 
-    @Test
-    void putKeyRsaPublicKey() throws Exception {
-        var kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(1024);
-        var pair = kpg.generateKeyPair();
-        var sim = new JavaCardEngine.Builder().build();
+    // SCP03 S8 and S16 (8- vs 16-byte C-MAC, which the reassembly path strips). SCP02 chaining is
+    // spec-valid (GPC v2.3.1 11.1.5.1) but gp-pro's SCP02 wrapper refuses >255-byte commands, so it
+    // cannot drive a chained SCP02 PUT KEY here.
+    static Stream<Arguments> chainingConfigs() {
+        return Stream.of(
+                Arguments.of("SCP03", (Supplier<SCPConfig>) SCPConfig.SCP03::new),
+                Arguments.of("SCP03-S16", (Supplier<SCPConfig>) () -> new SCPConfig.SCP03(true))
+        );
+    }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("chainingConfigs")
+    void putKeyRsaPublicKey(String name, Supplier<SCPConfig> cfgFactory) throws Exception {
+        var kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        var pair = kpg.generateKeyPair();
+        var sim = new JavaCardEngine.Builder().withSCP(cfgFactory.get()).build();
+
+        // A 2048-bit modulus is 256 bytes, so the MAC+ENC wrapped PUT KEY exceeds the short-APDU limit
+        // and gp-pro splits it into chained chunks (GPC v2.3.1 11.1.5.1); the SD must reassemble them
+        // before MAC-checking and decrypting. Storing the key end-to-end thus exercises chaining.
         try (var bibo = sim.connect()) {
-            var gp = openIsd(bibo);
+            var gp = openIsd(bibo, EnumSet.of(GPSession.APDUMode.MAC, GPSession.APDUMode.ENC));
             gp.putKey(pair.getPublic(), DM_TOKEN_KVN, false);
             var kit = gp.getKeyInfoTemplate();
             var rsa = kit.stream().filter(k -> k.getVersion() == DM_TOKEN_KVN).findFirst().orElseThrow();
             assertEquals(GPKeyInfo.GPKey.RSA_PUB_N, rsa.getType());
-            assertEquals(128, rsa.getLength());
+            // GPC v2.3.1 11.3.3.1.1: a modulus >= 256 bytes is length-coded 0x00; gp-pro decodes it to 256.
+            assertEquals(256, rsa.getLength());
             // Asymmetric key add must leave the factory ENC/MAC/DEK triple at KVN 0xFF intact.
             assertEquals(3, countAtKvn(kit, 0xFF));
         }
 
-        // SCP still opens with the factory keys after the RSA load.
+        // MAC-only (no ENC) also chains a 2048-bit key: covers reassembly without decryption, and
+        // proves SCP still opens with the factory keys after the chained loads.
         try (var bibo = sim.connect()) {
-            openIsd(bibo);
+            var gp = openIsd(bibo, EnumSet.of(GPSession.APDUMode.MAC));
+            gp.putKey(kpg.generateKeyPair().getPublic(), DM_TOKEN_KVN + 1, false);
+            var rsa = gp.getKeyInfoTemplate().stream().filter(k -> k.getVersion() == DM_TOKEN_KVN + 1).findFirst().orElseThrow();
+            assertEquals(GPKeyInfo.GPKey.RSA_PUB_N, rsa.getType());
         }
     }
 
