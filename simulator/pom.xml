@@ -76,6 +76,11 @@
             <artifactId>apdu4j-pcsc-sim</artifactId>
             <version>${apdu4j.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-prefs</artifactId>
+            <version>${apdu4j.version}</version>
+        </dependency>
         <!-- Faulty config parser -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
