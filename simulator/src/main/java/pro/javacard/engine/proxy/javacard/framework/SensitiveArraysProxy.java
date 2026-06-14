@@ -56,18 +56,24 @@ public final class SensitiveArraysProxy {
         if (length < 0) {
             throw new NegativeArraySizeException();
         }
+        Object array = null;
         if (memory == JCSystem.MEMORY_TYPE_PERSISTENT) {
             switch (type) {
                 case JCSystem.ARRAY_TYPE_BOOLEAN:
-                    return new boolean[length];
+                    array = new boolean[length];
+                    break;
                 case JCSystem.ARRAY_TYPE_BYTE:
-                    return new byte[length];
+                    array = new byte[length];
+                    break;
                 case JCSystem.ARRAY_TYPE_SHORT:
-                    return new short[length];
+                    array = new short[length];
+                    break;
                 case JCSystem.ARRAY_TYPE_OBJECT:
-                    return new Object[length];
+                    array = new Object[length];
+                    break;
                 case JCSystem.ARRAY_TYPE_INT:
-                    return new int[length];
+                    array = new int[length];
+                    break;
                 default:
                     SystemException.throwIt(SystemException.ILLEGAL_VALUE);
             }
@@ -76,13 +82,17 @@ public final class SensitiveArraysProxy {
                     JCSystem.CLEAR_ON_RESET : JCSystem.CLEAR_ON_DESELECT;
             switch (type) {
                 case JCSystem.ARRAY_TYPE_BOOLEAN:
-                    return JCSystem.makeTransientBooleanArray(length, event);
+                    array = JCSystem.makeTransientBooleanArray(length, event);
+                    break;
                 case JCSystem.ARRAY_TYPE_BYTE:
-                    return JCSystem.makeTransientByteArray(length, event);
+                    array = JCSystem.makeTransientByteArray(length, event);
+                    break;
                 case JCSystem.ARRAY_TYPE_SHORT:
-                    return JCSystem.makeTransientShortArray(length, event);
+                    array = JCSystem.makeTransientShortArray(length, event);
+                    break;
                 case JCSystem.ARRAY_TYPE_OBJECT:
-                    return JCSystem.makeTransientObjectArray(length, event);
+                    array = JCSystem.makeTransientObjectArray(length, event);
+                    break;
                 case JCSystem.ARRAY_TYPE_INT:
                     SystemException.throwIt(SystemException.ILLEGAL_VALUE);
                     break;
@@ -92,6 +102,9 @@ public final class SensitiveArraysProxy {
         } else {
             SystemException.throwIt(SystemException.ILLEGAL_VALUE);
         }
-        return null;
+        if (array != null) {
+            Simulator.current().getTransientMemory().markSensitive(array);
+        }
+        return array;
     }
 }

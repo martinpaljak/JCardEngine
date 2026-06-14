@@ -193,6 +193,12 @@ public final class TransientMemory {
         return sensitive.contains(obj);
     }
 
+    public void markSensitive(Object obj) {
+        if (!sensitive.contains(obj)) {
+            sensitive.add(obj);
+        }
+    }
+
     /**
      * Store <code>arrayRef</code> in memory depends by event type
      *
