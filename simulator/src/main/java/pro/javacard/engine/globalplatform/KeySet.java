@@ -21,6 +21,8 @@ public record KeySet(byte kvn, SortedMap<Byte, KeyEntry> entries) {
     // GPC v2.3.1 11.1.8 Key Type Coding (Table 11-16).
     public static final byte TYPE_DES3 = (byte) 0x80;
     public static final byte TYPE_AES = (byte) 0x88;
+    public static final byte TYPE_RSA_PUB_EXP = (byte) 0xA0; // exponent e, transmitted in clear
+    public static final byte TYPE_RSA_PUB_MOD = (byte) 0xA1; // modulus N, transmitted in clear
 
     // GPC v2.3.1 11.8.2.3.1: symmetric keys have one component; RSA public keys have two (N and e).
     public record KeyComponent(byte type, byte[] value) {

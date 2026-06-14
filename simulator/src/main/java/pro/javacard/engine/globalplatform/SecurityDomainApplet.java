@@ -17,7 +17,9 @@ import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.data.BitField;
 import pro.javacard.tlv.LV;
+import pro.javacard.tlv.Len;
 import pro.javacard.tlv.TLV;
+import pro.javacard.tlv.TLVParser;
 import pro.javacard.tlv.TLVs;
 import pro.javacard.tlv.Tag;
 
@@ -823,7 +825,12 @@ public class SecurityDomainApplet extends Applet {
             if (kid > 0x7F) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
-            entries.put((byte) kid, parseKeyBlock(bb, sc, payload, kcvOut));
+            byte keyType = bb.get(bb.position());
+            if (keyType == KeySet.TYPE_RSA_PUB_MOD || keyType == KeySet.TYPE_RSA_PUB_EXP) {
+                entries.put((byte) kid, parsePublicKeyBlock(bb));
+            } else {
+                entries.put((byte) kid, parseKeyBlock(bb, sc, payload, kcvOut));
+            }
             kid++;
         }
         if (entries.isEmpty() || (!multikey && entries.size() > 1)) {
@@ -939,6 +946,33 @@ public class SecurityDomainApplet extends Applet {
         }
         kcvOut.writeBytes(Arrays.copyOf(computed, 3));
         return new KeySet.KeyEntry(type, keyValue);
+    }
+
+    // GPC v2.3.1 11.8.2.3.1: a key component is a 1-byte opaque type + BER length + value, not a BER-TLV
+    // (the byte A1 would otherwise read as a constructed tag), so the parser uses an opaque single-byte tag.
+    private static final TLVParser KEY_COMPONENTS = TLVParser.of(Tag.Codec.SINGLE_BYTE, Len.Codec.BER, false);
+
+    // GPC v2.3.1 11.8.2.3.6 Table 11-75: RSA public key components (modulus A1, exponent A0) arrive in
+    // the clear; the trailing KCV length is 00 because public keys carry no key check value.
+    private static KeySet.KeyEntry parsePublicKeyBlock(ByteBuffer bb) {
+        var components = new ArrayList<KeySet.KeyComponent>();
+        while (bb.hasRemaining()) {
+            byte type = bb.get(bb.position());
+            if (type != KeySet.TYPE_RSA_PUB_MOD && type != KeySet.TYPE_RSA_PUB_EXP) {
+                break;
+            }
+            components.add(new KeySet.KeyComponent(type, KEY_COMPONENTS.parseOne(bb).value()));
+        }
+        if (components.isEmpty() || !bb.hasRemaining()) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+        // Public keys carry no KCV; the length byte is expected to be 00.
+        int kcvLen = bb.get() & 0xFF;
+        if (bb.remaining() < kcvLen) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+        bb.position(bb.position() + kcvLen);
+        return new KeySet.KeyEntry(components);
     }
 
     // SET STATUS (GPC v2.3.1 11.10, Table 11-86). P1=0x80 is the ISD/card lifecycle (P2 = new

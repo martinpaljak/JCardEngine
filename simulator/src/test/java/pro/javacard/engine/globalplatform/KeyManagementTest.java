@@ -15,6 +15,7 @@ import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.io.ByteArrayOutputStream;
+import java.security.KeyPairGenerator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
@@ -226,6 +227,33 @@ public class KeyManagementTest {
             byte[] key32 = concat(key16, key16); // a 32-byte AES key value
             var widen = aesBlock(gp, key32, GPCrypto.kcv_aes(key32));
             assertEquals(0x6A80, gp.transmit(putKey(0x10, 0x81, 0x10, widen)).getSW()); // P2=81: first KID=01 (AES-16)
+        }
+    }
+
+    // Token Verification key for Delegated Management (GPC v2.3.1 C.1.1.1). KVN 0x70 is the de-facto convention, not spec-mandated.
+    private static final int DM_TOKEN_KVN = 0x70;
+
+    @Test
+    void putKeyRsaPublicKey() throws Exception {
+        var kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(1024);
+        var pair = kpg.generateKeyPair();
+        var sim = new JavaCardEngine.Builder().build();
+
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            gp.putKey(pair.getPublic(), DM_TOKEN_KVN, false);
+            var kit = gp.getKeyInfoTemplate();
+            var rsa = kit.stream().filter(k -> k.getVersion() == DM_TOKEN_KVN).findFirst().orElseThrow();
+            assertEquals(GPKeyInfo.GPKey.RSA_PUB_N, rsa.getType());
+            assertEquals(128, rsa.getLength());
+            // Asymmetric key add must leave the factory ENC/MAC/DEK triple at KVN 0xFF intact.
+            assertEquals(3, countAtKvn(kit, 0xFF));
+        }
+
+        // SCP still opens with the factory keys after the RSA load.
+        try (var bibo = sim.connect()) {
+            openIsd(bibo);
         }
     }
 

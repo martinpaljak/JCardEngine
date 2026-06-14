@@ -42,7 +42,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <apdu4j.version>26.06.04</apdu4j.version>
-        <gppro.version>26.06.04</gppro.version>
+        <gppro.version>26.06.05-SNAPSHOT</gppro.version>
         <javacard.version>3.0.5</javacard.version>
     </properties>
 
