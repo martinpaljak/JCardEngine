@@ -223,9 +223,9 @@ public class SecurityDomainApplet extends Applet {
             return Optional.empty();
         }
         if (requestedKvn == 0) {
-            return sda.keys.values().stream().reduce((a, b) -> b);
+            return sda.keys.values().stream().filter(KeySet::isSCP).reduce((a, b) -> b);
         }
-        return Optional.ofNullable(sda.keys.get(requestedKvn));
+        return Optional.ofNullable(sda.keys.get(requestedKvn)).filter(KeySet::isSCP);
     }
 
     private static final int INSTALL_LV_FIELD_COUNT = 6;
@@ -830,7 +830,7 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
-        // GPC v2.3.1 11.8.2.3.3: replacing a key must keep the same type and length per KID.
+        // GPC v2.3.1 11.8.2.3.3: replacing a key must keep the same component types and lengths.
         if (p1 != 0) {
             var existing = keys.get(newKvn);
             for (var e : entries.entrySet()) {
@@ -838,19 +838,31 @@ public class SecurityDomainApplet extends Applet {
                 if (old == null) {
                     ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
                 }
-                if (old.type() != e.getValue().type() || old.value().length != e.getValue().value().length) {
+                var oldc = old.components();
+                var newc = e.getValue().components();
+                boolean sameShape = oldc.size() == newc.size();
+                for (int i = 0; sameShape && i < oldc.size(); i++) {
+                    sameShape = oldc.get(i).type() == newc.get(i).type()
+                            && oldc.get(i).value().length == newc.get(i).value().length;
+                }
+                if (!sameShape) {
                     log.warn("PUT KEY: replacement key type/length differs from existing KVN");
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 }
             }
         }
 
-        if (keys.size() == 1) {
+        var newKeyset = new KeySet(newKvn, entries);
+
+        // The factory keyset is removed only when a real SCP keyset is stored. An asymmetric key
+        // (e.g. an RSA token-verification key) is not an SCP keyset and leaves the factory keys alone.
+        if (newKeyset.isSCP() && keys.containsKey(FACTORY_KVN)
+                && keys.values().stream().filter(KeySet::isSCP).count() == 1) {
             keys.remove(FACTORY_KVN);
         }
         // Remove first so a re-put moves the KVN to newest (LinkedHashMap keeps insertion order).
         keys.remove(newKvn);
-        keys.put(newKvn, new KeySet(newKvn, entries));
+        keys.put(newKvn, newKeyset);
 
         // GPC v2.3.1 E.1.2: the sequence counter is reset to zero on creation or update of the SC keys.
         sc.resetCounter();

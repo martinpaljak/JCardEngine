@@ -4,6 +4,7 @@ package pro.javacard.engine.globalplatform;
 
 import pro.javacard.tlv.TLV;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -21,14 +22,41 @@ public record KeySet(byte kvn, SortedMap<Byte, KeyEntry> entries) {
     public static final byte TYPE_DES3 = (byte) 0x80;
     public static final byte TYPE_AES = (byte) 0x88;
 
-    public record KeyEntry(byte type, byte[] value) {
-        public KeyEntry {
+    // GPC v2.3.1 11.8.2.3.1: symmetric keys have one component; RSA public keys have two (N and e).
+    public record KeyComponent(byte type, byte[] value) {
+        public KeyComponent {
             value = value.clone();
         }
 
         @Override
         public byte[] value() {
             return value.clone();
+        }
+    }
+
+    public record KeyEntry(List<KeyComponent> components) {
+        public KeyEntry {
+            components = List.copyOf(components);
+        }
+
+        // Convenience for single-component keys (SCP keys, KCV handling).
+        public KeyEntry(byte type, byte[] value) {
+            this(List.of(new KeyComponent(type, value)));
+        }
+
+        private KeyComponent single() {
+            if (components.size() != 1) {
+                throw new IllegalStateException("not a single-component key: " + components.size());
+            }
+            return components.get(0);
+        }
+
+        public byte type() {
+            return single().type();
+        }
+
+        public byte[] value() {
+            return single().value();
         }
     }
 
@@ -46,15 +74,27 @@ public record KeySet(byte kvn, SortedMap<Byte, KeyEntry> entries) {
         return entries.get(kid).value();
     }
 
-    // GPC v2.3.1 11.3.3.1.1 (Table 11-28, Basic) - one C0 per KID. Caller wraps the list in E0.
+    // Asymmetric keys (e.g. an RSA token-verification key) live in the SD but are not SCP keysets,
+    // so they must stay invisible to SCP keyset selection and factory eviction.
+    public boolean isSCP() {
+        return entries.values().stream().allMatch(e -> e.components().size() == 1
+                && (e.components().get(0).type() == TYPE_DES3 || e.components().get(0).type() == TYPE_AES));
+    }
+
+    // GPC v2.3.1 11.3.3.1.1 (Table 11-28, Basic) - one C0 per (KID, KVN). Component length >= 256
+    // (e.g. an RSA modulus) is coded '00'. Caller wraps in E0.
     public List<TLV> keyInfoEntries() {
         return entries.entrySet().stream()
-                .map(e -> TLV.of(0xC0, new byte[]{
-                        e.getKey(),
-                        kvn,
-                        e.getValue().type(),
-                        (byte) e.getValue().value().length
-                }))
+                .map(e -> {
+                    var bo = new ByteArrayOutputStream();
+                    bo.write(e.getKey());
+                    bo.write(kvn);
+                    for (var c : e.getValue().components()) {
+                        bo.write(c.type());
+                        bo.write(c.value().length >= 256 ? 0x00 : c.value().length);
+                    }
+                    return TLV.of(0xC0, bo.toByteArray());
+                })
                 .toList();
     }
 }
