@@ -86,6 +86,9 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
     // SCP-specific cleanup: zero session keys + per-SCP crypto buffers (ICV, chaining, ...).
     protected abstract void wipeScpState();
 
+    // Zero the SCP sequence counter. GPC v2.3.1 E.1.2: reset on creation or update of the SC keys.
+    abstract void resetCounter();
+
     // KDD = last 2 bytes of the currently selected AID || CPLC bytes 10..17
     // (IC fab date || IC SN || IC batch ID). Mirrors how off-card tooling derives KDD
     // from the card's CPLC. Used by SCP02/SCP03 INITIALIZE_UPDATE.

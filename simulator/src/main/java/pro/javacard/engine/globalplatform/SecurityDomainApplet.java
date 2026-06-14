@@ -851,6 +851,9 @@ public class SecurityDomainApplet extends Applet {
         keys.remove(newKvn);
         keys.put(newKvn, new KeySet(newKvn, entries));
 
+        // GPC v2.3.1 E.1.2: the sequence counter is reset to zero on creation or update of the SC keys.
+        sc.resetCounter();
+
         // GPC v2.3.1 Table 11-5: an SSD becomes PERSONALIZED on its first PUT KEY (now owns keys).
         // ISD lifecycle is the card LCS instead, driven by SET STATUS.
         // TODO: DM, tokens etc.

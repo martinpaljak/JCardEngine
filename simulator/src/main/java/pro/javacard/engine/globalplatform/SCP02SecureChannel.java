@@ -245,6 +245,11 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
         zeroize(encKey, macKey, dekKey, icv, host_challenge, card_challenge);
     }
 
+    @Override
+    void resetCounter() {
+        zeroize(ssc);
+    }
+
     // SCP02 R-MAC is a fixed 8-byte trailer (DES MAC). R-ENCRYPTION is not implemented.
     @Override
     short maxResponseLength() {

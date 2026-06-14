@@ -228,6 +228,11 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
         zeroize(encKey, macKey, chaining, enc_counter);
     }
 
+    @Override
+    void resetCounter() {
+        zeroize(ssc);
+    }
+
     // GPC v2.3.1 Amd D 6.2.5/6.2.7: R-MAC = 8 bytes (S8) or 16 (S16); R-ENCRYPTION pads up to +16.
     @Override
     short maxResponseLength() {
