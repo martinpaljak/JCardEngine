@@ -8,9 +8,12 @@ import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
+import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.modes.SICBlockCipher;
+import org.bouncycastle.crypto.paddings.BlockCipherPadding;
 import org.bouncycastle.crypto.paddings.ISO7816d4Padding;
 import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
@@ -33,13 +36,17 @@ public class SymmetricCipherImpl extends Cipher {
     BufferedBlockCipher engine;
     boolean isInitialized;
 
+    // Non-null only for padded encrypt: the engine is an unpadded BufferedBlockCipher and
+    // doFinal() appends this padding manually. Null for decrypt (PaddedBufferedBlockCipher
+    // strips padding itself), and for nopad and CTR algorithms.
+    BlockCipherPadding padding;
 
     public SymmetricCipherImpl(byte algorithm) {
         this.algorithm = algorithm;
     }
 
     public void init(Key theKey, byte theMode) throws CryptoException {
-        selectCipherEngine(theKey);
+        selectCipherEngine(theKey, theMode == MODE_ENCRYPT);
         engine.init(theMode == MODE_ENCRYPT, ((SymmetricKeyImpl) theKey).getParameters());
         isInitialized = true;
     }
@@ -70,7 +77,7 @@ public class SymmetricCipherImpl extends Cipher {
             default:
                 log.trace("No init for cipher algo: " + algorithm);
         }
-        selectCipherEngine(theKey);
+        selectCipherEngine(theKey, theMode == MODE_ENCRYPT);
         byte[] iv = JCSystem.makeTransientByteArray(bLen, JCSystem.CLEAR_ON_RESET);
         Util.arrayCopyNonAtomic(bArray, bOff, iv, (short) 0, bLen);
         engine.init(theMode == MODE_ENCRYPT, new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), iv));
@@ -86,10 +93,20 @@ public class SymmetricCipherImpl extends Cipher {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
-        short processedBytes = (short) engine.processBytes(inBuff, inOffset, inLength, outBuff, outOffset);
         try {
-            return (short) (engine.doFinal(outBuff, outOffset + processedBytes) + processedBytes);
-        } catch (Exception ex) {
+            short processed = (short) engine.processBytes(inBuff, inOffset, inLength, outBuff, outOffset);
+            if (padding != null) {
+                // Padded encrypt: every complete block was already flushed by update(), so at most
+                // a partial block sits in the engine. Fill a pad block with the remaining bytes
+                // plus padding and push it through the engine.
+                int blockSize = engine.getBlockSize();
+                int buffered = engine.getOutputSize(0);
+                byte[] padBlock = new byte[blockSize];
+                padding.addPadding(padBlock, buffered);
+                processed += (short) engine.processBytes(padBlock, buffered, blockSize - buffered, outBuff, outOffset + processed);
+            }
+            return (short) (engine.doFinal(outBuff, outOffset + processed) + processed);
+        } catch (InvalidCipherTextException | RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         return -1;
@@ -102,7 +119,7 @@ public class SymmetricCipherImpl extends Cipher {
         return (short) engine.processBytes(inBuff, inOffset, inLength, outBuff, outOffset);
     }
 
-    private void selectCipherEngine(Key theKey) {
+    private void selectCipherEngine(Key theKey, boolean encrypting) {
         if (theKey == null) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -117,6 +134,8 @@ public class SymmetricCipherImpl extends Cipher {
         }
 
         SymmetricKeyImpl key = (SymmetricKeyImpl) theKey;
+        padding = null;
+        BlockCipher modeCipher = null;
         switch (algorithm) {
             case ALG_DES_CBC_NOPAD:
             case ALG_AES_BLOCK_128_CBC_NOPAD:
@@ -124,13 +143,16 @@ public class SymmetricCipherImpl extends Cipher {
                 engine = new BufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()));
                 break;
             case ALG_DES_CBC_ISO9797_M1:
-                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ZeroBytePadding());
+                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
+                padding = new ZeroBytePadding();
                 break;
             case ALG_DES_CBC_ISO9797_M2:
-                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ISO7816d4Padding());
+                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
+                padding = new ISO7816d4Padding();
                 break;
             case ALG_DES_CBC_PKCS5:
-                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new PKCS7Padding());
+                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
+                padding = new PKCS7Padding();
                 break;
             case ALG_DES_ECB_NOPAD:
             case ALG_AES_BLOCK_128_ECB_NOPAD:
@@ -138,16 +160,20 @@ public class SymmetricCipherImpl extends Cipher {
                 engine = new BufferedBlockCipher(key.getCipher());
                 break;
             case ALG_DES_ECB_ISO9797_M1:
-                engine = new PaddedBufferedBlockCipher(key.getCipher(), new ZeroBytePadding());
+                modeCipher = key.getCipher();
+                padding = new ZeroBytePadding();
                 break;
             case ALG_DES_ECB_ISO9797_M2:
-                engine = new PaddedBufferedBlockCipher(key.getCipher(), new ISO7816d4Padding());
+                modeCipher = key.getCipher();
+                padding = new ISO7816d4Padding();
                 break;
             case ALG_DES_ECB_PKCS5:
-                engine = new PaddedBufferedBlockCipher(key.getCipher(), new PKCS7Padding());
+                modeCipher = key.getCipher();
+                padding = new PKCS7Padding();
                 break;
             case ALG_AES_CBC_ISO9797_M2:
-                engine = new PaddedBufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()), new ISO7816d4Padding());
+                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
+                padding = new ISO7816d4Padding();
                 break;
             case ALG_AES_CTR:
                 engine = new BufferedBlockCipher(new SICBlockCipher(key.getCipher()));
@@ -155,6 +181,22 @@ public class SymmetricCipherImpl extends Cipher {
             default:
                 CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
                 break;
+        }
+
+        // A real card's update() flushes every complete block immediately (two blocks in -> 32
+        // bytes out). BouncyCastle's PaddedBufferedBlockCipher withholds the last block on
+        // encrypt because it cannot know whether doFinal() still needs to append padding to it.
+        // To match card behaviour, padded encrypt uses an unpadded BufferedBlockCipher (flushes
+        // complete blocks immediately) and doFinal() appends the padding explicitly. Padded
+        // decrypt keeps PaddedBufferedBlockCipher, which holds the final block back so the
+        // padding bytes are stripped before anything is written to outBuff, as update() requires.
+        if (padding != null) {
+            if (encrypting) {
+                engine = new BufferedBlockCipher(modeCipher);
+            } else {
+                engine = new PaddedBufferedBlockCipher(modeCipher, padding);
+                padding = null;
+            }
         }
     }
 
