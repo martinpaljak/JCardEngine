@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
@@ -10,6 +11,8 @@ import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
+import pro.javacard.engine.globalplatform.SCPConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -288,6 +291,46 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         assertTrue(signLen <= signEngine.getLength());
         Signature verifyEngine = Signature.getInstance(signAlg, false);
         testEngineVerify(verifyEngine, publicKey, msg, signature, (short) 10, signLen);
+    }
+
+    /**
+     * getLength() reports the maximum DER signature length: a sign-pad byte on each scalar plus the
+     * long-form SEQUENCE length byte that curves >= 488-bit require, and a produced signature fits it.
+     */
+    @Test
+    public void testECDSASignatureLengthMax() {
+        // Seed 8 deterministically yields a brainpoolP512r1 signature where both r and s carry a 0x00
+        // sign pad, so the DER is the full 137-byte long form, which fits getLength().
+        Simulator base = (Simulator) Simulator.current();
+        Simulator seeded = new Simulator(getClass().getClassLoader(), null,
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 8L);
+        try (var ignored = seeded.asCurrent()) {
+            KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 512);
+            initBrainpoolParams(kp.getPublic(), "brainpoolP512r1");
+            initBrainpoolParams(kp.getPrivate(), "brainpoolP512r1");
+            kp.genKeyPair();
+            Signature s = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
+            s.init(kp.getPrivate(), Signature.MODE_SIGN);
+            byte[] sig = new byte[200];
+            byte[] msg = new byte[48];
+            short n = s.sign(msg, (short) 0, (short) msg.length, sig, (short) 0);
+            assertEquals(137, n); // full long-form DER for this curve
+            assertTrue(n <= s.getLength()); // a produced signature fits the reported length
+        } finally {
+            base.asCurrent();
+        }
+
+        // short form for small curves; long form (one extra SEQUENCE length byte) once content reaches 128
+        assertEquals(72, ecdsaMaxLength((short) 256)); // 2*(02||len||(00||32)) + 30||len
+        assertEquals(141, ecdsaMaxLength((short) 521)); // 66-byte scalars, content 138 -> long form
+    }
+
+    private short ecdsaMaxLength(short keySize) {
+        KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, keySize);
+        kp.genKeyPair();
+        Signature s = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        s.init(kp.getPrivate(), Signature.MODE_SIGN);
+        return s.getLength();
     }
 
     private static void initBrainpoolParams(Key key, String initParams) {

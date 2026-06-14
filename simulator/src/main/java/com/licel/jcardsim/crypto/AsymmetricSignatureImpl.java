@@ -237,9 +237,14 @@ public class AsymmetricSignatureImpl extends Signature implements SignatureMessa
     }
 
     private short getECDSASignatureLength() {
-        int keySizeInByte =key.getSize() / 8;
-        int signatureSize = keySizeInByte * 2; // r, s
-        return (short) (signatureSize + 8); // with payload
+        // Maximum DER SEQUENCE { INTEGER r, INTEGER s }: each scalar is order-sized and may carry
+        // a 0x00 sign-pad byte, and the SEQUENCE length switches to long form once the content reaches
+        // 128 bytes (e.g. 512/521-bit curves), adding one more byte.
+        int scalarBytes = (key.getSize() + 7) / 8;
+        int element = 2 + (scalarBytes + 1); // 02 || len || (sign pad + magnitude)
+        int content = 2 * element; // r and s
+        int seqHeader = content < 0x80 ? 2 : 3; // 30 || short- or long-form length
+        return (short) (seqHeader + content);
     }
 
     public byte getAlgorithm() {
