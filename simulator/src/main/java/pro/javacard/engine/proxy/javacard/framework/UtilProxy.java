@@ -132,9 +132,12 @@ public class UtilProxy {
      */
     public static short arrayFillNonAtomic(byte[] bArray, short bOff, short bLen, byte bValue)
             throws ArrayIndexOutOfBoundsException, NullPointerException {
-        byte tester = bArray[bOff];
         if (bLen < 0) {
             throw new ArrayIndexOutOfBoundsException();
+        }
+        if (bLen != 0) {
+            // Trigger array bounds if fill range is outside of margins
+            byte tester = bArray[(bOff + bLen) - 1];
         }
         while (bLen > 0) {
             bArray[bOff++] = bValue;

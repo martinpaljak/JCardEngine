@@ -41,5 +41,7 @@ public class UtilTest {
         assertEquals(expResult, result);
         byte res = Util.arrayCompare(bArray, (short) 0, etalonArray, (short) 0, (short) 16);
         assertEquals(0, res);
+        // Zero-length fill at the end of the array is a no-op, not AIOOBE
+        assertEquals((short) bArray.length, Util.arrayFillNonAtomic(bArray, (short) bArray.length, (short) 0, bValue));
     }
 }
