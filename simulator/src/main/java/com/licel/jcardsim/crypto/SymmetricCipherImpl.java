@@ -61,6 +61,12 @@ public class SymmetricCipherImpl extends Cipher {
                     CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
                 }
                 break;
+            case ALG_AES_BLOCK_128_CBC_NOPAD:
+            case ALG_AES_CBC_ISO9797_M2:
+                if (bLen != (short) 16) {
+                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+                }
+                break;
             default:
                 log.trace("No init for cipher algo: " + algorithm);
         }
