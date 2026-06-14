@@ -5,6 +5,7 @@ package com.licel.jcardsim.crypto;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
+import javacard.security.KeyBuilder;
 import javacard.security.Signature;
 import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
@@ -20,6 +21,8 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 
+import java.util.Map;
+
 /**
  * Implementation
  * <code>Signature</code> with symmetric keys based
@@ -34,7 +37,39 @@ public class SymmetricSignatureImpl extends Signature {
 
     byte algorithm;
     boolean isInitialized;
-    
+
+    private enum MacFamily {DES, AES, HMAC}
+
+    private static final Map<Byte, MacFamily> KEY_FAMILY = Map.ofEntries(
+            Map.entry(KeyBuilder.TYPE_DES, MacFamily.DES),
+            Map.entry(KeyBuilder.TYPE_DES_TRANSIENT_DESELECT, MacFamily.DES),
+            Map.entry(KeyBuilder.TYPE_DES_TRANSIENT_RESET, MacFamily.DES),
+            Map.entry(KeyBuilder.TYPE_AES, MacFamily.AES),
+            Map.entry(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, MacFamily.AES),
+            Map.entry(KeyBuilder.TYPE_AES_TRANSIENT_RESET, MacFamily.AES),
+            Map.entry(KeyBuilder.TYPE_HMAC, MacFamily.HMAC),
+            Map.entry(KeyBuilder.TYPE_HMAC_TRANSIENT_DESELECT, MacFamily.HMAC),
+            Map.entry(KeyBuilder.TYPE_HMAC_TRANSIENT_RESET, MacFamily.HMAC));
+
+    private static final Map<Byte, MacFamily> ALGORITHM_FAMILY = Map.ofEntries(
+            Map.entry(ALG_DES_MAC4_NOPAD, MacFamily.DES),
+            Map.entry(ALG_DES_MAC8_NOPAD, MacFamily.DES),
+            Map.entry(ALG_DES_MAC4_ISO9797_M1, MacFamily.DES),
+            Map.entry(ALG_DES_MAC8_ISO9797_M1, MacFamily.DES),
+            Map.entry(ALG_DES_MAC4_ISO9797_M2, MacFamily.DES),
+            Map.entry(ALG_DES_MAC8_ISO9797_M2, MacFamily.DES),
+            Map.entry(ALG_DES_MAC8_ISO9797_1_M2_ALG3, MacFamily.DES),
+            Map.entry(ALG_DES_MAC4_PKCS5, MacFamily.DES),
+            Map.entry(ALG_DES_MAC8_PKCS5, MacFamily.DES),
+            Map.entry(ALG_AES_MAC_128_NOPAD, MacFamily.AES),
+            Map.entry(ALG_AES_CMAC_128, MacFamily.AES),
+            Map.entry(ALG_HMAC_SHA1, MacFamily.HMAC),
+            Map.entry(ALG_HMAC_SHA_256, MacFamily.HMAC),
+            Map.entry(ALG_HMAC_SHA_384, MacFamily.HMAC),
+            Map.entry(ALG_HMAC_SHA_512, MacFamily.HMAC),
+            Map.entry(ALG_HMAC_MD5, MacFamily.HMAC),
+            Map.entry(ALG_HMAC_RIPEMD160, MacFamily.HMAC));
+
     public SymmetricSignatureImpl(byte algorithm) {
         this.algorithm = algorithm;
     }
@@ -51,6 +86,12 @@ public class SymmetricSignatureImpl extends Signature {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         if (!(theKey instanceof SymmetricKeyImpl)) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
+        // JC 3.2 Signature.init: the key family must match the MAC algorithm family.
+        MacFamily wantfamily = ALGORITHM_FAMILY.get(algorithm);
+        MacFamily havefamily = KEY_FAMILY.get(((SymmetricKeyImpl) theKey).getType());
+        if (wantfamily != null && havefamily != wantfamily) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         CipherParameters cipherParams = null;

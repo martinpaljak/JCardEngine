@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.security.CryptoException;
 import javacard.security.HMACKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
@@ -12,6 +13,7 @@ import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Test for
@@ -329,6 +331,11 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         aesKey.setKey(Hex.decode(AES_128_KEY), (short) 0);
         Signature engine = Signature.getInstance(Signature.ALG_AES_MAC_128_NOPAD, false);
         testEngineSignVerify(engine, aesKey, null, Hex.decode(MESSAGE_16), Hex.decode(AES_CBC_MAC));
+        // an AES key with a DES MAC algorithm is an inconsistent key type, ILLEGAL_VALUE
+        Signature desEngine = Signature.getInstance(Signature.ALG_DES_MAC8_NOPAD, false);
+        CryptoException e = assertThrows(CryptoException.class,
+                () -> desEngine.init(aesKey, Signature.MODE_SIGN));
+        assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
     }
 
     /**
