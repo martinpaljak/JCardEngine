@@ -20,6 +20,7 @@ import pro.javacard.gp.GPSession;
 import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
@@ -355,6 +356,10 @@ public class CardLifecycleAndPrivilegesTest {
             var gp = openIsd(bibo);
             gp.lockUnlockApplet(gpAID(A), true);
             assertEquals((byte) 0x87, appLifecycle(gp, A));
+            // GPC v2.3.1 6.4.2.1.2: a LOCKED application is not selectable by name - the by-name SELECT
+            // skips A (no other match), so the ISD stays selected and rejects the ISO-CLA SELECT.
+            var locked = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(A), 256));
+            assertNotEquals(0x9000, locked.getSW());
         }
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);

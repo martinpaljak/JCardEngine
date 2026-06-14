@@ -57,6 +57,7 @@ public final class RegistryPolicy {
     // (Kind.PKG) are never selectable (GPC v2.3.1 6.5.1.1), so getApplets() already excludes them. Null on miss.
     // For [next occurrence] (GPC v2.3.1 6.4.2.1.2) the search resumes after the currently selected Application
     // (current), so a client can walk multiple partial matches; [first or only occurrence] starts from the start.
+    // A LOCKED Application is not a valid by-name target (GPC v2.3.1 6.4.2.1.2): skip it and keep searching.
     public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, byte[] selectApdu, int apduCase,
                                                               AID current, boolean nextOccurrence) {
         if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
@@ -73,25 +74,36 @@ public final class RegistryPolicy {
                     afterCurrent = e.getAID().equals(current);
                     continue;
                 }
-                if (e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)
-                        || e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
-                    log.trace("Selecting next occurrence: {}", e.getAID());
-                    return e;
+                if (e.isLocked()) {
+                    continue;
                 }
+                if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                    continue;
+                }
+                log.trace("Selecting next occurrence: {}", e.getAID());
+                return e;
             }
             return null;
         }
         for (var e : gp.getApplets()) {
-            if (e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
-                log.trace("Selecting on full AID match: {}", e.getAID());
-                return e;
+            if (e.isLocked()) {
+                continue;
             }
+            if (!e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                continue;
+            }
+            log.trace("Selecting on full AID match: {}", e.getAID());
+            return e;
         }
         for (var e : gp.getApplets()) {
-            if (e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
-                log.trace("Selecting on partial AID match: {}", e.getAID());
-                return e;
+            if (e.isLocked()) {
+                continue;
             }
+            if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                continue;
+            }
+            log.trace("Selecting on partial AID match: {}", e.getAID());
+            return e;
         }
         return null;
     }
