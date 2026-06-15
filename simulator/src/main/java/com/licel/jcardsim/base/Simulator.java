@@ -4,7 +4,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.BIBO;
-import com.licel.jcardsim.crypto.DeterministicRandom;
+import pro.javacard.engine.core.DeterministicRandom;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;

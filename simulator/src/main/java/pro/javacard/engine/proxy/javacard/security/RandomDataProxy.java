@@ -34,6 +34,7 @@ public class RandomDataProxy {
             case ALG_PSEUDO_RANDOM:
             case ALG_SECURE_RANDOM:
             case ALG_TRNG:
+            case ALG_PRESEEDED_DRBG:
             case ALG_FAST:
             case ALG_KEYGENERATION:
                 instance = new RandomDataImpl(algorithm);

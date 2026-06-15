@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -11,16 +12,8 @@ import org.bouncycastle.crypto.prng.RandomGenerator;
 
 import java.util.Arrays;
 
-/**
- * Implementation <code>RandomData</code> based
- * on BouncyCastle CryptoAPI.
- *
- * @see RandomData
- */
-@SuppressWarnings("deprecation")
-public class RandomDataImpl extends RandomData {
+public final class RandomDataImpl extends RandomData {
     byte algorithm;
-    // TODO: should settle on just a single one, clarify assumptions on seeding.
     RandomGenerator engine;
 
     public RandomDataImpl(byte algorithm) {
@@ -30,19 +23,23 @@ public class RandomDataImpl extends RandomData {
         this.engine.addSeedMaterial(Simulator.current().rng().generateSeed(8));
     }
 
+    @Override
+    @SuppressWarnings("deprecation") // RandomData.generateData is deprecated in favour of nextBytes, but still abstract
     public void generateData(byte[] buffer, short offset, short length) throws CryptoException {
         engine.nextBytes(buffer, offset, length);
     }
 
+    @Override
     public void setSeed(byte[] buffer, short offset, short length) {
-        // XXX: for ALG_PRESEEDED_DRBG seeding should set known state ?
         engine.addSeedMaterial(Arrays.copyOfRange(buffer, offset, offset + length));
     }
 
+    @Override
     public byte getAlgorithm() {
         return algorithm;
     }
 
+    @Override
     public short nextBytes(byte[] buffer, short offset, short length) throws CryptoException {
         engine.nextBytes(buffer, offset, length);
         return (short) (offset + length);

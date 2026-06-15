@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-License-Identifier: Apache-2.0
-package com.licel.jcardsim.crypto;
+package pro.javacard.engine.core;
 
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.prng.DigestRandomGenerator;
