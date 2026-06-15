@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DSAPublicKey;
 import javacard.security.KeyBuilder;
@@ -16,9 +17,9 @@ import org.bouncycastle.crypto.params.DSAPublicKeyParameters;
  * @see DSAPublicKey
  * @see DSAPublicKeyParameters
  */
-public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
+public final class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
 
-    protected ByteContainer y = new ByteContainer();
+    protected final ByteContainer y;
 
     /**
      * Construct not-initialized dsa public key
@@ -28,9 +29,12 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
      */
     public DSAPublicKeyImpl(short keySize) {
         super(KeyBuilder.TYPE_DSA_PUBLIC, keySize);
+        // the public value y = g^x mod p ranges up to p, so it occupies the prime byte length
+        y = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         super.setParameters(params);
         y.setBigInteger(((DSAPublicKeyParameters) params).getY());
     }
@@ -52,7 +56,8 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
         y.clear();
     }
 
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

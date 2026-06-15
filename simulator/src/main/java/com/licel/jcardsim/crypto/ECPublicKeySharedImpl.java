@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECPublicKey;
 import org.bouncycastle.crypto.CipherParameters;
@@ -17,9 +16,9 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
  * @see ECPublicKey
  * @see ECPublicKeyParameters
  */
-public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKey {
+public final class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKey {
 
-    protected ByteContainer w;
+    protected final ByteContainer w;
 
     /**
      * Construct not-initialized ecc public key
@@ -32,10 +31,12 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
      */
     public ECPublicKeySharedImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl sharedDomain) {
         super(keyType, keySize, memoryType, sharedDomain);
-        w = new ByteContainer(memoryType);
+        // public point W is an uncompressed point: 04 || X || Y
+        w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
     }
 
@@ -62,11 +63,12 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
      * @return parameters for use with BouncyCastle API
      * @see ECPublicKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         ECDomainParameters dp = getDomainParameters();
-        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes(JCSystem.CLEAR_ON_RESET)), dp);
+        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes()), dp);
     }
 }

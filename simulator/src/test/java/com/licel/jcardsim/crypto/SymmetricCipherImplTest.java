@@ -193,6 +193,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         boolean needIV = mode == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD;
         if (needIV) {
             byte[] iv = Hex.decode(testData[1]);
+            // JC 3.2 Cipher.init: a CBC IV that is not the 16-byte AES block length is ILLEGAL_VALUE.
+            try {
+                engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) (iv.length - 1));
+                fail("No exception");
+            } catch (CryptoException e) {
+                assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+            }
             engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length);
         } else {
             engine.init(aesKey, Cipher.MODE_ENCRYPT);
@@ -211,6 +218,67 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         processedBytes = engine.doFinal(Hex.decode(testData[needIV ? 3 : 2]), (short) 0, (short) 16, decrypted, (short) 0);
         assertEquals(processedBytes, 16);
         assertTrue(Arrays.areEqual(decrypted, Hex.decode(testData[needIV ? 2 : 1])));
+    }
+
+    @Test
+    public void testPaddedUpdateFlushesCompleteBlocks() {
+        Cipher engine = Cipher.getInstance(Cipher.ALG_AES_CBC_ISO9797_M2, false);
+        AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+        aesKey.setKey(Hex.decode("000102030405060708090A0B0C0D0E0F"), (short) 0);
+        byte[] iv = Hex.decode("0F0E0D0C0B0A09080706050403020100");
+
+        byte[] plain = new byte[37]; // two whole 16-byte blocks plus a 5-byte tail
+        for (short i = 0; i < plain.length; i++) {
+            plain[i] = (byte) i;
+        }
+
+        engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length);
+        byte[] ct = new byte[48];
+        // update() flushes all complete blocks immediately; only the incomplete tail is held for doFinal to pad
+        short part = engine.update(plain, (short) 0, (short) 32, ct, (short) 0);
+        assertEquals(32, part);
+        short fin = engine.doFinal(plain, (short) 32, (short) 5, ct, part);
+        assertEquals(48, part + fin);
+
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
+        byte[] back = new byte[plain.length];
+        short got = engine.doFinal(ct, (short) 0, (short) ct.length, back, (short) 0);
+        assertEquals(plain.length, got);
+        assertTrue(Arrays.areEqual(plain, back));
+
+        // a non-block-aligned input to a padded decrypt is rejected as ILLEGAL_USE
+        engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
+        try {
+            engine.doFinal(ct, (short) 0, (short) 17, back, (short) 0);
+            fail("No exception");
+        } catch (CryptoException e) {
+            assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+        }
+
+        // PKCS#5 round-trips through the same manual-pad encrypt path, CBC and ECB
+        DESKey desKey = (DESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES, false);
+        desKey.setKey(Hex.decode(DES_KEY), (short) 0);
+        byte[] desIv = Hex.decode(IV);
+        for (byte alg : new byte[]{Cipher.ALG_DES_CBC_PKCS5, Cipher.ALG_DES_ECB_PKCS5}) {
+            Cipher des = Cipher.getInstance(alg, false);
+            boolean cbc = alg == Cipher.ALG_DES_CBC_PKCS5;
+            byte[] enc = new byte[16]; // 10 plaintext bytes -> two padded 8-byte blocks
+            byte[] dec = new byte[10];
+            if (cbc) {
+                des.init(desKey, Cipher.MODE_ENCRYPT, desIv, (short) 0, (short) desIv.length);
+            } else {
+                des.init(desKey, Cipher.MODE_ENCRYPT);
+            }
+            short n = des.doFinal(plain, (short) 0, (short) 10, enc, (short) 0);
+            assertEquals(16, n);
+            if (cbc) {
+                des.init(desKey, Cipher.MODE_DECRYPT, desIv, (short) 0, (short) desIv.length);
+            } else {
+                des.init(desKey, Cipher.MODE_DECRYPT);
+            }
+            assertEquals(10, des.doFinal(enc, (short) 0, n, dec, (short) 0));
+            assertTrue(Arrays.areEqual(Arrays.copyOf(plain, 10), dec));
+        }
     }
 
     /**

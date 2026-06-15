@@ -76,6 +76,11 @@
             <artifactId>apdu4j-pcsc-sim</artifactId>
             <version>${apdu4j.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-prefs</artifactId>
+            <version>${apdu4j.version}</version>
+        </dependency>
         <!-- Faulty config parser -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -267,11 +272,17 @@
                         <id>inject-implementation</id>
                         <phase>process-classes</phase>
                         <goals>
-                            <goal>java</goal>
+                            <goal>exec</goal>
                         </goals>
                         <configuration>
-                            <mainClass>com.licel.jcardsim.utils.JavaCardApiProcessor</mainClass>
+                            <executable>${java.home}/bin/java</executable>
                             <arguments>
+                                <!-- ${argLine} carries the JaCoCo agent (prepare-agent runs at initialize), so this
+                                     forked weaving run is instrumented and its data appends to the shared jacoco.exec. -->
+                                <argument>${argLine}</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>com.licel.jcardsim.utils.JavaCardApiProcessor</argument>
                                 <argument>${project.build.directory}/classes</argument>
                             </arguments>
                         </configuration>
@@ -279,27 +290,6 @@
                 </executions>
                 <configuration>
                     <includePluginDependencies>true</includePluginDependencies>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>java/lang/**</exclude>
-                        <exclude>java/rmi/**</exclude>
-                        <exclude>java/io/**</exclude>
-                        <exclude>javacard/framework/service/**</exclude>
-                        <exclude>javacardx/biometry/**</exclude>
-                        <exclude>javacardx/biometry1toN/**</exclude>
-                        <exclude>javacardx/external/**</exclude>
-                        <exclude>javacardx/apdu/util/**</exclude>
-                        <exclude>javacardx/framework/util/**</exclude>
-                        <exclude>javacardx/framework/math/**</exclude>
-                        <exclude>javacardx/framework/string/**</exclude>
-                        <exclude>javacardx/framework/tlv/**</exclude>
-                        <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
-                    </excludes>
                 </configuration>
             </plugin>
             <!-- Run tests, so that the classes have already been processed with proxy code -->
@@ -353,7 +343,7 @@
                         <executions>
                             <execution>
                                 <id>agent</id>
-                                <phase>test-compile</phase>
+                                <phase>initialize</phase>
                                 <goals>
                                     <goal>prepare-agent</goal>
                                 </goals>
@@ -367,26 +357,76 @@
                                     </includes>
                                 </configuration>
                             </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.jacoco</groupId>
+                                <artifactId>org.jacoco.ant</artifactId>
+                                <version>0.8.14</version>
+                            </dependency>
+                        </dependencies>
+                        <executions>
                             <execution>
                                 <id>host-report</id>
                                 <phase>verify</phase>
                                 <goals>
-                                    <goal>report</goal>
+                                    <goal>run</goal>
                                 </goals>
                                 <configuration>
-                                    <outputDirectory>${coverage.dir}/host</outputDirectory>
-                                    <includes>
-                                        <include>pro/javacard/engine/**</include>
-                                        <include>com/licel/jcardsim/**</include>
-                                        <include>javacard/**</include>
-                                        <include>javacardx/**</include>
-                                        <include>org/globalplatform/**</include>
-                                    </includes>
-                                    <excludes>
-                                        <exclude>com/licel/jcardsim/samples/**</exclude>
-                                        <exclude>pro/javacard/engine/testapplets/**</exclude>
-                                        <exclude>com/licel/jcardsim/utils/JavaCardApiProcessor*</exclude>
-                                    </excludes>
+                                    <target>
+                                        <typedef resource="org/jacoco/ant/antlib.xml"/>
+                                        <!-- Clean the previous report so removed classes leave no stale pages behind. -->
+                                        <delete dir="${coverage.dir}/host"/>
+                                        <report>
+                                            <executiondata>
+                                                <fileset dir="${project.build.directory}" includes="jacoco.exec"/>
+                                            </executiondata>
+                                            <structure name="${project.name}">
+                                                <classfiles>
+                                                    <!-- Host report = the engine plus the woven API proxies. Dropped:
+                                                         applet code, the java.* and unimplemented JavaCard API packages,
+                                                         and the no-proxy API stub classes (no host code, no debug info). -->
+                                                    <fileset dir="${project.build.directory}/classes">
+                                                        <exclude name="java/**"/>
+                                                        <exclude name="com/licel/jcardsim/samples/**"/>
+                                                        <exclude name="pro/javacard/engine/testapplets/**"/>
+                                                        <exclude name="javacard/framework/service/**"/>
+                                                        <exclude name="javacardx/biometry/**"/>
+                                                        <exclude name="javacardx/biometry1toN/**"/>
+                                                        <exclude name="javacardx/external/**"/>
+                                                        <exclude name="javacardx/apdu/util/**"/>
+                                                        <exclude name="javacardx/framework/util/**"/>
+                                                        <exclude name="javacardx/framework/math/**"/>
+                                                        <exclude name="javacardx/framework/string/**"/>
+                                                        <exclude name="javacardx/framework/tlv/**"/>
+                                                        <exclude name="javacard/framework/APDUComm.class"/>
+                                                        <exclude name="javacard/framework/APDUException.class"/>
+                                                        <exclude name="javacard/framework/ISOException.class"/>
+                                                        <exclude name="javacard/framework/PINException.class"/>
+                                                        <exclude name="javacard/framework/SystemException.class"/>
+                                                        <exclude name="javacard/framework/TransactionException.class"/>
+                                                        <exclude name="javacard/framework/UserException.class"/>
+                                                        <exclude name="javacard/framework/OwnerPINBuilder.class"/>
+                                                        <exclude name="javacard/security/CryptoException.class"/>
+                                                        <exclude name="javacard/security/InitializedMessageDigest*.class"/>
+                                                        <exclude name="javacardx/crypto/AEADCipher.class"/>
+                                                    </fileset>
+                                                </classfiles>
+                                                <sourcefiles>
+                                                    <fileset dir="${basedir}/src/main/java"/>
+                                                    <!-- Remap the proxy folder to its root so that jacoco would find the proxy classes at non-proxy path. -->
+                                                    <fileset dir="${basedir}/src/main/java/pro/javacard/engine/proxy"/>
+                                                </sourcefiles>
+                                            </structure>
+                                            <html destdir="${coverage.dir}/host"/>
+                                            <xml destfile="${coverage.dir}/host/jacoco.xml"/>
+                                        </report>
+                                    </target>
                                 </configuration>
                             </execution>
                         </executions>
@@ -409,7 +449,7 @@
                         <executions>
                             <execution>
                                 <id>agent</id>
-                                <phase>test-compile</phase>
+                                <phase>initialize</phase>
                                 <goals>
                                     <goal>prepare-agent</goal>
                                 </goals>
@@ -441,6 +481,8 @@
                                 <configuration>
                                     <target>
                                         <typedef resource="org/jacoco/ant/antlib.xml"/>
+                                        <!-- Clean the previous report so removed classes leave no stale pages behind. -->
+                                        <delete dir="${coverage.dir}/applets"/>
                                         <report>
                                             <executiondata>
                                                 <fileset dir="${project.build.directory}" includes="jacoco*.exec"/>

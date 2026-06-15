@@ -3,6 +3,7 @@
 package pro.javacard.engine.globalplatform;
 
 import com.licel.jcardsim.base.APDUHelper;
+import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,24 +55,55 @@ public final class RegistryPolicy {
     // SELECT [by name] is processed by the OPEN (GPC v2.3.1 6.3): resolve the target Application from
     // the registry. Case 1/2 (no data) selects the ISD; otherwise full-AID then partial-AID match. ELFs
     // (Kind.PKG) are never selectable (GPC v2.3.1 6.5.1.1), so getApplets() already excludes them. Null on miss.
-    public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, byte[] selectApdu, int apduCase) {
+    // For [next occurrence] (GPC v2.3.1 6.4.2.1.2) the search resumes after the currently selected Application
+    // (current), so a client can walk multiple partial matches; [first or only occurrence] starts from the start.
+    // A LOCKED Application is not a valid by-name target (GPC v2.3.1 6.4.2.1.2): skip it and keep searching.
+    public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, byte[] selectApdu, int apduCase,
+                                                              AID current, boolean nextOccurrence) {
         if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
             // No data: select the ISD via the stable reference (its AID may have been re-keyed).
             log.info("Selecting OPEN");
             return gp.isd();
         }
         byte lc = selectApdu[ISO7816.OFFSET_LC];
-        for (var e : gp.getApplets()) {
-            if (e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
-                log.trace("Selecting on full AID match: {}", e.getAID());
+        if (nextOccurrence) {
+            // Single ordered pass over the entries following current, returning the next full or partial match.
+            boolean afterCurrent = current == null;
+            for (var e : gp.getApplets()) {
+                if (!afterCurrent) {
+                    afterCurrent = e.getAID().equals(current);
+                    continue;
+                }
+                if (e.isLocked()) {
+                    continue;
+                }
+                if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                    continue;
+                }
+                log.trace("Selecting next occurrence: {}", e.getAID());
                 return e;
             }
+            return null;
         }
         for (var e : gp.getApplets()) {
-            if (e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
-                log.trace("Selecting on partial AID match: {}", e.getAID());
-                return e;
+            if (e.isLocked()) {
+                continue;
             }
+            if (!e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                continue;
+            }
+            log.trace("Selecting on full AID match: {}", e.getAID());
+            return e;
+        }
+        for (var e : gp.getApplets()) {
+            if (e.isLocked()) {
+                continue;
+            }
+            if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                continue;
+            }
+            log.trace("Selecting on partial AID match: {}", e.getAID());
+            return e;
         }
         return null;
     }

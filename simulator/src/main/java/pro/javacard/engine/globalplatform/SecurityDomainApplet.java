@@ -17,7 +17,9 @@ import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.data.BitField;
 import pro.javacard.tlv.LV;
+import pro.javacard.tlv.Len;
 import pro.javacard.tlv.TLV;
+import pro.javacard.tlv.TLVParser;
 import pro.javacard.tlv.TLVs;
 import pro.javacard.tlv.Tag;
 
@@ -124,6 +126,18 @@ public class SecurityDomainApplet extends Applet {
     // Multi-block STORE DATA accumulator for the GP-data path.
     private ByteArrayOutputStream storeDataBuffer;
 
+    // GP command chaining (GPC v2.3.1 11.1.5.1): a wrapped DELETE/INSTALL/PUT KEY whose data exceeds
+    // the short-APDU limit arrives as a sequence of chunks, each repeating the header with P1.b8 set
+    // on all but the last. Set on the first chunk and cleared after the final one; chainCLA/INS/P2
+    // lock the header that every subsequent chunk must repeat.
+    private ByteArrayOutputStream chainBuffer;
+    private byte chainCLA, chainINS, chainP2;
+
+    // GPC v2.3.1 11.1.5.1: only these commands accept the P1.b8 more-data chaining bit.
+    // Tables 11-41 (INSTALL) and 11-65 (PUT KEY) reserve b8 for this, with the real P1 payload in
+    // b7-b1, so a non-final chunk is identified by P1.b8 alone, independent of chunk size.
+    private static final List<Byte> CHAINABLE_INS = List.of(INS_DELETE, INS_INSTALL, INS_PUT_KEY);
+
     // Keys owned by this Security Domain.
     private final LinkedHashMap<Byte, KeySet> keys = new LinkedHashMap<>();
 
@@ -148,6 +162,11 @@ public class SecurityDomainApplet extends Applet {
         if (ins != INS_STORE_DATA) {
             personalizationTarget = null;
             storeDataBuffer = null;
+        }
+
+        // A command of a different INS discards any in-flight chain buffer.
+        if (chainBuffer != null && !CHAINABLE_INS.contains(ins)) {
+            chainBuffer = null;
         }
 
         if (selectingApplet()) {
@@ -189,9 +208,47 @@ public class SecurityDomainApplet extends Applet {
         }
 
         short len = apdu.setIncomingAndReceive();
+
+        // INSTALL [for load] is unsupported (the engine runs real classes, not CAP). Rejected before
+        // any chaining buffer engages; GPC v2.3.1 11.1.5.1 permits an error at any point in a chain,
+        // so the first chunk of a chained load fails here.
+        if (ins == INS_INSTALL && (buffer[ISO7816.OFFSET_P1] & P1_BIT_LOAD) != 0) {
+            log.warn("INSTALL [for load] not supported");
+            ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
+        }
+
+        // GP command chaining (GPC v2.3.1 11.1.5.1): accumulate chunks of a DELETE/INSTALL/PUT KEY
+        // until the final chunk arrives, then dispatch the reassembled payload. The C-MAC covers the
+        // entire unsegmented command, so MAC verification runs after reassembly.
+        boolean more = CHAINABLE_INS.contains(ins) && (buffer[ISO7816.OFFSET_P1] & 0x80) != 0;
+        if (more || chainBuffer != null) {
+            if (chainBuffer == null) {
+                chainBuffer = new ByteArrayOutputStream();
+                chainCLA = buffer[ISO7816.OFFSET_CLA];
+                chainINS = ins;
+                chainP2 = buffer[ISO7816.OFFSET_P2];
+            } else if (buffer[ISO7816.OFFSET_CLA] != chainCLA || ins != chainINS || buffer[ISO7816.OFFSET_P2] != chainP2) {
+                // 11.1.5.1: chained commands must repeat the same header (Lc and P1.b8 aside).
+                chainBuffer = null;
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+            chainBuffer.write(buffer, ISO7816.OFFSET_CDATA, len);
+            if (more) {
+                return;
+            }
+            byte[] wrapped = chainBuffer.toByteArray();
+            chainBuffer = null;
+            byte[] payload = sc.unwrapReassembled(buffer[ISO7816.OFFSET_CLA], ins, buffer[ISO7816.OFFSET_P1], buffer[ISO7816.OFFSET_P2], wrapped);
+            dispatch(ins, apdu, buffer, payload);
+            return;
+        }
+
         sc.unwrap(buffer, ISO7816.OFFSET_CLA, (short) (ISO7816.OFFSET_CDATA + len));
         byte[] payload = Arrays.copyOfRange(buffer, ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + (buffer[ISO7816.OFFSET_LC] & 0xFF));
+        dispatch(ins, apdu, buffer, payload);
+    }
 
+    private void dispatch(byte ins, APDU apdu, byte[] buffer, byte[] payload) {
         // Funnel malformed-data IllegalArgumentException (AIDUtil.create, LV.parse) to SW_WRONG_DATA.
         try {
             switch (ins) {
@@ -223,9 +280,9 @@ public class SecurityDomainApplet extends Applet {
             return Optional.empty();
         }
         if (requestedKvn == 0) {
-            return sda.keys.values().stream().reduce((a, b) -> b);
+            return sda.keys.values().stream().filter(KeySet::isSCP).reduce((a, b) -> b);
         }
-        return Optional.ofNullable(sda.keys.get(requestedKvn));
+        return Optional.ofNullable(sda.keys.get(requestedKvn)).filter(KeySet::isSCP);
     }
 
     private static final int INSTALL_LV_FIELD_COUNT = 6;
@@ -236,11 +293,6 @@ public class SecurityDomainApplet extends Applet {
 
     private void handleInstall(APDU apdu, byte[] buffer, byte[] payload) {
         byte p1 = (byte) (buffer[ISO7816.OFFSET_P1] & 0x7F);
-
-        if ((p1 & P1_BIT_LOAD) != 0) {
-            log.warn("INSTALL [for load] not supported");
-            ISOException.throwIt(SW_FUNC_NOT_SUPPORTED);
-        }
 
         var fields = LV.parse(payload);
         LV.visualize(payload).forEach(log::info);
@@ -641,8 +693,7 @@ public class SecurityDomainApplet extends Applet {
         if ((p1 & 0x80) != 0) {
             commitStoreGPData();
         }
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        // GPC v2.3.1 11.11.3.1: ISO case 3 STORE DATA returns no response data field.
     }
 
     private void commitStoreGPData() {
@@ -772,23 +823,20 @@ public class SecurityDomainApplet extends Applet {
         apdu.setOutgoingAndSend((short) 0, (short) 1);
     }
 
-    // PUT KEY (GPC v2.3.1 11.8). P1 = 0 adds a new KVN, else replaces that KVN. P2 = first KID
-    // | 0x80 (multi-key flag); gp-pro sends 0x81 + ENC/MAC/DEK in one APDU.
-    // Body: new_KVN | block_ENC | block_MAC | block_DEK, each block:
+    // PUT KEY (GPC v2.3.1 11.8). P1 = 0 adds a new KVN, else replaces that KVN.
+    // Body: new_KVN | one or more key blocks (gp-pro sends ENC/MAC/DEK in one APDU), each block:
     //   AES  88 | block_len | actual_key_len | cgram | kcv_len | kcv
     //   DES3 80 | block_len | cgram | kcv_len | kcv
-    // Response: new_KVN | KCV_KID1 | KCV_KID2 | KCV_KID3 (3 bytes each).
+    // Response: new_KVN | one 3-byte KCV per key in command order.
     private void handlePutKey(APDU apdu, byte[] buffer, byte[] payload) {
         var sim = Simulator.current();
-        byte p1 = buffer[ISO7816.OFFSET_P1];
+        // GPC v2.3.1 Table 11-65: b8 = more-commands flag, b7-b1 = Key Version Number.
+        byte p1 = (byte) (buffer[ISO7816.OFFSET_P1] & 0x7F);
         byte p2 = buffer[ISO7816.OFFSET_P2];
-        if ((p2 & 0x80) == 0) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
-        byte firstKid = (byte) (p2 & 0x7F);
-        if (firstKid != KeySet.KID_ENC) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
+        // GPC v2.3.1 11.8.2.2 Table 11-66: b8 = multiple-keys flag, b7-b1 = KID of the first key
+        // (subsequent keys take consecutive KIDs). KID is coded '00'..'7F'.
+        boolean multikey = (p2 & 0x80) != 0;
+        byte firstkid = (byte) (p2 & 0x7F);
 
         var bb = ByteBuffer.wrap(payload);
         if (!bb.hasRemaining()) {
@@ -821,19 +869,60 @@ public class SecurityDomainApplet extends Applet {
         var kcvOut = new ByteArrayOutputStream();
         kcvOut.write(newKvn & 0xFF);
 
-        for (byte kid = KeySet.KID_ENC; kid <= KeySet.KID_DEK; kid++) {
-            entries.put(kid, parseKeyBlock(bb, sc, payload, kcvOut));
+        int kid = firstkid & 0xFF;
+        while (bb.hasRemaining()) {
+            // Consecutive KIDs must stay within the '00'..'7F' coding (GPC v2.3.1 11.8.2.2).
+            if (kid > 0x7F) {
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+            byte keyType = bb.get(bb.position());
+            if (keyType == KeySet.TYPE_RSA_PUB_MOD || keyType == KeySet.TYPE_RSA_PUB_EXP) {
+                entries.put((byte) kid, parsePublicKeyBlock(bb));
+            } else {
+                entries.put((byte) kid, parseKeyBlock(bb, sc, payload, kcvOut));
+            }
+            kid++;
         }
-        if (bb.hasRemaining()) {
+        if (entries.isEmpty() || (!multikey && entries.size() > 1)) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
 
-        if (keys.size() == 1) {
+        // GPC v2.3.1 11.8.2.3.3: replacing a key must keep the same component types and lengths.
+        if (p1 != 0) {
+            var existing = keys.get(newKvn);
+            for (var e : entries.entrySet()) {
+                var old = existing.entries().get(e.getKey());
+                if (old == null) {
+                    ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
+                }
+                var oldc = old.components();
+                var newc = e.getValue().components();
+                boolean sameShape = oldc.size() == newc.size();
+                for (int i = 0; sameShape && i < oldc.size(); i++) {
+                    sameShape = oldc.get(i).type() == newc.get(i).type()
+                            && oldc.get(i).value().length == newc.get(i).value().length;
+                }
+                if (!sameShape) {
+                    log.warn("PUT KEY: replacement key type/length differs from existing KVN");
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                }
+            }
+        }
+
+        var newKeyset = new KeySet(newKvn, entries);
+
+        // The factory keyset is removed only when a real SCP keyset is stored. An asymmetric key
+        // (e.g. an RSA token-verification key) is not an SCP keyset and leaves the factory keys alone.
+        if (newKeyset.isSCP() && keys.containsKey(FACTORY_KVN)
+                && keys.values().stream().filter(KeySet::isSCP).count() == 1) {
             keys.remove(FACTORY_KVN);
         }
         // Remove first so a re-put moves the KVN to newest (LinkedHashMap keeps insertion order).
         keys.remove(newKvn);
-        keys.put(newKvn, new KeySet(newKvn, entries));
+        keys.put(newKvn, newKeyset);
+
+        // GPC v2.3.1 E.1.2: the sequence counter is reset to zero on creation or update of the SC keys.
+        sc.resetCounter();
 
         // GPC v2.3.1 Table 11-5: an SSD becomes PERSONALIZED on its first PUT KEY (now owns keys).
         // ISD lifecycle is the card LCS instead, driven by SET STATUS.
@@ -895,18 +984,45 @@ public class SecurityDomainApplet extends Applet {
         byte[] wireKcv = new byte[kcvLen];
         bb.get(wireKcv);
 
-        if (kcvLen > 0) {
-            byte[] computed = type == KeySet.TYPE_AES ? GPCrypto.kcv_aes(keyValue) : GPCrypto.kcv_3des(keyValue);
-            if (kcvLen > computed.length || !Arrays.equals(wireKcv, 0, kcvLen, computed, 0, kcvLen)) {
-                log.warn("PUT KEY: KCV mismatch");
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            }
-            kcvOut.writeBytes(Arrays.copyOf(computed, 3));
-        } else {
-            // No KCV on the wire - emit zeros to keep the response shape stable.
-            kcvOut.writeBytes(new byte[3]);
+        // GPC v2.3.1 11.8.2.3.3: for DES/AES (the only key types parsed here) the KCV is mandatory.
+        if (kcvLen == 0) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
         }
+        byte[] computed = type == KeySet.TYPE_AES ? GPCrypto.kcv_aes(keyValue) : GPCrypto.kcv_3des(keyValue);
+        if (kcvLen > computed.length || !Arrays.equals(wireKcv, 0, kcvLen, computed, 0, kcvLen)) {
+            log.warn("PUT KEY: KCV mismatch");
+            // GPC v2.3.1 11.8.3.2 Table 11-78: invalid key check value -> 6982
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        kcvOut.writeBytes(Arrays.copyOf(computed, 3));
         return new KeySet.KeyEntry(type, keyValue);
+    }
+
+    // GPC v2.3.1 11.8.2.3.1: a key component is a 1-byte opaque type + BER length + value, not a BER-TLV
+    // (the byte A1 would otherwise read as a constructed tag), so the parser uses an opaque single-byte tag.
+    private static final TLVParser KEY_COMPONENTS = TLVParser.of(Tag.Codec.SINGLE_BYTE, Len.Codec.BER, false);
+
+    // GPC v2.3.1 11.8.2.3.6 Table 11-75: RSA public key components (modulus A1, exponent A0) arrive in
+    // the clear; the trailing KCV length is 00 because public keys carry no key check value.
+    private static KeySet.KeyEntry parsePublicKeyBlock(ByteBuffer bb) {
+        var components = new ArrayList<KeySet.KeyComponent>();
+        while (bb.hasRemaining()) {
+            byte type = bb.get(bb.position());
+            if (type != KeySet.TYPE_RSA_PUB_MOD && type != KeySet.TYPE_RSA_PUB_EXP) {
+                break;
+            }
+            components.add(new KeySet.KeyComponent(type, KEY_COMPONENTS.parseOne(bb).value()));
+        }
+        if (components.isEmpty() || !bb.hasRemaining()) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+        // Public keys carry no KCV; the length byte is expected to be 00.
+        int kcvLen = bb.get() & 0xFF;
+        if (bb.remaining() < kcvLen) {
+            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        }
+        bb.position(bb.position() + kcvLen);
+        return new KeySet.KeyEntry(components);
     }
 
     // SET STATUS (GPC v2.3.1 11.10, Table 11-86). P1=0x80 is the ISD/card lifecycle (P2 = new
@@ -934,13 +1050,12 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         // The update counter is bumped by gp().setCardLifecycleState() on success (GPC v2.3.1 Amd C 3.11.2.3).
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        // GPC v2.3.1 11.10.3.1: the data field of the response message shall not be present.
     }
 
     // SET STATUS [for application] (P1=0x40): the data field is the raw target Application AID,
-    // P2 is the new life cycle state (b8 = LOCK per GPC v2.3.1 5.3.1). The associated SD may set
-    // the state of its own applications; Global Lock permits locking/unlocking any application.
+    // P2 is the new life cycle state (b8 = LOCK per GPC v2.3.1 5.3.1). The associated SD may
+    // lock/unlock its own applications; Global Lock permits locking/unlocking any application.
     private void handleSetApplicationStatus(APDU apdu, byte[] buffer, byte[] payload, byte p2) {
         var sim = Simulator.current();
         var target = sim.gp().lookup(AIDUtil.create(payload));
@@ -960,13 +1075,16 @@ public class SecurityDomainApplet extends Applet {
         if (!associated && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_LOCK)) {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
-        // Admin authorization passed: the guarded transition then enforces only GPC v2.3.1 5.3.1
-        // transition legality, with lock/unlock permitted.
-        if (!target.transition(p2, true, true)) {
+        // GPC v2.3.1 11.10.2.2: for another Application only b8 is relevant - an SD may LOCK or
+        // UNLOCK it, never push an app-specific state. Keep the current low bits and flip only b8.
+        byte locked = (byte) ((target.getState() & 0x7F) | (p2 & 0x80));
+        if (locked == target.getState()) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
-        buffer[0] = 0x00;
-        apdu.setOutgoingAndSend((short) 0, (short) 1);
+        if (!target.transition(locked, true, true)) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
+        // GPC v2.3.1 11.10.3.1: the data field of the response message shall not be present.
     }
 
     // GPC v2.3.1 11.4: tagged GET STATUS only (P2 bit 1 required). P1 = scope, P2 bit 0 =

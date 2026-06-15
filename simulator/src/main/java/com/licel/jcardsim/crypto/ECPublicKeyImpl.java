@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECPublicKey;
 import org.bouncycastle.crypto.CipherParameters;
@@ -15,9 +14,9 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
  * @see ECPublicKey
  * @see ECPublicKeyParameters
  */
-public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
+public final class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
 
-    protected ByteContainer w;
+    protected final ByteContainer w;
 
     /**
      * Construct not-initialized ecc public key
@@ -27,23 +26,13 @@ public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
      */
     public ECPublicKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
-        w = new ByteContainer(memoryType);
+        // public point W is an uncompressed point: 04 || X || Y
+        w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
     }
 
-    /**
-     * Construct and initialize ecc key with ECPublicKeyParameters.
-     * Use in KeyPairImpl
-     * @see javacard.security.KeyPair
-     * @see ECPublicKeyParameters
-     * @param params key params from BouncyCastle API
-     */
-    public ECPublicKeyImpl(ECPublicKeyParameters params) {
-        super(params);
-        setParameters(params);
-    }
- 
-     public void setParameters(CipherParameters params){
-        w.setBytes(((ECPublicKeyParameters)params).getQ().getEncoded(false));
+    @Override
+    void setParameters(CipherParameters params) {
+        w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
     }
     
 
@@ -69,11 +58,12 @@ public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
      * @return parameters for use with BouncyCastle API
      * @see ECPublicKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         ECDomainParameters dp = getDomainParameters();
-        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes(JCSystem.CLEAR_ON_RESET)), dp);
+        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes()), dp);
     }
 }

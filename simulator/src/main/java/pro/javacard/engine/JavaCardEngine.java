@@ -5,6 +5,8 @@ package pro.javacard.engine;
 import apdu4j.core.BIBO;
 import apdu4j.pcsc.sim.SynthesizedCardTerminal;
 import apdu4j.pcsc.sim.SynthesizedCardTerminals;
+import apdu4j.prefs.Preference;
+import apdu4j.prefs.Preferences;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import javacard.framework.Applet;
@@ -17,6 +19,10 @@ import java.time.Duration;
 
 // External programmer-facing interface: install/delete applets and open APDU (BIBO) sessions.
 public interface JavaCardEngine {
+    // Optional deterministic RNG seed. Absent (Parameter, not Default) means a real random card;
+    // a value seeds every card RNG for reproducible key generation and signatures. GH #20.
+    Preference.Parameter<Long> RNG_SEED = Preference.parameter("jcardengine.rng.seed", Long.class, false);
+
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
 
     default AID installApplet(AID aid, Class<? extends Applet> appletClass) {
@@ -78,9 +84,15 @@ public interface JavaCardEngine {
         private ClassLoader classLoader = getClass().getClassLoader();
         private FaultyConfig faultConfig;
         private SCPConfig scpConfig = SCPConfig.defaultConfig();
+        private Preferences preferences = Preferences.of();
 
         public Builder withClassLoader(ClassLoader cl) {
             this.classLoader = cl;
+            return this;
+        }
+
+        public Builder preferences(Preferences prefs) {
+            this.preferences = prefs;
             return this;
         }
 
@@ -96,7 +108,8 @@ public interface JavaCardEngine {
 
         public JavaCardEngine build() {
             var gp = new GlobalPlatformEngine(scpConfig);
-            var sim = new Simulator(classLoader, faultConfig, gp);
+            Long seed = preferences.valueOf(RNG_SEED).orElse(null);
+            var sim = new Simulator(classLoader, faultConfig, gp, seed);
             try (var c = sim.asCurrent()) {
                 // Constructors use JCSystem so we need the "current" reference
                 gp.bootstrap();

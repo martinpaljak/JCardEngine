@@ -6,11 +6,8 @@ import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 
 /**
  * This class contains byte array, initialization flag of this
@@ -18,10 +15,11 @@ import java.util.Arrays;
  */
 public final class ByteContainer {
 
-    private static final Logger log = LoggerFactory.getLogger(ByteContainer.class);
     private byte[] data;
     private byte memoryType;
     private short length = 0;
+    private short fixedSize = 0;
+    private boolean minimalReadback = false;
 
     /**
      * Construct <code>ByteContainer</code>
@@ -38,6 +36,35 @@ public final class ByteContainer {
      */
     public ByteContainer(byte memoryType) {
         this.memoryType = memoryType;
+    }
+
+    /**
+     * Construct a <code>ByteContainer</code> of the given memory type pinned to a fixed width. The
+     * applet {@link #setBytes} path demands exactly <code>fixedSize</code> bytes; only the internal
+     * {@link #setBigInteger} path left-pads a shorter magnitude to the width.
+     * @param memoryType one of <code>JCSystem.MEMORY_TYPE_*</code>
+     * @param fixedSize fixed component width in bytes
+     */
+    public ByteContainer(byte memoryType, int fixedSize) {
+        this(memoryType, fixedSize, false);
+    }
+
+    /**
+     * Construct a <code>ByteContainer</code> as in {@link #ByteContainer(byte, int)}, but when
+     * <code>minimalReadback</code> is true the value is stored verbatim up to the fixed buffer
+     * capacity and read back at its own length. Use for a value bounded by a known width yet with no
+     * canonical length: RSA public exponent, EC private scalar, DSA/DH subprime or private value.
+     * @param memoryType one of <code>JCSystem.MEMORY_TYPE_*</code>
+     * @param fixedSize fixed buffer capacity in bytes
+     * @param minimalReadback store and read back the verbatim length instead of the fixed width
+     */
+    public ByteContainer(byte memoryType, int fixedSize, boolean minimalReadback) {
+        if (fixedSize < 0 || fixedSize > Short.MAX_VALUE) {
+            throw new IllegalArgumentException("fixedSize out of range: " + fixedSize);
+        }
+        this.memoryType = memoryType;
+        this.fixedSize = (short) fixedSize;
+        this.minimalReadback = minimalReadback;
     }
 
     /**
@@ -73,15 +100,20 @@ public final class ByteContainer {
         if (bInteger.signum() < 0) {
             throw new IllegalArgumentException("Negative bInteger");
         }
-
-        // XXX: probably would want to deal with left-padding with zeros
-        byte[] array = bInteger.toByteArray();
-        if (array[0] == 0 && array.length > 1) {
-            byte[] trimmedArray = new byte[array.length - 1];
-            System.arraycopy(array, 1, trimmedArray, 0, trimmedArray.length);
-            setBytes(trimmedArray);
+        // toByteArray() prepends a 0x00 sign byte when the high bit is set; strip it
+        var array = bInteger.toByteArray();
+        short from = (short) (array.length > 1 && array[0] == 0 ? 1 : 0);
+        short mlen = (short) (array.length - from);
+        if (fixedSize > 0 && !minimalReadback) {
+            // a generated fixed-width component is stored left zero-padded to its exact width
+            if (mlen > fixedSize) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            }
+            var padded = new byte[fixedSize];
+            System.arraycopy(array, from, padded, fixedSize - mlen, mlen);
+            setBytes(padded, (short) 0, fixedSize);
         } else {
-            setBytes(array);
+            setBytes(array, from, mlen);
         }
     }
 
@@ -100,25 +132,25 @@ public final class ByteContainer {
      * @param length length of data in byte array
      */
     public void setBytes(byte[] buff, short offset, short length) {
-        if (data != null && data.length < length) {
-            log.error("ATTENTION! container size is smaller than data: {}/{} vs {}", this.length, data.length, length);
+        // a fixed-width slot demands the exact width; a minimal slot only bounds capacity
+        if (fixedSize > 0 && (minimalReadback ? length > fixedSize : length != fixedSize)) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        if (data == null || data.length != length) {
-            // XXX: this "leaks"
+        short capacity = fixedSize > 0 ? fixedSize : length;
+        if (data == null || data.length != capacity) {
             switch (memoryType) {
                 case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
-                    data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_DESELECT);
+                    data = JCSystem.makeTransientByteArray(capacity, JCSystem.CLEAR_ON_DESELECT);
                     break;
                 case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                    data = JCSystem.makeTransientByteArray(length, JCSystem.CLEAR_ON_RESET);
+                    data = JCSystem.makeTransientByteArray(capacity, JCSystem.CLEAR_ON_RESET);
                     break;
                 default:
-                    data = Simulator.allocateBytes(length);
+                    data = Simulator.allocateBytes(capacity);
                     break;
             }
         }
         Util.arrayCopy(buff, offset, data, (short) 0, length);
-        // current length
         this.length = length;
     }
 
@@ -130,21 +162,17 @@ public final class ByteContainer {
         if (length == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        // java8+: new BigInteger(1, data, 0, length);
-        return new BigInteger(1, Arrays.copyOf(data, length));
+        return new BigInteger(1, data, 0, length);
     }
 
     /**
-     * Return transient plain byte array representation of the <code>ByteContainer</code>
-     * @param event type of transient byte array
-     * @return plain byte array
+     * Copy of the contents as a fresh byte array, for the BouncyCastle Crypto API.
      */
-    // XXX: reconsider the need for this
-    public byte[] getBytes(byte event) {
+    public byte[] getBytes() {
         if (length == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        byte[] result = JCSystem.makeTransientByteArray(length, event);
+        byte[] result = new byte[length];
         getBytes(result, (short) 0);
         return result;
     }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DHKey;
 import javacard.security.KeyBuilder;
@@ -14,13 +15,22 @@ import org.bouncycastle.util.encoders.Hex;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
-public abstract class DHKeyImpl extends KeyImpl implements DHKey {
+public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     
     public static final short LENGTH_DH_1536 = 1536;
     
-    protected ByteContainer p = new ByteContainer();
-    protected ByteContainer q = new ByteContainer();
-    protected ByteContainer g = new ByteContainer();
+    protected final ByteContainer p;
+    protected final ByteContainer q;
+    protected final ByteContainer g;
+
+    protected DHKeyImpl(short size) {
+        this.size = size;
+        // p and g are fixed at the prime byte length; q has no canonical width, so it uses a
+        // prime-width buffer and returns only the significant bytes
+        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8);
+        g = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8);
+        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8, true);
+    }
         
     private static final String rfc2409_1024_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
     + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
@@ -46,16 +56,18 @@ public abstract class DHKeyImpl extends KeyImpl implements DHKey {
     private static final String rfc3526_2048_g = "02";
     public static final DHParameters rfc3526_2048 = fromPG(rfc3526_2048_p, rfc3526_2048_g);
 
-    public void setParameters(CipherParameters params) {
-        DHParameters dhParam = (DHParameters) params;
+    @Override
+    void setParameters(CipherParameters params) {
+        var dhParam = (DHParameters) params;
         g.setBigInteger(dhParam.getG());
         p.setBigInteger(dhParam.getP());
-        if(dhParam.getQ()!=null){
+        if (dhParam.getQ() != null) {
             q.setBigInteger(dhParam.getQ());
         }
     }
     
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -99,7 +111,8 @@ public abstract class DHKeyImpl extends KeyImpl implements DHKey {
         return p.isInitialized() && g.isInitialized();
     }
     
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (p.isInitialized() && g.isInitialized()) {
             if (q.isInitialized()) {
                 return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger(), q.getBigInteger()));

@@ -20,6 +20,7 @@ import pro.javacard.gp.GPSession;
 import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
@@ -318,6 +319,12 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(openIsd(bibo), A, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
+            // GPC v2.3.1 11.10.2.2: a transition to the CURRENT life cycle state is not legal. The
+            // applet sits at SELECTABLE (0x07); setState(0x07) is a no-op transition and is refused.
+            var same = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x07, 0x00, 256));
+            assertEquals((byte) 0x00, same.getData()[0]);
+            assertEquals((byte) 0x07, same.getData()[1]);
+
             // GPC v2.3.1 5.3.1.3: self-LOCK via setState succeeds; 0x07 OR 0x80 = 0x87
             var lock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x83, 0x00, 256));
             assertEquals((byte) 0x01, lock.getData()[0]);
@@ -355,6 +362,10 @@ public class CardLifecycleAndPrivilegesTest {
             var gp = openIsd(bibo);
             gp.lockUnlockApplet(gpAID(A), true);
             assertEquals((byte) 0x87, appLifecycle(gp, A));
+            // GPC v2.3.1 6.4.2.1.2: a LOCKED application is not selectable by name - the by-name SELECT
+            // skips A (no other match), so the ISD stays selected and rejects the ISO-CLA SELECT.
+            var locked = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(A), 256));
+            assertNotEquals(0x9000, locked.getSW());
         }
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
@@ -362,11 +373,17 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
 
-        // Illegal transition: SELECTABLE (0x07) -> INSTALLED (0x03) is irreversible (GPC v2.3.1 5.3.1.2) -> 0x6985.
+        // GPC v2.3.1 11.10.2.2: for another application an SD may only lock/unlock (b8). Any non-lock
+        // state push - a regression to INSTALLED (0x03) or an app-specific state (0x1F) - is rejected
+        // with 0x6985 and the lifecycle is left at SELECTABLE (0x07).
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var regress = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x03, AIDUtil.bytes(A)));
             assertEquals(0x6985, regress.getSW());
+            assertEquals((byte) 0x07, appLifecycle(gp, A));
+
+            var arbitrary = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x1F, AIDUtil.bytes(A)));
+            assertEquals(0x6985, arbitrary.getSW());
             assertEquals((byte) 0x07, appLifecycle(gp, A));
         }
     }

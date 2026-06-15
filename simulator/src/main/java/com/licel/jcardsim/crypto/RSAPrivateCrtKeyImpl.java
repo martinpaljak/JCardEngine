@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateCrtKey;
@@ -16,13 +17,13 @@ import org.slf4j.LoggerFactory;
  * @see RSAPrivateCrtKey
  * @see RSAPrivateCrtKeyParameters
  */
-public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
+public final class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
     private static final Logger log = LoggerFactory.getLogger(RSAPrivateCrtKeyImpl.class);
-    protected ByteContainer p = new ByteContainer();
-    protected ByteContainer q = new ByteContainer();
-    protected ByteContainer dp1 = new ByteContainer();
-    protected ByteContainer dq1 = new ByteContainer();
-    protected ByteContainer pq = new ByteContainer();
+    protected final ByteContainer p;
+    protected final ByteContainer q;
+    protected final ByteContainer dp1;
+    protected final ByteContainer dq1;
+    protected final ByteContainer pq;
 
     /**
      * Construct not-initialized rsa private crt key
@@ -33,6 +34,13 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     public RSAPrivateCrtKeyImpl(short keySize) {
         super(true, keySize);
         type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
+        // each CRT prime component is half the modulus size in bytes (bits/8/2 = bits/16)
+        short half = (short) (keySize / 16);
+        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
+        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
+        dp1 = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
+        dq1 = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
+        pq = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
     }
 
     /**
@@ -47,12 +55,14 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     //    type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
     //    setParameters(params);
     //}
-    public void setParameters(CipherParameters params) {
-        p.setBigInteger(((RSAPrivateCrtKeyParameters) params).getP());
-        q.setBigInteger(((RSAPrivateCrtKeyParameters) params).getQ());
-        dp1.setBigInteger(((RSAPrivateCrtKeyParameters) params).getDP());
-        dq1.setBigInteger(((RSAPrivateCrtKeyParameters) params).getDQ());
-        pq.setBigInteger(((RSAPrivateCrtKeyParameters) params).getQInv());
+    @Override
+    void setParameters(CipherParameters params) {
+        RSAPrivateCrtKeyParameters crt = (RSAPrivateCrtKeyParameters) params;
+        p.setBigInteger(crt.getP());
+        q.setBigInteger(crt.getQ());
+        dp1.setBigInteger(crt.getDP());
+        dq1.setBigInteger(crt.getDQ());
+        pq.setBigInteger(crt.getQInv());
     }
 
     public void setP(byte[] buffer, short offset, short length) throws CryptoException {
@@ -108,7 +118,8 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
         return p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized();
     }
 
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

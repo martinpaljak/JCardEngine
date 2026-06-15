@@ -71,11 +71,9 @@ public class MemoryTrackingTest {
             // Test clearing (SensitiveArrays usage)
             bibo.transmit(new CommandAPDU(0x00, 0x04, 0x00, 0x00));
 
-            // Test makeIntegritySensitiveArray (transient)
-            bibo.transmit(new CommandAPDU(0x00, 0x05, 0x00, 0x00));
-
-            // Test makeIntegritySensitiveArray (persistent)
-            bibo.transmit(new CommandAPDU(0x00, 0x06, 0x00, 0x00));
+            // makeIntegritySensitiveArray results must pass assertIntegrity (SensitiveArrays, JC 3.2)
+            assertEquals(0x9000, bibo.transmit(new CommandAPDU(0x00, 0x05, 0x00, 0x00)).getSW());
+            assertEquals(0x9000, bibo.transmit(new CommandAPDU(0x00, 0x06, 0x00, 0x00)).getSW());
         }
     }
 }

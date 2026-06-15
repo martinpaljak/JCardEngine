@@ -34,6 +34,7 @@ public class RandomDataProxy {
             case ALG_PSEUDO_RANDOM:
             case ALG_SECURE_RANDOM:
             case ALG_TRNG:
+            case ALG_PRESEEDED_DRBG:
             case ALG_FAST:
             case ALG_KEYGENERATION:
                 instance = new RandomDataImpl(algorithm);
@@ -59,24 +60,32 @@ public class RandomDataProxy {
             return one;
         }
 
+        // Null after close(); throws ILLEGAL_USE.
+        private RandomData active() {
+            if (rnd == null) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            }
+            return rnd;
+        }
+
         @Override
         public short nextBytes(byte[] buffer, short offset, short length) {
-            return rnd.nextBytes(buffer, offset, length);
+            return active().nextBytes(buffer, offset, length);
         }
 
         @Override
         public void setSeed(byte[] buffer, short offset, short length) {
-            rnd.setSeed(buffer, offset, length);
+            active().setSeed(buffer, offset, length);
         }
 
         @Override
         public byte getAlgorithm() {
-            return rnd.getAlgorithm();
+            return active().getAlgorithm();
         }
 
         @Override
         public void generateData(byte[] buffer, short offset, short length) {
-            rnd.generateData(buffer, offset, length);
+            active().generateData(buffer, offset, length);
         }
 
         public void close() {

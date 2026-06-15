@@ -7,6 +7,7 @@ import javacard.framework.Util;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class UtilTest {
 
@@ -41,5 +42,11 @@ public class UtilTest {
         assertEquals(expResult, result);
         byte res = Util.arrayCompare(bArray, (short) 0, etalonArray, (short) 0, (short) 16);
         assertEquals(0, res);
+        // Zero-length fill at the end of the array is a no-op, not AIOOBE
+        assertEquals((short) bArray.length, Util.arrayFillNonAtomic(bArray, (short) bArray.length, (short) 0, bValue));
+
+        // A non-zero fill running past the end of the array throws (bounds checked at bOff+bLen-1)
+        assertThrows(ArrayIndexOutOfBoundsException.class,
+                () -> Util.arrayFillNonAtomic(bArray, (short) (bArray.length - 1), (short) 2, bValue));
     }
 }

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -5,7 +6,9 @@ package com.licel.jcardsim.crypto;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
+import javacard.security.MessageDigest;
 import javacard.security.Signature;
+import javacardx.crypto.Cipher;
 import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.Mac;
@@ -20,23 +23,129 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 
+import java.util.List;
+
 /**
  * Implementation
  * <code>Signature</code> with symmetric keys based
  * on BouncyCastle CryptoAPI.
  * @see Signature
  */
-public class SymmetricSignatureImpl extends Signature {
+public final class SymmetricSignatureImpl extends Signature {
     
     Mac engine;
-    // TODO: add padding for flexible instantiation
-    // BlockCipherPadding padding;
-
+    MacAlg spec;
     byte algorithm;
     boolean isInitialized;
-    
-    public SymmetricSignatureImpl(byte algorithm) {
-        this.algorithm = algorithm;
+
+    // Builds the BouncyCastle MAC around the key's own block cipher. HMAC and retail-MAC (ALG3) rows ignore it:
+    // HMAC keys carry no block cipher, and retail MAC always runs over a fresh single-DES engine.
+    @FunctionalInterface
+    private interface MacBuilder {
+        Mac build(byte type, short size);
+    }
+
+    // The canonical identity of each MAC is its (messageDigest, cipher, padding) triple; the legacy single-byte
+    // ALG_* constant and the key family that init() must match are recorded alongside.
+    private enum MacAlg {
+        DES_MAC4_NOPAD(ALG_DES_MAC4_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, null)),
+        DES_MAC8_NOPAD(ALG_DES_MAC8_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, null)),
+        DES_MAC4_ISO9797_M1(ALG_DES_MAC4_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ZeroBytePadding())),
+        DES_MAC8_ISO9797_M1(ALG_DES_MAC8_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ZeroBytePadding())),
+        DES_MAC4_ISO9797_M2(ALG_DES_MAC4_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ISO7816d4Padding())),
+        DES_MAC8_ISO9797_M2(ALG_DES_MAC8_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ISO7816d4Padding())),
+        DES_MAC4_PKCS5(ALG_DES_MAC4_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new PKCS7Padding())),
+        DES_MAC8_PKCS5(ALG_DES_MAC8_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new PKCS7Padding())),
+
+        // Retail MAC (ISO 9797-1 algorithm 3): always a fresh single-DES engine, ignores the key cipher.
+        DES_MAC4_ISO9797_1_M1_ALG3(ALG_DES_MAC4_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M1_ALG3, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 32, new ZeroBytePadding())),
+        DES_MAC8_ISO9797_1_M1_ALG3(ALG_DES_MAC8_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M1_ALG3, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 64, new ZeroBytePadding())),
+        DES_MAC4_ISO9797_1_M2_ALG3(ALG_DES_MAC4_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M2_ALG3, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 32, new ISO7816d4Padding())),
+        DES_MAC8_ISO9797_1_M2_ALG3(ALG_DES_MAC8_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M2_ALG3, SymmetricKeyImpl.KF_DES,
+                (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 64, new ISO7816d4Padding())),
+
+        AES_MAC_128_NOPAD(ALG_AES_MAC_128_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_AES_MAC128, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_AES,
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 128, null)),
+        AES_CMAC_128(ALG_AES_CMAC_128, MessageDigest.ALG_NULL, SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES,
+                (t, s) -> new CMac(CipherUtils.of(t, s), 128)),
+
+        HMAC_SHA1(ALG_HMAC_SHA1, MessageDigest.ALG_SHA, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new SHA1Digest())),
+        HMAC_SHA_256(ALG_HMAC_SHA_256, MessageDigest.ALG_SHA_256, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new SHA256Digest())),
+        HMAC_SHA_384(ALG_HMAC_SHA_384, MessageDigest.ALG_SHA_384, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new SHA384Digest())),
+        HMAC_SHA_512(ALG_HMAC_SHA_512, MessageDigest.ALG_SHA_512, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new SHA512Digest())),
+        HMAC_MD5(ALG_HMAC_MD5, MessageDigest.ALG_MD5, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new MD5Digest())),
+        HMAC_RIPEMD160(ALG_HMAC_RIPEMD160, MessageDigest.ALG_RIPEMD160, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+                (t, s) -> new HMac(new RIPEMD160Digest()));
+
+        final byte algByte;
+        final byte md;
+        final byte cipher;
+        final byte padding;
+        final List<Byte> family;
+        final MacBuilder builder;
+
+        MacAlg(byte algByte, byte md, byte cipher, byte padding, List<Byte> family, MacBuilder builder) {
+            this.algByte = algByte;
+            this.md = md;
+            this.cipher = cipher;
+            this.padding = padding;
+            this.family = family;
+            this.builder = builder;
+        }
+
+        // (messageDigest, cipher, padding) -> entry; null when unrecognised.
+        static MacAlg from(byte md, byte cipher, byte padding) {
+            for (var a : values()) {
+                if (a.md == md && a.cipher == cipher && a.padding == padding) {
+                    return a;
+                }
+            }
+            return null;
+        }
+
+        // Legacy single-byte ALG_* constant -> entry; null when unrecognised.
+        static MacAlg byByte(byte algorithm) {
+            for (var a : values()) {
+                if (a.algByte == algorithm) {
+                    return a;
+                }
+            }
+            return null;
+        }
+    }
+
+    // Engine is not built here: CBC-MAC/CMAC need the key's block cipher, available only in init().
+    private SymmetricSignatureImpl(MacAlg spec) {
+        this.spec = spec;
+        this.algorithm = spec.algByte;
+    }
+
+    // Probed by SignatureProxy: an instance for any algorithm this table holds, else null. The proxy is
+    // responsible for turning a null into NO_SUCH_ALGORITHM.
+    public static Signature getInstance(byte algorithm) {
+        MacAlg a = MacAlg.byByte(algorithm);
+        return a == null ? null : new SymmetricSignatureImpl(a);
+    }
+
+    public static Signature getInstance(byte messageDigestAlgorithm, byte cipherAlgorithm, byte paddingAlgorithm) {
+        MacAlg a = MacAlg.from(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
+        return a == null ? null : new SymmetricSignatureImpl(a);
     }
 
     public void init(Key theKey, byte theMode) throws CryptoException {
@@ -53,72 +162,21 @@ public class SymmetricSignatureImpl extends Signature {
         if (!(theKey instanceof SymmetricKeyImpl)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        CipherParameters cipherParams = null;
-        BlockCipher cipher = ((SymmetricKeyImpl) theKey).getCipher();
+        // JC 3.2 Signature.init: the key family must match the MAC algorithm family.
+        if (!spec.family.contains(((SymmetricKeyImpl) theKey).getType())) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
+        CipherParameters cipherParams;
         if (bArray == null) {
             cipherParams = ((SymmetricKeyImpl) theKey).getParameters();
         } else {
-            if (bLen != cipher.getBlockSize()) {
+            BlockCipher probe = CipherUtils.of(theKey.getType(), theKey.getSize());
+            if (bLen != probe.getBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
             }
             cipherParams = new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), bArray, bOff, bLen);
         }
-        switch (algorithm) {
-            case ALG_DES_MAC4_NOPAD:
-                engine = new CBCBlockCipherMac(cipher, 32, null);
-                break;
-            case ALG_DES_MAC8_NOPAD:
-                engine = new CBCBlockCipherMac(cipher, 64, null);
-                break;
-            case ALG_DES_MAC4_ISO9797_M1:
-                engine = new CBCBlockCipherMac(cipher, 32, new ZeroBytePadding());
-                break;
-            case ALG_DES_MAC8_ISO9797_M1:
-                engine = new CBCBlockCipherMac(cipher, 64, new ZeroBytePadding());
-                break;
-            case ALG_DES_MAC4_ISO9797_M2:
-                engine = new CBCBlockCipherMac(cipher, 32, new ISO7816d4Padding());
-                break;
-            case ALG_DES_MAC8_ISO9797_M2:
-                engine = new CBCBlockCipherMac(cipher, 64, new ISO7816d4Padding());
-                break;
-            case ALG_DES_MAC8_ISO9797_1_M2_ALG3:
-                engine = new ISO9797Alg3Mac(new DESEngine(), 64, new ISO7816d4Padding());
-                break;
-            case ALG_DES_MAC4_PKCS5:
-                engine = new CBCBlockCipherMac(cipher, 32, new PKCS7Padding());
-                break;
-            case ALG_DES_MAC8_PKCS5:
-                engine = new CBCBlockCipherMac(cipher, 64, new PKCS7Padding());
-                break;
-            case ALG_AES_MAC_128_NOPAD:
-                engine = new CBCBlockCipherMac(cipher, 128, null);
-                break;
-            case ALG_AES_CMAC_128:
-                engine = new CMac(cipher, 128);
-                break;
-            case ALG_HMAC_SHA1:
-                engine = new HMac(new SHA1Digest());
-                break;
-            case ALG_HMAC_SHA_256:
-                engine = new HMac(new SHA256Digest());
-                break;
-            case ALG_HMAC_SHA_384:
-                engine = new HMac(new SHA384Digest());
-                break;
-            case ALG_HMAC_SHA_512:
-                engine = new HMac(new SHA512Digest());
-                break;
-            case ALG_HMAC_MD5:
-                engine = new HMac(new MD5Digest());
-                break;
-            case ALG_HMAC_RIPEMD160:
-                engine = new HMac(new RIPEMD160Digest());
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
-        }
+        engine = spec.builder.build(theKey.getType(), theKey.getSize());
         engine.init(cipherParams);
         isInitialized = true;
     }
@@ -165,6 +223,9 @@ public class SymmetricSignatureImpl extends Signature {
         byte[] sig = new byte[getLength()];
         engine.doFinal(sig, (short) 0);
         engine.reset();
+        if (sigLength != (short) sig.length) {
+            return false;
+        }
         return Util.arrayCompare(sig, (short) 0, sigBuff, sigOffset, (short) sig.length) == 0;
     }
 
@@ -179,13 +240,14 @@ public class SymmetricSignatureImpl extends Signature {
         throw new UnsupportedOperationException("Not supported yet."); 
     }
     public byte getPaddingAlgorithm() {
-        throw new UnsupportedOperationException("Not supported yet."); 
+        return spec.padding;
     }
+
     public byte getMessageDigestAlgorithm() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return spec.md;
     }
 
     public byte getCipherAlgorithm() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return spec.cipher;
     }
 }

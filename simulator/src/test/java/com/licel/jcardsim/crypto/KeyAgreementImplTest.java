@@ -3,11 +3,13 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -82,6 +84,47 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
 
         // check match of values
         assertEquals(true, Arrays.areEqual(secret1, secret2));
+        // DH secret is always prime-length; leading zero bytes are not stripped
+        assertEquals(keySize / 8, secret1Size);
+        assertEquals(keySize / 8, secret2Size);
+    }
+
+    // A shared-domain key's clearKey() clears only its own secret; clearing the shared domain object instead cascades to every sibling key.
+    @Test
+    public void testSharedDomainECDH() {
+        // P-256 domain shared across both key pairs
+        Key sharedDomain = KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, JCSystem.MEMORY_TYPE_PERSISTENT, KeyBuilder.LENGTH_EC_FP_256, false);
+        byte mem = JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+
+        ECPublicKey pubA = (ECPublicKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PUBLIC, mem, sharedDomain, false);
+        ECPrivateKey privA = (ECPrivateKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PRIVATE, mem, sharedDomain, false);
+        new KeyPair(pubA, privA).genKeyPair();
+        ECPublicKey pubB = (ECPublicKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PUBLIC, mem, sharedDomain, false);
+        ECPrivateKey privB = (ECPrivateKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PRIVATE, mem, sharedDomain, false);
+        new KeyPair(pubB, privB).genKeyPair();
+
+        byte[] secret = ecdh(privA, pubB);
+        assertTrue(Arrays.areEqual(secret, ecdh(privB, pubA)));
+
+        privB.clearKey();
+        assertFalse(privB.isInitialized());
+        // shared domain survives clearKey(); privA still produces the same secret
+        assertTrue(privA.isInitialized());
+        assertTrue(Arrays.areEqual(secret, ecdh(privA, pubB)));
+
+        // clearing the shared domain object itself cascades: every sibling key loses its parameters
+        sharedDomain.clearKey();
+        assertFalse(privA.isInitialized());
+    }
+
+    private static byte[] ecdh(ECPrivateKey priv, ECPublicKey pub) {
+        KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
+        ka.init(priv);
+        byte[] w = new byte[128];
+        short wlen = pub.getW(w, (short) 0);
+        byte[] secret = new byte[65];
+        short slen = ka.generateSecret(w, (short) 0, wlen, secret, (short) 0);
+        return Arrays.copyOf(secret, slen);
     }
 
     /**

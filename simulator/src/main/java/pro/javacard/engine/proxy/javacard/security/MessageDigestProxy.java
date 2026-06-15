@@ -78,19 +78,27 @@ public class MessageDigestProxy {
             return one;
         }
 
+        // Null after close(); throws ILLEGAL_USE.
+        private MessageDigest active() {
+            if (md == null) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            }
+            return md;
+        }
+
         @Override
         public byte getAlgorithm() {
-            return md.getAlgorithm();
+            return active().getAlgorithm();
         }
 
         @Override
         public byte getLength() {
-            return md.getLength();
+            return active().getLength();
         }
 
         @Override
         public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-            return md.doFinal(inBuff, inOffset, inLength, outBuff, outOffset);
+            return active().doFinal(inBuff, inOffset, inLength, outBuff, outOffset);
         }
 
         @Override
@@ -100,7 +108,7 @@ public class MessageDigestProxy {
 
         @Override
         public void reset() {
-            md.reset();
+            active().reset();
         }
 
         public void close() {

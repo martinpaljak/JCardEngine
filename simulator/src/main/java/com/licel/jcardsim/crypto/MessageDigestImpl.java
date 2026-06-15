@@ -20,7 +20,7 @@ import java.lang.reflect.Field;
  * @see RIPEMD160Digest
  * @see SHA1Digest
  */
-public class MessageDigestImpl extends InitializedMessageDigest {
+public final class MessageDigestImpl extends InitializedMessageDigest {
 
     private Digest engine;
     private byte algorithm;

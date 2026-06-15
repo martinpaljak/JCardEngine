@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
+import javacard.security.DHPrivateKey;
+import javacard.security.ECPrivateKey;
 import javacard.security.KeyAgreement;
 import javacard.security.PrivateKey;
 import org.bouncycastle.crypto.BasicAgreement;
@@ -24,7 +27,7 @@ import java.math.BigInteger;
  * @see ECDHBasicAgreement
  * @see ECDHCBasicAgreement
  */
-public class KeyAgreementImpl extends KeyAgreement {
+public final class KeyAgreementImpl extends KeyAgreement {
 
     BasicAgreement engine;
     SHA1Digest digestEngine;
@@ -63,16 +66,13 @@ public class KeyAgreementImpl extends KeyAgreement {
         if (privateKey == null) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        if ((!(privateKey instanceof ECPrivateKeyImpl)) && (!(privateKey instanceof DHPrivateKeyImpl))) {
+        // key type must match the agreement algorithm family
+        boolean keyMatches = algorithm == ALG_DH_PLAIN ? privateKey instanceof DHPrivateKey : privateKey instanceof ECPrivateKey;
+        if (!keyMatches) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        if(privateKey instanceof ECPrivateKeyImpl) {
-            engine.init(((ECPrivateKeyImpl) privateKey).getParameters());
-            this.privateKey = privateKey;
-        } else {
-            engine.init(((DHPrivateKeyImpl) privateKey).getParameters());
-            this.privateKey = privateKey;
-        }
+        engine.init(((KeyWithParameters) privateKey).getParameters());
+        this.privateKey = privateKey;
     }
 
     public byte getAlgorithm() {
@@ -86,20 +86,24 @@ public class KeyAgreementImpl extends KeyAgreement {
             short secretOffset) throws CryptoException {
         if(algorithm == ALG_DH_PLAIN) {
             BigInteger pubKey = new ByteContainer(publicData, publicOffset, publicLength).getBigInteger();
-            DHParameters baseParam = ((DHKeyParameters) ((DHPrivateKeyImpl) privateKey).getParameters()).getParameters();
+            DHParameters baseParam = ((DHKeyParameters) ((KeyWithParameters) privateKey).getParameters()).getParameters();
             BigInteger retAgreement = engine.calculateAgreement(new DHPublicKeyParameters(pubKey, baseParam));
-            return new ByteContainer(retAgreement).getBytes(secret, secretOffset);
+            // the shared secret is padded to the prime length, not trimmed
+            var primeBytes = (baseParam.getP().bitLength() + 7) / 8;
+            var out = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, primeBytes);
+            out.setBigInteger(retAgreement);
+            return out.getBytes(secret, secretOffset);
         } else {
             byte[] publicKey = new byte[publicLength];
             Util.arrayCopyNonAtomic(publicData, publicOffset, publicKey, (short) 0, publicLength);
-            ECPublicKeyParameters ecp = new ECPublicKeyParameters(
-                    ((ECPrivateKeyParameters) ((ECPrivateKeyImpl) privateKey).getParameters()).getParameters().getCurve().decodePoint(publicKey), ((ECPrivateKeyParameters) ((ECPrivateKeyImpl) privateKey).getParameters()).getParameters());
+            ECDomainParameters dp = ((ECPrivateKeyParameters) ((KeyWithParameters) privateKey).getParameters()).getParameters();
+            ECPublicKeyParameters ecp = new ECPublicKeyParameters(dp.getCurve().decodePoint(publicKey), dp);
             byte[] num = engine.calculateAgreement(ecp).toByteArray();
 
             byte[] result;
             if (algorithm != ALG_EC_SVDP_DH_PLAIN_XY && algorithm != ALG_EC_PACE_GM) {
                 // truncate/zero-pad to field size as per the spec:
-                int fieldSize = ((ECPrivateKeyImpl) privateKey).getDomainParameters().getCurve().getFieldSize();
+                int fieldSize = dp.getCurve().getFieldSize();
                 result = new byte[(fieldSize + 7) / 8];
                 int numBytes = Math.min(num.length, result.length);
                 Util.arrayCopyNonAtomic(

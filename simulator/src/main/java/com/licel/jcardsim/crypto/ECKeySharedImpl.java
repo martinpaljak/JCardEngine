@@ -18,7 +18,7 @@ import java.security.SecureRandom;
  *
  * @see ECKey
  */
-public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
+public abstract class ECKeySharedImpl extends KeyWithParameters implements ECKey {
     private ECKeyImpl sharedDomain;
 
     /**
@@ -38,7 +38,7 @@ public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
     }
 
     public void clearKey() {
-        this.sharedDomain.clearKey();
+        // shared domain is referenced by sibling keys; clearing it here would corrupt them, so clear only own S/W
     }
 
     protected boolean isDomainParametersInitialized() {
@@ -130,7 +130,8 @@ public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         return sharedDomain.getKeyGenerationParameters(rnd);
     }
 

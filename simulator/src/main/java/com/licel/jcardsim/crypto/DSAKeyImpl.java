@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
 import javacard.security.KeyBuilder;
@@ -21,11 +22,11 @@ import java.security.SecureRandom;
  *
  * @see DSAKey
  */
-public class DSAKeyImpl extends KeyImpl implements DSAKey {
+public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
 
-    protected ByteContainer p = new ByteContainer();
-    protected ByteContainer q = new ByteContainer();
-    protected ByteContainer g = new ByteContainer();
+    protected final ByteContainer p;
+    protected final ByteContainer q;
+    protected final ByteContainer g;
     protected boolean isPrivate;
 
     /**
@@ -39,12 +40,19 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
     public DSAKeyImpl(byte keyType, short keySize) {
         this.size = keySize;
         type = keyType;
+        // p and g take the prime width; q has no canonical width, so it gets a prime-width
+        // buffer and reads back at its actual length
+        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
+        g = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
+        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
     }
 
-    public void setParameters(CipherParameters params) {
-        p.setBigInteger(((DSAKeyParameters) params).getParameters().getP());
-        q.setBigInteger(((DSAKeyParameters) params).getParameters().getQ());
-        g.setBigInteger(((DSAKeyParameters) params).getParameters().getG());
+    @Override
+    void setParameters(CipherParameters params) {
+        var dsa = ((DSAKeyParameters) params).getParameters();
+        p.setBigInteger(dsa.getP());
+        q.setBigInteger(dsa.getQ());
+        g.setBigInteger(dsa.getG());
     }
 
     public void clearKey() {
@@ -87,7 +95,8 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
      * @return parameters for use with BouncyCastle API
      * @see DSAKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -102,7 +111,8 @@ public class DSAKeyImpl extends KeyImpl implements DSAKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isInitialized()) {
             return new DSAKeyGenerationParameters(rnd, new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger()));
         }

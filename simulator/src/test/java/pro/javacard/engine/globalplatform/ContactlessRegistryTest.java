@@ -513,11 +513,22 @@ public class ContactlessRegistryTest {
         simSelfOK.loadApplet(PKG, T, CRELTestApplet.class);
         var t2 = GPTestUtils.test_aid("020D");
         simSelfOK.loadApplet(PKG, t2, CRELTestApplet.class);
+        var t3 = GPTestUtils.test_aid("020E");
+        simSelfOK.loadApplet(PKG, t3, CRELTestApplet.class);
         try (var bibo = simSelfOK.connect()) {
             var gp = openIsd(bibo);
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(t2), gpAID(t2), EnumSet.noneOf(Privilege.class), new byte[0]);
             byte[] combined = TLV.encode(TLV.of(0xC9, new byte[]{0x00}), buildEf(false, t2));
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(T), gpAID(T), EnumSet.of(Privilege.ContactlessSelfActivation), combined);
+            // GPCLRegistryEntry.setCLState: a self-caller holding ContactlessActivation self-activates
+            // directly, never via the CRS (none is present here, so CRS routing would yield 6982).
+            gp.installAndMakeSelectable(gpAID(PKG), gpAID(t3), gpAID(t3), EnumSet.of(Privilege.ContactlessActivation), new byte[0]);
+        }
+        try (var bibo = simSelfOK.connect()) {
+            selectAID(bibo, t3);
+            var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_ACTIVATED));
+            assertEquals(0x9000, resp.getSW());
+            assertEquals(STATE_CL_ACTIVATED, resp.getData()[0]);
         }
         try (var bibo = simSelfOK.connect()) {
             selectAID(bibo, T);

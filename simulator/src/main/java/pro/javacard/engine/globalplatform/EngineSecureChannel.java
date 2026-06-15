@@ -80,11 +80,19 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
         }
     }
 
+    // Unwrap a command reassembled from GP command-chaining chunks (GPC v2.3.1 11.1.5.1), returning
+    // its plaintext payload. The C-MAC covers the full reassembled command, so MAC verification
+    // runs once over the concatenated chunk data, not per chunk.
+    public abstract byte[] unwrapReassembled(byte cla, byte ins, byte p1, byte p2, byte[] wrapped);
+
     // Max plaintext response payload that fits in a 256-byte APDU response after wrap().
     abstract short maxResponseLength();
 
     // SCP-specific cleanup: zero session keys + per-SCP crypto buffers (ICV, chaining, ...).
     protected abstract void wipeScpState();
+
+    // Zero the SCP sequence counter. GPC v2.3.1 E.1.2: reset on creation or update of the SC keys.
+    abstract void resetCounter();
 
     // KDD = last 2 bytes of the currently selected AID || CPLC bytes 10..17
     // (IC fab date || IC SN || IC batch ID). Mirrors how off-card tooling derives KDD

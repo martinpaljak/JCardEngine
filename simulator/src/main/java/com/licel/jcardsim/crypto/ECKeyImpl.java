@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECKey;
 import javacard.security.KeyBuilder;
@@ -12,7 +11,6 @@ import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
-import org.bouncycastle.crypto.params.ECKeyParameters;
 import org.bouncycastle.math.ec.ECCurve;
 
 import java.math.BigInteger;
@@ -24,13 +22,12 @@ import java.security.SecureRandom;
  *
  * @see ECKey
  */
-public abstract class ECKeyImpl extends KeyImpl implements ECKey {
-    // TODO: consider final, re-allication should not happen
-    protected ByteContainer a;
-    protected ByteContainer b;
-    protected ByteContainer g;
-    protected ByteContainer r;
-    protected ByteContainer fp;
+public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
+    protected final ByteContainer a;
+    protected final ByteContainer b;
+    protected final ByteContainer g;
+    protected final ByteContainer r;
+    protected final ByteContainer fp;
     protected short k;
     protected short e1;
     protected short e2;
@@ -49,33 +46,29 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
         this.size = keySize;
         this.type = keyType;
 
-        a = new ByteContainer(memoryType);
-        b = new ByteContainer(memoryType);
-        g = new ByteContainer(memoryType);
-        r = new ByteContainer(memoryType);
-        fp = new ByteContainer(memoryType);
+        // field elements occupy the field byte length; the order can be a byte wider than the field
+        // (e.g. secp160r1), so r takes the curve's exact order width.
+        var fieldBytes = (keySize + 7) / 8;
+        a = new ByteContainer(memoryType, fieldBytes);
+        b = new ByteContainer(memoryType, fieldBytes);
+        g = new ByteContainer(memoryType, 1 + 2 * fieldBytes);
+        r = new ByteContainer(memoryType, orderBytes(keyType, keySize));
+        fp = new ByteContainer(memoryType, fieldBytes);
 
-        ECDomainParameters defaults = getOptionalDomainParameters(type, size);
+        var defaults = getOptionalDomainParameters(type, size);
         if (defaults != null) {
             setDomainParameters(defaults);
         }
     }
 
-    /**
-     * Construct and initialize ecc key with ECKeyParameters. Use in KeyPairImpl
-     *
-     * @param parameters key params from BouncyCastle API
-     * @see KeyPair
-     * @see ECKeyParameters
-     */
-    public ECKeyImpl(ECKeyParameters parameters) {
-        boolean isPrivate = parameters.isPrivate();
-        boolean isF2M = parameters.getParameters().getCurve() instanceof ECCurve.F2m;
-        type = isPrivate ? (isF2M ? KeyBuilder.TYPE_EC_F2M_PRIVATE : KeyBuilder.TYPE_EC_FP_PRIVATE)
-                : (isF2M ? KeyBuilder.TYPE_EC_F2M_PUBLIC : KeyBuilder.TYPE_EC_FP_PUBLIC);
-        size = (short) parameters.getParameters().getCurve().getFieldSize();
-
-        setDomainParameters(parameters.getParameters());
+    // the order can be a byte wider than the field; fall back to the field width for an
+    // applet-defined curve that has no named defaults
+    static short orderBytes(byte keyType, short keySize) {
+        var defaults = getOptionalDomainParameters(keyType, keySize);
+        if (defaults == null) {
+            return (short) ((keySize + 7) / 8);
+        }
+        return (short) ((defaults.getN().bitLength() + 7) / 8);
     }
 
     public void clearKey() {
@@ -176,7 +169,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
             curve = new ECCurve.F2m(size, e1, e2, e3, a.getBigInteger(), b.getBigInteger(),
                     r.getBigInteger(), BigInteger.valueOf(k));
         }
-        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes(JCSystem.CLEAR_ON_RESET)),
+        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes()),
                 r.getBigInteger(), BigInteger.valueOf(k));
     }
 
@@ -190,7 +183,7 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
     final void setDomainParameters(ECDomainParameters parameters) {
         a.setBigInteger(parameters.getCurve().getA().toBigInteger());
         b.setBigInteger(parameters.getCurve().getB().toBigInteger());
-        // generator
+        // generator: 04 || X || Y, coordinates already padded to the field length by BouncyCastle
         g.setBytes(parameters.getG().getEncoded(false));
         // order
         r.setBigInteger(parameters.getN());
@@ -212,7 +205,8 @@ public abstract class ECKeyImpl extends KeyImpl implements ECKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isDomainParametersInitialized()) {
             return new ECKeyGenerationParameters(getDomainParameters(), rnd);
         }

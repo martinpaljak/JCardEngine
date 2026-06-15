@@ -6,7 +6,7 @@ import com.licel.jcardsim.crypto.AsymmetricCipherImpl;
 import com.licel.jcardsim.crypto.AuthenticatedSymmetricCipherImpl;
 import com.licel.jcardsim.crypto.SymmetricCipherImpl;
 import javacard.security.CryptoException;
-import javacardx.crypto.AEADCipher;
+import javacard.security.Key;
 import javacardx.crypto.Cipher;
 
 /**
@@ -32,85 +32,96 @@ public class CipherProxy {
      *                          or shared access mode is not supported.
      *                         </ul>
      */
-    public static final Cipher getInstance(byte algorithm, boolean externalAccess)
-            throws CryptoException {
-        Cipher instance = null;
+    public static final Cipher getInstance(byte algorithm, boolean externalAccess) throws CryptoException {
         if (externalAccess) {
-            CryptoException.throwIt((short) 3);
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
-
-        switch (algorithm) {
-            case Cipher.ALG_DES_CBC_NOPAD:
-            case Cipher.ALG_DES_CBC_ISO9797_M1:
-            case Cipher.ALG_DES_CBC_ISO9797_M2:
-            case Cipher.ALG_DES_CBC_PKCS5:
-            case Cipher.ALG_DES_ECB_NOPAD:
-            case Cipher.ALG_DES_ECB_ISO9797_M1:
-            case Cipher.ALG_DES_ECB_ISO9797_M2:
-            case Cipher.ALG_DES_ECB_PKCS5:
-            case Cipher.ALG_AES_BLOCK_128_CBC_NOPAD:
-            case Cipher.ALG_AES_BLOCK_128_ECB_NOPAD:
-            case Cipher.ALG_AES_CBC_ISO9797_M1:
-            case Cipher.ALG_AES_CBC_ISO9797_M2:
-            case Cipher.ALG_AES_CTR:
-            case Cipher.ALG_KOREAN_SEED_ECB_NOPAD:
-            case Cipher.ALG_KOREAN_SEED_CBC_NOPAD:
-                instance = new SymmetricCipherImpl(algorithm);
-                break;
-            case Cipher.ALG_RSA_PKCS1:
-            case Cipher.ALG_RSA_NOPAD:
-            case Cipher.ALG_RSA_ISO14888:
-            case Cipher.ALG_RSA_ISO9796:
-            case Cipher.ALG_RSA_PKCS1_OAEP:
-                instance = new AsymmetricCipherImpl(algorithm);
-                break;
-            case AEADCipher.ALG_AES_GCM:
-            case AEADCipher.ALG_AES_CCM:
-                instance = new AuthenticatedSymmetricCipherImpl(algorithm);
-                break;
-
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        Cipher instance = SymmetricCipherImpl.getInstance(algorithm);
+        if (instance == null) {
+            instance = AsymmetricCipherImpl.getInstance(algorithm);
         }
-        return instance;
-    }
-
-    public static final Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm, boolean externalAccess)
-            throws CryptoException {
-        Cipher instance = null;
-        if (externalAccess) {
-            CryptoException.throwIt((short) 3);
-        }
-
-        switch (cipherAlgorithm) {
-            case Cipher.CIPHER_DES_CBC:
-                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
-                    instance = new SymmetricCipherImpl(Cipher.ALG_DES_CBC_NOPAD);
-                }
-                break;
-            case Cipher.CIPHER_DES_ECB:
-                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
-                    instance = new SymmetricCipherImpl(Cipher.ALG_DES_ECB_NOPAD);
-                }
-                break;
-            case Cipher.CIPHER_AES_CBC:
-                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
-                    instance = new SymmetricCipherImpl(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD);
-                }
-                break;
-            case Cipher.CIPHER_AES_ECB:
-                if (paddingAlgorithm == Cipher.PAD_NOPAD) {
-                    instance = new SymmetricCipherImpl(Cipher.ALG_AES_BLOCK_128_ECB_NOPAD);
-                }
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        if (instance == null) {
+            instance = AuthenticatedSymmetricCipherImpl.getInstance(algorithm);
         }
         if (instance == null) {
             CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
         return instance;
+    }
+
+    public static final Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
+        if (externalAccess) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        Cipher instance = SymmetricCipherImpl.getInstance(cipherAlgorithm, paddingAlgorithm);
+        if (instance == null) {
+            instance = AsymmetricCipherImpl.getInstance(cipherAlgorithm, paddingAlgorithm);
+        }
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        return instance;
+    }
+
+    public static final class OneShot extends Cipher {
+        private Cipher cipher;
+
+        private OneShot() {
+        }
+
+        public static CipherProxy.OneShot open(byte cipherAlgorithm, byte paddingAlgorithm) throws CryptoException {
+            CipherProxy.OneShot one = new CipherProxy.OneShot();
+            one.cipher = Cipher.getInstance(cipherAlgorithm, paddingAlgorithm, false);
+            return one;
+        }
+
+        public void close() {
+            cipher = null;
+        }
+
+        // Null after close(); throws ILLEGAL_USE.
+        private Cipher active() {
+            if (cipher == null) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            }
+            return cipher;
+        }
+
+        @Override
+        public void init(Key key, byte mode) throws CryptoException {
+            active().init(key, mode);
+        }
+
+        @Override
+        public void init(Key key, byte mode, byte[] bArray, short bOff, short bLen) throws CryptoException {
+            active().init(key, mode, bArray, bOff, bLen);
+        }
+
+        @Override
+        public byte getAlgorithm() {
+            return active().getAlgorithm();
+        }
+
+        @Override
+        public byte getCipherAlgorithm() {
+            return active().getCipherAlgorithm();
+        }
+
+        @Override
+        public byte getPaddingAlgorithm() {
+            return active().getPaddingAlgorithm();
+        }
+
+        @Override
+        public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
+            return active().doFinal(inBuff, inOffset, inLength, outBuff, outOffset);
+        }
+
+        @Override
+        public short update(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
+            // Multi-part update is not allowed on OneShot (JC 3.2 Cipher.OneShot.update)
+            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            return 0;
+        }
     }
 }

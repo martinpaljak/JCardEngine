@@ -88,11 +88,20 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
             if ((buffer[ISO7816.OFFSET_P1] & ~(SecureChannel.C_MAC | SecureChannel.C_DECRYPTION | SecureChannel.R_MAC | SecureChannel.R_ENCRYPTION)) != 0) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
+            // GPC v2.3.1 E.5.2.3 Table E-11: C-DECRYPTION implies C-MAC, R-ENCRYPTION implies R-MAC.
+            if (((buffer[ISO7816.OFFSET_P1] & SecureChannel.C_DECRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.C_MAC) == 0)
+                    || ((buffer[ISO7816.OFFSET_P1] & SecureChannel.R_ENCRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.R_MAC) == 0)) {
+                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+            }
             if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
             if (buffer[ISO7816.OFFSET_LC] != 16) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+            }
+            // No session keys means no preceding INITIALIZE UPDATE. GPC v2.3.1 E.1.2.1.
+            if (macKey == null) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             }
             process_mac(buffer, ISO7816.OFFSET_CLA, apdu.getIncomingLength() + ISO7816.OFFSET_CDATA);
 
@@ -114,11 +123,9 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
     }
 
     void process_mac(byte[] buffer, int offset, int length) {
-        // FIXME: handle chaining
         try {
             final int maclen = 8;
             byte[] mac = Arrays.copyOfRange(buffer, offset + length - maclen, offset + length);
-            log.trace("mac: {} (session open: {})", Hex.toHexString(mac), open);
             byte[] payload = Arrays.copyOfRange(buffer, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
             ByteArrayOutputStream bo = new ByteArrayOutputStream();
             bo.write(buffer[offset + ISO7816.OFFSET_CLA] | 0x04);
@@ -126,29 +133,28 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
             bo.write(buffer[offset + ISO7816.OFFSET_P1]);
             bo.write(buffer[offset + ISO7816.OFFSET_P2]);
             if (open && ((state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION)) {
-                log.trace("MAC payload encrypted");
-                byte[] decrypted = des3_cbc_decrypt(payload, encKey, new byte[8]);
-                log.trace("Decrypted: {}", Hex.toHexString(decrypted));
-                byte[] unpadded = GPCrypto.unpad80(decrypted);
+                byte[] unpadded = GPCrypto.unpad80(des3_cbc_decrypt(payload, encKey, new byte[8]));
                 bo.write(unpadded.length + 8);
                 bo.writeBytes(unpadded);
             } else {
-                log.trace("MAC payload not encrypted");
                 bo.write(buffer[offset + ISO7816.OFFSET_LC]);
                 bo.writeBytes(payload);
             }
-            byte[] mac_input = bo.toByteArray();
-            log.trace("mac input: {} icv: {}", Hex.toHexString(mac_input), Hex.toHexString(icv));
-            byte[] check = GPCrypto.mac_des_3des(macKey, mac_input, icv);
-            // set new icv
-            System.arraycopy(check, 0, icv, 0, icv.length);
-            if (!Arrays.equals(check, mac)) {
-                log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
-                resetSecurity();
-                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-            }
+            verifyMac(bo.toByteArray(), mac);
         } catch (GeneralSecurityException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    // Compute the SCP02 C-MAC over a prepared input and verify it against the presented MAC, rolling
+    // the ICV forward. Aborts the session on mismatch.
+    private void verifyMac(byte[] macInput, byte[] presented) throws GeneralSecurityException {
+        byte[] check = GPCrypto.mac_des_3des(macKey, macInput, icv);
+        System.arraycopy(check, 0, icv, 0, icv.length);
+        if (!Arrays.equals(check, presented)) {
+            log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(presented));
+            resetSecurity();
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
     }
 
@@ -207,6 +213,37 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
     }
 
     @Override
+    public byte[] unwrapReassembled(byte cla, byte ins, byte p1, byte p2, byte[] wrapped) {
+        requireAuthenticated();
+        final int maclen = 8;
+        try {
+            byte[] mac = Arrays.copyOfRange(wrapped, wrapped.length - maclen, wrapped.length);
+            byte[] cdata = Arrays.copyOf(wrapped, wrapped.length - maclen);
+            // C-MAC covers the cleartext: decrypt and strip padding first. Lc encodes cleartext length
+            // plus the 8-byte C-MAC (extended form above 255, GPC v2.3.1 11.1.5.1). ICV is encrypted
+            // before verifying the MAC.
+            boolean enc = (cla & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION;
+            byte[] clear = enc ? GPCrypto.unpad80(des3_cbc_decrypt(cdata, encKey, new byte[8])) : cdata;
+            byte[] newicv = GPCrypto.des_ecb(icv, macKey);
+            System.arraycopy(newicv, 0, icv, 0, newicv.length);
+            ByteArrayOutputStream bo = new ByteArrayOutputStream();
+            bo.write(cla | 0x04);
+            bo.write(ins);
+            bo.write(p1);
+            bo.write(p2);
+            bo.writeBytes(GPUtils.encodeLcLength(clear.length + maclen, 256));
+            bo.writeBytes(clear);
+            verifyMac(bo.toByteArray(), mac);
+            return clear;
+        } catch (GeneralSecurityException e) {
+            log.error("Decryption failed", e);
+            resetSecurity();
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            return null;
+        }
+    }
+
+    @Override
     public short decryptData(byte[] buffer, short offset, short length) throws ISOException {
         Objects.requireNonNull(buffer);
         if (length % 8 != 0) {
@@ -234,6 +271,11 @@ public final class SCP02SecureChannel extends EngineSecureChannel {
     protected void wipeScpState() {
         open = false;
         zeroize(encKey, macKey, dekKey, icv, host_challenge, card_challenge);
+    }
+
+    @Override
+    void resetCounter() {
+        zeroize(ssc);
     }
 
     // SCP02 R-MAC is a fixed 8-byte trailer (DES MAC). R-ENCRYPTION is not implemented.

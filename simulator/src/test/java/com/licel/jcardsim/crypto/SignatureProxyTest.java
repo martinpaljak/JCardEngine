@@ -16,6 +16,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 public class SignatureProxyTest {
 
     private static final Logger log = LoggerFactory.getLogger(SignatureProxyTest.class);
@@ -71,5 +74,22 @@ public class SignatureProxyTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void testOneShot() {
+        Signature.OneShot sig = Signature.OneShot.open(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2);
+        try {
+            // getAlgorithm() returns the resolved algorithm before init()
+            assertEquals(Signature.ALG_AES_CMAC_128, sig.getAlgorithm());
+            // multi-part update is not supported on OneShot
+            CryptoException u = assertThrows(CryptoException.class, () -> sig.update(new byte[16], (short) 0, (short) 16));
+            assertEquals(CryptoException.ILLEGAL_USE, u.getReason());
+        } finally {
+            sig.close();
+        }
+        // after close(), a further call throws ILLEGAL_USE
+        CryptoException e = assertThrows(CryptoException.class, sig::getAlgorithm);
+        assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
     }
 }

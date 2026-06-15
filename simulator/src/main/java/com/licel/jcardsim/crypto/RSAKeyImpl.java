@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateKey;
@@ -22,10 +23,13 @@ import java.security.SecureRandom;
  * @see RSAPublicKey
  * @see RSAKeyParameters
  */
-public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
+public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAPublicKey {
 
-    protected ByteContainer exponent = new ByteContainer();
-    protected ByteContainer modulus = new ByteContainer();
+    // JavaCard API maximum public exponent length
+    private static final short PUBLIC_EXPONENT_MAX_BYTES = 4;
+
+    protected final ByteContainer exponent;
+    protected final ByteContainer modulus;
     protected boolean isPrivate;
 
     /**
@@ -39,11 +43,17 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
         this.isPrivate = isPrivate;
         this.size = size;
         type = isPrivate ? KeyBuilder.TYPE_RSA_PRIVATE : KeyBuilder.TYPE_RSA_PUBLIC;
+        modulus = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8);
+        exponent = isPrivate
+                ? new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8)
+                : new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, PUBLIC_EXPONENT_MAX_BYTES, true);
     }
 
-    public void setParameters(CipherParameters params) {
-        modulus.setBigInteger(((RSAKeyParameters) params).getModulus());
-        exponent.setBigInteger(((RSAKeyParameters) params).getExponent());
+    @Override
+    void setParameters(CipherParameters params) {
+        RSAKeyParameters rsa = (RSAKeyParameters) params;
+        modulus.setBigInteger(rsa.getModulus());
+        exponent.setBigInteger(rsa.getExponent());
     }
 
     public short getExponent(byte[] buffer, short offset) {
@@ -78,7 +88,8 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      * @return parameters for use with BouncyCastle API
      * @see RSAKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -92,7 +103,8 @@ public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (!isPrivate && exponent.isInitialized()) {
             return new RSAKeyGenerationParameters(exponent.getBigInteger(), rnd, size, 80);
         }

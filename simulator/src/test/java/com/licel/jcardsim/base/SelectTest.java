@@ -9,6 +9,7 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 
 import java.util.Arrays;
 
@@ -63,7 +64,6 @@ public class SelectTest {
         }
     }
 
-
     @Test
     public void testAidComparator() {
         AID[] input = new AID[]{
@@ -115,6 +115,56 @@ public class SelectTest {
             byte[] expected = Hex.decode("d0000cafe000019000");
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
             assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+
+            // GPC v2.3.1 6.4.2.1.2: SELECT [by name] [next occurrence] (P2 b2) walks past the first partial
+            // match to the next one - d0000cafe00002.
+            var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe0")));
+            assertEquals(0x9000, next.getSW());
+            byte[] expectedNext = Hex.decode("d0000cafe000029000");
+            var actualNext = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(Arrays.toString(expectedNext), Arrays.toString(actualNext.getBytes()));
+        }
+    }
+
+    // GPC v2.3.1 6.4.2.1.2: SELECT [by name] [next occurrence] (P2 b2) walks the registry after the
+    // currently selected Application, skipping LOCKED entries, until it finds the next partial match or
+    // runs out. Prefix d0000cafe000 holds aa (match), bb (locked - skipped), cc (match); e0... is an
+    // unrelated AID iterated after cc so the second walk runs past it and exhausts the search.
+    @Test
+    public void testNextOccurrenceSkipsLockedAndExhausts() {
+        AID aa = AIDUtil.create("d0000cafe000aa");
+        AID bb = AIDUtil.create("d0000cafe000bb");
+        AID cc = AIDUtil.create("d0000cafe000cc");
+        AID other = AIDUtil.create("e000000000");
+
+        Simulator simulator = new Simulator();
+        simulator.installApplet(aa, MultiInstanceApplet.class);
+        simulator.installApplet(bb, GlobalPlatformTestApplet.class);
+        simulator.installApplet(cc, MultiInstanceApplet.class);
+        simulator.installApplet(other, MultiInstanceApplet.class);
+
+        try (var bibo = simulator.connect()) {
+            // Self-lock bb via the GP test applet's setState(0x83) instruction: b8=1 marks it LOCKED.
+            bibo.transmit(AIDUtil.select(bb));
+            var lock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x83, 0x00, 256));
+            assertEquals(0x9000, lock.getSW());
+            assertEquals((byte) 0x01, lock.getData()[0]);
+
+            // Full-AID select aa, then next-occurrence over the shared prefix: bb is LOCKED so the
+            // search skips it and lands on cc.
+            assertEquals(0x9000, bibo.transmit(AIDUtil.select(aa)).getSW());
+            var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
+            assertEquals(0x9000, next.getSW());
+            byte[] onCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();
+            assertArrayEquals(AIDUtil.bytes(cc), onCc);
+
+            // From cc, next-occurrence over the same prefix finds no further match: the walk runs past
+            // the unrelated e0... entry and exhausts, so the SELECT is dispatched to the current applet
+            // (cc, a MultiInstanceApplet) which rejects the ISO-class SELECT with 6E00 and stays selected.
+            var miss = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
+            assertEquals(0x6E00, miss.getSW());
+            byte[] stillCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();
+            assertArrayEquals(AIDUtil.bytes(cc), stillCc);
         }
     }
 

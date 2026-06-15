@@ -19,6 +19,9 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+// AEAD card contract (confirmed on real hardware): ENCRYPT doFinal emits ciphertext only and the tag is
+// fetched separately via retrieveTag(); DECRYPT doFinal emits plaintext only without verifying, and
+// verifyTag() is the sole verifier returning true/false rather than throwing on a bad tag.
 public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
     private static final String LOREM_PART1 = """
@@ -41,8 +44,6 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] desKey64bit = new byte[KeyBuilder.LENGTH_DES / Byte.SIZE];
         new Random().nextBytes(desKey64bit);
 
-        // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
-        // The returned Cipher instance should then be cast to AEADCipher.
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
         DESKey desKey = (DESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES, false);
@@ -108,8 +109,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
                 "0080052a2a5bb0e95222a419",                            // 96-bit IV
                 "e7fb0631eebf9bdba87045b33650c4ce",                    // 128-bit PT  (Plain Text)
                 "290322092d57479e20f6281e331d95a9",                    // 128-bit AAD (Additional Authenticated Data)
-                "88d674044031414af7ba9da8b89dd68e",                    // 256-bit CT (Cipher Text)
-                "69897d99d8e1706f38c613896c18"                         // 64-bit Tag
+                "88d674044031414af7ba9da8b89dd68e",                    // 128-bit CT (Cipher Text)
+                "69897d99d8e1706f38c613896c18"                         // 112-bit Tag
         };
 
         testAES_GCM_PrearrangedResult(testData);
@@ -140,15 +141,16 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
-        short keyInBitSize = (short) (key128Bit.length * 8);
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
         aesKey.setKey(key128Bit, (short) 0);
 
         final short AAD_BYTES = 32;
         final short MSG_BYTES = 32;
-        final short NOT_SUPPORT_TAG_LEN = 32;
+        final short NOT_SUPPORT_TAG_LEN = 5;
         try {
             engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, AAD_BYTES, MSG_BYTES, NOT_SUPPORT_TAG_LEN);
+            engine.doFinal(new byte[MSG_BYTES], (short) 0, MSG_BYTES, new byte[MSG_BYTES], (short) 0);
+            engine.retrieveTag(new byte[NOT_SUPPORT_TAG_LEN], (short) 0, NOT_SUPPORT_TAG_LEN);
             fail("No exception");
         } catch (CryptoException e) {
             assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
@@ -168,7 +170,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
                 // 408-bit PT  (Plain Text)
                 "1140acb00c1a37dffeead3f47b9c37b4140b7dd1965a8fbba76bcf7614b03398eb777f598bdd2599959a5b0ee6e1af75838888",
 
-                // 160-bit AAD (Additional Authenticated Data)
+                // 128-bit AAD (Additional Authenticated Data)
                 "182188be275f93fb909f61eba148fb62",
 
                 // 408-bit CT  (Cipher Text)
@@ -176,6 +178,38 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
                 // 120-bit Tag
                 "3a4ca34a8b63e78a4405288a9b2738"
+        };
+
+        testAES_GCM_PrearrangedResult(testData);
+    }
+
+    // IEEE 802.1AE MACsec GCM-AES test vectors, section 2.2.1 "60-byte Packet Encryption Using GCM-AES-128".
+    // https://www.ieee802.org/1/files/public/docs2011/bn-randall-test-vectors-0511-v1.pdf
+    @Test
+    public void testAES_GCM_MACsec_GCM_AES_128() {
+        String[] testData = {
+                "AD7A2BD03EAC835A6F620FDCB506B345",                                                                 // 128-bit Key
+                "12153524C0895E81B2C28465",                                                                         // 96-bit IV
+                "08000F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A0002", // PT
+                "D609B1F056637A0D46DF998D88E52E00B2C2846512153524C0895E81",                                         // AAD
+                "701AFA1CC039C0D765128A665DAB69243899BF7318CCDC81C9931DA17FBE8EDD7D17CB8B4C26FC81E3284F2B7FBA713D", // CT
+                "4F8D55E7D3F06FD5A13C0C29B9D5B880"                                                                  // ICV
+        };
+
+        testAES_GCM_PrearrangedResult(testData);
+    }
+
+    // IEEE 802.1AE MACsec GCM-AES test vectors, section 2.2.2 "60-byte Packet Encryption Using GCM-AES-256".
+    // https://www.ieee802.org/1/files/public/docs2011/bn-randall-test-vectors-0511-v1.pdf
+    @Test
+    public void testAES_GCM_MACsec_GCM_AES_256() {
+        String[] testData = {
+                "E3C08A8F06C6E3AD95A70557B23F75483CE33021A9C72B7025666204C69C0B72",                                 // 256-bit Key
+                "12153524C0895E81B2C28465",                                                                         // 96-bit IV
+                "08000F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F303132333435363738393A0002", // PT
+                "D609B1F056637A0D46DF998D88E52E00B2C2846512153524C0895E81",                                         // AAD
+                "E2006EB42F5277022D9B19925BC419D7A592666C925FE2EF718EB4E308EFEAA7C5273B394118860A5BE2A97F56AB7836", // CT
+                "5CA597CDBB3EDB8D1A1151EA0AF7B436"                                                                  // ICV
         };
 
         testAES_GCM_PrearrangedResult(testData);
@@ -195,47 +229,40 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
 
-        // Test encryption
+        // Encrypt: doFinal emits the ciphertext only, the tag follows via retrieveTag()
         engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length, (short) aad.length, (short) plaintext.length, (short) tag.length);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
-        byte[] encrypted = new byte[plaintext.length + tag.length];
+        byte[] encrypted = new byte[plaintext.length];
         short encryptProcessedBytes = engine.doFinal(plaintext, (short) 0, (short) plaintext.length, encrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(ciphertext, 0, ciphertext.length, encrypted, 0, ciphertext.length));
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(plaintext.length, encryptProcessedBytes);
+        assertArrayEquals(ciphertext, encrypted);
 
         byte[] retrievedTag = new byte[tag.length];
         engine.retrieveTag(retrievedTag, (short) 0, (short) retrievedTag.length);
+        assertArrayEquals(tag, retrievedTag);
 
-        assertTrue(Arrays.areEqual(retrievedTag, tag));
-
-        // Test decryption with wrong AAD
+        // Decrypt with wrong AAD: doFinal still emits plaintext, but verifyTag() rejects the tag
         byte[] wrongAAD = new byte[16];
         new Random().nextBytes(wrongAAD);
 
         engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length, (short) wrongAAD.length, (short) ciphertext.length, (short) tag.length);
         engine.updateAAD(wrongAAD, (short) 0, (short) wrongAAD.length);
-        byte[] decrypted = new byte[ciphertext.length];
+        byte[] wrongDecrypted = new byte[ciphertext.length];
+        engine.doFinal(ciphertext, (short) 0, (short) ciphertext.length, wrongDecrypted, (short) 0);
+        assertFalse(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) tag.length));
 
-        short decryptProcessedBytes = 0;
-        try {
-            decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
-            fail("No exception");
-        } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
-        }
-
-        // Re-initiate to reset cipher
+        // Decrypt with the right AAD: doFinal emits plaintext, verifyTag() accepts the tag
         engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length, (short) aad.length, (short) ciphertext.length, (short) tag.length);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
-        decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
-        assertEquals(decryptProcessedBytes, decrypted.length);
+        byte[] decrypted = new byte[ciphertext.length];
+        short decryptProcessedBytes = engine.doFinal(ciphertext, (short) 0, (short) ciphertext.length, decrypted, (short) 0);
+        assertEquals(ciphertext.length, decryptProcessedBytes);
 
-        assertTrue(Arrays.areEqual(decrypted, plaintext));
-        assertTrue(engine.verifyTag(encrypted, (short) ciphertext.length, (short) tag.length, (short) tag.length));
-
+        assertArrayEquals(plaintext, decrypted);
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) tag.length));
     }
 
     @Test
@@ -261,13 +288,13 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         final short tagLenInBits = 96;
         byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
-        // Test encryption
+        // Encrypt: ciphertext only, tag fetched separately
         engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[msgBytes.length + tag.length];
+        byte[] encrypted = new byte[msgBytes.length];
         short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length, encrypted, (short) 0);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(msgBytes.length, encryptProcessedBytes);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
@@ -276,10 +303,10 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[msgBytes.length];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
-        assertTrue(Arrays.areEqual(decrypted, msgBytes));
+        assertEquals(decrypted.length, decryptProcessedBytes);
+        assertArrayEquals(msgBytes, decrypted);
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
@@ -308,15 +335,15 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
         short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
-        // Test encryption
+        // Encrypt: ciphertext only across update + doFinal, tag fetched separately
         engine.init(aesKey, Cipher.MODE_ENCRYPT, iv96Bit, (short) 0, (short) iv96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[totalMsgLen + tag.length];
+        byte[] encrypted = new byte[totalMsgLen];
 
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
         encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(totalMsgLen, encryptProcessedBytes);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
@@ -325,9 +352,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[totalMsgLen];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
+        assertEquals(decrypted.length, decryptProcessedBytes);
         assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
@@ -353,22 +380,23 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         String msgPart2 = LOREM_PART2;
 
         final short TAG_SIZE = 16;
-        byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + TAG_SIZE];
+        short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
+        byte[] encrypted = new byte[totalMsgLen];
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
         encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(totalMsgLen, encryptProcessedBytes);
 
-        byte[] tag = new byte[encryptProcessedBytes - (msgPart1.length() + msgPart2.length())];
+        byte[] tag = new byte[TAG_SIZE];
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
         engine.init(aesKey, Cipher.MODE_DECRYPT);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] decrypted = new byte[msgPart1.length() + msgPart2.length()];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        byte[] decrypted = new byte[totalMsgLen];
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
+        assertEquals(decrypted.length, decryptProcessedBytes);
         assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
@@ -420,25 +448,27 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
         String msgPart2 = LOREM_PART2;
 
-        byte[] encrypted = new byte[msgPart1.length() + msgPart2.length() + aad128Bit.length];
+        short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
+        byte[] encrypted = new byte[totalMsgLen];
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
         encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(totalMsgLen, encryptProcessedBytes);
 
-        byte[] tag = new byte[encryptProcessedBytes - (msgPart1.length() + msgPart2.length())];
+        final short TAG_SIZE = 16;
+        byte[] tag = new byte[TAG_SIZE];
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
         // Decrypt back
         engine.init(aesKey, Cipher.MODE_DECRYPT, iv96Bit, (short) 0, (short) iv96Bit.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] decrypted = new byte[msgPart1.length() + msgPart2.length()];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        byte[] decrypted = new byte[totalMsgLen];
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
+        assertEquals(decrypted.length, decryptProcessedBytes);
         assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
-        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) aad128Bit.length));
+        assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, TAG_SIZE));
     }
 
     @Test
@@ -460,7 +490,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         }
     }
 
-    // Use C.1 Example 1 in Appendix C of NIST Special Publication 800-38D
+    // Use C.1 Example 1 in Appendix C of NIST Special Publication 800-38C
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
     // Supports only the 12 byte IV length, which is the value recommended by NIST Special Publication 800-38D 5.2.1.1 Input Data
     // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
@@ -481,15 +511,12 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] payload = Hex.decode(testData[1]);
         byte[] aad = Hex.decode(testData[2]);
         byte[] nonce = Hex.decode(testData[3]);
-        byte[] ciphertext = Hex.decode(testData[4]);
 
         final short TAG_LEN = 4;
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
         aesKey.setKey(key, (short) 0);
 
-        // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
-        // The returned Cipher instance should then be cast to AEADCipher.
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
         try {
             engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) payload.length, TAG_LEN);
@@ -500,7 +527,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
     }
 
-    // Use C.3 Example 3 in Appendix C of NIST Special Publication 800-38D
+    // Use C.3 Example 3 in Appendix C of NIST Special Publication 800-38C
     // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
     @Test
     public void testAES_CCM_Sample_Key128Bit_AAD160Bit_Tag64Bit() {
@@ -510,9 +537,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
                 "20212223 24252627 28292a2b 2c2d2e2f 30313233 34353637",//Payload
                 "00010203 04050607 08090a0b 0c0d0e0f 10111213", //AAD
                 "10111213 14151617 18191a1b", //Nonce
-                "e3b201a9 f5b71a7a 9b1ceaec cd97e70b 6176aad9 a4428aa5 484392fb c1b09951", //Cipher text
-                "67c99240 c7d51048" // 64-bit tag
-
+                // standard CCM output: 24-byte ciphertext followed by the 8-byte tag 484392fbc1b09951
+                "e3b201a9 f5b71a7a 9b1ceaec cd97e70b 6176aad9 a4428aa5 484392fb c1b09951",
         };
         final short TAG_LEN = 8;
         testAES_CCM_PrearrangedResult(testData, TAG_LEN);
@@ -521,7 +547,7 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
     // Use sample vector from
     // https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/mac/ccmtestvectors.zip
     @Test
-    public void testAES_CCM_Sample_Key128Bit_AAD128Bit_Tag128Bit() {
+    public void testAES_CCM_Sample_Key128Bit_AAD256Bit_Tag128Bit() {
         String[] testData = {
                 "005e8f4d8e0cbf4e1ceeb5d87a275848",// 128-bit Key
                 "b6f345204526439daf84998f380dcfb4b4167c959c04ff65",// 24-byte Payload
@@ -565,47 +591,41 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] payload = Hex.decode(testData[1]);
         byte[] aad = Hex.decode(testData[2]);
         byte[] nonce = Hex.decode(testData[3]);
-        byte[] ciphertext = Hex.decode(testData[4]);
 
-        boolean have_sample_tag = testData.length == 6;
-        byte[] sample_tag = new byte[tagLen];
-        if (have_sample_tag) {
-            sample_tag = Arrays.copyOf(Hex.decode(testData[5]), tagLen);
-        }
+        // The NIST/CSRC CCM vector element is the standard ciphertext||tag: slice off the trailing tag.
+        byte[] standard = Hex.decode(testData[4]);
+        byte[] ciphertext = Arrays.copyOf(standard, standard.length - tagLen);
+        byte[] expected_tag = Arrays.copyOfRange(standard, standard.length - tagLen, standard.length);
 
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, (short) (key.length * Byte.SIZE), false);
         aesKey.setKey(key, (short) 0);
 
-        // AEAD ciphers can be created by the Cipher.getInstance method using the ALG_AES_GCM and ALG_AES_CCM algorithm constants.
-        // The returned Cipher instance should then be cast to AEADCipher.
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
+
+        // Encrypt: the NIST CCM vector is ciphertext||tag, so doFinal yields the leading ciphertext and the tag follows
         engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) payload.length, tagLen);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
-        byte[] encrypted = new byte[payload.length + tagLen];
+        byte[] encrypted = new byte[payload.length];
         short encryptProcessedBytes = engine.doFinal(payload, (short) 0, (short) payload.length, encrypted, (short) 0);
 
-        assertEquals(encryptProcessedBytes, encrypted.length);
-        assertTrue(Arrays.areEqual(ciphertext, encrypted));
+        assertEquals(payload.length, encryptProcessedBytes);
+        assertArrayEquals(ciphertext, encrypted);
 
         byte[] tag = new byte[tagLen];
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
+        assertArrayEquals(expected_tag, tag);
 
-        if (have_sample_tag) {
-            assertTrue(Arrays.areEqual(tag, sample_tag));
-        }
-
-        // Test decryption
-        engine.init(aesKey, Cipher.MODE_DECRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) encrypted.length, tagLen);
+        // Decrypt: doFinal emits plaintext only, verifyTag() confirms the retrieved tag
+        engine.init(aesKey, Cipher.MODE_DECRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) ciphertext.length, tagLen);
         engine.updateAAD(aad, (short) 0, (short) aad.length);
 
         byte[] decrypted = new byte[payload.length];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(ciphertext, (short) 0, (short) ciphertext.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
-        assertTrue(Arrays.areEqual(payload, decrypted));
+        assertEquals(payload.length, decryptProcessedBytes);
+        assertArrayEquals(payload, decrypted);
 
-        // Verify tag
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, tagLen));
     }
 
@@ -627,18 +647,18 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         AESKey aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
         aesKey.setKey(key256Bit, (short) 0);
 
-        AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, false);
+        AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
 
         final short tagLenInBits = 96;
         byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
-        // Test encryption
+        // Encrypt: ciphertext only, tag fetched separately
         engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, (short) msgBytes.length, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[msgBytes.length + tag.length];
+        byte[] encrypted = new byte[msgBytes.length];
         short encryptProcessedBytes = engine.doFinal(msgBytes, (short) 0, (short) msgBytes.length, encrypted, (short) 0);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(msgBytes.length, encryptProcessedBytes);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
@@ -647,10 +667,10 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[msgBytes.length];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
-        assertTrue(Arrays.areEqual(decrypted, msgBytes));
+        assertEquals(decrypted.length, decryptProcessedBytes);
+        assertArrayEquals(msgBytes, decrypted);
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));
     }
 
@@ -679,15 +699,15 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] tag = new byte[tagLenInBits / Byte.SIZE];
 
         short totalMsgLen = (short) (msgPart1.length() + msgPart2.length());
-        // Test encryption
+        // Encrypt: ciphertext only across update + doFinal, tag fetched separately
         engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce96Bit, (short) 0, (short) nonce96Bit.length, (short) aad128Bit.length, totalMsgLen, (short) tag.length);
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
-        byte[] encrypted = new byte[totalMsgLen + tag.length];
+        byte[] encrypted = new byte[totalMsgLen];
 
         short encryptProcessedBytes = engine.update(msgPart1.getBytes(), (short) 0, (short) msgPart1.length(), encrypted, (short) 0);
         encryptProcessedBytes += engine.doFinal(msgPart2.getBytes(), (short) 0, (short) msgPart2.length(), encrypted, encryptProcessedBytes);
-        assertEquals(encryptProcessedBytes, encrypted.length);
+        assertEquals(totalMsgLen, encryptProcessedBytes);
 
         engine.retrieveTag(tag, (short) 0, (short) tag.length);
 
@@ -696,9 +716,9 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         engine.updateAAD(aad128Bit, (short) 0, (short) aad128Bit.length);
 
         byte[] decrypted = new byte[totalMsgLen];
-        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) (encrypted.length), decrypted, (short) 0);
+        short decryptProcessedBytes = engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertEquals(decryptProcessedBytes, decrypted.length);
+        assertEquals(decrypted.length, decryptProcessedBytes);
         assertTrue(Arrays.areEqual(decrypted, 0, msgPart1.length(), msgPart1.getBytes(), 0, msgPart1.length()));
         assertTrue(Arrays.areEqual(decrypted, msgPart1.length(), decrypted.length, msgPart2.getBytes(), 0, msgPart2.length()));
         assertTrue(engine.verifyTag(tag, (short) 0, (short) tag.length, (short) (tagLenInBits / Byte.SIZE)));

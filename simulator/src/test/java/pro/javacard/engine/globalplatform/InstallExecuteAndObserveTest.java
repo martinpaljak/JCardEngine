@@ -81,6 +81,14 @@ public class InstallExecuteAndObserveTest {
         // SCP-wrapped GET DATA path when a session is open, and we don't want to reuse this
         // session for follow-up SCP-wrapped commands in the same connection.
         try (var bibo = sim.connect()) {
+            // EXTERNAL AUTHENTICATE rejected before any INITIALIZE UPDATE: C-DECRYPTION without C-MAC
+            // is an unattainable level (6A86); a valid level with no session keys yet is 6985. The
+            // payload is the per-variant EXT AUTH length so the length check passes to the session
+            // check. A failed EXT AUTH leaves the channel clean for the positive open below.
+            byte[] auth = new byte[config instanceof SCPConfig.SCP03 scp03 && scp03.s16() ? 32 : 16];
+            assertEquals(0x6A86, bibo.transmit(new CommandAPDU(0x84, 0x82, 0x02, 0x00, auth)).getSW());
+            assertEquals(0x6985, bibo.transmit(new CommandAPDU(0x84, 0x82, 0x01, 0x00, auth)).getSW());
+
             var gp = openWith(bibo, masterKey, mode);
             assertKit(gp, config);
         }

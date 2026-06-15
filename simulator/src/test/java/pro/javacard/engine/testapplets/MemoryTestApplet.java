@@ -52,6 +52,7 @@ public class MemoryTestApplet extends Applet {
                 if (JCSystem.isTransient(transObj) == JCSystem.MEMORY_TYPE_PERSISTENT) {
                     ISOException.throwIt(ISO7816.SW_DATA_INVALID);
                 }
+                SensitiveArrays.assertIntegrity(transObj);
                 break;
             case (byte) 0x06: // makeIntegritySensitiveArray persistent
                 Object persObj = SensitiveArrays.makeIntegritySensitiveArray(JCSystem.ARRAY_TYPE_BYTE, JCSystem.MEMORY_TYPE_PERSISTENT, (short) 10);
@@ -61,6 +62,7 @@ public class MemoryTestApplet extends Applet {
                 if (JCSystem.isTransient(persObj) != JCSystem.MEMORY_TYPE_PERSISTENT) {
                     ISOException.throwIt(ISO7816.SW_DATA_INVALID);
                 }
+                SensitiveArrays.assertIntegrity(persObj);
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);

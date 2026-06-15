@@ -4,6 +4,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.BIBO;
+import pro.javacard.engine.core.DeterministicRandom;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import javacardx.apdu.ExtendedLength;
@@ -24,6 +25,7 @@ import pro.javacard.engine.globalplatform.SCPConfig;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -97,12 +99,20 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // Fault injection configuration
     private final FaultyConfig faultConfig;
 
-    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
+    // GH #20: one SecureRandom per card. Real and non-blocking by default; deterministic when seeded.
+    private final SecureRandom rng;
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform, Long seed) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = globalPlatform;
         this.currentAPDU = new CurrentAPDU();
         this.classLoader = new IsolatingClassReloader(loader);
         this.faultConfig = faultConfig;
+        this.rng = seed == null ? new SecureRandom() : new DeterministicRandom(seed);
+    }
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
+        this(loader, faultConfig, globalPlatform, null);
     }
 
     public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
@@ -119,6 +129,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
     public Simulator() throws RuntimeException {
         this(Simulator.class.getClassLoader(), null);
+    }
+
+    @Override
+    public SecureRandom rng() {
+        return rng;
     }
 
     // When applet code calls back for the internal facade of the simulator,
@@ -477,7 +492,10 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             // check if there is an applet to be selected
             if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
                 log.trace("Current AID {}, looking up applet ...", activeAID);
-                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase);
+                // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after activeAID.
+                final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
+                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase, activeAID,
+                        nextOccurrence);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected
@@ -571,7 +589,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         final var p1 = apdu[ISO7816.OFFSET_P1];
         final var p2 = (byte) (apdu[ISO7816.OFFSET_P2] & p2Mask);
 
-        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && p2 == 0x00;
+        // GPC v2.3.1 Table 11-81: P2 b2 distinguishes [first or only occurrence] (0x00) from [next occurrence] (0x02)
+        return cla == ISO7816.CLA_ISO7816 && ins == ISO7816.INS_SELECT && p1 == 0x04 && (p2 == 0x00 || p2 == 0x02);
     }
 
     /**
@@ -901,7 +920,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             if (activeAID != null) {
                 deselect(globalPlatform.lookup(activeAID));
             }
-            return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
+            // Install as the ISD, so install() sees getPreviousContextAID() == ISD like a GP install.
+            contextStack.push(globalPlatform.isd().getAID());
+            try {
+                return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
+            } finally {
+                contextStack.pop();
+            }
         }
     }
 

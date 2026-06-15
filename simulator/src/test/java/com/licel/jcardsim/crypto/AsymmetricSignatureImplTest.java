@@ -3,13 +3,17 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.security.*;
+import javacardx.crypto.Cipher;
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
+import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
+import pro.javacard.engine.globalplatform.SCPConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
 
     // rsa public key data from card
-    static final String RSA_ETALON_MODULUS = "00D3038C1FCA3CB00A2B52D8EB9446B422F091FB0871715DB8747809461ADD98DDAE963F56B8CB21B00CE1E209D9BBF7FADE6580F8A5996EC9AB9455AF432D4994E261B0426A41DF155CEFF4CB464F9DCB9521AA9EEED2895E8B85D13469C0D5F22396314587D305740D2A219F7B641869DD8A995E5B928DC81DB385D140D48C71";
+    static final String RSA_ETALON_MODULUS = "D3038C1FCA3CB00A2B52D8EB9446B422F091FB0871715DB8747809461ADD98DDAE963F56B8CB21B00CE1E209D9BBF7FADE6580F8A5996EC9AB9455AF432D4994E261B0426A41DF155CEFF4CB464F9DCB9521AA9EEED2895E8B85D13469C0D5F22396314587D305740D2A219F7B641869DD8A995E5B928DC81DB385D140D48C71";
     static final String RSA_ETALON_EXP = "010001";
     static final short RSA_ETALON_KEY_SIZE = 1024;
     // etalon msg
@@ -126,6 +130,39 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         System.out.println("self test precomputed sign/verify rsa SHA-256 PSS");
         testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1_PSS,
                 MessageDigest.ALG_SHA_256);
+    }
+
+    @Test
+    @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
+    public void testSelfPrecompSignVerifyECDSA() {
+        System.out.println("self test precomputed sign/verify ecdsa SHA-256 + raw");
+        testSelfPrecompSignVerify(KeyPair.ALG_EC_FP, (short) 256, Signature.ALG_ECDSA_SHA_256,
+                MessageDigest.ALG_SHA_256);
+
+        // Raw ECDSA (ALG_NULL): sign a 32-byte hash directly, no internal digesting.
+        Simulator base = (Simulator) Simulator.current();
+        Simulator seeded = new Simulator(getClass().getClassLoader(), null,
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 42L);
+        try (var ignored = seeded.asCurrent()) {
+            KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 256);
+            kp.genKeyPair();
+            Signature signEngine = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_ECDSA,
+                    Cipher.PAD_NULL, false);
+            signEngine.init(kp.getPrivate(), Signature.MODE_SIGN);
+            byte[] hash = new byte[32];
+            RandomData rnd = RandomData.getInstance(RandomData.ALG_PSEUDO_RANDOM);
+            rnd.generateData(hash, (short) 0, (short) hash.length);
+            byte[] sig = new byte[80];
+            short signLen = signEngine.signPreComputedHash(hash, (short) 0, (short) hash.length, sig, (short) 0);
+            assertTrue(signLen <= signEngine.getLength());
+            Signature verifyEngine = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_ECDSA,
+                    Cipher.PAD_NULL, false);
+            verifyEngine.init(kp.getPublic(), Signature.MODE_VERIFY);
+            assertTrue(verifyEngine.verifyPreComputedHash(hash, (short) 0, (short) hash.length, sig, (short) 0,
+                    signLen));
+        } finally {
+            base.asCurrent();
+        }
     }
 
     /**
@@ -288,6 +325,46 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         assertTrue(signLen <= signEngine.getLength());
         Signature verifyEngine = Signature.getInstance(signAlg, false);
         testEngineVerify(verifyEngine, publicKey, msg, signature, (short) 10, signLen);
+    }
+
+    /**
+     * getLength() reports the maximum DER signature length: a sign-pad byte on each scalar plus the
+     * long-form SEQUENCE length byte that curves >= 488-bit require, and a produced signature fits it.
+     */
+    @Test
+    public void testECDSASignatureLengthMax() {
+        // Seed 8 deterministically yields a brainpoolP512r1 signature where both r and s carry a 0x00
+        // sign pad, so the DER is the full 137-byte long form, which fits getLength().
+        Simulator base = (Simulator) Simulator.current();
+        Simulator seeded = new Simulator(getClass().getClassLoader(), null,
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 8L);
+        try (var ignored = seeded.asCurrent()) {
+            KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 512);
+            initBrainpoolParams(kp.getPublic(), "brainpoolP512r1");
+            initBrainpoolParams(kp.getPrivate(), "brainpoolP512r1");
+            kp.genKeyPair();
+            Signature s = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
+            s.init(kp.getPrivate(), Signature.MODE_SIGN);
+            byte[] sig = new byte[200];
+            byte[] msg = new byte[48];
+            short n = s.sign(msg, (short) 0, (short) msg.length, sig, (short) 0);
+            assertEquals(137, n); // full long-form DER for this curve
+            assertTrue(n <= s.getLength()); // a produced signature fits the reported length
+        } finally {
+            base.asCurrent();
+        }
+
+        // short form for small curves; long form (one extra SEQUENCE length byte) once content reaches 128
+        assertEquals(72, ecdsaMaxLength((short) 256)); // 2*(02||len||(00||32)) + 30||len
+        assertEquals(141, ecdsaMaxLength((short) 521)); // 66-byte scalars, content 138 -> long form
+    }
+
+    private short ecdsaMaxLength(short keySize) {
+        KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, keySize);
+        kp.genKeyPair();
+        Signature s = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        s.init(kp.getPrivate(), Signature.MODE_SIGN);
+        return s.getLength();
     }
 
     private static void initBrainpoolParams(Key key, String initParams) {
