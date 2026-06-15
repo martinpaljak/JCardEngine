@@ -370,7 +370,7 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
     public void testSignVerifyHMAC() {
         for (int i = 0; i < HMAC_IDS.length; i++) {
             byte[] hmacKeyBytes = Hex.decode(HMAC_TESTS[i][0]);
-            HMACKey hmacKey = (HMACKey) KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC, (short) hmacKeyBytes.length, false);
+            HMACKey hmacKey = (HMACKey) KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC, (short) (hmacKeyBytes.length * 8), false);
             hmacKey.setKey(hmacKeyBytes, (short) 0, (short) hmacKeyBytes.length);
             Signature engine = Signature.getInstance(HMAC_IDS[i], false);
             testEngineSignVerify(engine, hmacKey, null, Hex.decode(HMAC_TESTS[i][1]), Hex.decode(HMAC_TESTS[i][2]));

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.BlockCipher;
@@ -23,6 +24,39 @@ final class CipherUtils {
         // FINALIZED counts as initialized: the cipher was init'd, then ran to completion.
         boolean initialized() {
             return this != UNINITIALIZED;
+        }
+    }
+
+    // JCSystem memory type backing a KeyBuilder key type: the TRANSIENT variants clear on
+    // deselect or reset, everything else persists.
+    static byte key2mem(byte keyType) {
+        switch (keyType) {
+            case KeyBuilder.TYPE_DES_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_HMAC_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_RSA_PRIVATE_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_RSA_CRT_PRIVATE_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_DSA_PRIVATE_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_EC_F2M_PRIVATE_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_EC_FP_PRIVATE_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_DH_PUBLIC_TRANSIENT_DESELECT:
+            case KeyBuilder.TYPE_DH_PRIVATE_TRANSIENT_DESELECT:
+                return JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+            case KeyBuilder.TYPE_DES_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_HMAC_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_RSA_PRIVATE_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_RSA_CRT_PRIVATE_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_DSA_PRIVATE_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_EC_F2M_PRIVATE_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_EC_FP_PRIVATE_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_DH_PUBLIC_TRANSIENT_RESET:
+            case KeyBuilder.TYPE_DH_PRIVATE_TRANSIENT_RESET:
+                return JCSystem.MEMORY_TYPE_TRANSIENT_RESET;
+            default:
+                return JCSystem.MEMORY_TYPE_PERSISTENT;
         }
     }
 

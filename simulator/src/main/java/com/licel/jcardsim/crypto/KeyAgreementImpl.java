@@ -62,6 +62,7 @@ public final class KeyAgreementImpl extends KeyAgreement {
         digestEngine = new SHA1Digest();
     }
 
+    @Override
     public void init(PrivateKey privateKey) throws CryptoException {
         if (privateKey == null) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
@@ -75,17 +76,19 @@ public final class KeyAgreementImpl extends KeyAgreement {
         this.privateKey = privateKey;
     }
 
+    @Override
     public byte getAlgorithm() {
         return algorithm;
     }
 
+    @Override
     public short generateSecret(byte[] publicData,
             short publicOffset,
             short publicLength,
             byte[] secret,
             short secretOffset) throws CryptoException {
         if(algorithm == ALG_DH_PLAIN) {
-            BigInteger pubKey = new ByteContainer(publicData, publicOffset, publicLength).getBigInteger();
+            BigInteger pubKey = new BigInteger(1, publicData, publicOffset, publicLength);
             DHParameters baseParam = ((DHKeyParameters) ((KeyWithParameters) privateKey).getParameters()).getParameters();
             BigInteger retAgreement = engine.calculateAgreement(new DHPublicKeyParameters(pubKey, baseParam));
             // the shared secret is padded to the prime length, not trimmed
@@ -154,14 +157,17 @@ public final class KeyAgreementImpl extends KeyAgreement {
         public ECDHFullAgreement() {
         }
 
+        @Override
         public void init(CipherParameters privateKey) {
             this.key = (ECPrivateKeyParameters)privateKey;
         }
 
+        @Override
         public int getFieldSize() {
             return (this.key.getParameters().getCurve().getFieldSize() + 7) / 8;
         }
 
+        @Override
         public BigInteger calculateAgreement(CipherParameters publicKey) {
             ECPublicKeyParameters pub = (ECPublicKeyParameters)publicKey;
             ECPoint result = pub.getQ().multiply(this.key.getD());
@@ -180,14 +186,17 @@ public final class KeyAgreementImpl extends KeyAgreement {
         public ECGMAgreement() {
         }
 
+        @Override
         public void init(CipherParameters privateKey) {
             this.key = (ECPrivateKeyParameters) privateKey;
         }
 
+        @Override
         public int getFieldSize() {
             return (this.key.getParameters().getCurve().getFieldSize() + 7) / 8;
         }
 
+        @Override
         public BigInteger calculateAgreement(CipherParameters publicKey) {
             ECPublicKeyParameters pub = (ECPublicKeyParameters) publicKey;
             ECPoint result = this.key.getParameters().getG().multiply(this.key.getD()).add(pub.getQ());

@@ -38,18 +38,6 @@ public class ByteContainerTest extends SimulatorCoreTest {
     public void testNegativeNumber() {
         BigInteger expected = new BigInteger("-123");
 
-        try {
-            new ByteContainer().setBigInteger(expected);
-            fail("No exception");
-        } catch (IllegalArgumentException ignore) {
-        }
-
-        try {
-            new ByteContainer(expected);
-            fail("No exception");
-        } catch (IllegalArgumentException ignore) {
-        }
-
         // pinned container rejects a negative value
         ByteContainer neg = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, 4);
         assertThrows(IllegalArgumentException.class, () -> neg.setBigInteger(expected));
@@ -83,11 +71,11 @@ public class ByteContainerTest extends SimulatorCoreTest {
     }
 
     private void checkRoundTrip(BigInteger expected) {
-        ByteContainer byteContainer = new ByteContainer();
-        byteContainer.setBigInteger(expected);
-        assertEquals(expected, byteContainer.getBigInteger());
-
-        assertEquals(expected, new ByteContainer(expected).getBigInteger());
+        // a minimal-readback container stores and returns the value at its own length
+        int mlen = Math.max(1, (expected.bitLength() + 7) / 8);
+        ByteContainer minimal = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, mlen + 2, true);
+        minimal.setBigInteger(expected);
+        assertEquals(expected, minimal.getBigInteger());
 
         // pinned container left-pads to the exact width
         int width = expected.bitLength() / 8 + 3;
