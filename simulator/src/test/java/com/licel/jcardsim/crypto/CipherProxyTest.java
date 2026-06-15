@@ -93,6 +93,13 @@ public class CipherProxyTest extends SimulatorCoreTest {
         } finally {
             enc.close();
         }
+        // after close(), a further call throws ILLEGAL_USE
+        try {
+            enc.doFinal(msg, (short) 0, (short) msg.length, ct, (short) 0);
+            fail("No exception");
+        } catch (CryptoException e) {
+            assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+        }
 
         Cipher.OneShot dec = Cipher.OneShot.open(Cipher.CIPHER_AES_ECB, Cipher.PAD_NOPAD);
         try {

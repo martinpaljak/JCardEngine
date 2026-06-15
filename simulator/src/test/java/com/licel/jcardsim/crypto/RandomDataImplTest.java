@@ -6,6 +6,7 @@ import apdu4j.prefs.Preferences;
 import com.licel.jcardsim.SimulatorCoreTest;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.Util;
+import javacard.security.CryptoException;
 import javacard.security.RandomData;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,11 @@ public class RandomDataImplTest extends SimulatorCoreTest {
         short len = rnd.nextBytes(data, (short) 0, (short)data.length);
         assertEquals(4, len);
         assertFalse(Arrays.equals(new byte[4], data));
+
+        rnd.close();
+        // after close(), a further call throws ILLEGAL_USE
+        CryptoException e = assertThrows(CryptoException.class, () -> rnd.nextBytes(data, (short) 0, (short) data.length));
+        assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
     }
 
     // GH #20: building a card with the jcardengine.rng.seed preference seeds the per-card RNG, so

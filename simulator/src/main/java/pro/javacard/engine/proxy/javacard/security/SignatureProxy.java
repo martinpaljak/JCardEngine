@@ -148,44 +148,52 @@ public class SignatureProxy {
             return one;
         }
 
+        // Null after close(); throws ILLEGAL_USE.
+        private Signature active() {
+            if (signature == null) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            }
+            return signature;
+        }
+
         @Override
         public void init(Key key, byte b) throws CryptoException {
-            signature.init(key, b);
+            active().init(key, b);
         }
 
         @Override
         public void init(Key key, byte b, byte[] bytes, short i, short i1) throws CryptoException {
-            signature.init(key, b, bytes, i, i1);
+            active().init(key, b, bytes, i, i1);
         }
 
         @Override
         public void setInitialDigest(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
-            signature.setInitialDigest(bytes, i, i1, bytes1, i2, i3);
+            active().setInitialDigest(bytes, i, i1, bytes1, i2, i3);
         }
 
         @Override
         public byte getAlgorithm() {
-            return signature.getAlgorithm();
+            return active().getAlgorithm();
         }
 
         @Override
         public byte getMessageDigestAlgorithm() {
-            return signature.getMessageDigestAlgorithm();
+            return active().getMessageDigestAlgorithm();
         }
 
         @Override
         public byte getCipherAlgorithm() {
-            return signature.getCipherAlgorithm();
+            return active().getCipherAlgorithm();
         }
 
         @Override
         public byte getPaddingAlgorithm() {
-            return signature.getPaddingAlgorithm();
+            return active().getPaddingAlgorithm();
         }
 
         @Override
         public short getLength() throws CryptoException {
-            return signature.getLength();
+            return active().getLength();
         }
 
         @Override
@@ -195,22 +203,22 @@ public class SignatureProxy {
 
         @Override
         public short sign(byte[] bytes, short i, short i1, byte[] bytes1, short i2) throws CryptoException {
-            return signature.sign(bytes, i, i1, bytes1, i2);
+            return active().sign(bytes, i, i1, bytes1, i2);
         }
 
         @Override
         public short signPreComputedHash(byte[] bytes, short i, short i1, byte[] bytes1, short i2) throws CryptoException {
-            return signature.signPreComputedHash(bytes, i, i1, bytes1, i2);
+            return active().signPreComputedHash(bytes, i, i1, bytes1, i2);
         }
 
         @Override
         public boolean verify(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
-            return signature.verify(bytes, i, i1, bytes1, i2, i3);
+            return active().verify(bytes, i, i1, bytes1, i2, i3);
         }
 
         @Override
         public boolean verifyPreComputedHash(byte[] bytes, short i, short i1, byte[] bytes1, short i2, short i3) throws CryptoException {
-            return signature.verifyPreComputedHash(bytes, i, i1, bytes1, i2, i3);
+            return active().verifyPreComputedHash(bytes, i, i1, bytes1, i2, i3);
         }
 
         public void close() {

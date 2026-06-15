@@ -154,34 +154,42 @@ public class CipherProxy {
             cipher = null;
         }
 
+        // Null after close(); throws ILLEGAL_USE.
+        private Cipher active() {
+            if (cipher == null) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+            }
+            return cipher;
+        }
+
         @Override
         public void init(Key key, byte mode) throws CryptoException {
-            cipher.init(key, mode);
+            active().init(key, mode);
         }
 
         @Override
         public void init(Key key, byte mode, byte[] bArray, short bOff, short bLen) throws CryptoException {
-            cipher.init(key, mode, bArray, bOff, bLen);
+            active().init(key, mode, bArray, bOff, bLen);
         }
 
         @Override
         public byte getAlgorithm() {
-            return cipher.getAlgorithm();
+            return active().getAlgorithm();
         }
 
         @Override
         public byte getCipherAlgorithm() {
-            return cipher.getCipherAlgorithm();
+            return active().getCipherAlgorithm();
         }
 
         @Override
         public byte getPaddingAlgorithm() {
-            return cipher.getPaddingAlgorithm();
+            return active().getPaddingAlgorithm();
         }
 
         @Override
         public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-            return cipher.doFinal(inBuff, inOffset, inLength, outBuff, outOffset);
+            return active().doFinal(inBuff, inOffset, inLength, outBuff, outOffset);
         }
 
         @Override
