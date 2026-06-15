@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.crypto.CipherUtils.CipherState;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
@@ -287,7 +288,7 @@ public final class AuthenticatedSymmetricCipherImpl extends AEADCipher {
     // returning ciphertext followed by the authentication tag. BouncyCastle CCM getMac() is unreliable, so
     // the tag is always taken from the trailing bytes of this output.
     private byte[] aeadEncrypt(byte[] data, byte[] aad, int macBits) {
-        AEADBlockCipher fresh = spec.engineFactory.apply(SymmetricEngines.of(KeyBuilder.TYPE_AES, (short) (keyBytes.length * Byte.SIZE)));
+        AEADBlockCipher fresh = spec.engineFactory.apply(CipherUtils.of(KeyBuilder.TYPE_AES, (short) (keyBytes.length * Byte.SIZE)));
         fresh.init(true, new AEADParameters(new KeyParameter(keyBytes), macBits, ivBytes, aad));
         byte[] scratch = new byte[fresh.getOutputSize(data.length)];
         try {
@@ -352,7 +353,7 @@ public final class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         try {
-            engine = spec.engineFactory.apply(SymmetricEngines.of(key.getType(), key.getSize()));
+            engine = spec.engineFactory.apply(CipherUtils.of(key.getType(), key.getSize()));
         } catch (RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }

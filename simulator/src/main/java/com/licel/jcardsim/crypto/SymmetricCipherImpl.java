@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import com.licel.jcardsim.crypto.CipherUtils.CipherState;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
@@ -218,7 +219,7 @@ public final class SymmetricCipherImpl extends Cipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        BlockCipher modeCipher = spec.mode.wrap(SymmetricEngines.of(theKey.getType(), theKey.getSize()));
+        BlockCipher modeCipher = spec.mode.wrap(CipherUtils.of(theKey.getType(), theKey.getSize()));
         // A real card's update() flushes every complete block immediately. BouncyCastle's
         // PaddedBufferedBlockCipher withholds the last block on encrypt because it cannot know
         // whether doFinal() still needs to pad it, so padded encrypt runs an unpadded engine and

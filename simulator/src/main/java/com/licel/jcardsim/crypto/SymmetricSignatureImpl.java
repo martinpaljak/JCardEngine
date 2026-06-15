@@ -49,21 +49,21 @@ public final class SymmetricSignatureImpl extends Signature {
     // ALG_* constant and the key family that init() must match are recorded alongside.
     private enum MacAlg {
         DES_MAC4_NOPAD(ALG_DES_MAC4_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 32, null)),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, null)),
         DES_MAC8_NOPAD(ALG_DES_MAC8_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 64, null)),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, null)),
         DES_MAC4_ISO9797_M1(ALG_DES_MAC4_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 32, new ZeroBytePadding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ZeroBytePadding())),
         DES_MAC8_ISO9797_M1(ALG_DES_MAC8_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 64, new ZeroBytePadding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ZeroBytePadding())),
         DES_MAC4_ISO9797_M2(ALG_DES_MAC4_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 32, new ISO7816d4Padding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ISO7816d4Padding())),
         DES_MAC8_ISO9797_M2(ALG_DES_MAC8_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 64, new ISO7816d4Padding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ISO7816d4Padding())),
         DES_MAC4_PKCS5(ALG_DES_MAC4_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 32, new PKCS7Padding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new PKCS7Padding())),
         DES_MAC8_PKCS5(ALG_DES_MAC8_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 64, new PKCS7Padding())),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new PKCS7Padding())),
 
         // Retail MAC (ISO 9797-1 algorithm 3): always a fresh single-DES engine, ignores the key cipher.
         DES_MAC4_ISO9797_1_M1_ALG3(ALG_DES_MAC4_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M1_ALG3, SymmetricKeyImpl.KF_DES,
@@ -76,9 +76,9 @@ public final class SymmetricSignatureImpl extends Signature {
                 (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 64, new ISO7816d4Padding())),
 
         AES_MAC_128_NOPAD(ALG_AES_MAC_128_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_AES_MAC128, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_AES,
-                (t, s) -> new CBCBlockCipherMac(SymmetricEngines.of(t, s), 128, null)),
+                (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 128, null)),
         AES_CMAC_128(ALG_AES_CMAC_128, MessageDigest.ALG_NULL, SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES,
-                (t, s) -> new CMac(SymmetricEngines.of(t, s), 128)),
+                (t, s) -> new CMac(CipherUtils.of(t, s), 128)),
 
         HMAC_SHA1(ALG_HMAC_SHA1, MessageDigest.ALG_SHA, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
                 (t, s) -> new HMac(new SHA1Digest())),
@@ -170,7 +170,7 @@ public final class SymmetricSignatureImpl extends Signature {
         if (bArray == null) {
             cipherParams = ((SymmetricKeyImpl) theKey).getParameters();
         } else {
-            BlockCipher probe = SymmetricEngines.of(theKey.getType(), theKey.getSize());
+            BlockCipher probe = CipherUtils.of(theKey.getType(), theKey.getSize());
             if (bLen != probe.getBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
             }

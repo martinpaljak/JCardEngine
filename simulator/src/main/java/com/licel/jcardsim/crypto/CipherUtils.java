@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
-// SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
@@ -11,9 +10,20 @@ import org.bouncycastle.crypto.engines.DESEngine;
 import org.bouncycastle.crypto.engines.DESedeEngine;
 import org.bouncycastle.crypto.engines.SEEDEngine;
 
-final class SymmetricEngines {
+final class CipherUtils {
 
-    private SymmetricEngines() {
+    private CipherUtils() {
+    }
+
+    enum CipherState {
+        UNINITIALIZED,
+        INITIALIZED,
+        FINALIZED;
+
+        // FINALIZED counts as initialized: the cipher was init'd, then ran to completion.
+        boolean initialized() {
+            return this != UNINITIALIZED;
+        }
     }
 
     static BlockCipher of(byte type, short size) {
