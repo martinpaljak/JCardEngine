@@ -126,6 +126,8 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
 
         boolean verified = sig.verify(data, m1Length, (short) (data.length - m1Length));
 
+        // ISO 9796-2 scheme 1: 234 of the 256 message bytes fit the recoverable field (2048-bit key, SHA-1, implicit trailer)
+        assertEquals(234, m1Data[0]);
         assertEquals(m1Length, m1Data[0]);
 
         assertEquals(true, verified);

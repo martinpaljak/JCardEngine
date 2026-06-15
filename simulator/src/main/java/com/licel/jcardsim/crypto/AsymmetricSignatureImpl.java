@@ -33,11 +33,8 @@ import org.bouncycastle.crypto.engines.RSAEngine;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.signers.*;
 import org.bouncycastle.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.function.Supplier;
@@ -48,8 +45,6 @@ import java.util.function.Supplier;
  * @see Signature
  */
 public final class AsymmetricSignatureImpl extends Signature implements SignatureMessageRecovery {
-
-    private static final Logger log = LoggerFactory.getLogger(AsymmetricSignatureImpl.class);
 
     // Controls how getLength() computes the maximum signature size.
     private enum LengthRule {
@@ -159,25 +154,17 @@ public final class AsymmetricSignatureImpl extends Signature implements Signatur
     boolean isRecovery;
     byte[] preSig;
 
-    Digest digest;
-    boolean isImplicitTrailer;
-
     private AsymmetricSignatureImpl(SigAlg spec) {
         this.spec = spec;
         this.algorithm = spec.algByte;
         this.engine = spec.streamingFactory.get();
-        if (engine instanceof ISO9796d2Signer) {
-            digest = new SHA1Digest();
-        }
     }
 
     // ALG_RSA_SHA_ISO9796_MR has no table entry and is wired up directly here.
     private AsymmetricSignatureImpl() {
         this.algorithm = ALG_RSA_SHA_ISO9796_MR;
-        this.isImplicitTrailer = true;
         this.isRecovery = true;
-        this.digest = new SHA1Digest();
-        this.engine = new ISO9796d2Signer(new RSAEngine(), digest, true);
+        this.engine = new ISO9796d2Signer(new RSAEngine(), new SHA1Digest(), true);
         this.spec = null;
     }
 
@@ -328,46 +315,16 @@ public final class AsymmetricSignatureImpl extends Signature implements Signatur
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
         engine.update(inBuff, inOffset, inLength);
-        byte[] sig;
         try {
-            // there is no direct way to obtain encoded message length
-            Field messageLengthField = engine.getClass().getDeclaredField("messageLength");
-            messageLengthField.setAccessible(true);
-
-            // Need to read messageLength before it is cleared in generateSignature()
-            int messageLength = messageLengthField.getInt(engine);
-            sig = engine.generateSignature();
+            byte[] sig = engine.generateSignature();
             Util.arrayCopyNonAtomic(sig, (short) 0, sigBuff, sigOffset, (short) sig.length);
-
-            int keyBits = key.getSize();
-            int digSize = digest.getDigestSize();
-            int t = 0;
-
-            // Check if trailer is implicit
-            if (isImplicitTrailer) {
-                // trailer size is 8 bits
-                t = 8;
-            } else {
-                // trailer size is 16 bits
-                t = 16;
-            }
-
-            int x = (digSize + messageLength) * 8 + t + 4 - keyBits;
-            int mR = messageLength;
-            // Check if partial recoverable message
-            if (x > 0) {
-                mR = messageLength - ((x + 7) / 8);
-            }
-
-            recMsgLen[recMsgLenOffset] = (short) mR;
+            // generateSignature() sized the recoverable message to exactly the embedded byte count
+            recMsgLen[recMsgLenOffset] = (short) ((SignerWithRecovery) engine).getRecoveredMessage().length;
             return (short) sig.length;
         } catch (org.bouncycastle.crypto.CryptoException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         } catch (DataLengthException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-        } catch (Exception ex) {
-            log.error("Unexpected exception", ex);
-            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         } finally {
             engine.reset();
         }
