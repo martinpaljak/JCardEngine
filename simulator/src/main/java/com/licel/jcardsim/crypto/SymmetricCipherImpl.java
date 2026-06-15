@@ -11,6 +11,7 @@ import javacard.security.Key;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.DefaultBufferedBlockCipher;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.modes.SICBlockCipher;
@@ -30,7 +31,6 @@ import java.util.function.Supplier;
  *
  * @see Cipher
  */
-@SuppressWarnings("deprecation") // bc ..
 public final class SymmetricCipherImpl extends Cipher {
 
     // Wraps the key's raw block cipher into the chaining mode.
@@ -47,7 +47,7 @@ public final class SymmetricCipherImpl extends Cipher {
         },
         CTR {
             @Override BlockCipher wrap(BlockCipher cipher) {
-                return new SICBlockCipher(cipher);
+                return SICBlockCipher.newInstance(cipher);
             }
         };
 
@@ -232,9 +232,9 @@ public final class SymmetricCipherImpl extends Cipher {
         // which holds the final block back so the padding is stripped before anything is written.
         padding = null;
         if (spec.paddingFactory == null) {
-            engine = new BufferedBlockCipher(modeCipher);
+            engine = new DefaultBufferedBlockCipher(modeCipher);
         } else if (encrypting) {
-            engine = new BufferedBlockCipher(modeCipher);
+            engine = new DefaultBufferedBlockCipher(modeCipher);
             padding = spec.paddingFactory.get();
         } else {
             engine = new PaddedBufferedBlockCipher(modeCipher, spec.paddingFactory.get());
