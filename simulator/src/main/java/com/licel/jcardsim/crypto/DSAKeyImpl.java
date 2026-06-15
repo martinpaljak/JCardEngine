@@ -47,7 +47,8 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
         q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         var dsa = ((DSAKeyParameters) params).getParameters();
         p.setBigInteger(dsa.getP());
         q.setBigInteger(dsa.getQ());
@@ -94,7 +95,8 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
      * @return parameters for use with BouncyCastle API
      * @see DSAKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -109,7 +111,8 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isInitialized()) {
             return new DSAKeyGenerationParameters(rnd, new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger()));
         }

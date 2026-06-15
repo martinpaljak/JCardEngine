@@ -49,7 +49,8 @@ public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAP
                 : new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, PUBLIC_EXPONENT_MAX_BYTES, true);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         RSAKeyParameters rsa = (RSAKeyParameters) params;
         modulus.setBigInteger(rsa.getModulus());
         exponent.setBigInteger(rsa.getExponent());
@@ -87,7 +88,8 @@ public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAP
      * @return parameters for use with BouncyCastle API
      * @see RSAKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -101,7 +103,8 @@ public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAP
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (!isPrivate && exponent.isInitialized()) {
             return new RSAKeyGenerationParameters(exponent.getBigInteger(), rnd, size, 80);
         }

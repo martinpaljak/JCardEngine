@@ -30,7 +30,8 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
         s = new ByteContainer(memoryType, orderBytes(keyType, keySize), true);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         s.setBigInteger(((ECPrivateKeyParameters) params).getD());
     }
 
@@ -56,7 +57,8 @@ public class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
      * @return parameters for use with BouncyCastle API
      * @see ECPrivateKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

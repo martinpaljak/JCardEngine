@@ -35,7 +35,8 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
         w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
     }
 
@@ -62,7 +63,8 @@ public class ECPublicKeySharedImpl extends ECKeySharedImpl implements ECPublicKe
      * @return parameters for use with BouncyCastle API
      * @see ECPublicKeyParameters
      */
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

@@ -89,7 +89,8 @@ public class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKe
         return (byte) key.getBytes(keyData, kOff);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         key.setBytes(((KeyParameter) params).getKey());
     }
 
@@ -100,7 +101,8 @@ public class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKe
      * @throws CryptoException if key not initialized
      * @see KeyParameter
      */
-    public CipherParameters getParameters() throws CryptoException {
+    @Override
+    CipherParameters getParameters() throws CryptoException {
         if (!key.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -112,7 +114,7 @@ public class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKe
     }
 
     @Override
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         return null;
     }
 

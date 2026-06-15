@@ -21,7 +21,7 @@ public final class DHPublicKeyImpl extends DHKeyImpl implements DHPublicKey {
     }
 
     @Override
-    public void setParameters(CipherParameters params) {
+    void setParameters(CipherParameters params) {
         super.setParameters(((DHPublicKeyParameters) params).getParameters());
         y.setBigInteger(((DHPublicKeyParameters) params).getY());
     }
@@ -46,7 +46,7 @@ public final class DHPublicKeyImpl extends DHKeyImpl implements DHPublicKey {
     }
     
     @Override
-    public CipherParameters getParameters() {
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

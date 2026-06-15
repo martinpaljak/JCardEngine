@@ -130,7 +130,8 @@ public abstract class ECKeySharedImpl extends KeyWithParameters implements ECKey
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         return sharedDomain.getKeyGenerationParameters(rnd);
     }
 

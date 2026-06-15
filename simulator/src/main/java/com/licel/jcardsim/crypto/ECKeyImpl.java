@@ -205,7 +205,8 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
      * @param rnd Secure Random Generator
      * @return parameters for use with BouncyCastle API
      */
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isDomainParametersInitialized()) {
             return new ECKeyGenerationParameters(getDomainParameters(), rnd);
         }

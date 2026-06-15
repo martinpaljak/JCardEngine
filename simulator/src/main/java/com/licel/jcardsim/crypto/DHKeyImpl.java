@@ -56,7 +56,8 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     private static final String rfc3526_2048_g = "02";
     public static final DHParameters rfc3526_2048 = fromPG(rfc3526_2048_p, rfc3526_2048_g);
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         var dhParam = (DHParameters) params;
         g.setBigInteger(dhParam.getG());
         p.setBigInteger(dhParam.getP());
@@ -65,7 +66,8 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
         }
     }
     
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
@@ -109,7 +111,8 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
         return p.isInitialized() && g.isInitialized();
     }
     
-    public KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
+    @Override
+    KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (p.isInitialized() && g.isInitialized()) {
             if (q.isInitialized()) {
                 return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger(), q.getBigInteger()));

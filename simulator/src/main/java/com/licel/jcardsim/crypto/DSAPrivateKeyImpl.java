@@ -31,7 +31,8 @@ public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
         x = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         super.setParameters(params);
         x.setBigInteger(((DSAPrivateKeyParameters) params).getX());
     }
@@ -53,7 +54,8 @@ public class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
         x.clear();
     }
 
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

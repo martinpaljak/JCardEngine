@@ -33,7 +33,8 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
         y = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
     }
 
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         super.setParameters(params);
         y.setBigInteger(((DSAPublicKeyParameters) params).getY());
     }
@@ -55,7 +56,8 @@ public class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
         y.clear();
     }
 
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }

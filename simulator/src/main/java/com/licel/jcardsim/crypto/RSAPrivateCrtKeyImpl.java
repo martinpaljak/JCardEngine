@@ -55,7 +55,8 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
     //    type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
     //    setParameters(params);
     //}
-    public void setParameters(CipherParameters params) {
+    @Override
+    void setParameters(CipherParameters params) {
         RSAPrivateCrtKeyParameters crt = (RSAPrivateCrtKeyParameters) params;
         p.setBigInteger(crt.getP());
         q.setBigInteger(crt.getQ());
@@ -117,7 +118,8 @@ public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey
         return p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized();
     }
 
-    public CipherParameters getParameters() {
+    @Override
+    CipherParameters getParameters() {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
