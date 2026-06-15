@@ -113,15 +113,15 @@ public class KeyBuilderProxy {
         ECKeyImpl domain = (ECKeyImpl) domainParameters;
         switch (algorithmicKeyType) {
             case ALG_TYPE_EC_FP_PRIVATE:
-                return new ECPrivateKeySharedImpl(TYPE_EC_FP_PRIVATE, domain.getSize(), keyMemoryType, domain);
+                return new ECPrivateKeyImpl(TYPE_EC_FP_PRIVATE, domain.getSize(), keyMemoryType, domain);
             case ALG_TYPE_EC_FP_PUBLIC:
             case ALG_TYPE_EC_FP_PARAMETERS:
-                return new ECPublicKeySharedImpl(TYPE_EC_FP_PUBLIC, domain.getSize(), keyMemoryType, domain);
+                return new ECPublicKeyImpl(TYPE_EC_FP_PUBLIC, domain.getSize(), keyMemoryType, domain);
             case ALG_TYPE_EC_F2M_PRIVATE:
-                return new ECPrivateKeySharedImpl(TYPE_EC_F2M_PRIVATE, domain.getSize(), keyMemoryType, domain);
+                return new ECPrivateKeyImpl(TYPE_EC_F2M_PRIVATE, domain.getSize(), keyMemoryType, domain);
             case ALG_TYPE_EC_F2M_PUBLIC:
             case ALG_TYPE_EC_F2M_PARAMETERS:
-                return new ECPublicKeySharedImpl(TYPE_EC_F2M_PUBLIC, domain.getSize(), keyMemoryType, domain);
+                return new ECPublicKeyImpl(TYPE_EC_F2M_PUBLIC, domain.getSize(), keyMemoryType, domain);
             default:
                 break;
         }

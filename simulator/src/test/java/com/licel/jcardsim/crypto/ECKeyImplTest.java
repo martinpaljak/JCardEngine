@@ -70,7 +70,7 @@ public class ECKeyImplTest extends SimulatorCoreTest {
     @Test
     public void testSharedPrivateScalarVerbatim() {
         ECKeyImpl domain = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_256, JCSystem.MEMORY_TYPE_PERSISTENT);
-        ECPrivateKeySharedImpl key = new ECPrivateKeySharedImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_256,
+        ECPrivateKeyImpl key = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_256,
                 JCSystem.MEMORY_TYPE_PERSISTENT, domain);
         // a tiny scalar reads back at its own one-byte length, not the 32-byte secp256r1 order
         key.setParameters(new ECPrivateKeyParameters(BigInteger.valueOf(0x42), domain.getDomainParameters()));

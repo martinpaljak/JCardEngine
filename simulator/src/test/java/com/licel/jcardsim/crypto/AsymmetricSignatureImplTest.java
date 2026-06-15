@@ -374,7 +374,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
                     x9params.getCurve(),
                     x9params.getG(), // G
                     x9params.getN(), x9params.getH(), x9params.getSeed());
-            ((ECKeyImpl) key).setDomainParameters(params);
+            ((ECKeyImpl) key).domain.setDomainParameters(params);
         }
     }
 

@@ -18,6 +18,12 @@ public final class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
         w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
     }
 
+    public ECPublicKeyImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl shared) {
+        super(keyType, keySize, memoryType, shared);
+        // public point W is an uncompressed point: 04 || X || Y
+        w = new ByteContainer(memoryType, 1 + 2 * ((keySize + 7) / 8));
+    }
+
     @Override
     void setParameters(CipherParameters params) {
         w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
