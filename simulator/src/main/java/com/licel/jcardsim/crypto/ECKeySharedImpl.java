@@ -38,7 +38,7 @@ public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
     }
 
     public void clearKey() {
-        this.sharedDomain.clearKey();
+        // shared domain is referenced by sibling keys; clearing it here would corrupt them, so clear only own S/W
     }
 
     protected boolean isDomainParametersInitialized() {
