@@ -31,6 +31,9 @@ public class KeyAgreementProxy {
      */
     public static final KeyAgreement getInstance(byte algorithm, boolean externalAccess)
             throws CryptoException {
+        if (externalAccess) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         return new KeyAgreementImpl(algorithm);
     }
 }
