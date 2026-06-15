@@ -60,8 +60,29 @@ public class MessageDigestProxy {
         if (externalAccess) {
             CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
+        if (!isIntermediateMessageDigestSupported(algorithm)) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         InitializedMessageDigest instance = new MessageDigestImpl(algorithm);
         return instance;
+    }
+
+    public static final boolean isIntermediateMessageDigestSupported(byte algorithm) {
+        // Only the SHA family supports resuming a block-aligned hash on-card (JC API 3.2)
+        switch (algorithm) {
+            case MessageDigest.ALG_SHA:
+            case MessageDigest.ALG_SHA_224:
+            case MessageDigest.ALG_SHA_256:
+            case MessageDigest.ALG_SHA_384:
+            case MessageDigest.ALG_SHA_512:
+            case MessageDigest.ALG_SHA3_224:
+            case MessageDigest.ALG_SHA3_256:
+            case MessageDigest.ALG_SHA3_384:
+            case MessageDigest.ALG_SHA3_512:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public static final class OneShot extends MessageDigest {

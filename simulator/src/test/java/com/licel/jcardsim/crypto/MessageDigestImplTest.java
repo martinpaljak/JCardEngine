@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.security.CryptoException;
 import javacard.security.InitializedMessageDigest;
 import javacard.security.MessageDigest;
 import org.bouncycastle.util.Arrays;
@@ -11,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.security.SecureRandom;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test for <code>MessageDigestImpl</code>
@@ -344,7 +345,8 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
         byte[] inputData = new byte[254];
         rnd.nextBytes(inputData);
 
-        MessageDigestImpl[] digests = new MessageDigestImpl[]{engineSHA1, engineMD5, engineRIPEMD160,
+        // intermediate hash is supported only for the SHA family, not MD5/RIPEMD160
+        MessageDigestImpl[] digests = new MessageDigestImpl[]{engineSHA1,
                 engineSHA224, engineSHA256, engineSHA384, engineSHA512,
                 engineSHA3_224, engineSHA3_256, engineSHA3_384, engineSHA3_512};
 
@@ -361,9 +363,14 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
             short part = messageDigest.getBlockSize();
             messageDigest.update(inputData, (short) 0, part);
 
-            short initialDigestOff = (short) rnd.nextInt(initialDigestBuf.length - messageDigest.getIntermediateStateSize());
-            messageDigest.getIntermediateDigest(initialDigestBuf, initialDigestOff);
+            short stateSize = messageDigest.getIntermediateStateSize();
+            // read and write the state at different offsets to prove both sides honor the buffer offset
+            short getOff = (short) rnd.nextInt(initialDigestBuf.length - stateSize);
+            messageDigest.getIntermediateDigest(initialDigestBuf, getOff);
             messageDigest.reset();
+
+            short setOff = (short) (getOff == 0 ? 1 : 0);
+            System.arraycopy(initialDigestBuf, getOff, initialDigestBuf, setOff, stateSize);
 
             InitializedMessageDigest mdInstance = MessageDigest.getInitializedMessageDigestInstance(messageDigest.getAlgorithm(), false);
 
@@ -371,10 +378,21 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
             partBytes[0] = (byte) ((part >> 8) & 0xff);
             partBytes[1] = (byte) (part & 0xff);
 
-            mdInstance.setInitialDigest(initialDigestBuf, initialDigestOff, messageDigest.getIntermediateStateSize(), partBytes, (short) 0, (short) partBytes.length);
+            mdInstance.setInitialDigest(initialDigestBuf, setOff, stateSize, partBytes, (short) 0, (short) partBytes.length);
             mdInstance.doFinal(inputData, part, (short) (inputData.length - part), digest, (short) 0);
 
             assertEquals(true, Arrays.areEqual(etalonDigest, digest));
+        }
+    }
+
+    @Test
+    public void testInitializedDigestRejectsNonShaFamily() {
+        // JC API 3.2: intermediate hash is per-algorithm; engine supports only the SHA family
+        for (byte alg : new byte[]{MessageDigest.ALG_MD5, MessageDigest.ALG_RIPEMD160}) {
+            CryptoException e = assertThrows(CryptoException.class,
+                    () -> MessageDigest.getInitializedMessageDigestInstance(alg, false));
+            // not supported as InitializedMessageDigest
+            assertEquals(CryptoException.NO_SUCH_ALGORITHM, e.getReason());
         }
     }
 }
