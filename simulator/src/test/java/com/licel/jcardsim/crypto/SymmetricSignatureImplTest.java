@@ -7,7 +7,9 @@ import javacard.security.CryptoException;
 import javacard.security.HMACKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
+import javacard.security.MessageDigest;
 import javacard.security.Signature;
+import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
@@ -309,6 +311,29 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         Signature engine = Signature.getInstance(Signature.ALG_DES_MAC8_ISO9797_1_M2_ALG3, false);
         testEngineSignVerify(engine, desKey, null, Hex.decode(MESSAGE_15), Hex.decode(DES3_MAC_15[2]));
 
+        // retail-MAC (ALG3) siblings reached via the table: round-trip and MAC length (MAC4 -> 4, MAC8 -> 8 bytes)
+        byte[] msg = Hex.decode(MESSAGE_15);
+        roundTrip(Signature.getInstance(Signature.ALG_DES_MAC4_ISO9797_1_M2_ALG3, false), desKey, msg, 4);
+        roundTrip(Signature.getInstance(Signature.ALG_DES_MAC4_ISO9797_1_M1_ALG3, false), desKey, msg, 4);
+        roundTrip(Signature.getInstance(Signature.ALG_DES_MAC8_ISO9797_1_M1_ALG3, false), desKey, msg, 8);
+
+        // the 4-arg (triple) path resolves the same algorithm and reports its (digest, cipher, padding) decomposition
+        Signature triple = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_DES_MAC8,
+                Cipher.PAD_ISO9797_1_M1_ALG3, false);
+        assertEquals(Signature.ALG_DES_MAC8_ISO9797_1_M1_ALG3, triple.getAlgorithm());
+        assertEquals(MessageDigest.ALG_NULL, triple.getMessageDigestAlgorithm());
+        assertEquals(Signature.SIG_CIPHER_DES_MAC8, triple.getCipherAlgorithm());
+        assertEquals(Cipher.PAD_ISO9797_1_M1_ALG3, triple.getPaddingAlgorithm());
+    }
+
+    // sign then verify the produced MAC; assert the reported length without an external etalon
+    private void roundTrip(Signature s, Key key, byte[] msg, int macLen) {
+        s.init(key, Signature.MODE_SIGN);
+        assertEquals(macLen, s.getLength());
+        byte[] mac = new byte[s.getLength()];
+        s.sign(msg, (short) 0, (short) msg.length, mac, (short) 0);
+        s.init(key, Signature.MODE_VERIFY);
+        assertEquals(true, s.verify(msg, (short) 0, (short) msg.length, mac, (short) 0, (short) mac.length));
     }
 
     /**

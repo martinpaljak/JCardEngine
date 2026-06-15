@@ -6,9 +6,7 @@ import com.licel.jcardsim.crypto.AsymmetricSignatureImpl;
 import com.licel.jcardsim.crypto.SymmetricSignatureImpl;
 import javacard.security.CryptoException;
 import javacard.security.Key;
-import javacard.security.MessageDigest;
 import javacard.security.Signature;
-import javacardx.crypto.Cipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +16,6 @@ import org.slf4j.LoggerFactory;
  * @see Signature
  */
 public class SignatureProxy {
-    private static final Logger log = LoggerFactory.getLogger(SignatureProxy.class);
 
     /**
      * Creates a <code>Signature</code> object instance of the selected algorithm.
@@ -36,102 +33,27 @@ public class SignatureProxy {
      */
     public static final Signature getInstance(byte algorithm, boolean externalAccess)
             throws CryptoException {
-        Signature instance = null;
         //TODO: implement externalAccess logic
-//        if (externalAccess) {
-//            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-//        }
-        switch (algorithm) {
-            case Signature.ALG_RSA_SHA_ISO9796:
-            case Signature.ALG_RSA_SHA_PKCS1:
-            case Signature.ALG_RSA_SHA_224_PKCS1:
-            case Signature.ALG_RSA_SHA_256_PKCS1:
-            case Signature.ALG_RSA_SHA_384_PKCS1:
-            case Signature.ALG_RSA_SHA_512_PKCS1:
-            case Signature.ALG_RSA_SHA_PKCS1_PSS:
-            case Signature.ALG_RSA_SHA_224_PKCS1_PSS:
-            case Signature.ALG_RSA_SHA_256_PKCS1_PSS:
-            case Signature.ALG_RSA_SHA_384_PKCS1_PSS:
-            case Signature.ALG_RSA_SHA_512_PKCS1_PSS:
-            case Signature.ALG_RSA_MD5_PKCS1:
-            case Signature.ALG_RSA_RIPEMD160_ISO9796:
-            case Signature.ALG_RSA_RIPEMD160_PKCS1:
-            case Signature.ALG_ECDSA_SHA:
-            case Signature.ALG_ECDSA_SHA_224:
-            case Signature.ALG_ECDSA_SHA_256:
-            case Signature.ALG_ECDSA_SHA_384:
-            case Signature.ALG_ECDSA_SHA_512:
-            case Signature.ALG_RSA_SHA_ISO9796_MR:
-            case Signature.ALG_DSA_SHA:
-            case Signature.ALG_RSA_SHA_RFC2409:
-            case Signature.ALG_RSA_MD5_RFC2409:
-            case Signature.ALG_RSA_MD5_PKCS1_PSS:
-            case Signature.ALG_RSA_RIPEMD160_PKCS1_PSS:
-            case Signature.ALG_RSA_RIPEMD160_ISO9796_MR:
-                try {
-                    instance = new AsymmetricSignatureImpl(algorithm);
-                } catch (Exception e) {
-                    log.warn("getInstance of asymmetric algo: " + algorithm + " is NOT OK! : {}", e.getClass().getSimpleName());
-                    CryptoException.throwIt(CryptoException.INVALID_INIT);
-                }
-                break;
-            case Signature.ALG_DES_MAC4_NOPAD:
-            case Signature.ALG_DES_MAC8_NOPAD:
-            case Signature.ALG_DES_MAC4_ISO9797_M1:
-            case Signature.ALG_DES_MAC8_ISO9797_M1:
-            case Signature.ALG_DES_MAC4_ISO9797_M2:
-            case Signature.ALG_DES_MAC8_ISO9797_M2:
-            case Signature.ALG_DES_MAC8_ISO9797_1_M2_ALG3:
-            case Signature.ALG_DES_MAC4_PKCS5:
-            case Signature.ALG_DES_MAC8_PKCS5:
-            case Signature.ALG_AES_MAC_128_NOPAD:
-            case Signature.ALG_HMAC_SHA1:
-            case Signature.ALG_HMAC_SHA_256:
-            case Signature.ALG_HMAC_SHA_384:
-            case Signature.ALG_HMAC_SHA_512:
-            case Signature.ALG_HMAC_MD5:
-            case Signature.ALG_HMAC_RIPEMD160:
-            case Signature.ALG_AES_CMAC_128:
-                instance = new SymmetricSignatureImpl(algorithm);
-                break;
-
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        Signature instance = SymmetricSignatureImpl.getInstance(algorithm);
+        if (instance == null) {
+            instance = AsymmetricSignatureImpl.getInstance(algorithm);
+        }
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
         return instance;
     }
 
     public static final Signature getInstance(byte messageDigestAlgorithm, byte cipherAlgorithm,
                                               byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
-
-        // TODO: codify the mapping against BC
-        switch (cipherAlgorithm) {
-            case Signature.SIG_CIPHER_AES_CMAC128:
-                if (messageDigestAlgorithm != MessageDigest.ALG_NULL) {
-                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM); // FIXME: need padding
-                }
-                if (paddingAlgorithm != Cipher.PAD_ISO9797_M2) {
-                    CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM); // FIXME: need padding
-                }
-                return new SymmetricSignatureImpl(Signature.ALG_AES_CMAC_128);
-            case Signature.SIG_CIPHER_ECDSA:
-                switch (messageDigestAlgorithm) {
-                    case MessageDigest.ALG_SHA_256:
-                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_256);
-                    case MessageDigest.ALG_SHA_384:
-                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_384);
-                    case MessageDigest.ALG_SHA_512:
-                        return new AsymmetricSignatureImpl(Signature.ALG_ECDSA_SHA_512);
-                    default:
-                        CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                }
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        Signature instance = SymmetricSignatureImpl.getInstance(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
+        if (instance == null) {
+            instance = AsymmetricSignatureImpl.getInstance(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
         }
-        // Not reached
-        log.error("Not reachable.");
-        return null;
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        return instance;
     }
 
     public static final class OneShot extends Signature {

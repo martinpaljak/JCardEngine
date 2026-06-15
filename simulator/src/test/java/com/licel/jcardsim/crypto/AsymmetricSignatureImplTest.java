@@ -6,6 +6,7 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.JCSystem;
 import javacard.security.*;
+import javacardx.crypto.Cipher;
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
@@ -129,6 +130,39 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         System.out.println("self test precomputed sign/verify rsa SHA-256 PSS");
         testSelfPrecompSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1_PSS,
                 MessageDigest.ALG_SHA_256);
+    }
+
+    @Test
+    @SuppressWarnings("deprecation") // ALG_PSEUDO_RANDOM
+    public void testSelfPrecompSignVerifyECDSA() {
+        System.out.println("self test precomputed sign/verify ecdsa SHA-256 + raw");
+        testSelfPrecompSignVerify(KeyPair.ALG_EC_FP, (short) 256, Signature.ALG_ECDSA_SHA_256,
+                MessageDigest.ALG_SHA_256);
+
+        // Raw ECDSA (ALG_NULL): sign a 32-byte hash directly, no internal digesting.
+        Simulator base = (Simulator) Simulator.current();
+        Simulator seeded = new Simulator(getClass().getClassLoader(), null,
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 42L);
+        try (var ignored = seeded.asCurrent()) {
+            KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 256);
+            kp.genKeyPair();
+            Signature signEngine = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_ECDSA,
+                    Cipher.PAD_NULL, false);
+            signEngine.init(kp.getPrivate(), Signature.MODE_SIGN);
+            byte[] hash = new byte[32];
+            RandomData rnd = RandomData.getInstance(RandomData.ALG_PSEUDO_RANDOM);
+            rnd.generateData(hash, (short) 0, (short) hash.length);
+            byte[] sig = new byte[80];
+            short signLen = signEngine.signPreComputedHash(hash, (short) 0, (short) hash.length, sig, (short) 0);
+            assertTrue(signLen <= signEngine.getLength());
+            Signature verifyEngine = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_ECDSA,
+                    Cipher.PAD_NULL, false);
+            verifyEngine.init(kp.getPublic(), Signature.MODE_VERIFY);
+            assertTrue(verifyEngine.verifyPreComputedHash(hash, (short) 0, (short) hash.length, sig, (short) 0,
+                    signLen));
+        } finally {
+            base.asCurrent();
+        }
     }
 
     /**
