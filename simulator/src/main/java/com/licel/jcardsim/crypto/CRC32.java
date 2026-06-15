@@ -7,17 +7,13 @@ import javacard.framework.Util;
 import javacard.security.Checksum;
 import javacard.security.CryptoException;
 
-/*
- * Implementation <code>Checksum</code>
- * ISO/IEC 3309 compliant 32 bit CRC algorithm.
- * on BouncyCastle CryptoAPI.
- * @see Checksum
- */
-public class CRC32 extends Checksum {
+// ISO/IEC 3309 32-bit CRC (HDLC frame check sequence)
+public final class CRC32 extends Checksum {
 
     static final byte LENGTH = 4;
-    private byte crc32[];
-    private final byte polynom[] = {
+    private final byte[] crc32;
+    // CRC-32 generator polynomial 0x04C11DB7
+    private final byte[] polynom = {
             4, -63, 29, -73
     };
 
@@ -25,11 +21,13 @@ public class CRC32 extends Checksum {
         crc32 = JCSystem.makeTransientByteArray(LENGTH, JCSystem.CLEAR_ON_DESELECT);
     }
 
+    @Override
     public byte getAlgorithm() {
         return ALG_ISO3309_CRC32;
     }
 
-    public void init(byte bArray[], short bOff, short bLen)
+    @Override
+    public void init(byte[] bArray, short bOff, short bLen)
             throws CryptoException {
         if (bLen != LENGTH) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
@@ -37,22 +35,24 @@ public class CRC32 extends Checksum {
         Util.arrayCopyNonAtomic(bArray, bOff, crc32, (short) 0, bLen);
     }
 
-    public short doFinal(byte inBuff[], short inOffset, short inLength, byte outBuff[], short outOffset) {
+    @Override
+    public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) {
         update(inBuff, inOffset, inLength);
-        for (short i = 0; i < 4; i++) {
+        for (short i = 0; i < LENGTH; i++) {
             crc32[i] ^= 0xff;
         }
 
-        Util.arrayCopy(crc32, (short) 0, outBuff, outOffset, (short) 4);
+        Util.arrayCopy(crc32, (short) 0, outBuff, outOffset, LENGTH);
         Util.arrayFillNonAtomic(crc32, (short) 0, LENGTH, (byte) 0);
         return LENGTH;
     }
 
-    public void update(byte inBuff[], short inOffset, short inLength) {
+    @Override
+    public void update(byte[] inBuff, short inOffset, short inLength) {
         crc32(inBuff, inOffset, inLength);
     }
 
-    private void crc32(byte inBuf[], short inOff, short inLen) {
+    private void crc32(byte[] inBuf, short inOff, short inLen) {
         short fcs_h = Util.getShort(crc32, (short) 0);
         short fcs_l = Util.getShort(crc32, (short) 2);
         short poly_h = Util.getShort(polynom, (short) 0);
@@ -95,7 +95,7 @@ public class CRC32 extends Checksum {
         Util.setShort(crc32, (short) 0, reflect16(fcs_l));
     }
 
-    private byte reflect8(byte input) {
+    private static byte reflect8(byte input) {
         byte reflected = 0;
         for (byte i = 0; i < 8; i++) {
             if ((input & (0x80 >> i)) > 0) {
@@ -105,7 +105,7 @@ public class CRC32 extends Checksum {
         return reflected;
     }
 
-    private short reflect16(short input) {
+    private static short reflect16(short input) {
         short reflected = 0;
         for (byte i = 0; i < 16; i++) {
             if ((input & (0x8000 >> i)) > 0) {
@@ -115,7 +115,7 @@ public class CRC32 extends Checksum {
         return reflected;
     }
 
-    short shift(short s) {
+    private static short shift(short s) {
         return (short) (s << 1);
     }
 }

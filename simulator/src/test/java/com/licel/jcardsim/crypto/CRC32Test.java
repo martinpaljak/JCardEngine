@@ -4,34 +4,36 @@ package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.Checksum;
-import org.bouncycastle.util.Arrays;
+import javacard.security.CryptoException;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.nio.charset.StandardCharsets;
 
-/**
- * Test for <code>CRC32</code>
- * Test data from NXP JCOP31-36 JavaCard
- */
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 public class CRC32Test extends SimulatorCoreTest {
 
-    // etalon msg
-    String MESSAGE = "C46A3D01F5494013F9DFF3C5392C64";
-    // etalon crc
-//    String CRC = "7C6277D0";
-    String CRC = "C6A5A2E4";
-
-    /**
-     * Test of of class CRC16.
-     */
     @Test
     public void testCrc32() {
-        System.out.println("test crc32");
-        Checksum crcEngine = Checksum.getInstance(Checksum.ALG_ISO3309_CRC32, false);
-        byte[] crc = new byte[4];
-        byte[] msg = Hex.decode(MESSAGE);
-        crcEngine.doFinal(msg, (short) 0, (short) msg.length, crc, (short) 0);
-        assertEquals(true, Arrays.areEqual(Hex.decode(CRC), crc));
+        Checksum crc = Checksum.getInstance(Checksum.ALG_ISO3309_CRC32, false);
+        assertEquals(Checksum.ALG_ISO3309_CRC32, crc.getAlgorithm());
+
+        // CRC-32/ISO-HDLC (zlib): catalogue "123456789" check value 0xCBF43926, FCS register seeded to 0xFFFFFFFF
+        byte[] kat = "123456789".getBytes(StandardCharsets.US_ASCII);
+        byte[] out = new byte[4];
+        crc.init(new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF}, (short) 0, (short) 4);
+        crc.doFinal(kat, (short) 0, (short) kat.length, out, (short) 0);
+        assertArrayEquals(Hex.decode("CBF43926"), out);
+
+        // ISO/IEC 3309 resets the seed to 0 after doFinal; vector captured from an NXP JCOP31-36 card
+        byte[] msg = Hex.decode("C46A3D01F5494013F9DFF3C5392C64");
+        crc.doFinal(msg, (short) 0, (short) msg.length, out, (short) 0);
+        assertArrayEquals(Hex.decode("C6A5A2E4"), out);
+
+        // init rejects a seed that is not the checksum width
+        assertThrows(CryptoException.class, () -> crc.init(new byte[]{0}, (short) 0, (short) 1));
     }
 }
