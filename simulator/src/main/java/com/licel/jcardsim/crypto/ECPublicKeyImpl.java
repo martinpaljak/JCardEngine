@@ -8,22 +8,10 @@ import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 
-/**
- * Implementation <code>ECPublicKey</code> based
- * on BouncyCastle CryptoAPI.
- * @see ECPublicKey
- * @see ECPublicKeyParameters
- */
 public final class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
 
-    protected final ByteContainer w;
+    private final ByteContainer w;
 
-    /**
-     * Construct not-initialized ecc public key
-     * @param keyType key type
-     * @param keySize key size it bits
-     * @see javacard.security.KeyBuilder
-     */
     public ECPublicKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
         // public point W is an uncompressed point: 04 || X || Y
@@ -34,30 +22,28 @@ public final class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
     void setParameters(CipherParameters params) {
         w.setBytes(((ECPublicKeyParameters) params).getQ().getEncoded(false));
     }
-    
 
+    @Override
     public void setW(byte[] buffer, short offset, short length) throws CryptoException {
         w.setBytes(buffer, offset, length);
     }
 
+    @Override
     public short getW(byte[] buffer, short offset) throws CryptoException {
         return w.getBytes(buffer, offset);
     }
 
+    @Override
     public boolean isInitialized() {
         return isDomainParametersInitialized() && w.isInitialized();
     }
 
+    @Override
     public void clearKey() {
-        super.clearKey();
         w.clear();
+        super.clearKey();
     }
 
-    /**
-     * Get <code>ECPublicKeyParameters</code>
-     * @return parameters for use with BouncyCastle API
-     * @see ECPublicKeyParameters
-     */
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {

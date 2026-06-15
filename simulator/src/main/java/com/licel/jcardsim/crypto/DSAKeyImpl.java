@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
-import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.DSAKeyGenerationParameters;
@@ -16,35 +14,20 @@ import org.bouncycastle.crypto.params.DSAValidationParameters;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
-/**
- * Base class for <code>DSAPublicKeyImpl/DSAPrivateKeyImpl</code>
- * on BouncyCastle CryptoAPI.
- *
- * @see DSAKey
- */
 public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
 
-    protected final ByteContainer p;
-    protected final ByteContainer q;
-    protected final ByteContainer g;
-    protected boolean isPrivate;
+    private final ByteContainer p;
+    private final ByteContainer q;
+    private final ByteContainer g;
+    private boolean isPrivate;
 
-    /**
-     * Construct not-initialized dsa key
-     *
-     * @param keyType - key type
-     * @param keySize - key size in bits
-     * @see javacard.security.KeyPair
-     * @see KeyBuilder
-     */
-    public DSAKeyImpl(byte keyType, short keySize) {
-        this.size = keySize;
-        type = keyType;
-        // p and g take the prime width; q has no canonical width, so it gets a prime-width
-        // buffer and reads back at its actual length
-        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
-        g = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8);
-        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, keySize / 8, true);
+    public DSAKeyImpl(byte keyType, short keySize, byte memoryType) {
+        super(keyType, keySize, memoryType);
+        // p and g are sized to the prime width; q has no canonical width, so it is allocated
+        // at prime width and read back at its actual length
+        p = new ByteContainer(memoryType, keySize / 8);
+        g = new ByteContainer(memoryType, keySize / 8);
+        q = new ByteContainer(memoryType, keySize / 8, true);
     }
 
     @Override
@@ -55,46 +38,48 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
         g.setBigInteger(dsa.getG());
     }
 
+    @Override
     public void clearKey() {
         p.clear();
         q.clear();
         g.clear();
     }
 
+    @Override
     public boolean isInitialized() {
         return p.isInitialized() && q.isInitialized() && g.isInitialized();
     }
 
+    @Override
     public void setP(byte[] buffer, short offset, short length) throws CryptoException {
         p.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setQ(byte[] buffer, short offset, short length) throws CryptoException {
         q.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setG(byte[] buffer, short offset, short length) throws CryptoException {
         g.setBytes(buffer, offset, length);
     }
 
+    @Override
     public short getP(byte[] buffer, short offset) {
         return p.getBytes(buffer, offset);
     }
 
+    @Override
     public short getQ(byte[] buffer, short offset) {
         return q.getBytes(buffer, offset);
     }
 
+    @Override
     public short getG(byte[] buffer, short offset) {
         return g.getBytes(buffer, offset);
     }
 
-    /**
-     * Get <code>DSAKeyParameters</code>
-     *
-     * @return parameters for use with BouncyCastle API
-     * @see DSAKeyParameters
-     */
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {
@@ -103,14 +88,6 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
         return new DSAKeyParameters(isPrivate, new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger()));
     }
 
-
-    /**
-     * Get
-     * <code>DSAKeyGenerationParameters</code>
-     *
-     * @param rnd Secure Random Generator
-     * @return parameters for use with BouncyCastle API
-     */
     @Override
     KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isInitialized()) {
@@ -119,14 +96,7 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
         return getDefaultKeyGenerationParameters(size, rnd);
     }
 
-
-    /**
-     * Get DSA KeyGeneration Defaults Parameters
-     * {@link http://docs.oracle.com/javase/6/docs/technotes/guides/security/StandardNames.html#alg}
-     *
-     * @param keySize key size in bits
-     * @param rnd     Secure Random Generator
-     */
+    // p/q/g values and validation seed from JDK StandardNames: http://docs.oracle.com/javase/6/docs/technotes/guides/security/StandardNames.html#alg
     static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {
         BigInteger p = null;
         BigInteger q = null;
@@ -177,8 +147,7 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
                 break;
         }
-        return new DSAKeyGenerationParameters(rnd,
-                new DSAParameters(p, q, g, new DSAValidationParameters(seed.toByteArray(), counter)));
+        return new DSAKeyGenerationParameters(rnd, new DSAParameters(p, q, g, new DSAValidationParameters(seed.toByteArray(), counter)));
 
     }
 }

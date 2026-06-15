@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.*;
 import javacardx.crypto.Cipher;
@@ -113,7 +114,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testDoFinal3DES() {
-        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_3KEY);
+        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_3KEY, JCSystem.MEMORY_TYPE_PERSISTENT);
         desKey.setKey(Hex.decode(DES3_KEY), (short) 0);
         testDoFinalDES(desKey, MESSAGE_8, MESSAGE_15, DES3_ENCRYPTED_8,
                 DES3_ENCRYPTED_15, DES3_ENCRYPTED_8_IV, DES3_ENCRYPTED_15_IV);
@@ -124,7 +125,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testDoFinalDES() {
-        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES);
+        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES, JCSystem.MEMORY_TYPE_PERSISTENT);
         desKey.setKey(Hex.decode(DES_KEY), (short) 0);
         testDoFinalDES(desKey, MESSAGE_8, MESSAGE_15, DES_ENCRYPTED_8,
                 DES_ENCRYPTED_15, DES_ENCRYPTED_8_IV, DES_ENCRYPTED_15_IV);

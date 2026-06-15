@@ -15,36 +15,26 @@ import org.bouncycastle.math.ec.ECCurve;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.Set;
 
-/**
- * Base class for
- * <code>ECPublicKeyImpl/ECPrivateKeyImpl</code> on BouncyCastle CryptoAPI.
- *
- * @see ECKey
- */
 public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
-    protected final ByteContainer a;
-    protected final ByteContainer b;
-    protected final ByteContainer g;
-    protected final ByteContainer r;
-    protected final ByteContainer fp;
-    protected short k;
-    protected short e1;
-    protected short e2;
-    protected short e3;
-    protected boolean isKInitialized;
 
-    /**
-     * Construct not-initialized ecc key
-     *
-     * @param keyType - key type
-     * @param keySize - key size in bits
-     * @see KeyPair
-     * @see KeyBuilder
-     */
+    private static final Set<Integer> F2M_SIZES = Set.of(113, 131, 163, 193, 233, 283, 409, 571);
+    private static final Set<Integer> FP_SIZES = Set.of(112, 128, 160, 192, 224, 256, 384, 521);
+
+    private final ByteContainer a;
+    private final ByteContainer b;
+    private final ByteContainer g;
+    private final ByteContainer r;
+    private final ByteContainer fp;
+    private short k;
+    private short e1;
+    private short e2;
+    private short e3;
+    private boolean isKInitialized;
+
     public ECKeyImpl(byte keyType, short keySize, byte memoryType) {
-        this.size = keySize;
-        this.type = keyType;
+        super(keyType, keySize, memoryType);
 
         // field elements occupy the field byte length; the order can be a byte wider than the field
         // (e.g. secp160r1), so r takes the curve's exact order width.
@@ -71,6 +61,7 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
         return (short) ((defaults.getN().bitLength() + 7) / 8);
     }
 
+    @Override
     public void clearKey() {
         a.clear();
         b.clear();
@@ -88,61 +79,75 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
                 && isKInitialized && (fp.isInitialized() || k != 0);
     }
 
+    @Override
     public void setFieldFP(byte[] buffer, short offset, short length) throws CryptoException {
         fp.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setFieldF2M(short e) throws CryptoException {
         setFieldF2M(e, (short) 0, (short) 0);
     }
 
+    @Override
     public void setFieldF2M(short e1, short e2, short e3) throws CryptoException {
         this.e1 = e1;
         this.e2 = e2;
         this.e3 = e3;
     }
 
+    @Override
     public void setA(byte[] buffer, short offset, short length) throws CryptoException {
         a.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setB(byte[] buffer, short offset, short length) throws CryptoException {
         b.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setG(byte[] buffer, short offset, short length) throws CryptoException {
         g.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setR(byte[] buffer, short offset, short length) throws CryptoException {
         r.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setK(short K) {
         this.k = K;
         isKInitialized = true;
     }
 
+    @Override
     public short getField(byte[] buffer, short offset) throws CryptoException {
         return fp.getBytes(buffer, offset);
     }
 
+    @Override
     public short getA(byte[] buffer, short offset) throws CryptoException {
         return a.getBytes(buffer, offset);
     }
 
+    @Override
     public short getB(byte[] buffer, short offset) throws CryptoException {
         return b.getBytes(buffer, offset);
     }
 
+    @Override
     public short getG(byte[] buffer, short offset) throws CryptoException {
         return g.getBytes(buffer, offset);
     }
 
+    @Override
     public short getR(byte[] buffer, short offset) throws CryptoException {
         return r.getBytes(buffer, offset);
     }
 
+    @Override
     public short getK() throws CryptoException {
         if (!isKInitialized) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
@@ -150,36 +155,19 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
         return k;
     }
 
-    /**
-     * Get
-     * <code>ECDomainParameters</code>
-     *
-     * @return parameters for use with BouncyCastle API
-     * @see ECDomainParameters
-     */
-    @SuppressWarnings("deprecation") // ECCurve.Fp
-    public ECDomainParameters getDomainParameters() {
+    ECDomainParameters getDomainParameters() {
         if (!isDomainParametersInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         ECCurve curve = null;
         if (fp.isInitialized()) {
-            curve = new ECCurve.Fp(fp.getBigInteger(), a.getBigInteger(), b.getBigInteger());
+            curve = new ECCurve.Fp(fp.getBigInteger(), a.getBigInteger(), b.getBigInteger(), r.getBigInteger(), BigInteger.valueOf(k));
         } else {
-            curve = new ECCurve.F2m(size, e1, e2, e3, a.getBigInteger(), b.getBigInteger(),
-                    r.getBigInteger(), BigInteger.valueOf(k));
+            curve = new ECCurve.F2m(size, e1, e2, e3, a.getBigInteger(), b.getBigInteger(), r.getBigInteger(), BigInteger.valueOf(k));
         }
-        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes()),
-                r.getBigInteger(), BigInteger.valueOf(k));
+        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes()), r.getBigInteger(), BigInteger.valueOf(k));
     }
 
-    /**
-     * Set
-     * <code>ECDomainParameters</code> for EC curve
-     *
-     * @param parameters
-     * @see ECDomainParameters
-     */
     final void setDomainParameters(ECDomainParameters parameters) {
         a.setBigInteger(parameters.getCurve().getA().toBigInteger());
         b.setBigInteger(parameters.getCurve().getB().toBigInteger());
@@ -189,8 +177,7 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
         r.setBigInteger(parameters.getN());
         // cofactor
         setK(parameters.getH().shortValue());
-        if (parameters.getCurve() instanceof ECCurve.Fp) {
-            ECCurve.Fp ecfp = (ECCurve.Fp) parameters.getCurve();
+        if (parameters.getCurve() instanceof ECCurve.Fp ecfp) {
             fp.setBigInteger(ecfp.getQ());
         } else {
             ECCurve.F2m ecf2m = (ECCurve.F2m) parameters.getCurve();
@@ -198,13 +185,6 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
         }
     }
 
-    /**
-     * Get
-     * <code>ECKeyGenerationParameters</code>
-     *
-     * @param rnd Secure Random Generator
-     * @return parameters for use with BouncyCastle API
-     */
     @Override
     KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (isDomainParametersInitialized()) {
@@ -213,32 +193,13 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
         return new ECKeyGenerationParameters(getDefaultsDomainParameters(type, size), rnd);
     }
 
-    /**
-     * Get default
-     * <code>ECKeyGenerationParameters</code>
-     *
-     * @param algorithm
-     * @param keySize   key size in bits
-     * @param rnd       Secure Random Generator
-     * @return parameters for use with BouncyCastle API
-     */
     static KeyGenerationParameters getDefaultKeyGenerationParameters(byte algorithm, short keySize, SecureRandom rnd) {
         byte keyType = algorithm == KeyPair.ALG_EC_FP ? KeyBuilder.TYPE_EC_FP_PUBLIC : KeyBuilder.TYPE_EC_F2M_PUBLIC;
         return new ECKeyGenerationParameters(getDefaultsDomainParameters(keyType, keySize), rnd);
     }
 
-    /**
-     * Get default
-     * <code>ECDomainParameters</code> for EC curve
-     * {@link http://www.secg.org/collateral/sec2_final.pdf}
-     *
-     * @param keyType KeyBuilder.TYPE_*
-     * @param keySize key size in bits, e.g. 256, 384 or 521 for Nist
-     * @return parameters for use with BouncyCastle API, or null
-     * @see ECDomainParameters
-     */
     static ECDomainParameters getDefaultsDomainParameters(byte keyType, short keySize) {
-        ECDomainParameters defaults = getOptionalDomainParameters(keyType, keySize);
+        var defaults = getOptionalDomainParameters(keyType, keySize);
         if (defaults == null) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
@@ -246,48 +207,58 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
     }
 
     static ECDomainParameters getOptionalDomainParameters(byte keyType, short keySize) {
-        String curveName = "";
-        switch (keySize) {
-            case 113:
-            case 131:
-            case 163:
-            case 193:
-            case 233:
-            case 283:
-            case 409:
-            case 571:
-                if ((keyType != KeyBuilder.TYPE_EC_F2M_PRIVATE) & (keyType != KeyBuilder.TYPE_EC_F2M_PUBLIC)) {
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                curveName = "sect" + keySize + "r1";
-                break;
-            case 112:
-            case 128:
-            case 160:
-            case 192:
-            case 224:
-            case 256:
-            case 384:
-            case 521:
-                if ((keyType != KeyBuilder.TYPE_EC_FP_PRIVATE) & (keyType != KeyBuilder.TYPE_EC_FP_PUBLIC)) {
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                curveName = "secp" + keySize + "r1";
-                break;
-            default:
-                return null;
+        // Curve names follow SECG SEC 2 (http://www.secg.org/sec2-v2.pdf).
+        String curveName;
+        if (F2M_SIZES.contains((int) keySize)) {
+            if (keyType != KeyBuilder.TYPE_EC_F2M_PRIVATE && keyType != KeyBuilder.TYPE_EC_F2M_PUBLIC) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            }
+            curveName = "sect" + keySize + "r1";
+        } else if (FP_SIZES.contains((int) keySize)) {
+            if (keyType != KeyBuilder.TYPE_EC_FP_PRIVATE && keyType != KeyBuilder.TYPE_EC_FP_PUBLIC) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            }
+            curveName = "secp" + keySize + "r1";
+        } else {
+            return null;
         }
-        X9ECParameters x9params = SECNamedCurves.getByName(curveName);
+        var x9params = SECNamedCurves.getByName(curveName);
         if (x9params == null) {
             return null;
         }
-        return new ECDomainParameters(
-                x9params.getCurve(),
-                x9params.getG(), // G
-                x9params.getN(), x9params.getH(), x9params.getSeed());
+        return new ECDomainParameters(x9params.getCurve(), x9params.getG(), x9params.getN(), x9params.getH(), x9params.getSeed());
     }
 
+    @Override
     public void copyDomainParametersFrom(ECKey eckey) throws CryptoException {
-        throw new UnsupportedOperationException("Not supported yet.");
+        // ECKey interface exposes no getter for the F2M field, so the source must be an ECKeyImpl.
+        ECKeyImpl src = unwrap(eckey);
+        if (src == null) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            return;
+        }
+        if (!src.isDomainParametersInitialized()) {
+            CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
+        }
+        if (src.fp.isInitialized()) {
+            fp.setBytes(src.fp.getBytes());
+        } else {
+            setFieldF2M(src.e1, src.e2, src.e3);
+        }
+        a.setBytes(src.a.getBytes());
+        b.setBytes(src.b.getBytes());
+        g.setBytes(src.g.getBytes());
+        r.setBytes(src.r.getBytes());
+        setK(src.k);
+    }
+
+    private static ECKeyImpl unwrap(ECKey key) {
+        if (key instanceof ECKeyImpl impl) {
+            return impl;
+        }
+        if (key instanceof ECKeySharedImpl shared) {
+            return shared.sharedDomain;
+        }
+        return null;
     }
 }

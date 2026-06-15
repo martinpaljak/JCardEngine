@@ -7,23 +7,10 @@ import javacard.security.ECPrivateKey;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 
-/**
- * Implementation <code>ECPrivateKey</code> based
- * on BouncyCastle CryptoAPI.
- * @see ECPrivateKey
- * @see ECPrivateKeyParameters
- */
 public final class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
 
-    protected final ByteContainer s;
+    private final ByteContainer s;
 
-    /**
-     * Construct not-initialized ecc private key
-     * @param keyType key type
-     * @param keySize key size it bits
-     *
-     * @see javacard.security.KeyBuilder
-     */
     public ECPrivateKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
         // the secret scalar is stored verbatim within an order-width buffer
@@ -35,28 +22,27 @@ public final class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
         s.setBigInteger(((ECPrivateKeyParameters) params).getD());
     }
 
+    @Override
     public void setS(byte[] buffer, short offset, short length) throws CryptoException {
         s.setBytes(buffer, offset, length);
     }
 
+    @Override
     public short getS(byte[] buffer, short offset) throws CryptoException {
         return s.getBytes(buffer, offset);
     }
 
+    @Override
     public boolean isInitialized() {
         return isDomainParametersInitialized() && s.isInitialized();
     }
 
+    @Override
     public void clearKey() {
-        super.clearKey();
         s.clear();
+        super.clearKey();
     }
 
-    /**
-     * Get <code>ECPrivateKeyParameters</code>
-     * @return parameters for use with BouncyCastle API
-     * @see ECPrivateKeyParameters
-     */
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {

@@ -8,27 +8,10 @@ import javacard.security.ECPrivateKey;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 
-/**
- * Implementation of <code>KeyBuilder.buildKeyWithSharedDomain</code> based
- * on BouncyCastle CryptoAPI.
- * 
- * @see ECPrivateKey
- * @see ECPrivateKeyParameters
- */
 public final class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivateKey {
 
-    protected final ByteContainer s;
+    private final ByteContainer s;
 
-    /**
-     * Construct not-initialized ecc private key
-     * 
-     * @param keyType      key type
-     * @param keySize      key size it bits
-     * @param sharedDomain key domain parameters, built with
-     *                     KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS..)
-     *
-     * @see javacard.security.KeyBuilder
-     */
     public ECPrivateKeySharedImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl sharedDomain) {
         super(keyType, keySize, memoryType, sharedDomain);
         // the secret scalar is stored verbatim within an order-width buffer
@@ -40,29 +23,27 @@ public final class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECP
         s.setBigInteger(((ECPrivateKeyParameters) params).getD());
     }
 
+    @Override
     public void setS(byte[] buffer, short offset, short length) throws CryptoException {
         s.setBytes(buffer, offset, length);
     }
 
+    @Override
     public short getS(byte[] buffer, short offset) throws CryptoException {
         return s.getBytes(buffer, offset);
     }
 
+    @Override
     public boolean isInitialized() {
         return isDomainParametersInitialized() && s.isInitialized();
     }
 
+    @Override
     public void clearKey() {
-        super.clearKey();
         s.clear();
+        super.clearKey();
     }
 
-    /**
-     * Get <code>ECPrivateKeyParameters</code>
-     * 
-     * @return parameters for use with BouncyCastle API
-     * @see ECPrivateKeyParameters
-     */
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {

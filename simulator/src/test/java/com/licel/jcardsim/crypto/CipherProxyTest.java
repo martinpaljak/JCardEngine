@@ -65,13 +65,7 @@ public class CipherProxyTest extends SimulatorCoreTest {
         assertEquals(Cipher.ALG_RSA_PKCS1_OAEP, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1_OAEP, false).getAlgorithm());
         assertEquals(Cipher.ALG_DES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_DES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
         assertEquals(Cipher.ALG_AES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_AES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
-        // an unsupported (cipher, padding) combination throws NO_SUCH_ALGORITHM
-        try {
-            Cipher.getInstance(Cipher.CIPHER_AES_ECB, Cipher.PAD_PKCS5, false);
-            fail("No exception");
-        } catch (CryptoException e) {
-            assertEquals(CryptoException.NO_SUCH_ALGORITHM, e.getReason());
-        }
+        assertEquals(Cipher.ALG_AES_ECB_PKCS5, Cipher.getInstance(Cipher.CIPHER_AES_ECB, Cipher.PAD_PKCS5, false).getAlgorithm());
 
         // Cipher.OneShot: AES-128 ECB encrypt/decrypt round trip; update() must throw ILLEGAL_USE
         AESKey key = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);

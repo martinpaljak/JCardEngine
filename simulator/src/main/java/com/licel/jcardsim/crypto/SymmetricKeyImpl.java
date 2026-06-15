@@ -10,14 +10,6 @@ import org.bouncycastle.crypto.params.KeyParameter;
 import java.security.SecureRandom;
 import java.util.List;
 
-/**
- * Implementation of secret key.
- *
- * @see DESKey
- * @see AESKey
- * @see HMACKey
- * @see KoreanSEEDKey
- */
 public final class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKey, HMACKey, KoreanSEEDKey {
 
     static final List<Byte> KF_DES = List.of(KeyBuilder.TYPE_DES, KeyBuilder.TYPE_DES_TRANSIENT_RESET, KeyBuilder.TYPE_DES_TRANSIENT_DESELECT);
@@ -25,14 +17,13 @@ public final class SymmetricKeyImpl extends KeyWithParameters implements DESKey,
     static final List<Byte> KF_SEED = List.of(KeyBuilder.TYPE_KOREAN_SEED, KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET, KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT);
     static final List<Byte> KF_HMAC = List.of(KeyBuilder.TYPE_HMAC, KeyBuilder.TYPE_HMAC_TRANSIENT_RESET, KeyBuilder.TYPE_HMAC_TRANSIENT_DESELECT);
 
-    protected ByteContainer key;
+    private final ByteContainer key;
 
     // keySize is in bits; keyType is one of the KeyBuilder TYPE_* constants
-    public SymmetricKeyImpl(byte keyType, short keySize) {
-        this.size = keySize;
-        this.type = keyType;
+    public SymmetricKeyImpl(byte keyType, short keySize, byte memoryType) {
+        super(keyType, keySize, memoryType);
         // an HMAC key is set and read back at its own length, bounded by the requested capacity
-        key = new ByteContainer(CipherUtils.key2mem(keyType), keySize / 8, KF_HMAC.contains(keyType));
+        key = new ByteContainer(memoryType, keySize / 8, KF_HMAC.contains(keyType));
     }
 
     @Override

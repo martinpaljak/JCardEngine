@@ -8,15 +8,17 @@ import org.bouncycastle.crypto.KeyGenerationParameters;
 
 import java.security.SecureRandom;
 
-/**
- * Base class for all <code>Key</code> instances: carries the JavaCard size/type and the BouncyCastle parameter seam.
- *
- * @see Key
- */
-abstract class KeyWithParameters implements Key {
+public abstract class KeyWithParameters implements Key {
 
     protected short size;
     protected byte type;
+    protected byte memoryType;
+
+    protected KeyWithParameters(byte type, short size, byte memoryType) {
+        this.type = type;
+        this.size = size;
+        this.memoryType = memoryType;
+    }
 
     // key length in bits, e.g. 256 for NIST P-256
     @Override
@@ -28,6 +30,11 @@ abstract class KeyWithParameters implements Key {
     @Override
     public byte getType() {
         return type;
+    }
+
+    // JCSystem.MEMORY_TYPE_* constant for this key
+    public byte getMemoryType() {
+        return memoryType;
     }
 
     // cipher key parameters for use with the BouncyCastle Crypto API

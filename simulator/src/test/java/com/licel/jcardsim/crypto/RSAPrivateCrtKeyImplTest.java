@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.JCSystem;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.util.encoders.Hex;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testIsInitialized() {
-        RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short)2048);
+        RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short)2048, JCSystem.MEMORY_TYPE_PERSISTENT);
         short compLen = (short) Hex.decode(P).length;
         key.setP(Hex.decode(P), (short)0, compLen);
         key.setQ(Hex.decode(Q), (short)0, compLen);
@@ -53,7 +54,7 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
         BigInteger dq = new BigInteger(DQ, 16);
         // full-width p/q/dp/dq keep no spurious sign byte; a tiny qInv is left-padded, not trimmed (issue #24)
         BigInteger qInv = BigInteger.valueOf(0x010001);
-        RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short) 2048);
+        RSAPrivateCrtKeyImpl key = new RSAPrivateCrtKeyImpl((short) 2048, JCSystem.MEMORY_TYPE_PERSISTENT);
         key.setParameters(new RSAPrivateCrtKeyParameters(p.multiply(q), null, null, p, q, dp, dq, qInv));
         byte[] buf = new byte[128];
         assertEquals(128, key.getP(buf, (short) 0));

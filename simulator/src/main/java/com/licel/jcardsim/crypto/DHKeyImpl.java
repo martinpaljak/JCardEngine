@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.DHKey;
 import javacard.security.KeyBuilder;
@@ -18,18 +17,18 @@ import java.security.SecureRandom;
 public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     
     public static final short LENGTH_DH_1536 = 1536;
-    
-    protected final ByteContainer p;
-    protected final ByteContainer q;
-    protected final ByteContainer g;
 
-    protected DHKeyImpl(short size) {
-        this.size = size;
+    private final ByteContainer p;
+    private final ByteContainer q;
+    private final ByteContainer g;
+
+    protected DHKeyImpl(byte type, short size, byte memoryType) {
+        super(type, size, memoryType);
         // p and g are fixed at the prime byte length; q has no canonical width, so it uses a
         // prime-width buffer and returns only the significant bytes
-        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8);
-        g = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8);
-        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, size / 8, true);
+        p = new ByteContainer(memoryType, size / 8);
+        g = new ByteContainer(memoryType, size / 8);
+        q = new ByteContainer(memoryType, size / 8, true);
     }
         
     private static final String rfc2409_1024_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
@@ -77,36 +76,44 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
         return new DHParameters(p.getBigInteger(), g.getBigInteger());
     }
         
+    @Override
     public void setP(byte[] bytes, short offset, short length) throws CryptoException {
         p.setBytes(bytes, offset, length);
     }
 
+    @Override
     public void setQ(byte[] bytes, short offset, short length) throws CryptoException {
         q.setBytes(bytes, offset, length);
     }
 
+    @Override
     public void setG(byte[] bytes, short offset, short length) throws CryptoException {
         g.setBytes(bytes, offset, length);
     }
 
+    @Override
     public short getP(byte[] bytes, short offset) {
         return p.getBytes(bytes, offset);
     }
 
+    @Override
     public short getQ(byte[] bytes, short offset) {
         return q.getBytes(bytes, offset);
     }
 
+    @Override
     public short getG(byte[] bytes, short offset) {
         return g.getBytes(bytes, offset);
     }
 
+    @Override
     public void clearKey() {
         p.clear();
         q.clear();
         g.clear();
     }
 
+    @Override
     public boolean isInitialized() {
         return p.isInitialized() && g.isInitialized();
     }
@@ -139,8 +146,8 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     }
         
     private static DHParameters fromPG(String hexP, String hexG) {
-        BigInteger p = new BigInteger(1, Hex.decode(hexP));
-        BigInteger g = new BigInteger(1, Hex.decode(hexG));
+        var p = new BigInteger(1, Hex.decode(hexP));
+        var g = new BigInteger(1, Hex.decode(hexG));
         return new DHParameters(p, g);
     }
 }

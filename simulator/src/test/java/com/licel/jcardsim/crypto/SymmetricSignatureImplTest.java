@@ -3,6 +3,7 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
+import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.HMACKey;
 import javacard.security.Key;
@@ -294,7 +295,7 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testSignVerify3DES() {
-        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_3KEY);
+        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_3KEY, JCSystem.MEMORY_TYPE_PERSISTENT);
         desKey.setKey(Hex.decode(DES3_KEY), (short) 0);
         testSignVerify(desKey, MESSAGE_8, MESSAGE_15, DES3_MAC_8,
                 DES3_MAC_15, DES3_MAC_8_IV, DES3_MAC_15_IV);
@@ -305,7 +306,7 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testSignVerify2x3DES() {
-        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_2KEY);
+        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_2KEY, JCSystem.MEMORY_TYPE_PERSISTENT);
         desKey.setKey(Hex.decode(DES3_KEY), (short) 0);
 
         Signature engine = Signature.getInstance(Signature.ALG_DES_MAC8_ISO9797_1_M2_ALG3, false);
@@ -341,7 +342,7 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testSignVerifyDES() {
-        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES);
+        SymmetricKeyImpl desKey = new SymmetricKeyImpl(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES, JCSystem.MEMORY_TYPE_PERSISTENT);
         desKey.setKey(Hex.decode(DES_KEY), (short) 0);
         testSignVerify(desKey, MESSAGE_8, MESSAGE_15, DES_MAC_8,
                 DES_MAC_15, DES_MAC_8_IV, DES_MAC_15_IV);
@@ -352,7 +353,7 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
      */
     @Test
     public void testSignVerifyAES() {
-        SymmetricKeyImpl aesKey = new SymmetricKeyImpl(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128);
+        SymmetricKeyImpl aesKey = new SymmetricKeyImpl(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, JCSystem.MEMORY_TYPE_PERSISTENT);
         aesKey.setKey(Hex.decode(AES_128_KEY), (short) 0);
         Signature engine = Signature.getInstance(Signature.ALG_AES_MAC_128_NOPAD, false);
         testEngineSignVerify(engine, aesKey, null, Hex.decode(MESSAGE_16), Hex.decode(AES_CBC_MAC));

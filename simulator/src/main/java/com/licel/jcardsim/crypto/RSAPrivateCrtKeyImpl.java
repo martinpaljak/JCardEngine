@@ -2,62 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacard.security.RSAPrivateCrtKey;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-/**
- * Implementation <code>RSAPrivateCrtKey</code> based on BouncyCastle CryptoAPI.
- *
- * @see RSAPrivateCrtKey
- * @see RSAPrivateCrtKeyParameters
- */
 public final class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
-    private static final Logger log = LoggerFactory.getLogger(RSAPrivateCrtKeyImpl.class);
-    protected final ByteContainer p;
-    protected final ByteContainer q;
-    protected final ByteContainer dp1;
-    protected final ByteContainer dq1;
-    protected final ByteContainer pq;
+    private final ByteContainer p;
+    private final ByteContainer q;
+    private final ByteContainer dp1;
+    private final ByteContainer dq1;
+    private final ByteContainer pq;
 
-    /**
-     * Construct not-initialized rsa private crt key
-     *
-     * @param keySize key size it bits (modulus size)
-     * @see KeyBuilder
-     */
-    public RSAPrivateCrtKeyImpl(short keySize) {
-        super(true, keySize);
-        type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
+    public RSAPrivateCrtKeyImpl(short keySize, byte memoryType) {
+        super(KeyBuilder.TYPE_RSA_CRT_PRIVATE, keySize, memoryType);
         // each CRT prime component is half the modulus size in bytes (bits/8/2 = bits/16)
         short half = (short) (keySize / 16);
-        p = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
-        q = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
-        dp1 = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
-        dq1 = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
-        pq = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, half);
+        p = new ByteContainer(memoryType, half);
+        q = new ByteContainer(memoryType, half);
+        dp1 = new ByteContainer(memoryType, half);
+        dq1 = new ByteContainer(memoryType, half);
+        pq = new ByteContainer(memoryType, half);
     }
 
-    /**
-     * Construct and initialize rsa key with RSAPrivateCrtKeyParameters. Use in KeyPairImpl
-     *
-     * @param params key params from BouncyCastle API
-     * @see javacard.security.KeyPair
-     * @see RSAPrivateCrtKeyParameters
-     */
-    //public RSAPrivateCrtKeyImpl(RSAPrivateCrtKeyParameters params) {
-    //    super(new RSAKeyParameters(true, params.getModulus(), params.getExponent()));
-    //    type = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
-    //    setParameters(params);
-    //}
     @Override
     void setParameters(CipherParameters params) {
-        RSAPrivateCrtKeyParameters crt = (RSAPrivateCrtKeyParameters) params;
+        var crt = (RSAPrivateCrtKeyParameters) params;
         p.setBigInteger(crt.getP());
         q.setBigInteger(crt.getQ());
         dp1.setBigInteger(crt.getDP());
@@ -65,55 +36,67 @@ public final class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivate
         pq.setBigInteger(crt.getQInv());
     }
 
+    @Override
     public void setP(byte[] buffer, short offset, short length) throws CryptoException {
         p.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setQ(byte[] buffer, short offset, short length) throws CryptoException {
         q.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setDP1(byte[] buffer, short offset, short length) throws CryptoException {
         dp1.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setDQ1(byte[] buffer, short offset, short length) throws CryptoException {
         dq1.setBytes(buffer, offset, length);
     }
 
+    @Override
     public void setPQ(byte[] buffer, short offset, short length) throws CryptoException {
         pq.setBytes(buffer, offset, length);
     }
 
+    @Override
     public short getP(byte[] buffer, short offset) {
         return p.getBytes(buffer, offset);
     }
 
+    @Override
     public short getQ(byte[] buffer, short offset) {
         return q.getBytes(buffer, offset);
     }
 
+    @Override
     public short getDP1(byte[] buffer, short offset) {
         return dp1.getBytes(buffer, offset);
     }
 
+    @Override
     public short getDQ1(byte[] buffer, short offset) {
         return dq1.getBytes(buffer, offset);
     }
 
+    @Override
     public short getPQ(byte[] buffer, short offset) {
         return pq.getBytes(buffer, offset);
     }
 
+    @Override
     public void clearKey() {
-        super.clearKey();
         p.clear();
         q.clear();
         dp1.clear();
         dq1.clear();
         pq.clear();
+        super.clearKey();
     }
 
+    @Override
     public boolean isInitialized() {
         return p.isInitialized() && q.isInitialized() && dp1.isInitialized() && dq1.isInitialized() && pq.isInitialized();
     }
