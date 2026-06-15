@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * @see RSAPrivateCrtKey
  * @see RSAPrivateCrtKeyParameters
  */
-public class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
+public final class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivateCrtKey {
     private static final Logger log = LoggerFactory.getLogger(RSAPrivateCrtKeyImpl.class);
     protected final ByteContainer p;
     protected final ByteContainer q;

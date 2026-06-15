@@ -30,7 +30,7 @@ import java.util.function.Supplier;
  * @see Cipher
  */
 @SuppressWarnings("deprecation") // bc ..
-public class SymmetricCipherImpl extends Cipher {
+public final class SymmetricCipherImpl extends Cipher {
 
     // Wraps the key's raw block cipher into the chaining mode.
     private enum Mode {

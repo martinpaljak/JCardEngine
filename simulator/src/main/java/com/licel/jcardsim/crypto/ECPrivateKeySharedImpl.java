@@ -15,7 +15,7 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
  * @see ECPrivateKey
  * @see ECPrivateKeyParameters
  */
-public class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivateKey {
+public final class ECPrivateKeySharedImpl extends ECKeySharedImpl implements ECPrivateKey {
 
     protected final ByteContainer s;
 

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
  * on BouncyCastle CryptoAPI.
  * @see Cipher
  */
-public class AsymmetricCipherImpl extends Cipher {
+public final class AsymmetricCipherImpl extends Cipher {
 
     // algByte 0 is the sentinel for entries with no one-argument ALG_* constant (the OAEP-SHA variants).
     private enum CipherAlg {

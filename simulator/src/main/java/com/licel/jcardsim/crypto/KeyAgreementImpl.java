@@ -27,7 +27,7 @@ import java.math.BigInteger;
  * @see ECDHBasicAgreement
  * @see ECDHCBasicAgreement
  */
-public class KeyAgreementImpl extends KeyAgreement {
+public final class KeyAgreementImpl extends KeyAgreement {
 
     BasicAgreement engine;
     SHA1Digest digestEngine;

@@ -47,7 +47,7 @@ import java.util.function.Supplier;
  * on BouncyCastle CryptoAPI.
  * @see Signature
  */
-public class AsymmetricSignatureImpl extends Signature implements SignatureMessageRecovery {
+public final class AsymmetricSignatureImpl extends Signature implements SignatureMessageRecovery {
 
     private static final Logger log = LoggerFactory.getLogger(AsymmetricSignatureImpl.class);
 

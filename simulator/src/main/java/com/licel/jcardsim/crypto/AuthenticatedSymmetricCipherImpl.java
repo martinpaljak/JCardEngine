@@ -23,7 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.function.Function;
 
-public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
+public final class AuthenticatedSymmetricCipherImpl extends AEADCipher {
 
     private static final List<Integer> SUPPORTED_TAG_BITS = List.of(128, 120, 112, 104, 96, 64, 32);
 

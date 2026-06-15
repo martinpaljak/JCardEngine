@@ -31,7 +31,7 @@ import java.util.List;
  * on BouncyCastle CryptoAPI.
  * @see Signature
  */
-public class SymmetricSignatureImpl extends Signature {
+public final class SymmetricSignatureImpl extends Signature {
     
     Mac engine;
     MacAlg spec;

@@ -19,7 +19,7 @@ import java.util.List;
  * @see HMACKey
  * @see KoreanSEEDKey
  */
-public class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKey, HMACKey, KoreanSEEDKey {
+public final class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKey, HMACKey, KoreanSEEDKey {
 
     static final List<Byte> KF_DES = List.of(KeyBuilder.TYPE_DES, KeyBuilder.TYPE_DES_TRANSIENT_RESET, KeyBuilder.TYPE_DES_TRANSIENT_DESELECT);
     static final List<Byte> KF_AES = List.of(KeyBuilder.TYPE_AES, KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.TYPE_AES_TRANSIENT_DESELECT);
