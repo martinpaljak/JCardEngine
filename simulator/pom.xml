@@ -277,8 +277,8 @@
                         <configuration>
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
-                                <!-- ${argLine} carries the JaCoCo agent (prepare-agent runs at initialize), so this
-                                     forked weaving run is instrumented and its data appends to the shared jacoco.exec. -->
+                                <!-- ${argLine} carries the JaCoCo agent (prepare-agent runs at process-resources, before this
+                                     process-classes phase), so this forked weaving run is instrumented and its data appends to the shared jacoco.exec. -->
                                 <argument>${argLine}</argument>
                                 <argument>-classpath</argument>
                                 <classpath/>
@@ -343,7 +343,7 @@
                         <executions>
                             <execution>
                                 <id>agent</id>
-                                <phase>initialize</phase>
+                                <phase>process-resources</phase>
                                 <goals>
                                     <goal>prepare-agent</goal>
                                 </goals>
@@ -449,7 +449,7 @@
                         <executions>
                             <execution>
                                 <id>agent</id>
-                                <phase>initialize</phase>
+                                <phase>process-resources</phase>
                                 <goals>
                                     <goal>prepare-agent</goal>
                                 </goals>
