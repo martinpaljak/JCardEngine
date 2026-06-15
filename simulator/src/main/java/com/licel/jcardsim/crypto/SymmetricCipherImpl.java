@@ -69,6 +69,7 @@ public final class SymmetricCipherImpl extends Cipher {
         DES_ECB_PKCS5(ALG_DES_ECB_PKCS5, CIPHER_DES_ECB, PAD_PKCS5, SymmetricKeyImpl.KF_DES, Mode.ECB, PKCS7Padding::new),
         AES_CBC_NOPAD(ALG_AES_BLOCK_128_CBC_NOPAD, CIPHER_AES_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.CBC, null),
         AES_ECB_NOPAD(ALG_AES_BLOCK_128_ECB_NOPAD, CIPHER_AES_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.ECB, null),
+        AES_CBC_ISO9797_M1(ALG_AES_CBC_ISO9797_M1, CIPHER_AES_CBC, PAD_ISO9797_M1, SymmetricKeyImpl.KF_AES, Mode.CBC, ZeroBytePadding::new),
         AES_CBC_ISO9797_M2(ALG_AES_CBC_ISO9797_M2, CIPHER_AES_CBC, PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES, Mode.CBC, ISO7816d4Padding::new),
         AES_CTR(ALG_AES_CTR, (byte) 0, (byte) 0, SymmetricKeyImpl.KF_AES, Mode.CTR, null),
         KOREAN_SEED_ECB_NOPAD(ALG_KOREAN_SEED_ECB_NOPAD, CIPHER_KOREAN_SEED_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_SEED, Mode.ECB, null),
