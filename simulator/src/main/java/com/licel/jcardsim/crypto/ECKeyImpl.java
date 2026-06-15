@@ -23,7 +23,7 @@ import java.security.SecureRandom;
  *
  * @see ECKey
  */
-public abstract class ECKeyImpl extends KeyImpl implements ECKey {
+public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
     protected final ByteContainer a;
     protected final ByteContainer b;
     protected final ByteContainer g;

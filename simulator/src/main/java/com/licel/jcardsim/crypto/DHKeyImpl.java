@@ -15,7 +15,7 @@ import org.bouncycastle.util.encoders.Hex;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
-public abstract class DHKeyImpl extends KeyImpl implements DHKey {
+public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     
     public static final short LENGTH_DH_1536 = 1536;
     

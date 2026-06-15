@@ -209,7 +209,7 @@ public final class KeyPairImpl {
         SecureRandom rnd = Simulator.current().rng();
         // only public key params, see specification
         if (publicKey != null) {
-            keyGenerationParameters = ((KeyImpl) publicKey).getKeyGenerationParameters(rnd);
+            keyGenerationParameters = ((KeyWithParameters) publicKey).getKeyGenerationParameters(rnd);
         }
         switch (algorithm) {
             case KeyPair.ALG_RSA:

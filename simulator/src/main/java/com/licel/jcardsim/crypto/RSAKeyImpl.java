@@ -23,7 +23,7 @@ import java.security.SecureRandom;
  * @see RSAPublicKey
  * @see RSAKeyParameters
  */
-public class RSAKeyImpl extends KeyImpl implements RSAPrivateKey, RSAPublicKey {
+public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAPublicKey {
 
     // JavaCard API maximum public exponent length
     private static final short PUBLIC_EXPONENT_MAX_BYTES = 4;

@@ -18,7 +18,7 @@ import java.security.SecureRandom;
  *
  * @see ECKey
  */
-public abstract class ECKeySharedImpl extends KeyImpl implements ECKey {
+public abstract class ECKeySharedImpl extends KeyWithParameters implements ECKey {
     private ECKeyImpl sharedDomain;
 
     /**

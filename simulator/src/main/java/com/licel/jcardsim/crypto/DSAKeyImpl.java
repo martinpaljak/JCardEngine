@@ -22,7 +22,7 @@ import java.security.SecureRandom;
  *
  * @see DSAKey
  */
-public class DSAKeyImpl extends KeyImpl implements DSAKey {
+public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
 
     protected final ByteContainer p;
     protected final ByteContainer q;
