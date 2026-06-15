@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECKey;
 import javacard.security.KeyBuilder;
@@ -170,7 +169,7 @@ public abstract class ECKeyImpl extends KeyWithParameters implements ECKey {
             curve = new ECCurve.F2m(size, e1, e2, e3, a.getBigInteger(), b.getBigInteger(),
                     r.getBigInteger(), BigInteger.valueOf(k));
         }
-        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes(JCSystem.CLEAR_ON_RESET)),
+        return new ECDomainParameters(curve, curve.decodePoint(g.getBytes()),
                 r.getBigInteger(), BigInteger.valueOf(k));
     }
 

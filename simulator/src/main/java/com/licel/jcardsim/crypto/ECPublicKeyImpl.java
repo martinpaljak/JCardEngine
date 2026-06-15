@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
-import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
 import javacard.security.ECPublicKey;
 import org.bouncycastle.crypto.CipherParameters;
@@ -63,6 +62,6 @@ public class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         ECDomainParameters dp = getDomainParameters();
-        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes(JCSystem.CLEAR_ON_RESET)), dp);
+        return new ECPublicKeyParameters(dp.getCurve().decodePoint(w.getBytes()), dp);
     }
 }

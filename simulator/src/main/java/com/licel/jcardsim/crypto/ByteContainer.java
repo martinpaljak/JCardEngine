@@ -166,16 +166,13 @@ public final class ByteContainer {
     }
 
     /**
-     * Return transient plain byte array representation of the <code>ByteContainer</code>
-     * @param event type of transient byte array
-     * @return plain byte array
+     * Copy of the contents as a fresh byte array, for the BouncyCastle Crypto API.
      */
-    // XXX: reconsider the need for this
-    public byte[] getBytes(byte event) {
+    public byte[] getBytes() {
         if (length == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        byte[] result = JCSystem.makeTransientByteArray(length, event);
+        byte[] result = new byte[length];
         getBytes(result, (short) 0);
         return result;
     }

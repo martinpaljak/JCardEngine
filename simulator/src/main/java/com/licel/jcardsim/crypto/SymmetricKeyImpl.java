@@ -104,7 +104,7 @@ public class SymmetricKeyImpl extends KeyWithParameters implements DESKey, AESKe
         if (!key.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new KeyParameter(key.getBytes(JCSystem.CLEAR_ON_RESET));
+        return new KeyParameter(key.getBytes());
     }
 
     public boolean isInitialized() {
