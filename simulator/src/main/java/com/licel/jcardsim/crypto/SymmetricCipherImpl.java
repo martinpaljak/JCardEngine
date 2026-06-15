@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -6,7 +7,6 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
-import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.BufferedBlockCipher;
@@ -19,8 +19,9 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Implementation <code>Cipher</code> with symmetric keys based
@@ -31,65 +32,148 @@ import org.slf4j.LoggerFactory;
 @SuppressWarnings("deprecation") // bc ..
 public class SymmetricCipherImpl extends Cipher {
 
-    private static final Logger log = LoggerFactory.getLogger(SymmetricCipherImpl.class);
-    byte algorithm;
-    BufferedBlockCipher engine;
-    boolean isInitialized;
+    // Wraps the key's raw block cipher into the chaining mode.
+    private enum Mode {
+        ECB {
+            @Override BlockCipher wrap(BlockCipher cipher) {
+                return cipher;
+            }
+        },
+        CBC {
+            @Override BlockCipher wrap(BlockCipher cipher) {
+                return CBCBlockCipher.newInstance(cipher);
+            }
+        },
+        CTR {
+            @Override BlockCipher wrap(BlockCipher cipher) {
+                return new SICBlockCipher(cipher);
+            }
+        };
 
-    // Non-null only for padded encrypt: the engine is an unpadded BufferedBlockCipher and
-    // doFinal() appends this padding manually. Null for decrypt (PaddedBufferedBlockCipher
-    // strips padding itself), and for nopad and CTR algorithms.
-    BlockCipherPadding padding;
-
-    public SymmetricCipherImpl(byte algorithm) {
-        this.algorithm = algorithm;
+        abstract BlockCipher wrap(BlockCipher cipher);
     }
 
+    // The (cipher, padding) pair is the CIPHER_*/PAD_* identity used by the flexible getInstance and
+    // returned by getCipherAlgorithm()/getPaddingAlgorithm(); algByte is the single-byte ALG_* identity.
+    // AES counter mode has no flexible mapping in the JC API, so both its cipher and padding are 0 -
+    // it is reachable only through the single-byte ALG_*. paddingFactory is null for the unpadded modes.
+    private enum CipherAlg {
+        DES_CBC_NOPAD(ALG_DES_CBC_NOPAD, CIPHER_DES_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_DES, Mode.CBC, null),
+        DES_CBC_ISO9797_M1(ALG_DES_CBC_ISO9797_M1, CIPHER_DES_CBC, PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES, Mode.CBC, ZeroBytePadding::new),
+        DES_CBC_ISO9797_M2(ALG_DES_CBC_ISO9797_M2, CIPHER_DES_CBC, PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES, Mode.CBC, ISO7816d4Padding::new),
+        DES_CBC_PKCS5(ALG_DES_CBC_PKCS5, CIPHER_DES_CBC, PAD_PKCS5, SymmetricKeyImpl.KF_DES, Mode.CBC, PKCS7Padding::new),
+        DES_ECB_NOPAD(ALG_DES_ECB_NOPAD, CIPHER_DES_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_DES, Mode.ECB, null),
+        DES_ECB_ISO9797_M1(ALG_DES_ECB_ISO9797_M1, CIPHER_DES_ECB, PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES, Mode.ECB, ZeroBytePadding::new),
+        DES_ECB_ISO9797_M2(ALG_DES_ECB_ISO9797_M2, CIPHER_DES_ECB, PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES, Mode.ECB, ISO7816d4Padding::new),
+        DES_ECB_PKCS5(ALG_DES_ECB_PKCS5, CIPHER_DES_ECB, PAD_PKCS5, SymmetricKeyImpl.KF_DES, Mode.ECB, PKCS7Padding::new),
+        AES_CBC_NOPAD(ALG_AES_BLOCK_128_CBC_NOPAD, CIPHER_AES_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.CBC, null),
+        AES_ECB_NOPAD(ALG_AES_BLOCK_128_ECB_NOPAD, CIPHER_AES_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.ECB, null),
+        AES_CBC_ISO9797_M2(ALG_AES_CBC_ISO9797_M2, CIPHER_AES_CBC, PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES, Mode.CBC, ISO7816d4Padding::new),
+        AES_CTR(ALG_AES_CTR, (byte) 0, (byte) 0, SymmetricKeyImpl.KF_AES, Mode.CTR, null),
+        KOREAN_SEED_ECB_NOPAD(ALG_KOREAN_SEED_ECB_NOPAD, CIPHER_KOREAN_SEED_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_SEED, Mode.ECB, null),
+        KOREAN_SEED_CBC_NOPAD(ALG_KOREAN_SEED_CBC_NOPAD, CIPHER_KOREAN_SEED_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_SEED, Mode.CBC, null);
+
+        final byte algByte;
+        final byte cipher;
+        final byte padding;
+        final List<Byte> family;
+        final Mode mode;
+        final Supplier<BlockCipherPadding> paddingFactory;
+
+        CipherAlg(byte algByte, byte cipher, byte padding, List<Byte> family, Mode mode, Supplier<BlockCipherPadding> paddingFactory) {
+            this.algByte = algByte;
+            this.cipher = cipher;
+            this.padding = padding;
+            this.family = family;
+            this.mode = mode;
+            this.paddingFactory = paddingFactory;
+        }
+
+        // (cipher, padding) -> entry; null when unrecognised. cipher 0 entries are never matched here.
+        static CipherAlg from(byte cipher, byte padding) {
+            for (var a : values()) {
+                if (a.cipher != 0 && a.cipher == cipher && a.padding == padding) {
+                    return a;
+                }
+            }
+            return null;
+        }
+
+        // Legacy single-byte ALG_* constant -> entry; null when unrecognised.
+        static CipherAlg byByte(byte algorithm) {
+            for (var a : values()) {
+                if (a.algByte == algorithm) {
+                    return a;
+                }
+            }
+            return null;
+        }
+    }
+
+    private final CipherAlg spec;
+    BufferedBlockCipher engine;
+    CipherState state = CipherState.UNINITIALIZED;
+
+    // Non-null only for padded encrypt: the engine is unpadded and doFinal() appends this padding
+    // manually, matching a card's eager block flush. Null for decrypt and the unpadded modes.
+    BlockCipherPadding padding;
+
+    private SymmetricCipherImpl(CipherAlg spec) {
+        this.spec = spec;
+    }
+
+    // Probed by CipherProxy: an instance for any algorithm this table holds, else null.
+    public static Cipher getInstance(byte algorithm) {
+        CipherAlg a = CipherAlg.byByte(algorithm);
+        return a == null ? null : new SymmetricCipherImpl(a);
+    }
+
+    public static Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm) {
+        CipherAlg a = CipherAlg.from(cipherAlgorithm, paddingAlgorithm);
+        return a == null ? null : new SymmetricCipherImpl(a);
+    }
+    
+    @Override
     public void init(Key theKey, byte theMode) throws CryptoException {
         selectCipherEngine(theKey, theMode == MODE_ENCRYPT);
         engine.init(theMode == MODE_ENCRYPT, ((SymmetricKeyImpl) theKey).getParameters());
-        isInitialized = true;
+        state = CipherState.INITIALIZED;
     }
 
+    @Override
     public void init(Key theKey, byte theMode, byte[] bArray, short bOff, short bLen) throws CryptoException {
-        switch (algorithm) {
-            case ALG_DES_ECB_NOPAD:
-            case ALG_DES_ECB_ISO9797_M1:
-            case ALG_DES_ECB_ISO9797_M2:
-            case ALG_DES_ECB_PKCS5:
-            case ALG_KOREAN_SEED_ECB_NOPAD:
-                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                break;
-            case ALG_DES_CBC_NOPAD:
-            case ALG_DES_CBC_ISO9797_M1:
-            case ALG_DES_CBC_ISO9797_M2:
-            case ALG_DES_CBC_PKCS5:
-                if (bLen != (short) 8) {
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                break;
-            case ALG_AES_BLOCK_128_CBC_NOPAD:
-            case ALG_AES_CBC_ISO9797_M2:
-                if (bLen != (short) 16) {
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                break;
-            default:
-                log.trace("No init for cipher algo: " + algorithm);
+        if (spec.mode == Mode.ECB) {
+            // ECB mode takes no initial vector.
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         selectCipherEngine(theKey, theMode == MODE_ENCRYPT);
+        if (bLen != engine.getBlockSize()) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
         byte[] iv = JCSystem.makeTransientByteArray(bLen, JCSystem.CLEAR_ON_RESET);
         Util.arrayCopyNonAtomic(bArray, bOff, iv, (short) 0, bLen);
         engine.init(theMode == MODE_ENCRYPT, new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), iv));
-        isInitialized = true;
+        state = CipherState.INITIALIZED;
     }
 
+    @Override
     public byte getAlgorithm() {
-        return algorithm;
+        return spec.algByte;
     }
 
+    @Override
+    public byte getCipherAlgorithm() {
+        return spec.cipher;
+    }
+
+    @Override
+    public byte getPaddingAlgorithm() {
+        return spec.padding;
+    }
+
+    @Override
     public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-        if (!isInitialized) {
+        if (!state.initialized()) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
@@ -112,8 +196,9 @@ public class SymmetricCipherImpl extends Cipher {
         return -1;
     }
 
+    @Override
     public short update(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-        if (!isInitialized) {
+        if (!state.initialized()) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
         return (short) engine.processBytes(inBuff, inOffset, inLength, outBuff, outOffset);
@@ -129,130 +214,24 @@ public class SymmetricCipherImpl extends Cipher {
         if (!(theKey instanceof SymmetricKeyImpl)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        if (!checkKeyCompatibility(theKey)) {
+        if (!spec.family.contains(theKey.getType())) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        SymmetricKeyImpl key = (SymmetricKeyImpl) theKey;
+        BlockCipher modeCipher = spec.mode.wrap(SymmetricEngines.of(theKey.getType(), theKey.getSize()));
+        // A real card's update() flushes every complete block immediately. BouncyCastle's
+        // PaddedBufferedBlockCipher withholds the last block on encrypt because it cannot know
+        // whether doFinal() still needs to pad it, so padded encrypt runs an unpadded engine and
+        // doFinal() appends the padding explicitly. Padded decrypt keeps PaddedBufferedBlockCipher,
+        // which holds the final block back so the padding is stripped before anything is written.
         padding = null;
-        BlockCipher modeCipher = null;
-        switch (algorithm) {
-            case ALG_DES_CBC_NOPAD:
-            case ALG_AES_BLOCK_128_CBC_NOPAD:
-            case ALG_KOREAN_SEED_CBC_NOPAD:
-                engine = new BufferedBlockCipher(CBCBlockCipher.newInstance(key.getCipher()));
-                break;
-            case ALG_DES_CBC_ISO9797_M1:
-                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
-                padding = new ZeroBytePadding();
-                break;
-            case ALG_DES_CBC_ISO9797_M2:
-                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
-                padding = new ISO7816d4Padding();
-                break;
-            case ALG_DES_CBC_PKCS5:
-                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
-                padding = new PKCS7Padding();
-                break;
-            case ALG_DES_ECB_NOPAD:
-            case ALG_AES_BLOCK_128_ECB_NOPAD:
-            case ALG_KOREAN_SEED_ECB_NOPAD:
-                engine = new BufferedBlockCipher(key.getCipher());
-                break;
-            case ALG_DES_ECB_ISO9797_M1:
-                modeCipher = key.getCipher();
-                padding = new ZeroBytePadding();
-                break;
-            case ALG_DES_ECB_ISO9797_M2:
-                modeCipher = key.getCipher();
-                padding = new ISO7816d4Padding();
-                break;
-            case ALG_DES_ECB_PKCS5:
-                modeCipher = key.getCipher();
-                padding = new PKCS7Padding();
-                break;
-            case ALG_AES_CBC_ISO9797_M2:
-                modeCipher = CBCBlockCipher.newInstance(key.getCipher());
-                padding = new ISO7816d4Padding();
-                break;
-            case ALG_AES_CTR:
-                engine = new BufferedBlockCipher(new SICBlockCipher(key.getCipher()));
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        if (spec.paddingFactory == null) {
+            engine = new BufferedBlockCipher(modeCipher);
+        } else if (encrypting) {
+            engine = new BufferedBlockCipher(modeCipher);
+            padding = spec.paddingFactory.get();
+        } else {
+            engine = new PaddedBufferedBlockCipher(modeCipher, spec.paddingFactory.get());
         }
-
-        // A real card's update() flushes every complete block immediately (two blocks in -> 32
-        // bytes out). BouncyCastle's PaddedBufferedBlockCipher withholds the last block on
-        // encrypt because it cannot know whether doFinal() still needs to append padding to it.
-        // To match card behaviour, padded encrypt uses an unpadded BufferedBlockCipher (flushes
-        // complete blocks immediately) and doFinal() appends the padding explicitly. Padded
-        // decrypt keeps PaddedBufferedBlockCipher, which holds the final block back so the
-        // padding bytes are stripped before anything is written to outBuff, as update() requires.
-        if (padding != null) {
-            if (encrypting) {
-                engine = new BufferedBlockCipher(modeCipher);
-            } else {
-                engine = new PaddedBufferedBlockCipher(modeCipher, padding);
-                padding = null;
-            }
-        }
-    }
-
-    private boolean checkKeyCompatibility(Key theKey) {
-        switch (theKey.getType()) {
-            case KeyBuilder.TYPE_DES:
-            case KeyBuilder.TYPE_DES_TRANSIENT_RESET:
-            case KeyBuilder.TYPE_DES_TRANSIENT_DESELECT:
-                if ((algorithm == Cipher.ALG_DES_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_DES_CBC_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_DES_CBC_PKCS5) ||
-                    (algorithm == Cipher.ALG_DES_ECB_NOPAD) ||
-                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_DES_ECB_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_DES_ECB_PKCS5)) {
-                    return true;
-                }
-                break;
-
-            case KeyBuilder.TYPE_AES:
-            case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
-            case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
-                if ((algorithm == Cipher.ALG_AES_CTR) ||
-                    (algorithm == Cipher.ALG_AES_BLOCK_128_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_AES_BLOCK_128_ECB_NOPAD) ||
-                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_AES_CBC_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_AES_CBC_PKCS5) ||
-                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M1) ||
-                    (algorithm == Cipher.ALG_AES_ECB_ISO9797_M2) ||
-                    (algorithm == Cipher.ALG_AES_ECB_PKCS5)) {
-                    return true;
-                }
-                break;
-
-
-            case KeyBuilder.TYPE_KOREAN_SEED:
-            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
-            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT:
-                if ((algorithm == Cipher.ALG_KOREAN_SEED_CBC_NOPAD) ||
-                    (algorithm == Cipher.ALG_KOREAN_SEED_ECB_NOPAD)) {
-                    return true;
-                }
-                break;
-        }
-
-        return false;
-
-    }
-
-    public byte getPaddingAlgorithm() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    public byte getCipherAlgorithm() {
-        throw new UnsupportedOperationException("Not supported yet.");
     }
 }

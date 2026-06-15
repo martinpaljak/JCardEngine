@@ -307,6 +307,38 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
     }
 
     @Test
+    public void testOAEP_SHA256_RoundTripAndAccessors() {
+        Cipher cipher = Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1_OAEP_SHA256, false);
+        KeyPair kp = new KeyPair(KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_2048);
+        kp.genKeyPair();
+
+        byte[] msg = new byte[16];
+        new Random().nextBytes(msg);
+
+        cipher.init(kp.getPublic(), Cipher.MODE_ENCRYPT);
+        byte[] encrypted = new byte[KeyBuilder.LENGTH_RSA_2048 / Byte.SIZE];
+        cipher.doFinal(msg, (short) 0, (short) msg.length, encrypted, (short) 0);
+
+        cipher.init(kp.getPrivate(), Cipher.MODE_DECRYPT);
+        byte[] decrypted = new byte[msg.length];
+        cipher.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
+
+        // OAEP-SHA256 round-trip recovers the original plaintext
+        assertEquals(true, Arrays.areEqual(msg, decrypted));
+        // accessors report the requested (cipher, padding) pair
+        assertEquals(Cipher.CIPHER_RSA, cipher.getCipherAlgorithm());
+        assertEquals(Cipher.PAD_PKCS1_OAEP_SHA256, cipher.getPaddingAlgorithm());
+
+        try {
+            Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_NULL, false);
+            assert false;
+        } catch (CryptoException ex) {
+            // unrecognised RSA padding is rejected with NO_SUCH_ALGORITHM
+            assertEquals(CryptoException.NO_SUCH_ALGORITHM, ex.getReason());
+        }
+    }
+
+    @Test
     public void testRegression_CipherDoFinal_bufferPosNotReset() throws Exception {
         Cipher encryptEngine = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         KeyPair keyPair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);

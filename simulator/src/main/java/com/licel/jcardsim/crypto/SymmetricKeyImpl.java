@@ -4,18 +4,12 @@ package com.licel.jcardsim.crypto;
 
 import javacard.framework.JCSystem;
 import javacard.security.*;
-import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
-import org.bouncycastle.crypto.engines.AESEngine;
-import org.bouncycastle.crypto.engines.DESEngine;
-import org.bouncycastle.crypto.engines.DESedeEngine;
-import org.bouncycastle.crypto.engines.SEEDEngine;
 import org.bouncycastle.crypto.params.KeyParameter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
+import java.util.List;
 
 /**
  * Implementation of secret key.
@@ -27,7 +21,11 @@ import java.security.SecureRandom;
  */
 public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey, KoreanSEEDKey {
 
-    private static final Logger log = LoggerFactory.getLogger(SymmetricKeyImpl.class);
+    static final List<Byte> KF_DES = List.of(KeyBuilder.TYPE_DES, KeyBuilder.TYPE_DES_TRANSIENT_RESET, KeyBuilder.TYPE_DES_TRANSIENT_DESELECT);
+    static final List<Byte> KF_AES = List.of(KeyBuilder.TYPE_AES, KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.TYPE_AES_TRANSIENT_DESELECT);
+    static final List<Byte> KF_SEED = List.of(KeyBuilder.TYPE_KOREAN_SEED, KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET, KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT);
+    static final List<Byte> KF_HMAC = List.of(KeyBuilder.TYPE_HMAC, KeyBuilder.TYPE_HMAC_TRANSIENT_RESET, KeyBuilder.TYPE_HMAC_TRANSIENT_DESELECT);
+
     protected ByteContainer key;
 
     /**
@@ -107,48 +105,6 @@ public class SymmetricKeyImpl extends KeyImpl implements DESKey, AESKey, HMACKey
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         return new KeyParameter(key.getBytes(JCSystem.CLEAR_ON_RESET));
-    }
-
-    /**
-     * Return the BouncyCastle <code>BlockCipher</code> for using with this key
-     *
-     * @return <code>BlockCipher</code> for this key, or null for HMACKey
-     * @throws CryptoException if key not initialized
-     * @see BlockCipher
-     */
-    BlockCipher getCipher() throws CryptoException {
-        if (!key.isInitialized()) {
-            CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
-        }
-        BlockCipher cipher = null;
-        switch (type) {
-            case KeyBuilder.TYPE_DES:
-            case KeyBuilder.TYPE_DES_TRANSIENT_DESELECT:
-            case KeyBuilder.TYPE_DES_TRANSIENT_RESET:
-                if (size == KeyBuilder.LENGTH_DES) {
-                    cipher = new DESEngine();
-                }
-                if (size == KeyBuilder.LENGTH_DES3_2KEY || size == KeyBuilder.LENGTH_DES3_3KEY) {
-                    cipher = new DESedeEngine();
-                }
-                break;
-            case KeyBuilder.TYPE_AES:
-            case KeyBuilder.TYPE_AES_TRANSIENT_DESELECT:
-            case KeyBuilder.TYPE_AES_TRANSIENT_RESET:
-                cipher = AESEngine.newInstance();
-                break;
-
-            case KeyBuilder.TYPE_KOREAN_SEED:
-            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_DESELECT:
-            case KeyBuilder.TYPE_KOREAN_SEED_TRANSIENT_RESET:
-                cipher = new SEEDEngine();
-                break;
-            case KeyBuilder.TYPE_HMAC: // XXX: added explicitly to reduce warnings in log
-                break;
-            default: // XXX: what to throw?
-                log.warn("Unhandled key type: " + type);
-        }
-        return cipher;
     }
 
     public boolean isInitialized() {

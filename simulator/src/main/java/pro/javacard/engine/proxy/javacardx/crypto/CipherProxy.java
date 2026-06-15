@@ -7,7 +7,6 @@ import com.licel.jcardsim.crypto.AuthenticatedSymmetricCipherImpl;
 import com.licel.jcardsim.crypto.SymmetricCipherImpl;
 import javacard.security.CryptoException;
 import javacard.security.Key;
-import javacardx.crypto.AEADCipher;
 import javacardx.crypto.Cipher;
 
 /**
@@ -33,109 +32,35 @@ public class CipherProxy {
      *                          or shared access mode is not supported.
      *                         </ul>
      */
-    public static final Cipher getInstance(byte algorithm, boolean externalAccess)
-            throws CryptoException {
-        Cipher instance = null;
+    public static final Cipher getInstance(byte algorithm, boolean externalAccess) throws CryptoException {
         if (externalAccess) {
-            CryptoException.throwIt((short) 3);
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
-
-        switch (algorithm) {
-            case Cipher.ALG_DES_CBC_NOPAD:
-            case Cipher.ALG_DES_CBC_ISO9797_M1:
-            case Cipher.ALG_DES_CBC_ISO9797_M2:
-            case Cipher.ALG_DES_CBC_PKCS5:
-            case Cipher.ALG_DES_ECB_NOPAD:
-            case Cipher.ALG_DES_ECB_ISO9797_M1:
-            case Cipher.ALG_DES_ECB_ISO9797_M2:
-            case Cipher.ALG_DES_ECB_PKCS5:
-            case Cipher.ALG_AES_BLOCK_128_CBC_NOPAD:
-            case Cipher.ALG_AES_BLOCK_128_ECB_NOPAD:
-            case Cipher.ALG_AES_CBC_ISO9797_M2:
-            case Cipher.ALG_AES_CTR:
-            case Cipher.ALG_KOREAN_SEED_ECB_NOPAD:
-            case Cipher.ALG_KOREAN_SEED_CBC_NOPAD:
-                instance = new SymmetricCipherImpl(algorithm);
-                break;
-            case Cipher.ALG_RSA_PKCS1:
-            case Cipher.ALG_RSA_NOPAD:
-            case Cipher.ALG_RSA_ISO14888:
-            case Cipher.ALG_RSA_ISO9796:
-            case Cipher.ALG_RSA_PKCS1_OAEP:
-                instance = new AsymmetricCipherImpl(algorithm);
-                break;
-            case AEADCipher.ALG_AES_GCM:
-            case AEADCipher.ALG_AES_CCM:
-                instance = new AuthenticatedSymmetricCipherImpl(algorithm);
-                break;
-
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        Cipher instance = SymmetricCipherImpl.getInstance(algorithm);
+        if (instance == null) {
+            instance = AsymmetricCipherImpl.getInstance(algorithm);
+        }
+        if (instance == null) {
+            instance = AuthenticatedSymmetricCipherImpl.getInstance(algorithm);
+        }
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
         return instance;
     }
 
-    public static final Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm, boolean externalAccess)
-            throws CryptoException {
-        return getInstance(resolveAlgorithm(cipherAlgorithm, paddingAlgorithm), externalAccess);
-    }
-
-    // Maps a (cipher, padding) pair to the single-argument ALG_* code expected by getInstance(byte, boolean),
-    // or throws NO_SUCH_ALGORITHM for unrecognised combinations.
-    private static byte resolveAlgorithm(byte cipherAlgorithm, byte paddingAlgorithm) {
-        switch (cipherAlgorithm) {
-            case Cipher.CIPHER_DES_CBC:
-                switch (paddingAlgorithm) {
-                    case Cipher.PAD_NOPAD:
-                        return Cipher.ALG_DES_CBC_NOPAD;
-                    case Cipher.PAD_ISO9797_M1:
-                        return Cipher.ALG_DES_CBC_ISO9797_M1;
-                    case Cipher.PAD_ISO9797_M2:
-                        return Cipher.ALG_DES_CBC_ISO9797_M2;
-                    case Cipher.PAD_PKCS5:
-                        return Cipher.ALG_DES_CBC_PKCS5;
-                }
-                break;
-            case Cipher.CIPHER_DES_ECB:
-                switch (paddingAlgorithm) {
-                    case Cipher.PAD_NOPAD:
-                        return Cipher.ALG_DES_ECB_NOPAD;
-                    case Cipher.PAD_ISO9797_M1:
-                        return Cipher.ALG_DES_ECB_ISO9797_M1;
-                    case Cipher.PAD_ISO9797_M2:
-                        return Cipher.ALG_DES_ECB_ISO9797_M2;
-                    case Cipher.PAD_PKCS5:
-                        return Cipher.ALG_DES_ECB_PKCS5;
-                }
-                break;
-            case Cipher.CIPHER_AES_CBC:
-                switch (paddingAlgorithm) {
-                    case Cipher.PAD_NOPAD:
-                        return Cipher.ALG_AES_BLOCK_128_CBC_NOPAD;
-                    case Cipher.PAD_ISO9797_M2:
-                        return Cipher.ALG_AES_CBC_ISO9797_M2;
-                }
-                break;
-            case Cipher.CIPHER_AES_ECB:
-                switch (paddingAlgorithm) {
-                    case Cipher.PAD_NOPAD:
-                        return Cipher.ALG_AES_BLOCK_128_ECB_NOPAD;
-                }
-                break;
-            case Cipher.CIPHER_RSA:
-                switch (paddingAlgorithm) {
-                    case Cipher.PAD_NOPAD:
-                        return Cipher.ALG_RSA_NOPAD;
-                    case Cipher.PAD_PKCS1:
-                        return Cipher.ALG_RSA_PKCS1;
-                    case Cipher.PAD_PKCS1_OAEP:
-                        return Cipher.ALG_RSA_PKCS1_OAEP;
-                }
-                break;
+    public static final Cipher getInstance(byte cipherAlgorithm, byte paddingAlgorithm, boolean externalAccess) throws CryptoException {
+        if (externalAccess) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
-        CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-        return 0; // not reached
+        Cipher instance = SymmetricCipherImpl.getInstance(cipherAlgorithm, paddingAlgorithm);
+        if (instance == null) {
+            instance = AsymmetricCipherImpl.getInstance(cipherAlgorithm, paddingAlgorithm);
+        }
+        if (instance == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
+        return instance;
     }
 
     public static final class OneShot extends Cipher {

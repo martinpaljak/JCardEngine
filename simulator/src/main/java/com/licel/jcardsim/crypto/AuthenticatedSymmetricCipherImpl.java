@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Licel Corporation.
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
@@ -6,7 +6,11 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
+import javacard.security.KeyBuilder;
 import javacardx.crypto.AEADCipher;
+import javacardx.crypto.Cipher;
+import org.bouncycastle.crypto.BlockCipher;
+import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.modes.AEADBlockCipher;
 import org.bouncycastle.crypto.modes.CCMBlockCipher;
 import org.bouncycastle.crypto.modes.GCMBlockCipher;
@@ -14,21 +18,43 @@ import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayOutputStream;
+import java.util.List;
+import java.util.function.Function;
 
 public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
-    private static final Logger log = LoggerFactory.getLogger(AuthenticatedSymmetricCipherImpl.class);
-    byte algorithm;
+
+    private static final List<Integer> SUPPORTED_TAG_BITS = List.of(128, 120, 112, 104, 96, 64, 32);
+
+    private enum CipherAlg {
+        AES_GCM(ALG_AES_GCM, CIPHER_AES_GCM, GCMBlockCipher::newInstance),
+        AES_CCM(ALG_AES_CCM, CIPHER_AES_CCM, CCMBlockCipher::newInstance);
+
+        final byte algByte;
+        final byte cipher;
+        final Function<BlockCipher, AEADBlockCipher> engineFactory;
+
+        CipherAlg(byte algByte, byte cipher, Function<BlockCipher, AEADBlockCipher> engineFactory) {
+            this.algByte = algByte;
+            this.cipher = cipher;
+            this.engineFactory = engineFactory;
+        }
+
+        static CipherAlg byByte(byte algorithm) {
+            for (var a : values()) {
+                if (a.algByte == algorithm) {
+                    return a;
+                }
+            }
+            return null;
+        }
+    }
+
+    private final CipherAlg spec;
 
     AEADBlockCipher engine;
     AEADParameters parameters;
-
-    enum CipherState {
-        Uninitialized,
-        Initialized,
-        Finalized
-    }
 
     CipherState state;
 
@@ -36,74 +62,46 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
     short initMsgLen;
     short totalMsgLen;
     short initAADLen;
+    short tagBytes;
 
-    public AuthenticatedSymmetricCipherImpl(byte algorithm) {
-        this.algorithm = algorithm;
-        state = CipherState.Uninitialized;
+    // Key and nonce retained from init so the tag can be recomputed from the recovered plaintext on DECRYPT.
+    private byte[] keyBytes;
+    private byte[] ivBytes;
+    // AAD bytes seen during the current operation, the tag produced by an ENCRYPT doFinal, and the
+    // plaintext recovered by a DECRYPT doFinal.
+    private final ByteArrayOutputStream aadSeen = new ByteArrayOutputStream();
+    private byte[] computedTag;
+    private byte[] recoveredPlaintext;
+
+    private AuthenticatedSymmetricCipherImpl(CipherAlg spec) {
+        this.spec = spec;
+        this.state = CipherState.UNINITIALIZED;
     }
 
-    /**
-     * Gets the Cipher algorithm.
-     *
-     * @return the algorithm code defined above; if the algorithm is not one of the pre-defined algorithms, 0 is returned.
-     */
+    public static Cipher getInstance(byte algorithm) {
+        CipherAlg a = CipherAlg.byByte(algorithm);
+        return a == null ? null : new AuthenticatedSymmetricCipherImpl(a);
+    }
+
     @Override
     public byte getAlgorithm() {
-        return algorithm;
+        return spec.algByte;
     }
 
-    /**
-     * Gets the raw cipher algorithm. Pre-defined codes listed in CIPHER_* constants in this class e.g. CIPHER_AES_CBC.
-     *
-     * @return the raw cipher algorithm code defined above; if the algorithm is not one of the pre-defined algorithms, 0 is returned.
-     */
     @Override
     public byte getCipherAlgorithm() {
-        switch (algorithm) {
-            case ALG_AES_CCM:
-                return CIPHER_AES_CCM;
-
-            case ALG_AES_GCM:
-                return CIPHER_AES_GCM;
-        }
-        return 0;
+        return spec.cipher;
     }
 
-    /**
-     * Gets the padding algorithm. Pre-defined codes listed in PAD_* constants in this class e.g. PAD_NULL.
-     *
-     * @return the padding algorithm code defined in the Cipher class; if the algorithm is not one of the pre-defined algorithms, 0 is returned.
-     */
     @Override
     public byte getPaddingAlgorithm() {
         return 0;
     }
 
-    /**
-     * Initializes the Cipher object with the appropriate Key.
-     * This method should be used for algorithms which do not need initialization parameters or use default parameter values.
-     * init() must be used to update the Cipher object with a new key.
-     * If the Key object is modified after invoking the init() method, the behavior of the update() and doFinal() methods is unspecified.
-     * The Key is checked for consistency with the Cipher algorithm. For example, the key type must be matched.
-     * For elliptic curve algorithms, the key must represent a valid point on the curve's domain parameters.
-     * Additional key component/domain parameter strength checks are implementation specific.
-     * Note:
-     * <li>AES, DES, triple DES and Korean SEED algorithms in CBC mode will use 0 for initial vector(IV) if this method is used.</li>
-     * <li>For optimal performance, when the theKey parameter is a transient key, the implementation should, whenever possible, use transient space for internal storage.</li>
-     * <li>AEADCipher in GCM mode will use 0 for initial vector(IV) if this method is used.</li>
-     *
-     * @param theKey  the key object to use for encrypting or decrypting
-     * @param theMode one of MODE_DECRYPT or MODE_ENCRYPT
-     * @throws CryptoException- with the following reason codes:
-     *                          <li>CryptoException.ILLEGAL_VALUE if theMode option is an undefined value or
-     *                          if the Key is inconsistent with the Cipher implementation.</li>
-     *                          <li>CryptoException.UNINITIALIZED_KEY if theKey instance is uninitialized.</li>
-     *                          <li>CryptoException.INVALID_INIT if this method is called for an offline mode of encryption</li>
-     */
     @Override
     public void init(Key theKey, byte theMode) throws CryptoException {
-        // Support only GCM which can operate in online mode
-        if (algorithm != ALG_AES_GCM) {
+        // Only GCM operates in online mode (unknown message length up front).
+        if (spec.algByte != ALG_AES_GCM) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
@@ -111,57 +109,27 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        // AEADCipher in GCM mode will use 0 for initial vector(IV) if this method is used
         byte[] iv = new byte[12];
-        Arrays.fill(iv, (byte) 0);
 
         selectCipherEngine(theKey);
 
         ParametersWithIV parametersWithIV = new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), iv);
         try {
             engine.init(theMode == MODE_ENCRYPT, parametersWithIV);
-        } catch (Exception ex) {
-            log.trace(ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
+        rememberKeyAndIV(theKey, iv);
         initMode = theMode;
-        state = CipherState.Initialized;
+        tagBytes = 16;
+        state = CipherState.INITIALIZED;
     }
 
-    /**
-     * Initializes the Cipher object with the appropriate Key and algorithm specific parameters.
-     * init() must be used to update the Cipher object with a new key.
-     * If the Key object is modified after invoking the init() method, the behavior of the update() and doFinal() methods is unspecified.
-     * <p>
-     * The Key is checked for consistency with the Cipher algorithm. For example, the key type must be matched.
-     * For elliptic curve algorithms, the key must represent a valid point on the curve's domain parameters.
-     * Additional key component/domain parameter strength checks are implementation specific.
-     * <p>
-     * Note:
-     * <li>DES and triple DES algorithms in CBC mode expect an 8-byte parameter value for the initial vector(IV) in bArray.</li>
-     * <li>AES algorithms in CBC mode expect a 16-byte parameter value for the initial vector(IV) in bArray.</li>
-     * <li>Korean SEED algorithms in CBC mode expect a 16-byte parameter value for the initial vector(IV) in bArray.</li>
-     * <li>AES algorithms in ECB mode, DES algorithms in ECB mode, Korean SEED algorithm in ECB mode, RSA and DSA algorithms throw CryptoException.ILLEGAL_VALUE.</li>
-     * <li>For optimal performance, when the theKey parameter is a transient key, the implementation should, whenever possible, use transient space for internal storage.</li>
-     *
-     * @param theKey  the key object to use for encrypting or decrypting.
-     * @param theMode one of MODE_DECRYPT or MODE_ENCRYPT
-     * @param bArray  byte array containing algorithm specific initialization info
-     * @param bOff    offset within bArray where the algorithm specific data begins
-     * @param bLen    byte length of algorithm specific parameter data
-     * @throws CryptoException with the following reason codes:
-     *                         <li>CryptoException.ILLEGAL_VALUE if theMode option is an undefined value or
-     *                         if a byte array parameter option is not supported by the algorithm or
-     *                         if the bLen is an incorrect byte length for the algorithm specific data or
-     *                         if the Key is inconsistent with the Cipher implementation.</li>
-     *                         <li>CryptoException.UNINITIALIZED_KEY if theKey instance is uninitialized.</li>
-     *                         <li>CryptoException.INVALID_INIT if this method is called for an offline mode of encryption</li>
-     */
     @Override
     public void init(Key theKey, byte theMode, byte[] bArray, short bOff, short bLen) throws CryptoException {
-        // Support only GCM which can operate as an online mode of encryption
-        if (algorithm != ALG_AES_GCM) {
+        // Only GCM operates in online mode (unknown message length up front).
+        if (spec.algByte != ALG_AES_GCM) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
@@ -169,8 +137,7 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        // Supports only the 12 byte IV length, which is the value recommended by NIST Special Publication 800-38D 5.2.1.1 Input Data
-        // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
+        // Only the 12-byte IV recommended by NIST SP 800-38D 5.2.1.1.
         if (bLen != 12) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
@@ -181,47 +148,28 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
         ParametersWithIV parametersWithIV = new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), iv);
         try {
             engine.init(theMode == MODE_ENCRYPT, parametersWithIV);
-        } catch (Exception ex) {
-            log.trace(ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
+        rememberKeyAndIV(theKey, iv);
         initMode = theMode;
-        state = CipherState.Initialized;
+        tagBytes = 16;
+        state = CipherState.INITIALIZED;
     }
 
-    /**
-     * Initializes this Cipher instance to encrypt or decrypt a with the given key, nonce, AAD size and message size.
-     * This method should only be called for offline cipher mode encryption such as Cipher#ALG_AES_CCM.
-     * In offline cipher mode encryption the length of the authentication data, message size and authentication tag must be known in advance.
-     *
-     * @param theKey     the key object to use for encrypting or decrypting
-     * @param theMode    one of MODE_DECRYPT or MODE_ENCRYPT
-     * @param nonceBuf   a buffer holding the nonce
-     * @param nonceOff   the offset in the buffer of the nonce
-     * @param nonceLen   the length in the buffer of the nonce
-     * @param adataLen   the length of the authenticated data as presented in the updateAAD method
-     * @param messageLen the length of the message as presented in the update and doFinal methods
-     * @param tagSize    the size in bytes of the authentication tag
-     * @throws CryptoException with the following reason codes:
-     *                         <li>CryptoException.ILLEGAL_VALUE if any of the values are outside the accepted range</li>
-     *                         <li>CryptoException.UNINITIALIZED_KEY if theKey instance is uninitialized.</li>
-     *                         <li>CryptoException.INVALID_INIT if this method is called for an online mode of encryption</li>
-     * @see javacardx.crypto.AEADCipher#init(Key, byte, byte[], short, short, short, short, short)
-     */
     @Override
     public void init(Key theKey, byte theMode, byte[] nonceBuf, short nonceOff, short nonceLen, short adataLen, short messageLen, short tagSize) throws CryptoException {
         if ((theMode != MODE_DECRYPT) && (theMode != MODE_ENCRYPT)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        // Check if this method is called for an online mode of encryption
+        // Zero message length or tag size signals an online-mode call, which this offline init does not serve.
         if ((messageLen == 0) || (tagSize == 0)) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
-        // Supports only the 12 byte IV length, which is the value recommended by NIST Special Publication 800-38D 5.2.1.1 Input Data
-        // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
+        // Only the 12-byte nonce recommended by NIST SP 800-38D 5.2.1.1.
         if (nonceLen != 12) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
@@ -231,115 +179,57 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
         byte[] iv_nonce = JCSystem.makeTransientByteArray(nonceLen, JCSystem.CLEAR_ON_RESET);
         Util.arrayCopyNonAtomic(nonceBuf, nonceOff, iv_nonce, (short) 0, nonceLen);
 
-        parameters = new AEADParameters((KeyParameter) ((SymmetricKeyImpl) theKey).getParameters(), tagSize * Byte.SIZE, iv_nonce);
+        rememberKeyAndIV(theKey, iv_nonce);
+        parameters = new AEADParameters(new KeyParameter(keyBytes), tagSize * Byte.SIZE, iv_nonce);
 
         try {
             engine.init(theMode == MODE_ENCRYPT, parameters);
-        } catch (Exception ex) {
-            log.trace(ex.getMessage(), ex);
+        } catch (RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
         initMode = theMode;
         initMsgLen = messageLen;
         initAADLen = adataLen;
+        tagBytes = tagSize;
         totalMsgLen = 0;
-        state = CipherState.Initialized;
+        state = CipherState.INITIALIZED;
     }
 
-    /**
-     * Continues a multi-part update of the Additional Associated Data (AAD) that will be verified by the authentication tag.
-     * The data is not included with the ciphertext by this method.
-     *
-     * @param aadBuf the buffer containing the AAD data
-     * @param aadOff the offset of the AAD data in the buffer
-     * @param aadLen the length in bytes of the AAD data in the buffer
-     * @throws CryptoException with the following reason codes:
-     *                         <li>ILLEGAL_USE if updating the AAD value is conflicting with the state of this cipher</li>
-     *                         <li>ILLEGAL_VALUE for CCM if the AAD size is different from the AAD size given in the initial block used as IV</li>
-     */
     @Override
     public void updateAAD(byte[] aadBuf, short aadOff, short aadLen) throws CryptoException {
-        if (state == CipherState.Uninitialized) {
+        if (!state.initialized()) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
 
-        if (algorithm == ALG_AES_CCM) {
+        if (spec.algByte == ALG_AES_CCM) {
             if (aadLen != initAADLen) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
             }
         }
 
         engine.processAADBytes(aadBuf, aadOff, aadLen);
+        aadSeen.write(aadBuf, aadOff, aadLen);
     }
 
-    /**
-     * Generates encrypted/decrypted output from input data. This method is intended for multiple-part encryption/decryption operations.
-     * This method requires temporary storage of intermediate results.
-     * In addition, if the input data length is not block aligned (multiple of block size) then additional internal storage may be allocated at this time to store a partial input data block.
-     * This may result in additional resource consumption and/or slow performance.
-     * <p>
-     * This method should only be used if all the input data required for the cipher is not available in one byte array.
-     * If all the input data required for the cipher is located in a single byte array, use of the doFinal() method to process all of the input data is recommended.
-     * The doFinal() method must be invoked to complete processing of any remaining input data buffered by one or more calls to the update() method.
-     * SensitiveResult class, if supported by the platform.
-     *
-     * @param inBuff    the input buffer of data to be encrypted/decrypted
-     * @param inOffset  the offset into the input buffer at which to begin encryption/decryption
-     * @param inLength  the byte length to be encrypted/decrypted
-     * @param outBuff   the output buffer, may be the same as the input buffer
-     * @param outOffset the offset into the output buffer where the resulting ciphertext/plaintext begins
-     * @return number of bytes output in outBuff
-     * @throws CryptoException with the following reason codes:
-     *                         <li>CryptoException.INVALID_INIT if this Cipher object is not initialized.</li>
-     *                         <li>CryptoException.UNINITIALIZED_KEY if key not initialized.</li>
-     *                         <li>CryptoException.ILLEGAL_USE</li>
-     *                         <li>for CCM if AAD is not provided while it is indicated in the initial block used as IV</li>
-     *                         <li>for CCM if the payload exceeds the payload size given in the initial block used as IV</li>
-     */
     @Override
     public short update(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-        if (state == CipherState.Uninitialized) {
+        if (!state.initialized()) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
-        int processBuffSize = engine.getUpdateOutputSize(inLength);
-
-        byte[] processBuff = new byte[processBuffSize];
-        short processedBytes = (short) engine.processBytes(inBuff, inOffset, inLength, processBuff, 0);
-        Util.arrayCopyNonAtomic(processBuff, (short) 0, outBuff, outOffset, processedBytes);
-
+        short processedBytes = (short) engine.processBytes(inBuff, inOffset, inLength, outBuff, outOffset);
         totalMsgLen += inLength;
         return processedBytes;
     }
 
-    /**
-     * Generates encrypted/decrypted output from all/last input data. This method must be invoked to complete a cipher operation.
-     * This method processes any remaining input data buffered by one or more calls to the update() method as well as input data supplied in the inBuff parameter.
-     * A call to this method also resets this Cipher object to the state it was in when previously initialized via a call to init().
-     * That is, the object is reset and available to encrypt or decrypt (depending on the operation mode that was specified in the call to init()) more data.
-     * In addition, note that the initial vector(IV) used in AES, DES and Korean SEED algorithms will be reset to 0.
-     *
-     * @param inBuff    the input buffer of data to be encrypted/decrypted
-     * @param inOffset  the offset into the input buffer at which to begin encryption/decryption
-     * @param inLength  the byte length to be encrypted/decrypted
-     * @param outBuff   the output buffer, may be the same as the input buffer
-     * @param outOffset the offset into the output buffer where the resulting output data begins
-     * @return number of bytes output in outBuff
-     * @throws CryptoException with the following reason codes:
-     *                         <li>INVALID_INIT if this Cipher object is not initialized.</li>
-     *                         <li>UNINITIALIZED_KEY if key not initialized.</li>
-     *                         <li>ILLEGAL_USE</li>
-     *                         <li>for CCM if all Additional Authenticated Data (AAD) was not provided</li>
-     *                         <li>for CCM if the total message size provided is not identical to the messageLen parameter given in the init method</li>
-     */
     @Override
     public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
-        if (state == CipherState.Uninitialized) {
+        if (!state.initialized()) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
 
-        if (algorithm == ALG_AES_CCM) {
+        if (spec.algByte == ALG_AES_CCM) {
             if (engine.getMac().length == 0) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_USE);
             }
@@ -350,41 +240,68 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             }
         }
 
-        int processBuffSize = engine.getOutputSize(inLength);
-        byte[] processBuff = new byte[processBuffSize];
-
-        try {
-            short processedBytes = (short) engine.processBytes(inBuff, inOffset, inLength, processBuff, 0);
-            processedBytes += engine.doFinal(processBuff, processedBytes);
-            Util.arrayCopyNonAtomic(processBuff, (short) 0, outBuff, outOffset, processedBytes);
-            state = CipherState.Finalized;
-            return processedBytes;
-
-        } catch (Exception ex) {
-            log.trace(ex.getMessage(), ex);
-            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+        if (initMode == MODE_DECRYPT) {
+            return decryptFinal(inBuff, inOffset, inLength, outBuff, outOffset);
         }
 
+        return encryptFinal(inBuff, inOffset, inLength, outBuff, outOffset);
+    }
+
+    // ENCRYPT: emit only the ciphertext; keep the tag for a later retrieveTag().
+    private short encryptFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
+        byte[] scratch = new byte[engine.getOutputSize(inLength)];
+        try {
+            int produced = engine.processBytes(inBuff, inOffset, inLength, scratch, 0);
+            produced += engine.doFinal(scratch, produced);
+            short ciphertextLen = (short) (produced - tagBytes);
+            Util.arrayCopyNonAtomic(scratch, (short) 0, outBuff, outOffset, ciphertextLen);
+            computedTag = Arrays.copyOfRange(scratch, ciphertextLen, produced);
+            state = CipherState.FINALIZED;
+            return ciphertextLen;
+        } catch (InvalidCipherTextException | RuntimeException ex) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+        }
         return -1;
     }
 
-    /**
-     * Retrieves tagLen bytes from the calculated authentication tag. Depending on the algorithm, only certain tag lengths may be supported.
-     * Note:
-     * This method may only be called for MODE_ENCRYPT after doFinal has been called.
-     * In addition to returning a short result, this method sets the result in an internal state which can be rechecked using assertion methods of the SensitiveResult class, if supported by the platform.
-     *
-     * @param tagBuf the buffer that will contain the authentication tag
-     * @param tagOff the offset of the authentication tag in the buffer
-     * @param tagLen the length in bytes of the authentication tag in the buffer
-     * @return the tag length, as given by tagLen (for convenience)
-     * @throws CryptoException with the following reason codes
-     *                         <li>ILLEGAL_USE if doFinal has not been called</li>
-     *                         <li>ILLEGAL_VALUE if the tag length is not supported</li>
-     */
+    // DECRYPT: emit only the plaintext, with no tag verification. verifyTag() is the sole verifier.
+    // The data transform is symmetric (the CTR keystream depends only on key and nonce, not on the AAD),
+    // so a fresh ENCRYPT-mode engine over the ciphertext yields the plaintext as its leading output bytes.
+    private short decryptFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) throws CryptoException {
+        try {
+            byte[] ciphertext = new byte[inLength];
+            Util.arrayCopyNonAtomic(inBuff, inOffset, ciphertext, (short) 0, inLength);
+            byte[] out = aeadEncrypt(ciphertext, new byte[0], 128);
+            byte[] plaintext = Arrays.copyOfRange(out, 0, ciphertext.length);
+            Util.arrayCopyNonAtomic(plaintext, (short) 0, outBuff, outOffset, (short) plaintext.length);
+            recoveredPlaintext = plaintext;
+            state = CipherState.FINALIZED;
+            return (short) plaintext.length;
+        } catch (RuntimeException ex) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+        }
+        return -1;
+    }
+
+    // Run a fresh ENCRYPT engine over the data with the retained key+nonce and given AAD and tag length,
+    // returning ciphertext followed by the authentication tag. BouncyCastle CCM getMac() is unreliable, so
+    // the tag is always taken from the trailing bytes of this output.
+    private byte[] aeadEncrypt(byte[] data, byte[] aad, int macBits) {
+        AEADBlockCipher fresh = spec.engineFactory.apply(SymmetricEngines.of(KeyBuilder.TYPE_AES, (short) (keyBytes.length * Byte.SIZE)));
+        fresh.init(true, new AEADParameters(new KeyParameter(keyBytes), macBits, ivBytes, aad));
+        byte[] scratch = new byte[fresh.getOutputSize(data.length)];
+        try {
+            int produced = fresh.processBytes(data, 0, data.length, scratch, 0);
+            produced += fresh.doFinal(scratch, produced);
+            return Arrays.copyOfRange(scratch, 0, produced);
+        } catch (InvalidCipherTextException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
     @Override
     public short retrieveTag(byte[] tagBuf, short tagOff, short tagLen) throws CryptoException {
-        if (state != CipherState.Finalized) {
+        if (state != CipherState.FINALIZED) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
 
@@ -392,36 +309,17 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
 
-        if (!checkSupportTagLength(tagLen)) {
+        if (!SUPPORTED_TAG_BITS.contains(tagLen * Byte.SIZE)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        byte[] mac = engine.getMac();
-
-        Util.arrayCopyNonAtomic(mac, (short) 0, tagBuf, tagOff, tagLen);
-
+        Util.arrayCopyNonAtomic(computedTag, (short) 0, tagBuf, tagOff, tagLen);
         return tagLen;
     }
 
-    /**
-     * Verifies the authentication tag using the number of bits set in requiredTagLen bits.
-     * Depending on the algorithm, only certain tag lengths may be supported. For all algorithms the tag length must be a multiple of 8 bits.
-     * Note:
-     * <li>This method may only be called for MODE_DECRYPT after doFinal has been called.</li>
-     * In addition to returning a boolean result, this method sets the result in an internal state which can be rechecked using assertion methods of the SensitiveResult class, if supported by the platform.
-     *
-     * @param receivedTagBuf the buffer that will contain the received authentication tag
-     * @param receivedTagOff the offset of the received authentication tag in the buffer
-     * @param receivedTagLen the length in bytes of the received authentication tag in the buffer
-     * @param requiredTagLen the required length in bytes of the received authentication tag, usually a constant value
-     * @return Tag verification result
-     * @throws CryptoException with the following reason codes:
-     *                         <li>ILLEGAL_USE if doFinal has not been called</li>
-     *                         <li>ILLEGAL_VALUE if the tag length is not supported</li>
-     */
     @Override
     public boolean verifyTag(byte[] receivedTagBuf, short receivedTagOff, short receivedTagLen, short requiredTagLen) throws CryptoException {
-        if (state != CipherState.Finalized) {
+        if (state != CipherState.FINALIZED) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
 
@@ -429,12 +327,13 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
 
-        if (!checkSupportTagLength(requiredTagLen)) {
+        if (!SUPPORTED_TAG_BITS.contains(requiredTagLen * Byte.SIZE)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        byte[] mac = engine.getMac();
-        return Arrays.areEqual(mac, 0, requiredTagLen, receivedTagBuf, receivedTagOff, receivedTagOff + receivedTagLen);
+        byte[] out = aeadEncrypt(recoveredPlaintext, aadSeen.toByteArray(), requiredTagLen * Byte.SIZE);
+        return Arrays.areEqual(out, recoveredPlaintext.length, recoveredPlaintext.length + requiredTagLen,
+                receivedTagBuf, receivedTagOff, receivedTagOff + requiredTagLen);
     }
 
     private void selectCipherEngine(Key theKey) {
@@ -449,48 +348,23 @@ public class AuthenticatedSymmetricCipherImpl extends AEADCipher {
         }
 
         SymmetricKeyImpl key = (SymmetricKeyImpl) theKey;
-
-        switch (algorithm) {
-
-            case ALG_AES_CCM:
-                try {
-                    engine = CCMBlockCipher.newInstance(key.getCipher());
-                } catch (Exception ex) {
-                    log.trace(ex.getMessage(), ex);
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                break;
-
-            case ALG_AES_GCM:
-                try {
-                    engine = GCMBlockCipher.newInstance(key.getCipher());
-                } catch (Exception ex) {
-                    log.trace(ex.getMessage(), ex);
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                break;
-
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        if (!SymmetricKeyImpl.KF_AES.contains(key.getType())) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
+        try {
+            engine = spec.engineFactory.apply(SymmetricEngines.of(key.getType(), key.getSize()));
+        } catch (RuntimeException ex) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
     }
 
-    private boolean checkSupportTagLength(short tagLen) {
-        short tagLenInBits = (short) (tagLen * Byte.SIZE);
-
-        switch (tagLenInBits) {
-            case 128:
-            case 120:
-            case 112:
-            case 104:
-            case 96:
-            case 64:
-            case 32:
-                return true;
-            default:
-                return false;
-
-        }
+    private void rememberKeyAndIV(Key theKey, byte[] iv) {
+        SymmetricKeyImpl key = (SymmetricKeyImpl) theKey;
+        keyBytes = new byte[key.getSize() / 8];
+        key.getKey(keyBytes, (short) 0);
+        ivBytes = iv.clone();
+        aadSeen.reset();
+        computedTag = null;
+        recoveredPlaintext = null;
     }
 }
