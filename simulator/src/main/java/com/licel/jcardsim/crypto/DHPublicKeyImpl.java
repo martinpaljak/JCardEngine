@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2018 Licel Corporation.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -44,7 +45,7 @@ public final class DHPublicKeyImpl extends DHKeyImpl implements DHPublicKey {
     public boolean isInitialized() {
         return super.isInitialized() && y.isInitialized();
     }
-    
+
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {

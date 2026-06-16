@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2018 Licel Corporation.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -15,8 +16,32 @@ import java.math.BigInteger;
 import java.security.SecureRandom;
 
 public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
-    
-    public static final short LENGTH_DH_1536 = 1536;
+
+    static final short LENGTH_DH_1536 = 1536;
+
+    private static final String rfc2409_1024_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
+            + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
+            + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381"
+            + "FFFFFFFFFFFFFFFF";
+    private static final String rfc2409_1024_g = "02";
+    private static final DHParameters rfc2409_1024 = fromPG(rfc2409_1024_p, rfc2409_1024_g);
+
+    private static final String rfc3526_1536_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
+            + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
+            + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"
+            + "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" + "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
+            + "670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF";
+    private static final String rfc3526_1536_g = "02";
+    private static final DHParameters rfc3526_1536 = fromPG(rfc3526_1536_p, rfc3526_1536_g);
+
+    private static final String rfc3526_2048_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
+            + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
+            + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"
+            + "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" + "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
+            + "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" + "E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"
+            + "DE2BCBF6955817183995497CEA956AE515D2261898FA0510" + "15728E5A8AACAA68FFFFFFFFFFFFFFFF";
+    private static final String rfc3526_2048_g = "02";
+    private static final DHParameters rfc3526_2048 = fromPG(rfc3526_2048_p, rfc3526_2048_g);
 
     private final ByteContainer p;
     private final ByteContainer q;
@@ -30,30 +55,6 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
         g = new ByteContainer(memoryType, size / 8);
         q = new ByteContainer(memoryType, size / 8, true);
     }
-        
-    private static final String rfc2409_1024_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
-    + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
-    + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381"
-    + "FFFFFFFFFFFFFFFF";
-    private static final String rfc2409_1024_g = "02";
-    public static final DHParameters rfc2409_1024 = fromPG(rfc2409_1024_p, rfc2409_1024_g);
-        
-    private static final String rfc3526_1536_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
-    + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
-    + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"
-    + "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" + "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
-    + "670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF";
-    private static final String rfc3526_1536_g = "02";
-    public static final DHParameters rfc3526_1536 = fromPG(rfc3526_1536_p, rfc3526_1536_g);
-    
-    private static final String rfc3526_2048_p = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"
-    + "29024E088A67CC74020BBEA63B139B22514A08798E3404DD" + "EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"
-    + "E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" + "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"
-    + "C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" + "83655D23DCA3AD961C62F356208552BB9ED529077096966D"
-    + "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" + "E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"
-    + "DE2BCBF6955817183995497CEA956AE515D2261898FA0510" + "15728E5A8AACAA68FFFFFFFFFFFFFFFF";
-    private static final String rfc3526_2048_g = "02";
-    public static final DHParameters rfc3526_2048 = fromPG(rfc3526_2048_p, rfc3526_2048_g);
 
     @Override
     void setParameters(CipherParameters params) {
@@ -64,7 +65,7 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
             q.setBigInteger(dhParam.getQ());
         }
     }
-    
+
     @Override
     CipherParameters getParameters() {
         if (!isInitialized()) {
@@ -75,7 +76,7 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
         }
         return new DHParameters(p.getBigInteger(), g.getBigInteger());
     }
-        
+
     @Override
     public void setP(byte[] bytes, short offset, short length) throws CryptoException {
         p.setBytes(bytes, offset, length);
@@ -117,21 +118,20 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
     public boolean isInitialized() {
         return p.isInitialized() && g.isInitialized();
     }
-    
+
     @Override
     KeyGenerationParameters getKeyGenerationParameters(SecureRandom rnd) {
         if (p.isInitialized() && g.isInitialized()) {
             if (q.isInitialized()) {
                 return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger(), q.getBigInteger()));
-            } else {
-                return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger()));
             }
+            return new DHKeyGenerationParameters(rnd, new DHParameters(p.getBigInteger(), g.getBigInteger()));
         }
         return getDefaultKeyGenerationParameters(size, rnd);
     }
-        
+
     static KeyGenerationParameters getDefaultKeyGenerationParameters(short keySize, SecureRandom rnd) {
-        switch(keySize) {
+        switch (keySize) {
             case KeyBuilder.LENGTH_DH_1024:
                 return new DHKeyGenerationParameters(rnd, rfc2409_1024);
             case LENGTH_DH_1536:
@@ -141,10 +141,9 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
             default:
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-
         return null;
     }
-        
+
     private static DHParameters fromPG(String hexP, String hexG) {
         var p = new BigInteger(1, Hex.decode(hexP));
         var g = new BigInteger(1, Hex.decode(hexG));

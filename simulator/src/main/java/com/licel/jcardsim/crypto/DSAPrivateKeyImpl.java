@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -6,7 +7,7 @@ import javacard.security.CryptoException;
 import javacard.security.DSAPrivateKey;
 import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.CipherParameters;
-import org.bouncycastle.crypto.params.DSAKeyParameters;
+import org.bouncycastle.crypto.params.DSAParameters;
 import org.bouncycastle.crypto.params.DSAPrivateKeyParameters;
 
 public final class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey {
@@ -51,6 +52,6 @@ public final class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new DSAPrivateKeyParameters(x.getBigInteger(), ((DSAKeyParameters) super.getParameters()).getParameters());
+        return new DSAPrivateKeyParameters(x.getBigInteger(), (DSAParameters) super.getParameters());
     }
 }

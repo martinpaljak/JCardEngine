@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 Martin Paljak <martin@martinpaljak.net>
 // SPDX-FileCopyrightText: 2011 Licel LLC.
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
@@ -14,20 +15,19 @@ import org.bouncycastle.crypto.params.DSAValidationParameters;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
-public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
+public abstract class DSAKeyImpl extends KeyWithParameters implements DSAKey {
 
     private final ByteContainer p;
     private final ByteContainer q;
     private final ByteContainer g;
-    private boolean isPrivate;
 
-    public DSAKeyImpl(byte keyType, short keySize, byte memoryType) {
-        super(keyType, keySize, memoryType);
+    protected DSAKeyImpl(byte type, short size, byte memoryType) {
+        super(type, size, memoryType);
         // p and g are sized to the prime width; q has no canonical width, so it is allocated
         // at prime width and read back at its actual length
-        p = new ByteContainer(memoryType, keySize / 8);
-        g = new ByteContainer(memoryType, keySize / 8);
-        q = new ByteContainer(memoryType, keySize / 8, true);
+        p = new ByteContainer(memoryType, size / 8);
+        g = new ByteContainer(memoryType, size / 8);
+        q = new ByteContainer(memoryType, size / 8, true);
     }
 
     @Override
@@ -85,7 +85,7 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new DSAKeyParameters(isPrivate, new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger()));
+        return new DSAParameters(p.getBigInteger(), q.getBigInteger(), g.getBigInteger());
     }
 
     @Override
@@ -148,6 +148,5 @@ public class DSAKeyImpl extends KeyWithParameters implements DSAKey {
                 break;
         }
         return new DSAKeyGenerationParameters(rnd, new DSAParameters(p, q, g, new DSAValidationParameters(seed.toByteArray(), counter)));
-
     }
 }

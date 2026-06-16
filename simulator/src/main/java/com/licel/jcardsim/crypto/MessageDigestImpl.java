@@ -113,10 +113,10 @@ public final class MessageDigestImpl extends InitializedMessageDigest {
 
         // Patch the caller's chaining value and processed-length into a pristine encoded state, then rebuild.
         engine.reset();
-        byte[] enc = ((EncodableDigest) engine).getEncodedState();
+        var enc = ((EncodableDigest) engine).getEncodedState();
         System.arraycopy(initialDigestBuf, initialDigestOffset, enc, stateOffset(), stateSize);
         if (!(engine instanceof KeccakDigest)) {
-            int countOff = engine instanceof LongDigest ? 12 : 8;
+            var countOff = engine instanceof LongDigest ? 12 : 8;
             Pack.longToBigEndian(byteCountLo, enc, countOff);
             if (engine instanceof LongDigest) {
                 Pack.longToBigEndian(byteCountHi, enc, countOff + 8);
@@ -136,7 +136,7 @@ public final class MessageDigestImpl extends InitializedMessageDigest {
     }
 
     void getIntermediateDigest(byte[] intermediateDigest, int off) {
-        byte[] enc = ((EncodableDigest) engine).getEncodedState();
+        var enc = ((EncodableDigest) engine).getEncodedState();
         System.arraycopy(enc, stateOffset(), intermediateDigest, off, stateSize);
     }
 

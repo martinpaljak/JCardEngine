@@ -13,20 +13,79 @@ import org.bouncycastle.crypto.generators.ECKeyPairGenerator;
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator;
 
 import java.security.SecureRandom;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 /**
  * <code>KeyPair</code> backed by the BouncyCastle Crypto API.
- *
- * @see KeyPair
  */
 public final class KeyPairImpl {
 
-    byte algorithm;
-    short keyLength;
-    AsymmetricCipherKeyPairGenerator engine;
-    PrivateKey privateKey;
-    PublicKey publicKey;
-    KeyGenerationParameters keyGenerationParameters;
+    private enum Alg {
+        RSA(KeyPair.ALG_RSA, KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.TYPE_RSA_PRIVATE,
+                RSAKeyPairGenerator::new, (len, rnd) -> RSAKeyImpl.getDefaultKeyGenerationParameters(len, rnd)),
+        RSA_CRT(KeyPair.ALG_RSA_CRT, KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.TYPE_RSA_CRT_PRIVATE,
+                RSAKeyPairGenerator::new, (len, rnd) -> RSAKeyImpl.getDefaultKeyGenerationParameters(len, rnd)),
+        EC_FP(KeyPair.ALG_EC_FP, KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.TYPE_EC_FP_PRIVATE,
+                ECKeyPairGenerator::new, (len, rnd) -> ECKeyImpl.getDefaultKeyGenerationParameters(KeyPair.ALG_EC_FP, len, rnd)),
+        EC_F2M(KeyPair.ALG_EC_F2M, KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.TYPE_EC_F2M_PRIVATE,
+                ECKeyPairGenerator::new, (len, rnd) -> ECKeyImpl.getDefaultKeyGenerationParameters(KeyPair.ALG_EC_F2M, len, rnd)),
+        DSA(KeyPair.ALG_DSA, KeyBuilder.TYPE_DSA_PUBLIC, KeyBuilder.TYPE_DSA_PRIVATE,
+                DSAKeyPairGenerator::new, Alg::dsaParams),
+        DH(KeyPair.ALG_DH, KeyBuilder.TYPE_DH_PUBLIC, KeyBuilder.TYPE_DH_PRIVATE,
+                DHKeyPairGenerator::new, (len, rnd) -> DHKeyImpl.getDefaultKeyGenerationParameters(len, rnd));
+
+        final byte algByte;
+        final byte pubType;
+        final byte privType;
+        final Supplier<AsymmetricCipherKeyPairGenerator> generator;
+        final BiFunction<Short, SecureRandom, KeyGenerationParameters> defaultParams;
+
+        Alg(byte algByte, byte pubType, byte privType, Supplier<AsymmetricCipherKeyPairGenerator> generator,
+                BiFunction<Short, SecureRandom, KeyGenerationParameters> defaultParams) {
+            this.algByte = algByte;
+            this.pubType = pubType;
+            this.privType = privType;
+            this.generator = generator;
+            this.defaultParams = defaultParams;
+        }
+
+        private static KeyGenerationParameters dsaParams(Short len, SecureRandom rnd) {
+            // DSA key length must be 512..1024 in steps of 64.
+            if (len < 512 || len > 1024 || len % 64 != 0) {
+                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            }
+            return DSAKeyImpl.getDefaultKeyGenerationParameters(len, rnd);
+        }
+
+        static Alg byByte(byte algorithm) {
+            for (var a : values()) {
+                if (a.algByte == algorithm) {
+                    return a;
+                }
+            }
+            return null;
+        }
+
+        static Alg byKeyType(byte keyType) {
+            return switch (keyType) {
+                case KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.TYPE_RSA_PUBLIC -> RSA;
+                case KeyBuilder.TYPE_RSA_CRT_PRIVATE -> RSA_CRT;
+                case KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.TYPE_EC_FP_PRIVATE -> EC_FP;
+                case KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.TYPE_EC_F2M_PRIVATE -> EC_F2M;
+                case KeyBuilder.TYPE_DSA_PUBLIC, KeyBuilder.TYPE_DSA_PRIVATE -> DSA;
+                case KeyBuilder.TYPE_DH_PUBLIC, KeyBuilder.TYPE_DH_PRIVATE -> DH;
+                default -> null;
+            };
+        }
+    }
+
+    private byte algorithm;
+    private short keyLength;
+    private AsymmetricCipherKeyPairGenerator engine;
+    private PrivateKey privateKey;
+    private PublicKey publicKey;
+    private KeyGenerationParameters keyGenerationParameters;
 
     public void genKeyPair() throws CryptoException {
         initEngine();
@@ -72,33 +131,11 @@ public final class KeyPairImpl {
     }
 
     private void selectAlgorithmByType(byte keyType) {
-        switch (keyType) {
-            case KeyBuilder.TYPE_RSA_PRIVATE:
-            case KeyBuilder.TYPE_RSA_PUBLIC:
-                algorithm = KeyPair.ALG_RSA;
-                break;
-            case KeyBuilder.TYPE_RSA_CRT_PRIVATE:
-                algorithm = KeyPair.ALG_RSA_CRT;
-                break;
-            case KeyBuilder.TYPE_EC_F2M_PUBLIC:
-            case KeyBuilder.TYPE_EC_F2M_PRIVATE:
-                algorithm = KeyPair.ALG_EC_F2M;
-                break;
-            case KeyBuilder.TYPE_EC_FP_PUBLIC:
-            case KeyBuilder.TYPE_EC_FP_PRIVATE:
-                algorithm = KeyPair.ALG_EC_FP;
-                break;
-            case KeyBuilder.TYPE_DSA_PUBLIC:
-            case KeyBuilder.TYPE_DSA_PRIVATE:
-                algorithm = KeyPair.ALG_DSA;
-                break;
-            case KeyBuilder.TYPE_DH_PUBLIC:
-            case KeyBuilder.TYPE_DH_PRIVATE:
-                algorithm = KeyPair.ALG_DH;
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        var a = Alg.byKeyType(keyType);
+        if (a == null) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
+        algorithm = a.algByte;
     }
 
     private void initEngine() {
@@ -108,83 +145,30 @@ public final class KeyPairImpl {
         if (publicKey != null) {
             keyGenerationParameters = ((KeyWithParameters) publicKey).getKeyGenerationParameters(rnd);
         }
-        switch (algorithm) {
-            case KeyPair.ALG_RSA:
-            case KeyPair.ALG_RSA_CRT:
-                if (keyGenerationParameters == null) {
-                    keyGenerationParameters = RSAKeyImpl.getDefaultKeyGenerationParameters(keyLength, rnd);
-                }
-                engine = new RSAKeyPairGenerator();
-                break;
-            case KeyPair.ALG_DSA:
-                if (keyLength < 512 || keyLength > 1024 || keyLength % 64 != 0) {
-                    CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-                }
-                if (keyGenerationParameters == null) {
-                    keyGenerationParameters = DSAKeyImpl.getDefaultKeyGenerationParameters(keyLength, rnd);
-                }
-                engine = new DSAKeyPairGenerator();
-                break;
-            case KeyPair.ALG_EC_F2M:
-            case KeyPair.ALG_EC_FP:
-                if (keyGenerationParameters == null) {
-                    keyGenerationParameters = ECKeyImpl.getDefaultKeyGenerationParameters(algorithm, keyLength, rnd);
-                }
-                engine = new ECKeyPairGenerator();
-                break;
-            case KeyPair.ALG_DH:
-                if (keyGenerationParameters == null) {
-                    keyGenerationParameters = DHKeyImpl.getDefaultKeyGenerationParameters(keyLength, rnd);
-                }
-                engine = new DHKeyPairGenerator();
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        var a = Alg.byByte(algorithm);
+        if (a == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
+        if (keyGenerationParameters == null) {
+            keyGenerationParameters = a.defaultParams.apply(keyLength, rnd);
+        }
+        engine = a.generator.get();
         engine.init(keyGenerationParameters);
     }
 
     private void createKeys() {
-        byte privateKeyType = 0;
-        byte publicKeyType = 0;
-        switch (algorithm) {
-            case KeyPair.ALG_RSA:
-                publicKeyType = KeyBuilder.TYPE_RSA_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_RSA_PRIVATE;
-                break;
-            case KeyPair.ALG_RSA_CRT:
-                publicKeyType = KeyBuilder.TYPE_RSA_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_RSA_CRT_PRIVATE;
-                break;
-            case KeyPair.ALG_EC_FP:
-                publicKeyType = KeyBuilder.TYPE_EC_FP_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_EC_FP_PRIVATE;
-                break;
-            case KeyPair.ALG_EC_F2M:
-                publicKeyType = KeyBuilder.TYPE_EC_F2M_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_EC_F2M_PRIVATE;
-                break;
-            case KeyPair.ALG_DSA:
-                publicKeyType = KeyBuilder.TYPE_DSA_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_DSA_PRIVATE;
-                break;
-            case KeyPair.ALG_DH:
-                publicKeyType = KeyBuilder.TYPE_DH_PUBLIC;
-                privateKeyType = KeyBuilder.TYPE_DH_PRIVATE;
-                break;
-            default:
-                CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-                break;
+        var a = Alg.byByte(algorithm);
+        if (a == null) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
         }
         if (publicKey != null && keyLength == 0) {
             keyLength = publicKey.getSize();
         }
         if (publicKey == null) {
-            publicKey = (PublicKey) KeyBuilder.buildKey(publicKeyType, keyLength, false);
+            publicKey = (PublicKey) KeyBuilder.buildKey(a.pubType, keyLength, false);
         }
         if (privateKey == null) {
-            privateKey = (PrivateKey) KeyBuilder.buildKey(privateKeyType, keyLength, false);
+            privateKey = (PrivateKey) KeyBuilder.buildKey(a.privType, keyLength, false);
         }
     }
 }

@@ -139,19 +139,21 @@ public final class SymmetricSignatureImpl extends Signature {
     // Probed by SignatureProxy: an instance for any algorithm this table holds, else null. The proxy is
     // responsible for turning a null into NO_SUCH_ALGORITHM.
     public static Signature getInstance(byte algorithm) {
-        MacAlg a = MacAlg.byByte(algorithm);
+        var a = MacAlg.byByte(algorithm);
         return a == null ? null : new SymmetricSignatureImpl(a);
     }
 
     public static Signature getInstance(byte messageDigestAlgorithm, byte cipherAlgorithm, byte paddingAlgorithm) {
-        MacAlg a = MacAlg.from(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
+        var a = MacAlg.from(messageDigestAlgorithm, cipherAlgorithm, paddingAlgorithm);
         return a == null ? null : new SymmetricSignatureImpl(a);
     }
 
+    @Override
     public void init(Key theKey, byte theMode) throws CryptoException {
         init(theKey, theMode, null, (short) 0, (short) 0);
     }
-    
+
+    @Override
     public void init(Key theKey, byte theMode, byte[] bArray, short bOff, short bLen) throws CryptoException {
         if (theKey == null) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
@@ -170,7 +172,7 @@ public final class SymmetricSignatureImpl extends Signature {
         if (bArray == null) {
             cipherParams = ((SymmetricKeyImpl) theKey).getParameters();
         } else {
-            BlockCipher probe = CipherUtils.of(theKey.getType(), theKey.getSize());
+            var probe = CipherUtils.of(theKey.getType(), theKey.getSize());
             if (bLen != probe.getBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
             }
@@ -180,25 +182,29 @@ public final class SymmetricSignatureImpl extends Signature {
         engine.init(cipherParams);
         isInitialized = true;
     }
-    
+
+    @Override
     public short getLength() throws CryptoException {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
         return (short) engine.getMacSize();
     }
-    
+
+    @Override
     public byte getAlgorithm() {
         return algorithm;
     }
-    
+
+    @Override
     public void update(byte[] inBuff, short inOffset, short inLength) throws CryptoException {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
         }
         engine.update(inBuff, inOffset, inLength);
     }
-    
+
+    @Override
     public short sign(byte[] inBuff, short inOffset, short inLength, byte[] sigBuff, short sigOffset) throws CryptoException {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
@@ -207,11 +213,12 @@ public final class SymmetricSignatureImpl extends Signature {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         engine.update(inBuff, inOffset, inLength);
-        short processedBytes = (short) engine.doFinal(sigBuff, sigOffset);
+        var processedBytes = (short) engine.doFinal(sigBuff, sigOffset);
         engine.reset();
         return processedBytes;
     }
-    
+
+    @Override
     public boolean verify(byte[] inBuff, short inOffset, short inLength, byte[] sigBuff, short sigOffset, short sigLength) throws CryptoException {
         if (!isInitialized) {
             CryptoException.throwIt(CryptoException.INVALID_INIT);
@@ -220,7 +227,7 @@ public final class SymmetricSignatureImpl extends Signature {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
         }
         engine.update(inBuff, inOffset, inLength);
-        byte[] sig = new byte[getLength()];
+        var sig = new byte[getLength()];
         engine.doFinal(sig, (short) 0);
         engine.reset();
         if (sigLength != (short) sig.length) {
@@ -229,24 +236,32 @@ public final class SymmetricSignatureImpl extends Signature {
         return Util.arrayCompare(sig, (short) 0, sigBuff, sigOffset, (short) sig.length) == 0;
     }
 
+    @Override
     public void setInitialDigest(byte[] bytes, short s, short s1, byte[] bytes1, short s2, short s3) throws CryptoException {
-        throw new UnsupportedOperationException("Not supported yet."); 
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    @Override
     public short signPreComputedHash(byte[] bytes, short s, short s1, byte[] bytes1, short s2) throws CryptoException {
-        throw new UnsupportedOperationException("Not supported yet."); 
+        throw new UnsupportedOperationException("Not supported yet.");
     }
+
+    @Override
     public boolean verifyPreComputedHash(byte[] bytes, short s, short s1, byte[] bytes1, short s2, short s3) throws CryptoException {
-        throw new UnsupportedOperationException("Not supported yet."); 
+        throw new UnsupportedOperationException("Not supported yet.");
     }
+
+    @Override
     public byte getPaddingAlgorithm() {
         return spec.padding;
     }
 
+    @Override
     public byte getMessageDigestAlgorithm() {
         return spec.md;
     }
 
+    @Override
     public byte getCipherAlgorithm() {
         return spec.cipher;
     }
