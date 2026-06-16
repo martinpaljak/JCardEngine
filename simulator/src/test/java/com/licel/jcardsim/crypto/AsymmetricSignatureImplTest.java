@@ -11,13 +11,11 @@ import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 import pro.javacard.engine.globalplatform.SCPConfig;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 
 /**
  * Test for
@@ -360,15 +358,15 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
             byte[] sig = new byte[200];
             byte[] msg = new byte[48];
             short n = s.sign(msg, (short) 0, (short) msg.length, sig, (short) 0);
-            assertEquals(137, n); // full long-form DER for this curve
+            assertEquals(n, 137); // full long-form DER for this curve
             assertTrue(n <= s.getLength()); // a produced signature fits the reported length
         } finally {
             base.asCurrent();
         }
 
         // short form for small curves; long form (one extra SEQUENCE length byte) once content reaches 128
-        assertEquals(72, ecdsaMaxLength((short) 256)); // 2*(02||len||(00||32)) + 30||len
-        assertEquals(141, ecdsaMaxLength((short) 521)); // 66-byte scalars, content 138 -> long form
+        assertEquals(ecdsaMaxLength((short) 256), 72); // 2*(02||len||(00||32)) + 30||len
+        assertEquals(ecdsaMaxLength((short) 521), 141); // 66-byte scalars, content 138 -> long form
     }
 
     private short ecdsaMaxLength(short keySize) {
@@ -463,7 +461,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         engine.init(publicKey, Signature.MODE_VERIFY);
         boolean result = engine.verify(etalonMsg, (short) 0, (short) etalonMsg.length, etalonSign, etalonSignOffset,
                 (short) (etalonSignLength != 0 ? etalonSignLength : etalonSign.length));
-        assertEquals(true, result);
+        assertTrue(result);
     }
 
     /**
@@ -481,6 +479,6 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         engine.init(publicKey, Signature.MODE_VERIFY);
         boolean result = engine.verifyPreComputedHash(msgDigest, (short) 0, (short) msgDigest.length,
                 etalonSign, etalonSignOffset, (short) (etalonSignLength != 0 ? etalonSignLength : etalonSign.length));
-        assertEquals(true, result);
+        assertTrue(result);
     }
 }

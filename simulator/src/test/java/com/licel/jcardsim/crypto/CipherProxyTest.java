@@ -8,16 +8,14 @@ import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.testng.Assert.*;
 
 public class CipherProxyTest extends SimulatorCoreTest {
 
@@ -60,12 +58,12 @@ public class CipherProxyTest extends SimulatorCoreTest {
     @Test
     public void testOneShotAndCipherPaddingResolution() {
         // 3-arg getInstance maps (cipher, padding) pair to the corresponding ALG_* constant
-        assertEquals(Cipher.ALG_RSA_NOPAD, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_NOPAD, false).getAlgorithm());
-        assertEquals(Cipher.ALG_RSA_PKCS1, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1, false).getAlgorithm());
-        assertEquals(Cipher.ALG_RSA_PKCS1_OAEP, Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1_OAEP, false).getAlgorithm());
-        assertEquals(Cipher.ALG_DES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_DES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
-        assertEquals(Cipher.ALG_AES_CBC_ISO9797_M2, Cipher.getInstance(Cipher.CIPHER_AES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm());
-        assertEquals(Cipher.ALG_AES_ECB_PKCS5, Cipher.getInstance(Cipher.CIPHER_AES_ECB, Cipher.PAD_PKCS5, false).getAlgorithm());
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_NOPAD, false).getAlgorithm(), Cipher.ALG_RSA_NOPAD);
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1, false).getAlgorithm(), Cipher.ALG_RSA_PKCS1);
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_PKCS1_OAEP, false).getAlgorithm(), Cipher.ALG_RSA_PKCS1_OAEP);
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_DES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm(), Cipher.ALG_DES_CBC_ISO9797_M2);
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_AES_CBC, Cipher.PAD_ISO9797_M2, false).getAlgorithm(), Cipher.ALG_AES_CBC_ISO9797_M2);
+        assertEquals(Cipher.getInstance(Cipher.CIPHER_AES_ECB, Cipher.PAD_PKCS5, false).getAlgorithm(), Cipher.ALG_AES_ECB_PKCS5);
 
         // Cipher.OneShot: AES-128 ECB encrypt/decrypt round trip; update() must throw ILLEGAL_USE
         AESKey key = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
@@ -77,12 +75,12 @@ public class CipherProxyTest extends SimulatorCoreTest {
         Cipher.OneShot enc = Cipher.OneShot.open(Cipher.CIPHER_AES_ECB, Cipher.PAD_NOPAD);
         try {
             enc.init(key, Cipher.MODE_ENCRYPT);
-            assertEquals(16, enc.doFinal(msg, (short) 0, (short) msg.length, ct, (short) 0));
+            assertEquals(enc.doFinal(msg, (short) 0, (short) msg.length, ct, (short) 0), 16);
             try {
                 enc.update(msg, (short) 0, (short) msg.length, ct, (short) 0);
                 fail("No exception");
             } catch (CryptoException e) {
-                assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+                assertEquals(e.getReason(), CryptoException.ILLEGAL_USE);
             }
         } finally {
             enc.close();
@@ -92,16 +90,16 @@ public class CipherProxyTest extends SimulatorCoreTest {
             enc.doFinal(msg, (short) 0, (short) msg.length, ct, (short) 0);
             fail("No exception");
         } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+            assertEquals(e.getReason(), CryptoException.ILLEGAL_USE);
         }
 
         Cipher.OneShot dec = Cipher.OneShot.open(Cipher.CIPHER_AES_ECB, Cipher.PAD_NOPAD);
         try {
             dec.init(key, Cipher.MODE_DECRYPT);
-            assertEquals(16, dec.doFinal(ct, (short) 0, (short) ct.length, back, (short) 0));
+            assertEquals(dec.doFinal(ct, (short) 0, (short) ct.length, back, (short) 0), 16);
         } finally {
             dec.close();
         }
-        assertTrue(Arrays.equals(msg, back));
+        assertEquals(back, msg);
     }
 }

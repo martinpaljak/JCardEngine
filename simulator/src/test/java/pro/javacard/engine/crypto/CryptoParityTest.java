@@ -65,8 +65,9 @@ import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.crypto.signers.ECDSASigner;
 import org.bouncycastle.math.ec.ECPoint;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.testng.SkipException;
+import org.testng.annotations.Test;
+import static org.testng.Assert.*;
 
 import javax.smartcardio.CardTerminal;
 import javax.smartcardio.TerminalFactory;
@@ -110,7 +111,7 @@ public class CryptoParityTest {
     private enum KeyMode {GEN, INJECT}
 
     @Test
-    void jcardengine() {
+    public void jcardengine() {
         var sim = new Simulator();
         sim.installApplet(AIDUtil.create(AID), CryptoProbeApplet.class);
         try (BIBO bibo = sim.connect()) {
@@ -119,9 +120,11 @@ public class CryptoParityTest {
     }
 
     @Test
-    @EnabledIfEnvironmentVariable(named = "PROBE_READER", matches = ".+")
-    void pcsc() throws Exception {
+    public void pcsc() throws Exception {
         String name = System.getenv("PROBE_READER");
+        if (name == null || name.isEmpty()) {
+            throw new SkipException("PROBE_READER not set");
+        }
         CardTerminal terminal = TerminalFactory.getDefault().terminals().list().stream()
                 .filter(t -> t.getName().equals(name)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("reader not found: " + name));

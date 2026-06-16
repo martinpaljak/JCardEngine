@@ -6,13 +6,12 @@ import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.testapplets.MemoryApplet;
 
 import java.nio.ByteBuffer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 
 public class MemoryAppletTest {
     private static final String AID_HEX = "D23300000077" + "4D454D2D3031" + "01";
@@ -27,14 +26,14 @@ public class MemoryAppletTest {
     }
 
     @Test
-    void queryExtended() {
+    public void queryExtended() {
         try (var bibo = selectFresh()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x01, 0x00, 256));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
             r = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
             var data = r.getData();
-            assertEquals(12, data.length);
+            assertEquals(data.length, 12);
 
             var bb = ByteBuffer.wrap(data);
             var persistent = Integer.toUnsignedLong(bb.getInt());
@@ -47,12 +46,12 @@ public class MemoryAppletTest {
     }
 
     @Test
-    void queryLegacy() {
+    public void queryLegacy() {
         try (var bibo = selectFresh()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x01, 256));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
             var data = r.getData();
-            assertEquals(6, data.length);
+            assertEquals(data.length, 6);
 
             var bb = ByteBuffer.wrap(data);
             var persistent = Short.toUnsignedInt(bb.getShort());

@@ -4,10 +4,9 @@
 package pro.javacard.engine.proxy.javacard.security.framework;
 
 import javacard.framework.Util;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.testng.Assert.*;
 
 public class UtilTest {
 
@@ -16,7 +15,7 @@ public class UtilTest {
         byte[] src = new byte[]{0x01};
         byte[] dest = new byte[]{0x02};
         byte res = Util.arrayCompare(src, (short) 0, dest, (short) 0, (short) 1);
-        assertEquals(-1, res);
+        assertEquals(res, -1);
     }
 
     @Test
@@ -24,7 +23,7 @@ public class UtilTest {
         byte[] src = new byte[]{(byte) 0xff};
         byte[] dest = new byte[]{0x01};
         byte res = Util.arrayCompare(src, (short) 0, dest, (short) 0, (short) 1);
-        assertEquals(1, res);
+        assertEquals(res, 1);
     }
 
     /**
@@ -39,11 +38,11 @@ public class UtilTest {
         byte bValue = 1;
         short expResult = (short) (bOff + bLen);
         short result = Util.arrayFillNonAtomic(bArray, bOff, bLen, bValue);
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         byte res = Util.arrayCompare(bArray, (short) 0, etalonArray, (short) 0, (short) 16);
-        assertEquals(0, res);
+        assertEquals(res, 0);
         // Zero-length fill at the end of the array is a no-op, not AIOOBE
-        assertEquals((short) bArray.length, Util.arrayFillNonAtomic(bArray, (short) bArray.length, (short) 0, bValue));
+        assertEquals(Util.arrayFillNonAtomic(bArray, (short) bArray.length, (short) 0, bValue), (short) bArray.length);
 
         // A non-zero fill running past the end of the array throws (bounds checked at bOff+bLen-1)
         assertThrows(ArrayIndexOutOfBoundsException.class,

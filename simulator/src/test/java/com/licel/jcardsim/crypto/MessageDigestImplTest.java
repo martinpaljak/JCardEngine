@@ -6,13 +6,12 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.security.CryptoException;
 import javacard.security.InitializedMessageDigest;
 import javacard.security.MessageDigest;
-import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.security.SecureRandom;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>MessageDigestImpl</code>
@@ -74,43 +73,43 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
         // md5
         byte expResult = MessageDigest.ALG_MD5;
         byte result = engineMD5.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha1
         expResult = MessageDigest.ALG_SHA;
         result = engineSHA1.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha224
         expResult = MessageDigest.ALG_SHA_224;
         result = engineSHA224.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha256
         expResult = MessageDigest.ALG_SHA_256;
         result = engineSHA256.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha384
         expResult = MessageDigest.ALG_SHA_384;
         result = engineSHA384.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha512
         expResult = MessageDigest.ALG_SHA_512;
         result = engineSHA512.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha3-224
         expResult = MessageDigest.ALG_SHA3_224;
         result = engineSHA3_224.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha3-256
         expResult = MessageDigest.ALG_SHA3_256;
         result = engineSHA3_256.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha3-384
         expResult = MessageDigest.ALG_SHA3_384;
         result = engineSHA3_384.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
         // sha3-512
         expResult = MessageDigest.ALG_SHA3_512;
         result = engineSHA3_512.getAlgorithm();
-        assertEquals(expResult, result);
+        assertEquals(result, expResult);
     }
 
     /**
@@ -319,7 +318,7 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
     private void testEngineDoFinal(MessageDigest engine, byte[] msg, byte[] etalonDigest) {
         byte[] digest = new byte[engine.getLength()];
         engine.doFinal(msg, (short) 0, (short) msg.length, digest, (short) 0);
-        assertEquals(true, Arrays.areEqual(etalonDigest, digest));
+        assertEquals(digest, etalonDigest);
     }
 
     /**
@@ -333,7 +332,7 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
         byte[] digest = new byte[engine.getLength()];
         engine.update(msg, (short) 0, (short) 7);
         engine.doFinal(msg, (short) 7, (short) (msg.length - 7), digest, (short) 0);
-        assertEquals(true, Arrays.areEqual(etalonDigest, digest));
+        assertEquals(digest, etalonDigest);
     }
 
     /**
@@ -381,7 +380,7 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
             mdInstance.setInitialDigest(initialDigestBuf, setOff, stateSize, partBytes, (short) 0, (short) partBytes.length);
             mdInstance.doFinal(inputData, part, (short) (inputData.length - part), digest, (short) 0);
 
-            assertEquals(true, Arrays.areEqual(etalonDigest, digest));
+            assertEquals(digest, etalonDigest);
         }
     }
 
@@ -389,10 +388,10 @@ public class MessageDigestImplTest extends SimulatorCoreTest {
     public void testInitializedDigestRejectsNonShaFamily() {
         // JC API 3.2: intermediate hash is per-algorithm; engine supports only the SHA family
         for (byte alg : new byte[]{MessageDigest.ALG_MD5, MessageDigest.ALG_RIPEMD160}) {
-            CryptoException e = assertThrows(CryptoException.class,
+            CryptoException e = expectThrows(CryptoException.class,
                     () -> MessageDigest.getInitializedMessageDigestInstance(alg, false));
             // not supported as InitializedMessageDigest
-            assertEquals(CryptoException.NO_SUCH_ALGORITHM, e.getReason());
+            assertEquals(e.getReason(), CryptoException.NO_SUCH_ALGORITHM);
         }
     }
 }

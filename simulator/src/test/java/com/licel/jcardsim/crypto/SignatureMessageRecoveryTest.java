@@ -5,10 +5,10 @@ package com.licel.jcardsim.crypto;
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
 import javacard.security.*;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 import org.bouncycastle.util.encoders.Hex;
 
 /**
@@ -30,8 +30,8 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
     /**
      * Only this class's install method should create the applet object.
      */
-    @BeforeAll
-    static void setUp() {
+    @BeforeClass
+    public static void setUp() {
         pubKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_512, false);
         privKey = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_512, false);
         privKey.setExponent(RSA_PRIV_KEY_EXP, (short) 0, (short) RSA_PRIV_KEY_EXP.length);
@@ -59,7 +59,7 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
 
         assertEquals(m1Length, 1);
 
-        assertEquals(true, verified);
+        assertTrue(verified);
 
     }
 
@@ -80,9 +80,9 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
 
         boolean verified = sig.verify(data, (short) 0, (short) 0);
 
-        assertEquals(m1Length, m1Data[0]);
+        assertEquals(m1Data[0], m1Length);
 
-        assertEquals(true, verified);
+        assertTrue(verified);
 
     }
 
@@ -105,7 +105,7 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
         byte[] etalonNonRecMsg = Hex.decode("2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243444546");
 
         boolean verified = sig.verify(etalonNonRecMsg, (short) 0, (short) etalonNonRecMsg.length);
-        assertEquals(true, verified);
+        assertTrue(verified);
 
     }
 
@@ -127,10 +127,10 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
         boolean verified = sig.verify(data, m1Length, (short) (data.length - m1Length));
 
         // ISO 9796-2 scheme 1: 234 of the 256 message bytes fit the recoverable field (2048-bit key, SHA-1, implicit trailer)
-        assertEquals(234, m1Data[0]);
-        assertEquals(m1Length, m1Data[0]);
+        assertEquals(m1Data[0], 234);
+        assertEquals(m1Data[0], m1Length);
 
-        assertEquals(true, verified);
+        assertTrue(verified);
 
     }
 }

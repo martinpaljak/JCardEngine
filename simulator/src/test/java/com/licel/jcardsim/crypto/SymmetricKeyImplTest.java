@@ -8,11 +8,9 @@ import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
-import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>SymmetricKeyImpl</code>
@@ -29,7 +27,7 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
         Util.arrayFillNonAtomic(key, (short) 0, (short) key.length, (byte) 7);
         desKey.setKey(key, (short) 0);
         desKey.clearKey();
-        assertEquals(false, desKey.isInitialized());
+        assertFalse(desKey.isInitialized());
     }
 
     /**
@@ -41,7 +39,7 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
         byte[] key = new byte[8];
         Util.arrayFillNonAtomic(key, (short) 0, (short) key.length, (byte) 7);
         desKey.setKey(key, (short) 0);
-        assertEquals(true, desKey.isInitialized());
+        assertTrue(desKey.isInitialized());
     }
 
     /**
@@ -55,13 +53,13 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
         desKey.setKey(key, (short) 0);
         byte[] testKey = new byte[8];
         desKey.getKey(testKey, (short) 0);
-        assertEquals(true, Arrays.areEqual(testKey, key));
+        assertEquals(testKey, key);
     }
 
     @Test
     public void testGetMemoryType() {
         Key desKey = KeyBuilder.buildKey(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES, false);
-        assertEquals(JCSystem.MEMORY_TYPE_PERSISTENT, KeyBuilder.getMemoryType(desKey));
+        assertEquals(KeyBuilder.getMemoryType(desKey), JCSystem.MEMORY_TYPE_PERSISTENT);
         // a foreign Key instance throws CryptoException, not ClassCastException
         Key foreign = new Key() {
             public byte getType() {
@@ -79,7 +77,7 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
             public void clearKey() {
             }
         };
-        CryptoException e = assertThrows(CryptoException.class, () -> KeyBuilder.getMemoryType(foreign));
-        assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+        CryptoException e = expectThrows(CryptoException.class, () -> KeyBuilder.getMemoryType(foreign));
+        assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
     }
 }

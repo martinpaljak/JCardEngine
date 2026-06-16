@@ -11,12 +11,10 @@ import javacard.security.KeyBuilder;
 import javacard.security.MessageDigest;
 import javacard.security.Signature;
 import javacardx.crypto.Cipher;
-import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.testng.Assert.*;
 
 /**
  * Test for
@@ -321,20 +319,20 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         // the 4-arg (triple) path resolves the same algorithm and reports its (digest, cipher, padding) decomposition
         Signature triple = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_DES_MAC8,
                 Cipher.PAD_ISO9797_1_M1_ALG3, false);
-        assertEquals(Signature.ALG_DES_MAC8_ISO9797_1_M1_ALG3, triple.getAlgorithm());
-        assertEquals(MessageDigest.ALG_NULL, triple.getMessageDigestAlgorithm());
-        assertEquals(Signature.SIG_CIPHER_DES_MAC8, triple.getCipherAlgorithm());
-        assertEquals(Cipher.PAD_ISO9797_1_M1_ALG3, triple.getPaddingAlgorithm());
+        assertEquals(triple.getAlgorithm(), Signature.ALG_DES_MAC8_ISO9797_1_M1_ALG3);
+        assertEquals(triple.getMessageDigestAlgorithm(), MessageDigest.ALG_NULL);
+        assertEquals(triple.getCipherAlgorithm(), Signature.SIG_CIPHER_DES_MAC8);
+        assertEquals(triple.getPaddingAlgorithm(), Cipher.PAD_ISO9797_1_M1_ALG3);
     }
 
     // sign then verify the produced MAC; assert the reported length without an external etalon
     private void roundTrip(Signature s, Key key, byte[] msg, int macLen) {
         s.init(key, Signature.MODE_SIGN);
-        assertEquals(macLen, s.getLength());
+        assertEquals(s.getLength(), macLen);
         byte[] mac = new byte[s.getLength()];
         s.sign(msg, (short) 0, (short) msg.length, mac, (short) 0);
         s.init(key, Signature.MODE_VERIFY);
-        assertEquals(true, s.verify(msg, (short) 0, (short) msg.length, mac, (short) 0, (short) mac.length));
+        assertTrue(s.verify(msg, (short) 0, (short) msg.length, mac, (short) 0, (short) mac.length));
     }
 
     /**
@@ -359,9 +357,9 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         testEngineSignVerify(engine, aesKey, null, Hex.decode(MESSAGE_16), Hex.decode(AES_CBC_MAC));
         // an AES key with a DES MAC algorithm is an inconsistent key type, ILLEGAL_VALUE
         Signature desEngine = Signature.getInstance(Signature.ALG_DES_MAC8_NOPAD, false);
-        CryptoException e = assertThrows(CryptoException.class,
+        CryptoException e = expectThrows(CryptoException.class,
                 () -> desEngine.init(aesKey, Signature.MODE_SIGN));
-        assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+        assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
     }
 
     /**
@@ -427,21 +425,21 @@ public class SymmetricSignatureImplTest extends SimulatorCoreTest {
         byte[] mac = new byte[macEtalon.length];
         //
         engine.sign(msg, (short) 0, (short) msg.length, mac, (short) 0);
-        assertEquals(true, Arrays.areEqual(mac, macEtalon));
+        assertEquals(mac, macEtalon);
         // verify
         if (iv == null) {
             engine.init(key, Signature.MODE_VERIFY);
         } else {
             engine.init(key, Signature.MODE_VERIFY, iv, (short) 0, (short) iv.length);
         }
-        assertEquals(true, engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
+        assertTrue(engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
                 (short) 0, (short) macEtalon.length));
         // a wrong sigLength must fail verification, not match a fixed MAC-size slice
         byte[] padded = new byte[macEtalon.length + 1];
         System.arraycopy(macEtalon, 0, padded, 0, macEtalon.length);
-        assertEquals(false, engine.verify(msg, (short) 0, (short) msg.length, padded,
+        assertFalse(engine.verify(msg, (short) 0, (short) msg.length, padded,
                 (short) 0, (short) padded.length));
-        assertEquals(false, engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
+        assertFalse(engine.verify(msg, (short) 0, (short) msg.length, macEtalon,
                 (short) 0, (short) (macEtalon.length - 1)));
     }
 }

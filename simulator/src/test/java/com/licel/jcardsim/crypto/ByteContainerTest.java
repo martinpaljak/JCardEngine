@@ -6,11 +6,11 @@ package com.licel.jcardsim.crypto;
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class ByteContainerTest extends SimulatorCoreTest {
     @Test
@@ -50,8 +50,8 @@ public class ByteContainerTest extends SimulatorCoreTest {
         ByteContainer c = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, 4);
         c.setBigInteger(BigInteger.valueOf(0x0102));
         byte[] buf = new byte[4];
-        assertEquals(4, c.getBytes(buf, (short) 0));
-        assertArrayEquals(new byte[]{0x00, 0x00, 0x01, 0x02}, buf);
+        assertEquals(c.getBytes(buf, (short) 0), 4);
+        assertEquals(buf, new byte[]{0x00, 0x00, 0x01, 0x02});
     }
 
     @Test
@@ -61,13 +61,13 @@ public class ByteContainerTest extends SimulatorCoreTest {
         e.setBigInteger(BigInteger.valueOf(0x010001));
         byte[] buf = new byte[4];
         // 0x010001 reads back as 3 significant bytes, not the 4-byte capacity
-        assertEquals(3, e.getBytes(buf, (short) 0));
-        assertArrayEquals(new byte[]{0x01, 0x00, 0x01, 0x00}, buf);
-        assertEquals(BigInteger.valueOf(0x010001), e.getBigInteger());
+        assertEquals(e.getBytes(buf, (short) 0), 3);
+        assertEquals(buf, new byte[]{0x01, 0x00, 0x01, 0x00});
+        assertEquals(e.getBigInteger(), BigInteger.valueOf(0x010001));
         // setting a shorter value reports the new value's length
         e.setBigInteger(BigInteger.valueOf(0x03));
-        assertEquals(1, e.getBytes(buf, (short) 0));
-        assertEquals(BigInteger.valueOf(0x03), e.getBigInteger());
+        assertEquals(e.getBytes(buf, (short) 0), 1);
+        assertEquals(e.getBigInteger(), BigInteger.valueOf(0x03));
     }
 
     private void checkRoundTrip(BigInteger expected) {
@@ -75,14 +75,14 @@ public class ByteContainerTest extends SimulatorCoreTest {
         int mlen = Math.max(1, (expected.bitLength() + 7) / 8);
         ByteContainer minimal = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, mlen + 2, true);
         minimal.setBigInteger(expected);
-        assertEquals(expected, minimal.getBigInteger());
+        assertEquals(minimal.getBigInteger(), expected);
 
         // pinned container left-pads to the exact width
         int width = expected.bitLength() / 8 + 3;
         ByteContainer padded = new ByteContainer(JCSystem.MEMORY_TYPE_PERSISTENT, width);
         padded.setBigInteger(expected);
         byte[] buf = new byte[width];
-        assertEquals(width, padded.getBytes(buf, (short) 0));
-        assertEquals(expected, new BigInteger(1, buf));
+        assertEquals(padded.getBytes(buf, (short) 0), width);
+        assertEquals(new BigInteger(1, buf), expected);
     }
 }

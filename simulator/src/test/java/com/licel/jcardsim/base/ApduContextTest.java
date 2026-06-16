@@ -9,10 +9,9 @@ import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 
 public class ApduContextTest {
 
@@ -32,7 +31,7 @@ public class ApduContextTest {
             assertTrue(DummyApplet.exceptionInSelect);
 
             var response = bibo.transmit(new CommandAPDU(0x80, 0, 0, 0));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
             assertTrue(DummyApplet.exceptionIllegalUse1);
             assertTrue(DummyApplet.exceptionIllegalUse2);
 

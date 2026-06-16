@@ -9,9 +9,9 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
 public class ApduExtendedCasesTest {
 
@@ -28,15 +28,15 @@ public class ApduExtendedCasesTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             var response = bibo.transmit(new CommandAPDU(CLA, INS, P1, P2, 256));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check content
             byte[] data = response.getData();
             for (short i = 0; i < 256; i++) {
-                assertEquals((byte) 0x5a, data[i]);
+                assertEquals(data[i], (byte) 0x5a);
             }
         }
     }
@@ -48,16 +48,16 @@ public class ApduExtendedCasesTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             //  Le = 0x00, 0x01,0x00 -> 256
             var response = bibo.transmit(new CommandAPDU(CLA, INS, P1, P2, 256));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check content
             byte[] data = response.getData();
             for (short i = 0; i < 256; i++) {
-                assertEquals((byte) 0x5a, data[i]);
+                assertEquals(data[i], (byte) 0x5a);
             }
         }
     }
@@ -69,14 +69,14 @@ public class ApduExtendedCasesTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             //  Lc = 0x00, 0x01,0x00 -> 256
             byte[] data = new byte[256];
             Arrays.fill(data, (byte) 0x5a);
 
             var response = bibo.transmit(new CommandAPDU(CLA, INS, P1, P2, data));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
         }
     }
 
@@ -87,15 +87,15 @@ public class ApduExtendedCasesTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             var response = bibo.transmit(new CommandAPDU(CLA, INS, P1, P2, new byte[]{0}, 256));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check content
             byte[] data = response.getData();
             for (short i = 0; i < 256; i++) {
-                assertEquals((byte) 0x5a, data[i]);
+                assertEquals(data[i], (byte) 0x5a);
             }
         }
     }
@@ -107,18 +107,18 @@ public class ApduExtendedCasesTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             byte[] data = new byte[256];
             Arrays.fill(data, (byte) 0x5a);
 
             var response = bibo.transmit(new CommandAPDU(CLA, INS, P1, P2, data, 256));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response.getSW());
+            assertEquals((short) response.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check content
             byte[] respData = response.getData();
             for (short i = 0; i < 256; i++) {
-                assertEquals((byte) 0x5a, respData[i]);
+                assertEquals(respData[i], (byte) 0x5a);
             }
         }
     }

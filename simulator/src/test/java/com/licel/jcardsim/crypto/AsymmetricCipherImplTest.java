@@ -9,12 +9,12 @@ import javacard.security.KeyPair;
 import javacard.security.RSAPublicKey;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.util.Random;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>AsymmetricCipherImpl</code>
@@ -26,8 +26,10 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
      * SelfTest of RSA Encryption/Decryption, of class AsymmetricCipherImpl.
      */
     @Test
-    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_NOPAD() {
+        if (!"true".equals(System.getProperty("slow.tests"))) {
+            throw new SkipException("slow.tests not enabled");
+        }
         // Refer to https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_NOPAD
         testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, (short) ((KeyBuilder.LENGTH_RSA_512 / Byte.SIZE)));
         testSelftRSA_NOPAD(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_736, (short) ((KeyBuilder.LENGTH_RSA_736 / Byte.SIZE)));
@@ -48,7 +50,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
             testSelftRSA(Cipher.ALG_RSA_NOPAD, KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512, messageLen, msgEqualOrGreaterThanRsaModulus);
             assert false;
         } catch (CryptoException ex) {
-            assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
+            assertEquals(ex.getReason(), CryptoException.ILLEGAL_USE);
         }
     }
 
@@ -61,8 +63,10 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_PKCS1() {
+        if (!"true".equals(System.getProperty("slow.tests"))) {
+            throw new SkipException("slow.tests not enabled");
+        }
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.2.1 and https://docs.oracle.com/javacard/3.0.5/api/javacardx/crypto/Cipher.html#ALG_RSA_PKCS1
         // mLen <= k - 11, k is the length in octets of the modulus n
 
@@ -165,13 +169,15 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
             testSelftRSA(Cipher.ALG_RSA_PKCS1, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
             assert false;
         } catch (CryptoException ex) {
-            assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
+            assertEquals(ex.getReason(), CryptoException.ILLEGAL_USE);
         }
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "slow.tests", matches = "true")
     public void testSelftRSA_PKCS1_OEAP() {
+        if (!"true".equals(System.getProperty("slow.tests"))) {
+            throw new SkipException("slow.tests not enabled");
+        }
         // Refer to https://www.rfc-editor.org/rfc/rfc8017#section-7.1.1
         // mLen <= k - 2hLen - 2,
         //      k is the length in octets of the modulus n and
@@ -277,7 +283,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
             testSelftRSA(Cipher.ALG_RSA_PKCS1_OAEP, KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_4096, (short) (maxMsgLen + 1));
             assert false;
         } catch (CryptoException ex) {
-            assertEquals(CryptoException.ILLEGAL_USE, ex.getReason());
+            assertEquals(ex.getReason(), CryptoException.ILLEGAL_USE);
         }
     }
 
@@ -303,7 +309,7 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] decryptedMsg = new byte[messageLen];
         cipher.doFinal(encryptedMsg, (short) 0, (short) encryptedMsg.length, decryptedMsg, (short) 0);
 
-        assertEquals(true, Arrays.areEqual(msg, decryptedMsg));
+        assertEquals(decryptedMsg, msg);
     }
 
     @Test
@@ -324,17 +330,17 @@ public class AsymmetricCipherImplTest extends SimulatorCoreTest {
         cipher.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
         // OAEP-SHA256 round-trip recovers the original plaintext
-        assertEquals(true, Arrays.areEqual(msg, decrypted));
+        assertEquals(decrypted, msg);
         // accessors report the requested (cipher, padding) pair
-        assertEquals(Cipher.CIPHER_RSA, cipher.getCipherAlgorithm());
-        assertEquals(Cipher.PAD_PKCS1_OAEP_SHA256, cipher.getPaddingAlgorithm());
+        assertEquals(cipher.getCipherAlgorithm(), Cipher.CIPHER_RSA);
+        assertEquals(cipher.getPaddingAlgorithm(), Cipher.PAD_PKCS1_OAEP_SHA256);
 
         try {
             Cipher.getInstance(Cipher.CIPHER_RSA, Cipher.PAD_NULL, false);
             assert false;
         } catch (CryptoException ex) {
             // unrecognised RSA padding is rejected with NO_SUCH_ALGORITHM
-            assertEquals(CryptoException.NO_SUCH_ALGORITHM, ex.getReason());
+            assertEquals(ex.getReason(), CryptoException.NO_SUCH_ALGORITHM);
         }
     }
 

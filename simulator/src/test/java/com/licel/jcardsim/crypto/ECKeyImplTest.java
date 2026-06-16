@@ -8,13 +8,12 @@ import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.math.ec.ECCurve;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>ECKeyImplTest</code>.
@@ -31,17 +30,17 @@ public class ECKeyImplTest extends SimulatorCoreTest {
         // public
         ECKeyImpl instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.LENGTH_EC_F2M_193, JCSystem.MEMORY_TYPE_PERSISTENT);
         ECKeyGenerationParameters result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertInstanceOf(ECCurve.F2m.class, result.getDomainParameters().getCurve());
+        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.F2m);
         instance = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, KeyBuilder.LENGTH_EC_FP_192, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertInstanceOf(ECCurve.Fp.class, result.getDomainParameters().getCurve());
+        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.Fp);
         //private
         instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_F2M_PRIVATE, KeyBuilder.LENGTH_EC_F2M_193, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertInstanceOf(ECCurve.F2m.class, result.getDomainParameters().getCurve());
+        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.F2m);
         instance = new ECPrivateKeyImpl(KeyBuilder.TYPE_EC_FP_PRIVATE, KeyBuilder.LENGTH_EC_FP_192, JCSystem.MEMORY_TYPE_PERSISTENT);
         result = (ECKeyGenerationParameters) instance.getKeyGenerationParameters(rnd);
-        assertInstanceOf(ECCurve.Fp.class, result.getDomainParameters().getCurve());
+        assertTrue(result.getDomainParameters().getCurve() instanceof ECCurve.Fp);
     }
 
     /**
@@ -59,9 +58,9 @@ public class ECKeyImplTest extends SimulatorCoreTest {
     private void checkFieldLength(short lengthBits, int fieldBytes) {
         ECKeyImpl key = new ECPublicKeyImpl(KeyBuilder.TYPE_EC_FP_PUBLIC, lengthBits, JCSystem.MEMORY_TYPE_PERSISTENT);
         byte[] buf = new byte[fieldBytes];
-        assertEquals(fieldBytes, key.getA(buf, (short) 0));
-        assertEquals(fieldBytes, key.getB(buf, (short) 0));
-        assertEquals(fieldBytes, key.getField(buf, (short) 0));
+        assertEquals(key.getA(buf, (short) 0), fieldBytes);
+        assertEquals(key.getB(buf, (short) 0), fieldBytes);
+        assertEquals(key.getField(buf, (short) 0), fieldBytes);
     }
 
     /**
@@ -75,7 +74,7 @@ public class ECKeyImplTest extends SimulatorCoreTest {
         // a tiny scalar reads back at its own one-byte length, not the 32-byte secp256r1 order
         key.setParameters(new ECPrivateKeyParameters(BigInteger.valueOf(0x42), domain.getDomainParameters()));
         byte[] buf = new byte[32];
-        assertEquals(1, key.getS(buf, (short) 0));
+        assertEquals(key.getS(buf, (short) 0), 1);
     }
 
 }

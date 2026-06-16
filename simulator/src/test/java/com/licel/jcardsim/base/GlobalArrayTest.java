@@ -8,14 +8,11 @@ import com.licel.jcardsim.samples.GlobalArrayServerApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class GlobalArrayTest {
     byte[] serverAppletAIDBytes = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09};
     byte[] wrongServerAppletAIDBytes = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x00};
@@ -29,8 +26,8 @@ public class GlobalArrayTest {
     boolean[] booleansForTest = null;
     short[] shortsForTest = null;
 
-    @BeforeAll
-    protected void setUp() throws Exception {
+    @BeforeClass
+    public void setUp() throws Exception {
         serverAppletAID = AIDUtil.create(serverAppletAIDBytes);
         clientAppletAIDStr = "090807060504030201";
         clientAppletAID = AIDUtil.create(clientAppletAIDStr);
@@ -64,46 +61,46 @@ public class GlobalArrayTest {
         Simulator instance = new Simulator();
 
         // Install server and client applet
-        assertEquals(serverAppletAID, instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class));
-        assertEquals(clientAppletAID, instance.installApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar));
+        assertEquals(instance.installApplet(serverAppletAID, GlobalArrayServerApplet.class), serverAppletAID);
+        assertEquals(instance.installApplet(clientAppletAID, GlobalArrayClientApplet.class, clientAppletPar), clientAppletAID);
 
         try (var bibo = instance.connect()) {
             // Select server applet
             var sel1 = bibo.transmit(AIDUtil.select(serverAppletAID));
-            assertEquals(0x9000, sel1.getSW());
+            assertEquals(sel1.getSW(), 0x9000);
 
             // Send C-APDU to create the byte global array for 32-byte size and filled with 0x5A
             var response1 = bibo.transmit(new CommandAPDU(0x10, 0x01, 32, 0x5A));
 
             // Check command succeeded
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response1.getSW());
+            assertEquals((short) response1.getSW(), ISO7816.SW_NO_ERROR);
 
             // Select client applet
             var sel2 = bibo.transmit(AIDUtil.select(clientAppletAID));
-            assertEquals(0x9000, sel2.getSW());
+            assertEquals(sel2.getSW(), 0x9000);
             // Send C-APDU to read the global byte array for 32 bytes
             var response2 = bibo.transmit(new CommandAPDU(0x10, 0x01, 0x00, 0x00, 32));
             // Check command succeeded
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response2.getSW());
+            assertEquals((short) response2.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check global array content
             byte[] response2Data = response2.getData();
             for (byte i = 0; i < 32; i++) {
-                assertEquals((byte) 0x5A, response2Data[i]);
+                assertEquals(response2Data[i], (byte) 0x5A);
             }
 
             // Send C-APDU to write 32 test bytes to global array
             var response3 = bibo.transmit(new CommandAPDU(0x10, 0x02, 0x00, 0x00, bytesForTest));
             // Check command succeeded
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response3.getSW());
+            assertEquals((short) response3.getSW(), ISO7816.SW_NO_ERROR);
 
             // Send C-APDU to read the global byte array for 32 bytes
             var response4 = bibo.transmit(new CommandAPDU(0x10, 0x01, 0x00, 0x00, 32));
             // Check command succeeded
-            assertEquals(ISO7816.SW_NO_ERROR, (short) response4.getSW());
+            assertEquals((short) response4.getSW(), ISO7816.SW_NO_ERROR);
 
             // Check the global array with the writen data
-            assertArrayEquals(bytesForTest, response4.getData());
+            assertEquals(response4.getData(), bytesForTest);
         }
     }
 }

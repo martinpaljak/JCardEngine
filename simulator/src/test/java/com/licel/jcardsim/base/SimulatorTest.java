@@ -10,11 +10,11 @@ import javacard.framework.Applet;
 import javacard.framework.ISO7816;
 import javacard.framework.Util;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.JavaCardEngineException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class SimulatorTest {
     private static final byte[] TEST_APPLET_AID_BYTES = Hex.decode("010203040506070809");
@@ -30,7 +30,7 @@ public class SimulatorTest {
     public void testCreateApplet() {
         System.out.println("createApplet");
         Simulator instance = new Simulator();
-        assertEquals(TEST_APPLET_AID, instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData));
+        assertEquals(instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS, createData), TEST_APPLET_AID);
     }
 
     /**
@@ -42,7 +42,7 @@ public class SimulatorTest {
         Simulator instance = new Simulator();
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         try (var bibo = instance.connect()) {
-            assertEquals(0x9000, bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
         }
     }
 
@@ -54,13 +54,13 @@ public class SimulatorTest {
             bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
             // test NOP with Lc=1
             var response1 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA});
-            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response1, (short) 0));
+            assertEquals(Util.getShort(response1, (short) 0), ISO7816.SW_WRONG_LENGTH);
             // test NOP with Le=1
             var response2 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1});
-            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response2, (short) 0));
+            assertEquals(Util.getShort(response2, (short) 0), ISO7816.SW_WRONG_LENGTH);
             // test NOP with Lc=1, Le=1
             var response3 = bibo.transceive(new byte[]{0x01, 0x02, 0x00, 0x00, 0, 0, 1, 0xA, 0, 1});
-            assertEquals(ISO7816.SW_WRONG_LENGTH, Util.getShort(response3, (short) 0));
+            assertEquals(Util.getShort(response3, (short) 0), ISO7816.SW_WRONG_LENGTH);
         }
     }
 
@@ -73,10 +73,10 @@ public class SimulatorTest {
         instance.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
             // test NOP
             var response = bibo.transmit(new CommandAPDU(0x01, 0x02, 0x00, 0x00));
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
         }
     }
 
@@ -90,7 +90,7 @@ public class SimulatorTest {
         instance.connect("*", true).close();
         // installed applets survive a power cycle
         try (var bibo = instance.connect()) {
-            assertEquals(0x9000, bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
         }
     }
 
@@ -106,29 +106,29 @@ public class SimulatorTest {
         instance1.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         // present only on instance1
         try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
-            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
-            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
+            assertEquals(bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x6A82);
         }
 
         instance2.installApplet(TEST_APPLET_AID, TEST_APPLET_CLASS);
         // now present on both
         try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
-            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
-            assertEquals(0x9000, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
+            assertEquals(bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
         }
 
         instance2.deleteApplet(TEST_APPLET_AID);
         // deleted from instance2 only
         try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
-            assertEquals(0x9000, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
-            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x9000);
+            assertEquals(bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x6A82);
         }
 
         instance1.deleteApplet(TEST_APPLET_AID);
         // gone from both
         try (var bibo1 = instance1.connect(); var bibo2 = instance2.connect()) {
-            assertEquals(0x6A82, bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
-            assertEquals(0x6A82, bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW());
+            assertEquals(bibo1.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x6A82);
+            assertEquals(bibo2.transmit(AIDUtil.select(TEST_APPLET_AID)).getSW(), 0x6A82);
         }
     }
 
@@ -160,17 +160,17 @@ public class SimulatorTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             // Test for SW=0x61XX warning, must have response data
             var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x61, 0x12, commandData, commandData.length));
-            assertArrayEquals(commandData, responseApdu.getData());
-            assertEquals(0x6112, (short) responseApdu.getSW());
+            assertEquals(responseApdu.getData(), commandData);
+            assertEquals((short) responseApdu.getSW(), (short) 0x6112);
 
             // Test for SW=0x64XX
             responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x64, 0x34, commandData, commandData.length));
-            assertEquals(0, responseApdu.getData().length);
-            assertEquals(0x6434, (short) responseApdu.getSW());
+            assertEquals(responseApdu.getData().length, 0);
+            assertEquals((short) responseApdu.getSW(), (short) 0x6434);
         }
 
         // Try with base SimulatorRuntime
@@ -181,11 +181,11 @@ public class SimulatorTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS, 0x69, 0x85, commandData, commandData.length));
-            assertEquals(0, responseApdu.getData().length);
-            assertEquals(0x6985, (short) responseApdu.getSW());
+            assertEquals(responseApdu.getData().length, 0);
+            assertEquals((short) responseApdu.getSW(), (short) 0x6985);
         }
     }
 
@@ -197,23 +197,23 @@ public class SimulatorTest {
         try (var bibo = instance.connect()) {
             // MANAGE CHANNEL OPEN (00 70 00 00) - rejected before applet is selected
             var response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x00, 0x00));
-            assertEquals(0x6881, response.getSW());
+            assertEquals(response.getSW(), 0x6881);
 
             // Select applet, then try again - still rejected at JCRE level
             var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             // OPEN
             response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x00, 0x00));
-            assertEquals(0x6881, response.getSW());
+            assertEquals(response.getSW(), 0x6881);
 
             // CLOSE (00 70 80 01)
             response = bibo.transmit(new CommandAPDU(0x00, 0x70, 0x80, 0x01));
-            assertEquals(0x6881, response.getSW());
+            assertEquals(response.getSW(), 0x6881);
 
             // With channel bits in CLA (e.g. channel 1: CLA=0x01)
             response = bibo.transmit(new CommandAPDU(0x01, 0x70, 0x00, 0x00));
-            assertEquals(0x6881, response.getSW());
+            assertEquals(response.getSW(), 0x6881);
         }
     }
 
@@ -227,23 +227,23 @@ public class SimulatorTest {
         sim.installApplet(TEST_APPLET_AID, AppletWithRegisterInProcess.class);
         try (var session = sim.connect()) {
             var result = session.transmit(select);
-            assertEquals(0x6f00, result.getSW());
+            assertEquals(result.getSW(), 0x6f00);
         }
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInSelect.class);
         try (var session = sim.connect()) {
             var result = session.transmit(select);
-            assertEquals(0x6999, result.getSW());
+            assertEquals(result.getSW(), 0x6999);
         }
 
         sim.deleteApplet(TEST_APPLET_AID);
         sim.installApplet(TEST_APPLET_AID, AppletThrowsInUninstall.class);
         try (var session = sim.connect()) {
             var result = session.transmit(select);
-            assertEquals(0x9000, result.getSW());
+            assertEquals(result.getSW(), 0x9000);
             // random select - processed by the applet
             result = session.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, Hex.decode("01020304030201"), 256));
-            assertEquals(0x9001, result.getSW());
+            assertEquals(result.getSW(), 0x9001);
         }
         assertThrows(JavaCardEngineException.class, () -> sim.deleteApplet(TEST_APPLET_AID));
     }

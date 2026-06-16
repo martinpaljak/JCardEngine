@@ -8,13 +8,12 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.JCSystem;
 import javacard.framework.SystemException;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class TransientMemoryTest {
     private static final int CLA = 0x80;
@@ -65,26 +64,26 @@ public class TransientMemoryTest {
         assertTrue(codObjects[0] == null && corObjects[0] == null);
         assertTrue(!codBooleans[0] && !corBooleans[0]);
 
-        assertEquals(JCSystem.CLEAR_ON_RESET, transientMemory.isTransient(corBytes));
-        assertEquals(JCSystem.CLEAR_ON_RESET, transientMemory.isTransient(corShorts));
-        assertEquals(JCSystem.CLEAR_ON_RESET, transientMemory.isTransient(corBooleans));
-        assertEquals(JCSystem.CLEAR_ON_RESET, transientMemory.isTransient(corObjects));
+        assertEquals(transientMemory.isTransient(corBytes), JCSystem.CLEAR_ON_RESET);
+        assertEquals(transientMemory.isTransient(corShorts), JCSystem.CLEAR_ON_RESET);
+        assertEquals(transientMemory.isTransient(corBooleans), JCSystem.CLEAR_ON_RESET);
+        assertEquals(transientMemory.isTransient(corObjects), JCSystem.CLEAR_ON_RESET);
 
-        assertEquals(JCSystem.CLEAR_ON_DESELECT, transientMemory.isTransient(codBytes));
-        assertEquals(JCSystem.CLEAR_ON_DESELECT, transientMemory.isTransient(codShorts));
-        assertEquals(JCSystem.CLEAR_ON_DESELECT, transientMemory.isTransient(codBooleans));
-        assertEquals(JCSystem.CLEAR_ON_DESELECT, transientMemory.isTransient(codObjects));
+        assertEquals(transientMemory.isTransient(codBytes), JCSystem.CLEAR_ON_DESELECT);
+        assertEquals(transientMemory.isTransient(codShorts), JCSystem.CLEAR_ON_DESELECT);
+        assertEquals(transientMemory.isTransient(codBooleans), JCSystem.CLEAR_ON_DESELECT);
+        assertEquals(transientMemory.isTransient(codObjects), JCSystem.CLEAR_ON_DESELECT);
 
         transientMemory.forgetBuffers();
 
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(corBytes));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(corShorts));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(corBooleans));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(corObjects));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(codBytes));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(codShorts));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(codBooleans));
-        assertEquals(JCSystem.NOT_A_TRANSIENT_OBJECT, transientMemory.isTransient(codObjects));
+        assertEquals(transientMemory.isTransient(corBytes), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(corShorts), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(corBooleans), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(corObjects), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(codBytes), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(codShorts), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(codBooleans), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        assertEquals(transientMemory.isTransient(codObjects), JCSystem.NOT_A_TRANSIENT_OBJECT);
     }
 
 
@@ -97,28 +96,28 @@ public class TransientMemoryTest {
             transientMemory.makeByteArray(2, invalid);
             fail("No exception");
         } catch (SystemException e) {
-            assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
             transientMemory.makeBooleanArray((short) 1, invalid);
             fail("No exception");
         } catch (SystemException e) {
-            assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
             transientMemory.makeObjectArray((short) 1, invalid);
             fail("No exception");
         } catch (SystemException e) {
-            assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
             transientMemory.makeBooleanArray((short) 1, invalid);
             fail("No exception");
         } catch (SystemException e) {
-            assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
     }
 
@@ -133,25 +132,25 @@ public class TransientMemoryTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(aid));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             // calculate SHA1
             var responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_DIGEST, 0x00, 0x00, new byte[]{'A'}));
-            assertEquals(0x9000, responseApdu.getSW());
-            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            assertEquals(responseApdu.getSW(), 0x9000);
+            assertEquals(responseApdu.getData(), expectedOutput);
 
             // check last digest
             responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_LAST_DIGEST, 0x00, 0x00));
-            assertEquals(0x9000, responseApdu.getSW());
-            assertEquals(Arrays.toString(expectedOutput), Arrays.toString(responseApdu.getData()));
+            assertEquals(responseApdu.getSW(), 0x9000);
+            assertEquals(responseApdu.getData(), expectedOutput);
 
             // trigger clean on deselect
             bibo.transmit(AIDUtil.select(aid));
 
             // check last digest is all zero
             responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_LAST_DIGEST, 0x00, 0x00));
-            assertEquals(0x9000, responseApdu.getSW());
-            assertEquals(Arrays.toString(new byte[20]), Arrays.toString(responseApdu.getData()));
+            assertEquals(responseApdu.getSW(), 0x9000);
+            assertEquals(responseApdu.getData(), new byte[20]);
         }
     }
 
@@ -179,10 +178,10 @@ public class TransientMemoryTest {
         globalBytes[0] = (byte) 0x5A;
 
         transientMemory.clearOnDeselect();
-        assertEquals(0x5A, globalBytes[0]);
+        assertEquals(globalBytes[0], 0x5A);
 
         transientMemory.clearOnReset();
-        assertEquals(0, globalBytes[0]);
+        assertEquals(globalBytes[0], 0);
     }
 
     @Test
@@ -194,10 +193,10 @@ public class TransientMemoryTest {
         globalShorts[0] = (short) 0x5A7F;
 
         transientMemory.clearOnDeselect();
-        assertEquals(0x5A7F, globalShorts[0]);
+        assertEquals(globalShorts[0], 0x5A7F);
 
         transientMemory.clearOnReset();
-        assertEquals(0, globalShorts[0]);
+        assertEquals(globalShorts[0], 0);
     }
 
     @Test
@@ -227,7 +226,7 @@ public class TransientMemoryTest {
             transientMemory.makeGlobalArray(invalid, size);
             fail("No exception");
         } catch (SystemException e) {
-            assertEquals(SystemException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
     }
 }

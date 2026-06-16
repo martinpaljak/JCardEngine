@@ -4,11 +4,11 @@ package com.licel.jcardsim.base;
 
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.faulty.FaultyConfig;
 import pro.javacard.engine.testapplets.FaultApplet;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
 public class FaultTest {
     @Test
@@ -25,10 +25,10 @@ public class FaultTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(aid));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             var res = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-            assertEquals(0x9000, res.getSW());
+            assertEquals(res.getSW(), 0x9000);
         }
     }
 
@@ -40,10 +40,10 @@ public class FaultTest {
 
         try (var bibo = instance.connect()) {
             var sel = bibo.transmit(AIDUtil.select(aid));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
 
             var res = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-            assertEquals(0x6f00, res.getSW());
+            assertEquals(res.getSW(), 0x6f00);
         }
     }
 }

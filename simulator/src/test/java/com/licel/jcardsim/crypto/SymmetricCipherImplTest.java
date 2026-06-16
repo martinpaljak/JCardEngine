@@ -9,9 +9,9 @@ import javacard.security.*;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 /**
  * Test for
@@ -199,7 +199,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
                 engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) (iv.length - 1));
                 fail("No exception");
             } catch (CryptoException e) {
-                assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+                assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
             }
             engine.init(aesKey, Cipher.MODE_ENCRYPT, iv, (short) 0, (short) iv.length);
         } else {
@@ -207,8 +207,8 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         }
         byte[] encrypted = new byte[16]; // AES 128
         short processedBytes = engine.doFinal(Hex.decode(testData[needIV ? 2 : 1]), (short) 0, (short) 16, encrypted, (short) 0);
-        assertEquals(processedBytes, 16);
-        assertTrue(Arrays.areEqual(encrypted, Hex.decode(testData[needIV ? 3 : 2])));
+        assertEquals(processedBytes, (short) 16);
+        assertEquals(encrypted, Hex.decode(testData[needIV ? 3 : 2]));
         if (needIV) {
             byte[] iv = Hex.decode(testData[1]);
             engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
@@ -217,8 +217,8 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         }
         byte[] decrypted = new byte[16]; // AES 128
         processedBytes = engine.doFinal(Hex.decode(testData[needIV ? 3 : 2]), (short) 0, (short) 16, decrypted, (short) 0);
-        assertEquals(processedBytes, 16);
-        assertTrue(Arrays.areEqual(decrypted, Hex.decode(testData[needIV ? 2 : 1])));
+        assertEquals(processedBytes, (short) 16);
+        assertEquals(decrypted, Hex.decode(testData[needIV ? 2 : 1]));
     }
 
     @Test
@@ -237,15 +237,15 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         byte[] ct = new byte[48];
         // update() flushes all complete blocks immediately; only the incomplete tail is held for doFinal to pad
         short part = engine.update(plain, (short) 0, (short) 32, ct, (short) 0);
-        assertEquals(32, part);
+        assertEquals(part, (short) 32);
         short fin = engine.doFinal(plain, (short) 32, (short) 5, ct, part);
-        assertEquals(48, part + fin);
+        assertEquals((short) (part + fin), (short) 48);
 
         engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
         byte[] back = new byte[plain.length];
         short got = engine.doFinal(ct, (short) 0, (short) ct.length, back, (short) 0);
-        assertEquals(plain.length, got);
-        assertTrue(Arrays.areEqual(plain, back));
+        assertEquals(got, (short) plain.length);
+        assertEquals(back, plain);
 
         // a non-block-aligned input to a padded decrypt is rejected as ILLEGAL_USE
         engine.init(aesKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
@@ -253,7 +253,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
             engine.doFinal(ct, (short) 0, (short) 17, back, (short) 0);
             fail("No exception");
         } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+            assertEquals(e.getReason(), CryptoException.ILLEGAL_USE);
         }
 
         // PKCS#5 round-trips through the same manual-pad encrypt path, CBC and ECB
@@ -271,14 +271,14 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
                 des.init(desKey, Cipher.MODE_ENCRYPT);
             }
             short n = des.doFinal(plain, (short) 0, (short) 10, enc, (short) 0);
-            assertEquals(16, n);
+            assertEquals(n, (short) 16);
             if (cbc) {
                 des.init(desKey, Cipher.MODE_DECRYPT, desIv, (short) 0, (short) desIv.length);
             } else {
                 des.init(desKey, Cipher.MODE_DECRYPT);
             }
-            assertEquals(10, des.doFinal(enc, (short) 0, n, dec, (short) 0));
-            assertTrue(Arrays.areEqual(Arrays.copyOf(plain, 10), dec));
+            assertEquals(des.doFinal(enc, (short) 0, n, dec, (short) 0), (short) 10);
+            assertEquals(dec, Arrays.copyOf(plain, 10));
         }
     }
 
@@ -301,8 +301,8 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         }
         byte[] encrypted = new byte[encryptedEtalonMsg.length];
         short processedBytes = engine.doFinal(msg, (short) 0, (short) msg.length, encrypted, (short) 0);
-        assertEquals(true, Arrays.areEqual(encrypted, encryptedEtalonMsg));
-        assertEquals(processedBytes, encryptedEtalonMsg.length);
+        assertEquals(encrypted, encryptedEtalonMsg);
+        assertEquals(processedBytes, (short) encryptedEtalonMsg.length);
         // second test decryption
         if (iv == null) {
             engine.init(key, Cipher.MODE_DECRYPT);
@@ -311,8 +311,8 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
         }
         byte[] decrypted = new byte[msg.length];
         processedBytes = engine.doFinal(encryptedEtalonMsg, (short) 0, (short) encryptedEtalonMsg.length, decrypted, (short) 0);
-        assertEquals(processedBytes, msg.length);
-        assertEquals(true, Arrays.areEqual(decrypted, msg));
+        assertEquals(processedBytes, (short) msg.length);
+        assertEquals(decrypted, msg);
     }
 
     /**
@@ -328,7 +328,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
             engineAES.init(desKey, Cipher.MODE_ENCRYPT);
             fail("No exception");
         } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
         }
     }
 
@@ -350,7 +350,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
             engineDES.init(aeskey, Cipher.MODE_ENCRYPT);
             fail("No exception");
         } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
         }
     }
 
@@ -375,13 +375,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
 
         byte[] ciphertext = Hex.decode(AES_CTR_128_TEST[3]);
 
-        assertTrue(Arrays.areEqual(encrypted, ciphertext));
+        assertEquals(encrypted, ciphertext);
 
         engine.init(aesKey, Cipher.MODE_DECRYPT, initCounter, (short) 0, (short) initCounter.length);
         byte[] decrypted = new byte[encrypted.length];
         engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(decrypted, msg));
+        assertEquals(decrypted, msg);
     }
 
     @Test
@@ -403,13 +403,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
 
         byte[] ciphertext = Hex.decode(AES_CTR_192_TEST[3]);
 
-        assertTrue(Arrays.areEqual(encrypted, ciphertext));
+        assertEquals(encrypted, ciphertext);
 
         engine.init(aesKey, Cipher.MODE_DECRYPT, initCounter, (short) 0, (short) initCounter.length);
         byte[] decrypted = new byte[encrypted.length];
         engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(decrypted, msg));
+        assertEquals(decrypted, msg);
     }
 
     @Test
@@ -431,13 +431,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
 
         byte[] ciphertext = Hex.decode(AES_CTR_256_TEST[3]);
 
-        assertTrue(Arrays.areEqual(encrypted, ciphertext));
+        assertEquals(encrypted, ciphertext);
 
         engine.init(aesKey, Cipher.MODE_DECRYPT, initCounter, (short) 0, (short) initCounter.length);
         byte[] decrypted = new byte[encrypted.length];
         engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(decrypted, msg));
+        assertEquals(decrypted, msg);
     }
 
     // Korean SEED test vectors from https://www.rfc-editor.org/rfc/pdfrfc/rfc4269.txt.pdf
@@ -485,7 +485,7 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
             testKOREAN_SEED_WithIV(KOREAN_SEED_TEST1, Cipher.ALG_KOREAN_SEED_ECB_NOPAD);
             fail("No exception");
         } catch (CryptoException e) {
-            assertEquals(CryptoException.ILLEGAL_VALUE, e.getReason());
+            assertEquals(e.getReason(), CryptoException.ILLEGAL_VALUE);
         }
     }
 
@@ -504,13 +504,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
 
         byte[] ciphertext = Hex.decode(seedTestData[2]);
 
-        assertTrue(Arrays.areEqual(encrypted, ciphertext));
+        assertEquals(encrypted, ciphertext);
 
         engine.init(seedKey, Cipher.MODE_DECRYPT);
         byte[] decrypted = new byte[encrypted.length];
         engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(decrypted, msg));
+        assertEquals(decrypted, msg);
     }
 
     private void testKOREAN_SEED_WithIV(String[] seedTestData, byte algorithm) {
@@ -530,13 +530,13 @@ public class SymmetricCipherImplTest extends SimulatorCoreTest {
 
         byte[] ciphertext = Hex.decode(seedTestData[2]);
 
-        assertTrue(Arrays.areEqual(encrypted, ciphertext));
+        assertEquals(encrypted, ciphertext);
 
         engine.init(seedKey, Cipher.MODE_DECRYPT, iv, (short) 0, (short) iv.length);
 
         byte[] decrypted = new byte[encrypted.length];
         engine.doFinal(encrypted, (short) 0, (short) encrypted.length, decrypted, (short) 0);
 
-        assertTrue(Arrays.areEqual(decrypted, msg));
+        assertEquals(decrypted, msg);
     }
 }

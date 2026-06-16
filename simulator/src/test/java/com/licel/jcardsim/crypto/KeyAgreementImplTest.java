@@ -6,11 +6,9 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.bouncycastle.util.Arrays;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>KeyAgreementImpl</code>
@@ -83,10 +81,10 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
         short secret2Size = ka.generateSecret(public1, (short) 0, publicKeyLength, secret2, (short) 0);
 
         // check match of values
-        assertEquals(true, Arrays.areEqual(secret1, secret2));
+        assertEquals(secret1, secret2);
         // DH secret is always prime-length; leading zero bytes are not stripped
-        assertEquals(keySize / 8, secret1Size);
-        assertEquals(keySize / 8, secret2Size);
+        assertEquals(secret1Size, keySize / 8);
+        assertEquals(secret2Size, keySize / 8);
     }
 
     // A shared-domain key's clearKey() clears only its own secret; clearing the shared domain object instead cascades to every sibling key.
@@ -104,13 +102,13 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
         new KeyPair(pubB, privB).genKeyPair();
 
         byte[] secret = ecdh(privA, pubB);
-        assertTrue(Arrays.areEqual(secret, ecdh(privB, pubA)));
+        assertEquals(secret, ecdh(privB, pubA));
 
         privB.clearKey();
         assertFalse(privB.isInitialized());
         // shared domain survives clearKey(); privA still produces the same secret
         assertTrue(privA.isInitialized());
-        assertTrue(Arrays.areEqual(secret, ecdh(privA, pubB)));
+        assertEquals(secret, ecdh(privA, pubB));
 
         // clearing the shared domain object itself cascades: every sibling key loses its parameters
         sharedDomain.clearKey();
@@ -162,26 +160,26 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
             case KeyAgreement.ALG_EC_SVDP_DH: // no break
             case KeyAgreement.ALG_EC_SVDP_DHC:
                 // sha1 size = 20
-                assertEquals(secret1Size, 20);
-                assertEquals(secret2Size, 20);
+                assertEquals((int) secret1Size, 20);
+                assertEquals((int) secret2Size, 20);
                 break;
             case KeyAgreement.ALG_EC_SVDP_DHC_PLAIN: // no break
             case KeyAgreement.ALG_EC_SVDP_DH_PLAIN:
                 // round up bit size of key to whole bytes
-                assertEquals(secret1Size, (int) Math.ceil(keySize / 8.0));
-                assertEquals(secret2Size, (int) Math.ceil(keySize / 8.0));
+                assertEquals((int) secret1Size, (int) Math.ceil(keySize / 8.0));
+                assertEquals((int) secret2Size, (int) Math.ceil(keySize / 8.0));
                 break;
             case KeyAgreement.ALG_EC_SVDP_DH_PLAIN_XY: // no break
             case KeyAgreement.ALG_EC_PACE_GM:
                 int fieldSize = (int) Math.ceil(keySize / 8.0);
-                assertEquals(secret1Size, 1 + fieldSize + fieldSize);
-                assertEquals(secret2Size, 1 + fieldSize + fieldSize);
+                assertEquals((int) secret1Size, 1 + fieldSize + fieldSize);
+                assertEquals((int) secret2Size, 1 + fieldSize + fieldSize);
                 break;
             default:
-                assertTrue(false); // unsupported algorithm
+                fail("unsupported algorithm: " + keyAgreementAlg);
         }
 
         // check match of values
-        assertEquals(true, Arrays.areEqual(secret1, secret2));
+        assertEquals(secret1, secret2);
     }
 }

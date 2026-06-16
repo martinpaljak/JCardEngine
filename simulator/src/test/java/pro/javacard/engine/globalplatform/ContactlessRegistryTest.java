@@ -7,7 +7,7 @@ import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.CRELTestApplet;
 import pro.javacard.engine.testapplets.CRSTestApplet;
@@ -26,12 +26,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
@@ -94,7 +89,7 @@ public class ContactlessRegistryTest {
         byte[] initialCounter;
         try (var bibo = sim.connect()) {
             initialCounter = parseUpdateCounter(selectAID(bibo, CRS_AID));
-            assertArrayEquals(new byte[]{0x00, 0x00}, initialCounter);
+            assertEquals(initialCounter, new byte[]{0x00, 0x00});
         }
 
         // 2. GET DATA P1=00 P2=A5 returns the A5 template byte-identical to the SELECT FCI;
@@ -103,12 +98,12 @@ public class ContactlessRegistryTest {
             byte[] fromSelect = TLV.parse(selectAID(bibo, CRS_AID)).find(0x6F, 0xA5)
                     .orElseThrow(() -> new AssertionError("FCI must carry tag A5")).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, P2_GET_DATA, 256));
-            assertEquals(0x9000, resp.getSW());
-            assertArrayEquals(fromSelect, resp.getData());
+            assertEquals(resp.getSW(), 0x9000);
+            assertEquals(resp.getData(), fromSelect);
         }
         try (var bibo = sim.connect()) {
             byte[] second = parseUpdateCounter(selectAID(bibo, CRS_AID));
-            assertArrayEquals(initialCounter, second);
+            assertEquals(second, initialCounter);
         }
 
         // 3. INSTALL X with CREL add-list at T and initial activation 0x01. CREL observes
@@ -120,7 +115,7 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim.connect()) {
             var events = dumpCrelEvents(bibo);
-            assertEquals(3, events.size());
+            assertEquals(events.size(), 3);
             assertEvent(events.get(0), EVENT_CREL_ADDED, X);
             assertEvent(events.get(1), EVENT_SELECTABLE, X);
             assertEvent(events.get(2), EVENT_ACTIVATED, X);
@@ -130,16 +125,16 @@ public class ContactlessRegistryTest {
         // initial CL activation each bump X's own counter, which cascades to the global one (GPC v2.3 Amd C
         // 3.11.2.3). X's per-Application counter is therefore 2 - distinct from the global 4.
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
-            assertEquals(2, findUpdateCounterInGetStatus(bibo, X));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED);
+            assertEquals(findUpdateCounterInGetStatus(bibo, X), 2);
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, P2_GET_DATA, 256));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
             byte[] ctr = TLV.parse(resp.getData()).get(0).find(0x80)
                     .orElseThrow(() -> new AssertionError("80 missing from GET DATA body")).value();
-            assertEquals(4, ((ctr[0] & 0xFF) << 8) | (ctr[1] & 0xFF));
+            assertEquals(((ctr[0] & 0xFF) << 8) | (ctr[1] & 0xFF), 4);
         }
 
         // 5. SET STATUS P1=01 P2=00 flips X to DEACTIVATED; CREL observes EVENT_DEACTIVATED,
@@ -148,17 +143,17 @@ public class ContactlessRegistryTest {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
         }
         try (var bibo = sim.connect()) {
             var events = dumpCrelEvents(bibo);
-            assertEquals(4, events.size());
+            assertEquals(events.size(), 4);
             assertEvent(events.get(3), EVENT_DEACTIVATED, X);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_DEACTIVATED);
             // deactivation is another CRS event on X: per-Application counter 2 -> 3.
-            assertEquals(3, findUpdateCounterInGetStatus(bibo, X));
+            assertEquals(findUpdateCounterInGetStatus(bibo, X), 3);
         }
 
         // 6. DELETE fires EVENT_DELETED to the host's CREL list but NOT to the host itself
@@ -166,13 +161,13 @@ public class ContactlessRegistryTest {
         try (var bibo = sim.connect()) {
             selectAID(bibo, X);
             var dump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_READ_SELF, 0x00, 256));
-            assertEquals(0x9000, dump.getSW());
+            assertEquals(dump.getSW(), 0x9000);
             // Self log records: event(2) | prev-null(1); prev-null must be 0x01 for every record.
             byte[] data = dump.getData();
             for (int i = 0; i < data.length; i += 3) {
                 short ev = (short) (((data[i] & 0xFF) << 8) | (data[i + 1] & 0xFF));
-                assertFalse(ev == EVENT_DELETED);
-                assertEquals((byte) 0x01, data[i + 2]);
+                assertNotEquals(ev, EVENT_DELETED);
+                assertEquals(data[i + 2], (byte) 0x01);
             }
         }
         try (var bibo = sim.connect()) {
@@ -195,11 +190,11 @@ public class ContactlessRegistryTest {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
         }
         try (var bibo = sim.connect()) {
             var events = dumpCrelEvents(bibo);
-            assertEquals(eventsBeforeActivate + 1, events.size());
+            assertEquals(events.size(), eventsBeforeActivate + 1);
             assertEvent(events.get(events.size() - 1), EVENT_ACTIVATED, X);
         }
     }
@@ -230,7 +225,7 @@ public class ContactlessRegistryTest {
             selectAID(bibo, CRS_AID);
             byte[] filter = TLV.of(0x4F, new byte[0]).encode();
             var first = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, filter, 256));
-            assertEquals(0x6310, first.getSW());
+            assertEquals(first.getSW(), 0x6310);
             assertTrue(first.getData().length > 0);
 
             // Restart mid-paging: a fresh initial call (P2 bit 0 = 0) must succeed.
@@ -247,12 +242,12 @@ public class ContactlessRegistryTest {
                 assembled.writeBytes(resp.getData());
                 chunks++;
             }
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
             assertTrue(chunks >= 2);
             var entries = TLV.parse(assembled.toByteArray());
             var seen = new ArrayList<AID>();
             for (var entry : entries) {
-                assertEquals(Tag.ber(0x61), entry.tag());
+                assertEquals(entry.tag(), Tag.ber(0x61));
                 var aidTlv = entry.find(0x4F).orElse(null);
                 if (aidTlv != null) {
                     seen.add(AIDUtil.create(aidTlv.value()));
@@ -264,7 +259,7 @@ public class ContactlessRegistryTest {
 
             // Stale continuation after 9000 -> 6985 (GPC v2.3.1 Amd C 3.11.3.2.2).
             var stale = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x01, filter, 256));
-            assertEquals(0x6985, stale.getSW());
+            assertEquals(stale.getSW(), 0x6985);
         }
 
         // 2. Multi-AID SET STATUS processes each 4F in command order (GPC v2.3.1 Amd C Table 3-23).
@@ -283,15 +278,15 @@ public class ContactlessRegistryTest {
                     TLV.of(0x4F, AIDUtil.bytes(X)),
                     TLV.of(0x4F, AIDUtil.bytes(X2)));
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
         }
         try (var bibo = simMulti.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X2));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED);
+            assertEquals(findClStateInGetStatus(bibo, X2), STATE_CL_ACTIVATED);
         }
         try (var bibo = simMulti.connect()) {
             var events = dumpCrelEvents(bibo);
-            assertEquals(6, events.size());
+            assertEquals(events.size(), 6);
             var tail = events.subList(events.size() - 2, events.size());
             assertEvent(tail.get(0), EVENT_ACTIVATED, X);
             assertEvent(tail.get(1), EVENT_ACTIVATED, X2);
@@ -310,7 +305,7 @@ public class ContactlessRegistryTest {
         try (var bibo = simMixed.connect()) {
             selectAID(bibo, T);
             var na = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_NON_ACTIVATABLE));
-            assertEquals(STATE_CL_NON_ACTIVATABLE, na.getData()[0]);
+            assertEquals(na.getData()[0], STATE_CL_NON_ACTIVATABLE);
         }
         byte[] unknown = Hex.decode("DEADBEEF00");
         try (var bibo = simMixed.connect()) {
@@ -320,18 +315,18 @@ public class ContactlessRegistryTest {
                     TLV.of(0x4F, unknown),
                     TLV.of(0x4F, AIDUtil.bytes(T)));
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
-            assertEquals(0x6320, resp.getSW());
+            assertEquals(resp.getSW(), 0x6320);
             var a1 = TLV.parse(resp.getData()).get(0);
-            assertEquals(Tag.ber(0xA1), a1.tag());
+            assertEquals(a1.tag(), Tag.ber(0xA1));
             // Both the unknown AID and the NON_ACTIVATABLE T are listed, in command order; X is not.
             var failed = TLV.parse(a1.value());
-            assertEquals(2, failed.size());
-            assertArrayEquals(unknown, failed.get(0).value());
-            assertArrayEquals(AIDUtil.bytes(T), failed.get(1).value());
+            assertEquals(failed.size(), 2);
+            assertEquals(failed.get(0).value(), unknown);
+            assertEquals(failed.get(1).value(), AIDUtil.bytes(T));
         }
         try (var bibo = simMixed.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));        // valid AID processed
-            assertEquals(STATE_CL_NON_ACTIVATABLE, findClStateInGetStatus(bibo, T));  // refusal left T untouched
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED);        // valid AID processed
+            assertEquals(findClStateInGetStatus(bibo, T), STATE_CL_NON_ACTIVATABLE);  // refusal left T untouched
         }
 
         // 4. Malformed / parameter-bound rejections.
@@ -341,76 +336,76 @@ public class ContactlessRegistryTest {
 
             // GET STATUS absent data field -> 6A80 (GPC v2.3.1 Amd C 3.11.3.2.3).
             var absent = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, 256));
-            assertEquals(0x6A80, absent.getSW());
+            assertEquals(absent.getSW(), 0x6A80);
 
             // GET STATUS without any 4F tag in the data field -> 6A80.
             byte[] no4f = TLV.of(0x5C, new byte[]{0x4F}).encode();
             var missing = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, no4f, 256));
-            assertEquals(0x6A80, missing.getSW());
+            assertEquals(missing.getSW(), 0x6A80);
 
             // Empty 4F is the "match all" sentinel; returns CL entries, each in a 61 template.
             byte[] match = TLV.of(0x4F, new byte[0]).encode();
             byte[] body = getStatusAll(bibo);
             assertTrue(body.length > 0);
             for (var e : TLV.parse(body)) {
-                assertEquals(Tag.ber(0x61), e.tag());
+                assertEquals(e.tag(), Tag.ber(0x61));
             }
 
             // RFU bit in P2 (only bit 0 defined, Table 3-13) -> 6A86.
             var rfu = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x02, match, 256));
-            assertEquals(0x6A86, rfu.getSW());
+            assertEquals(rfu.getSW(), 0x6A86);
 
             // Continuation with no prior 6310 -> 6985 (GPC v2.3.1 Amd C 3.11.3.2.2).
             var cont = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x01, match, 256));
-            assertEquals(0x6985, cont.getSW());
+            assertEquals(cont.getSW(), 0x6985);
 
             // GET DATA wrong P1/P2 -> 6A86 (only P1=00 P2=A5 defined, GPC v2.3.1 Amd C Table 3-31).
             var badP1 = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, 0x01, P2_GET_DATA, 256));
-            assertEquals(0x6A86, badP1.getSW());
+            assertEquals(badP1.getSW(), 0x6A86);
             var badP2 = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, P1_GET_DATA, 0x00, 256));
-            assertEquals(0x6A86, badP2.getSW());
+            assertEquals(badP2.getSW(), 0x6A86);
             var badBoth = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_DATA, 0x02, 0xC0, 256));
-            assertEquals(0x6A86, badBoth.getSW());
+            assertEquals(badBoth.getSW(), 0x6A86);
 
             // SET STATUS unknown AID -> 6320 + A1 list with the failed AID (GPC v2.3.1 Amd C 3.11.4.3.1).
             byte[] unkAid = Hex.decode("A1A2A3A4A5");
             byte[] unkData = TLV.of(0x4F, unkAid).encode();
             var unk = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, unkData));
-            assertEquals(0x6320, unk.getSW());
+            assertEquals(unk.getSW(), 0x6320);
             var unkParsed = TLV.parse(unk.getData());
-            assertEquals(1, unkParsed.size());
-            assertEquals(Tag.ber(0xA1), unkParsed.get(0).tag());
+            assertEquals(unkParsed.size(), 1);
+            assertEquals(unkParsed.get(0).tag(), Tag.ber(0xA1));
             var unkInner = TLV.parse(unkParsed.get(0).value());
-            assertEquals(1, unkInner.size());
-            assertEquals(Tag.ber(0x4F), unkInner.get(0).tag());
-            assertArrayEquals(unkAid, unkInner.get(0).value());
+            assertEquals(unkInner.size(), 1);
+            assertEquals(unkInner.get(0).tag(), Tag.ber(0x4F));
+            assertEquals(unkInner.get(0).value(), unkAid);
 
             // Malformed TLV: "4F 05 A1" declares 5 bytes but supplies 1 -> 6A80.
             var malformed = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, Hex.decode("4F05A1")));
-            assertEquals(0x6A80, malformed.getSW());
+            assertEquals(malformed.getSW(), 0x6A80);
 
             // CRS data field is a sequence of top-level 4F primitives; a 61-wrapped 4F must NOT
             // be accepted as top-level (GPC v2.3.1 Amd C Tables 3-14 / 3-23) -> both 6A80.
             byte[] wrappedAid = TLV.build(0x61).add(0x4F, AIDUtil.bytes(X)).encode();
             var wrappedSet = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, wrappedAid));
-            assertEquals(0x6A80, wrappedSet.getSW());
+            assertEquals(wrappedSet.getSW(), 0x6A80);
             byte[] wrappedFilter = TLV.build(0x61).add(0x4F, new byte[0]).encode();
             var wrappedGet = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, wrappedFilter, 256));
-            assertEquals(0x6A80, wrappedGet.getSW());
+            assertEquals(wrappedGet.getSW(), 0x6A80);
 
             // SET STATUS P2=NON_ACTIVATABLE rejected: only the applet itself may enter it
             // (GPC v2.3.1 Amd C 3.11.4.2.2) -> 6A86.
             byte[] xData = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var na = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_NON_ACTIVATABLE, xData));
-            assertEquals(0x6A86, na.getSW());
+            assertEquals(na.getSW(), 0x6A86);
 
             // P1=04 (OPEN scope) is unsupported; only the Applications scope (P1=40) is implemented -> 6A86.
             var openScope = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, 0x04, 0x00, match, 256));
-            assertEquals(0x6A86, openScope.getSW());
+            assertEquals(openScope.getSW(), 0x6A86);
 
             // Wrong CLA (anything outside {0x80, 0x84}) -> 6E00.
             var wrongCla = bibo.transmit(new CommandAPDU(0x00, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00));
-            assertEquals(0x6E00, wrongCla.getSW());
+            assertEquals(wrongCla.getSW(), 0x6E00);
         }
 
         // 5. Filterable query (GPC v2.3.1 Amd C 3.11.3 + Table 3-9). X is installed with 87 (family) +
@@ -430,16 +425,16 @@ public class ContactlessRegistryTest {
             // No 5C -> all available data (4F, 9F70, 87, 88) for X.
             var x = find61(getStatus(bibo, X), X);
             assertTrue(x.find(0x4F).isPresent() && x.find(0x9F70).isPresent());
-            assertArrayEquals(new byte[]{family}, val(x, 0x87));
-            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
+            assertEquals(val(x, 0x87), new byte[]{family});
+            assertEquals(val(x, 0x88), new byte[]{0x01});
 
             // Absent 88 still materializes the 3.6 default; T (no Application Information) reads 88 01 00.
-            assertArrayEquals(new byte[]{0x00}, val(find61(getStatus(bibo, T), T), 0x88));
+            assertEquals(val(find61(getStatus(bibo, T), T), 0x88), new byte[]{0x00});
 
             // 5C = {88, 9F70}: those plus the always-present 4F+9F70; 87 excluded.
             x = find61(getStatus(bibo, X, tagList(0x88, 0x9F70)), X);
             assertTrue(x.find(0x4F).isPresent() && x.find(0x9F70).isPresent());
-            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
+            assertEquals(val(x, 0x88), new byte[]{0x01});
             assertTrue(x.find(0x87).isEmpty());
 
             // Search criteria AND together: family 87 + activated 9F70 matches X, not T.
@@ -453,20 +448,20 @@ public class ContactlessRegistryTest {
             // 5C naming only A6, which no match carries -> 6A88 (GPC v2.3.1 Amd C 3.11.3.3.1).
             byte[] df = TLV.encode(TLV.of(0x4F, AIDUtil.bytes(X)), tagList(0xA6));
             var err = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x00, df, 256));
-            assertEquals(0x6A88, err.getSW());
+            assertEquals(err.getSW(), 0x6A88);
         }
 
         // SET STATUS (F0) changes only the 9F70 CL-state byte, never the descriptive 88.
         try (var bibo = simFilter.connect()) {
             selectAID(bibo, CRS_AID);
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, TLV.of(0x4F, AIDUtil.bytes(X)).encode()));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
         }
         try (var bibo = simFilter.connect()) {
             selectAID(bibo, CRS_AID);
             var x = find61(getStatus(bibo, X), X);
-            assertEquals(STATE_CL_DEACTIVATED, val(x, 0x9F70)[1]);
-            assertArrayEquals(new byte[]{0x01}, val(x, 0x88));
+            assertEquals(val(x, 0x9F70)[1], STATE_CL_DEACTIVATED);
+            assertEquals(val(x, 0x88), new byte[]{0x01});
         }
     }
 
@@ -485,26 +480,26 @@ public class ContactlessRegistryTest {
         try (var bibo = simSelf.connect()) {
             selectAID(bibo, T);
             var crsAllowed = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_ACTIVATED));
-            assertEquals(0x9000, crsAllowed.getSW());
-            assertEquals(STATE_CL_ACTIVATED, crsAllowed.getData()[0]);
+            assertEquals(crsAllowed.getSW(), 0x9000);
+            assertEquals(crsAllowed.getData()[0], STATE_CL_ACTIVATED);
 
             // CRS-routed activation fires EVENT_ACTIVATED; T sees it on its own CLApplet selfLog.
             var selfDump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x05, 0x00, 256));
-            assertEquals(0x9000, selfDump.getSW());
+            assertEquals(selfDump.getSW(), 0x9000);
             byte[] selfData = selfDump.getData();
             assertTrue(selfData.length >= 3);
             short lastSelfEvent = (short) (((selfData[selfData.length - 3] & 0xFF) << 8) | (selfData[selfData.length - 2] & 0xFF));
-            assertEquals(EVENT_ACTIVATED, lastSelfEvent);
+            assertEquals(lastSelfEvent, EVENT_ACTIVATED);
 
             var allow = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_DEACTIVATED));
-            assertEquals(0x9000, allow.getSW());
-            assertEquals(STATE_CL_DEACTIVATED, allow.getData()[0]);
+            assertEquals(allow.getSW(), 0x9000);
+            assertEquals(allow.getData()[0], STATE_CL_DEACTIVATED);
 
             // Only ACTIVATED is CRS-mediated; unknown state bytes -> 6982 before the CRS hook.
             var probeBad = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, 0x02));
-            assertEquals(0x6982, probeBad.getSW());
+            assertEquals(probeBad.getSW(), 0x6982);
             var probeNa = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, 0xFF));
-            assertEquals(0x6982, probeNa.getSW());
+            assertEquals(probeNa.getSW(), 0x6982);
         }
 
         // 2. Self-ACTIVATE with ContactlessSelfActivation succeeds; EVENT_ACTIVATED fans out to
@@ -527,19 +522,19 @@ public class ContactlessRegistryTest {
         try (var bibo = simSelfOK.connect()) {
             selectAID(bibo, t3);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_ACTIVATED));
-            assertEquals(0x9000, resp.getSW());
-            assertEquals(STATE_CL_ACTIVATED, resp.getData()[0]);
+            assertEquals(resp.getSW(), 0x9000);
+            assertEquals(resp.getData()[0], STATE_CL_ACTIVATED);
         }
         try (var bibo = simSelfOK.connect()) {
             selectAID(bibo, T);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_SELF_SETCLSTATE, STATE_CL_ACTIVATED));
-            assertEquals(0x9000, resp.getSW());
-            assertEquals(STATE_CL_ACTIVATED, resp.getData()[0]);
+            assertEquals(resp.getSW(), 0x9000);
+            assertEquals(resp.getData()[0], STATE_CL_ACTIVATED);
         }
         try (var bibo = simSelfOK.connect()) {
             selectAID(bibo, t2);
             var dump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_READ, 0x00, 256));
-            assertEquals(0x9000, dump.getSW());
+            assertEquals(dump.getSW(), 0x9000);
             byte[] data = dump.getData();
             // Record layout: event(2) | aid-len(1) | aid bytes | prev-null(1).
             int last = -1;
@@ -551,11 +546,11 @@ public class ContactlessRegistryTest {
             }
             assertTrue(last >= 0);
             short event = (short) (((data[last] & 0xFF) << 8) | (data[last + 1] & 0xFF));
-            assertEquals(EVENT_ACTIVATED, event);
+            assertEquals(event, EVENT_ACTIVATED);
             int aidLen = data[last + 2] & 0xFF;
             byte[] aid = Arrays.copyOfRange(data, last + 3, last + 3 + aidLen);
-            assertArrayEquals(AIDUtil.bytes(T), aid);
-            assertEquals((byte) 0x01, data[last + 3 + aidLen]); // prev-null flag
+            assertEquals(aid, AIDUtil.bytes(T));
+            assertEquals(data[last + 3 + aidLen], (byte) 0x01); // prev-null flag
         }
 
         // 3. Cross-applet ACTIVATE needs ContactlessActivation (GPC v2.3.1 Amd C 7.1). Caller T has
@@ -571,10 +566,10 @@ public class ContactlessRegistryTest {
         try (var bibo = simCross.connect()) {
             selectAID(bibo, T);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_CROSS_SETCLSTATE, STATE_CL_ACTIVATED, AIDUtil.bytes(X)));
-            assertEquals(0x6982, resp.getSW());
+            assertEquals(resp.getSW(), 0x6982);
         }
         try (var bibo = simCross.connect()) {
-            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_DEACTIVATED);
         }
 
         // 4. Cross-applet ACTIVATE needs the privilege AND the target's acceptActivation() consent
@@ -600,7 +595,7 @@ public class ContactlessRegistryTest {
         try (var bibo = simCrossOK.connect()) {
             selectAID(bibo, caller);
             var refused = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_CROSS_SETCLSTATE, STATE_CL_ACTIVATED, AIDUtil.bytes(X)));
-            assertEquals(0x6985, refused.getSW());
+            assertEquals(refused.getSW(), 0x6985);
         }
         // X now consents (flag 0 = 01): the same cross-activation succeeds and fans EVENT_ACTIVATED to T.
         try (var bibo = simCrossOK.connect()) {
@@ -610,14 +605,14 @@ public class ContactlessRegistryTest {
         try (var bibo = simCrossOK.connect()) {
             selectAID(bibo, caller);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_CROSS_SETCLSTATE, STATE_CL_ACTIVATED, AIDUtil.bytes(X)));
-            assertEquals(0x9000, resp.getSW());
-            assertEquals(STATE_CL_ACTIVATED, resp.getData()[0]);
+            assertEquals(resp.getSW(), 0x9000);
+            assertEquals(resp.getData()[0], STATE_CL_ACTIVATED);
         }
         try (var bibo = simCrossOK.connect()) {
             var events = dumpCrelEvents(bibo);
             var last = events.get(events.size() - 1);
-            assertEquals(EVENT_ACTIVATED, eventOf(last));
-            assertEquals(X, targetOf(last));
+            assertEquals(eventOf(last), EVENT_ACTIVATED);
+            assertEquals(targetOf(last), X);
         }
 
         // 5. Install-time semantics. ContactlessActivation is single-holder (GPC v2.3.1 Amd C 7.1):
@@ -650,7 +645,7 @@ public class ContactlessRegistryTest {
             installXWithParams(gp, buildEf(true, T));
         }
         try (var bibo = simInitActivation.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED);
         }
     }
 
@@ -671,7 +666,7 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = simDup.connect()) {
             var events = dumpCrelEvents(bibo);
-            assertEquals(2, events.size());
+            assertEquals(events.size(), 2);
             assertEvent(events.get(0), EVENT_CREL_ADDED, X);
             assertEvent(events.get(1), EVENT_SELECTABLE, X);
         }
@@ -691,7 +686,7 @@ public class ContactlessRegistryTest {
             assertTrue(events.isEmpty());
         }
         try (var bibo = simA4.connect()) {
-            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X));
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_DEACTIVATED);
         }
 
         // 3. Empty CREL list under A1 succeeds; no CREL registered, observer records nothing.
@@ -718,8 +713,8 @@ public class ContactlessRegistryTest {
             for (byte bad : new byte[]{0x02, (byte) 0x80}) {
                 var a0 = TLV.build(0xA0).add(0x81, new byte[]{bad});
                 var efBlock = TLV.build(0xEF).add(a1).add(a0);
-                var ex = assertThrows(GPException.class, () -> installXWithParams(gp, efBlock));
-                assertEquals(0x6A80, ex.sw);
+                var ex = expectThrows(GPException.class, () -> installXWithParams(gp, efBlock));
+                assertEquals(ex.sw, 0x6A80);
             }
         }
         try (var bibo = simRollback.connect()) {
@@ -760,16 +755,16 @@ public class ContactlessRegistryTest {
             installXWithParams(gp, ef);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(0x00, readDisplayRequired(bibo, X));
+            assertEquals(readDisplayRequired(bibo, X), 0x00);
         }
 
         // 1. Registry update with ONLY tag 88 -> 01. Display Required changes; nothing else sent.
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
-            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+            assertEquals(registryUpdate(openIsd(bibo), X, ef), 0x9000);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(0x01, readDisplayRequired(bibo, X)); // tag 88 updated
+            assertEquals(readDisplayRequired(bibo, X), 0x01); // tag 88 updated
         }
         // GPC v2.3.1 Amd C 3.10.2 / 3.10.3: the User Interaction parameter change notifies X's CRELs (T).
         try (var bibo = sim.connect()) {
@@ -777,7 +772,7 @@ public class ContactlessRegistryTest {
             assertEvent(events.get(events.size() - 1), EVENT_DISPLAY_REQUIREMENT, X);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X)); // A0/81 retained
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED); // A0/81 retained
         }
 
         // 2. CREL link retained: a CRS SET STATUS DEACTIVATED on X must still reach T's CREL log.
@@ -785,7 +780,7 @@ public class ContactlessRegistryTest {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
-            assertEquals(0x9000, resp.getSW());
+            assertEquals(resp.getSW(), 0x9000);
         }
         try (var bibo = sim.connect()) {
             var events = dumpCrelEvents(bibo);
@@ -797,61 +792,61 @@ public class ContactlessRegistryTest {
         //    to DEACTIVATED, differing from the install-time 01: X stays DEACTIVATED from step 2 either way.
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_DEACTIVATED}));
-            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+            assertEquals(registryUpdate(openIsd(bibo), X, ef), 0x9000);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X)); // current state untouched by tag 81
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_DEACTIVATED); // current state untouched by tag 81
         }
         try (var bibo = sim.connect()) {
-            assertEquals(0x01, readDisplayRequired(bibo, X)); // tag 88 retained across an 81-only update
+            assertEquals(readDisplayRequired(bibo, X), 0x01); // tag 88 retained across an 81-only update
         }
 
         // 3b. The stored initial governs unlock (GPC v2.3.1 Amd C 8.1): lock X, then unlock; the OPEN
         //     re-applies the initial, which is DEACTIVATED here, so X does not re-activate.
         try (var bibo = sim.connect()) {
-            assertEquals(0x9000, setAppLifecycle(openIsd(bibo), X, APP_LOCKED));
+            assertEquals(setAppLifecycle(openIsd(bibo), X, APP_LOCKED), 0x9000);
         }
         // GPC v2.3.1 Amd C 8.1: a LOCKED Application cannot be activated; CRS SET STATUS refuses it (6320).
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.of(0x4F, AIDUtil.bytes(X)).encode();
             var resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_ACTIVATED, data));
-            assertEquals(0x6320, resp.getSW());
+            assertEquals(resp.getSW(), 0x6320);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(0x9000, setAppLifecycle(openIsd(bibo), X, APP_SELECTABLE));
+            assertEquals(setAppLifecycle(openIsd(bibo), X, APP_SELECTABLE), 0x9000);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_DEACTIVATED, findClStateInGetStatus(bibo, X)); // initial=DEACTIVATED honored on unlock
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_DEACTIVATED); // initial=DEACTIVATED honored on unlock
         }
 
         // 3c. Flip the initial to ACTIVATED via registry update: the next unlock re-activates X (Amd C 8.1).
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
-            assertEquals(0x9000, registryUpdate(gp, X, ef));
-            assertEquals(0x9000, setAppLifecycle(gp, X, APP_LOCKED));
-            assertEquals(0x9000, setAppLifecycle(gp, X, APP_SELECTABLE));
+            assertEquals(registryUpdate(gp, X, ef), 0x9000);
+            assertEquals(setAppLifecycle(gp, X, APP_LOCKED), 0x9000);
+            assertEquals(setAppLifecycle(gp, X, APP_SELECTABLE), 0x9000);
         }
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, X)); // initial=ACTIVATED re-applied on unlock
+            assertEquals(findClStateInGetStatus(bibo, X), STATE_CL_ACTIVATED); // initial=ACTIVATED re-applied on unlock
         }
 
         // 4. Zero-length 88 deletes the indicator (GPC v2.3.1 Amd C 11.2.3); getInfo -> 6A83.
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[0]));
-            assertEquals(0x9000, registryUpdate(openIsd(bibo), X, ef));
+            assertEquals(registryUpdate(openIsd(bibo), X, ef), 0x9000);
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, X);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x06, 0x00, 256));
-            assertEquals(0x6A83, resp.getSW()); // SW_RECORD_NOT_FOUND
+            assertEquals(resp.getSW(), 0x6A83); // SW_RECORD_NOT_FOUND
         }
 
         // 5. Unknown target AID -> 6A88 (GPC v2.3.1 9.4.2.1 existence check).
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
-            assertEquals(0x6A88, registryUpdate(openIsd(bibo), AIDUtil.create("DEADBEEF00"), ef));
+            assertEquals(registryUpdate(openIsd(bibo), AIDUtil.create("DEADBEEF00"), ef), 0x6A88);
         }
     }
 
@@ -865,12 +860,12 @@ public class ContactlessRegistryTest {
             var gp = openIsd(bibo);
             // ISD sets the OPEN default to ACTIVATED, then installs T with no contactless params.
             var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
-            assertEquals(0x9000, registryUpdateOpenDefault(gp, ef));
+            assertEquals(registryUpdateOpenDefault(gp, ef), 0x9000);
             installCRELTestApplet(gp);
         }
         // T carried no tag 81, so it inherits the OPEN default and comes up ACTIVATED.
         try (var bibo = sim.connect()) {
-            assertEquals(STATE_CL_ACTIVATED, findClStateInGetStatus(bibo, T));
+            assertEquals(findClStateInGetStatus(bibo, T), STATE_CL_ACTIVATED);
         }
     }
 
@@ -936,7 +931,7 @@ public class ContactlessRegistryTest {
         }
         try (var bibo = sim1.connect()) {
             var events = dumpCrsEvents(bibo);
-            assertEquals(1, events.size());
+            assertEquals(events.size(), 1);
             assertEvent(events.get(0), EVENT_SELECTABLE, X);
         }
 
@@ -956,12 +951,12 @@ public class ContactlessRegistryTest {
             clearCrsLog(bibo);
             var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP,
                     (byte) 0x03, STATE_CL_ACTIVATED, AIDUtil.bytes(X)));
-            assertEquals(0x9000, resp.getSW());
-            assertEquals(STATE_CL_ACTIVATED, resp.getData()[0]);
+            assertEquals(resp.getSW(), 0x9000);
+            assertEquals(resp.getData()[0], STATE_CL_ACTIVATED);
             var dump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_READ, 0x00, 256));
-            assertEquals(0x9000, dump.getSW());
+            assertEquals(dump.getSW(), 0x9000);
             // CRS must NOT receive notifications it originated.
-            assertEquals(0, dump.getData().length);
+            assertEquals(dump.getData().length, 0);
         }
 
         // 3. Dedupe. X's CREL list names T (the CRS), so EVENT_SELECTABLE would reach T via both
@@ -984,7 +979,7 @@ public class ContactlessRegistryTest {
         try (var bibo = sim3.connect()) {
             var events = dumpCrsEvents(bibo);
             // CRS on per-applet CREL list must NOT be double-notified for the same event.
-            assertEquals(2, events.size());
+            assertEquals(events.size(), 2);
             assertEvent(events.get(0), EVENT_CREL_ADDED, X);
             assertEvent(events.get(1), EVENT_SELECTABLE, X);
         }
@@ -1002,16 +997,16 @@ public class ContactlessRegistryTest {
             selectAID(bibo, T);
             // Clear both logs (drop the install-time EVENT_SELECTABLE).
             var clear = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x01, 0x00, 0));
-            assertEquals(0x9000, clear.getSW());
+            assertEquals(clear.getSW(), 0x9000);
             var self = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP,
                     CREL_P1_SELF_SETCLSTATE, STATE_CL_ACTIVATED, 256));
-            assertEquals(0x9000, self.getSW());
-            assertEquals(STATE_CL_ACTIVATED, self.getData()[0]);
+            assertEquals(self.getSW(), 0x9000);
+            assertEquals(self.getData()[0], STATE_CL_ACTIVATED);
             var selfLog = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP,
                     CREL_P1_READ_SELF, 0x00, 256));
-            assertEquals(0x9000, selfLog.getSW());
+            assertEquals(selfLog.getSW(), 0x9000);
             // Self-originated EVENT_ACTIVATED must NOT be self-delivered.
-            assertEquals(0, selfLog.getData().length);
+            assertEquals(selfLog.getData().length, 0);
         }
     }
 
@@ -1019,14 +1014,14 @@ public class ContactlessRegistryTest {
     private static List<byte[]> dumpCrsEvents(BIBO bibo) {
         selectAID(bibo, T);
         var dump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_READ, 0x00, 256));
-        assertEquals(0x9000, dump.getSW());
+        assertEquals(dump.getSW(), 0x9000);
         byte[] data = dump.getData();
         var records = new ArrayList<byte[]>();
         int i = 0;
         while (i < data.length) {
             int aidLen = data[i + 2] & 0xFF;
             int recLen = 2 + 1 + aidLen + 1;
-            assertEquals((byte) 0x01, data[i + recLen - 1]); // prev-null flag
+            assertEquals(data[i + recLen - 1], (byte) 0x01); // prev-null flag
             records.add(Arrays.copyOfRange(data, i, i + recLen));
             i += recLen;
         }
@@ -1037,7 +1032,7 @@ public class ContactlessRegistryTest {
     private static void clearCrsLog(BIBO bibo) {
         selectAID(bibo, T);
         var clear = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x01, 0x00, 0));
-        assertEquals(0x9000, clear.getSW());
+        assertEquals(clear.getSW(), 0x9000);
     }
 
     // ------------------- helpers ------------------- //
@@ -1066,8 +1061,8 @@ public class ContactlessRegistryTest {
     private static int readDisplayRequired(BIBO bibo, AID app) {
         selectAID(bibo, app);
         var resp = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, (byte) 0x06, 0x00, 256));
-        assertEquals(0x9000, resp.getSW());
-        assertEquals(1, resp.getData().length);
+        assertEquals(resp.getSW(), 0x9000);
+        assertEquals(resp.getData().length, 1);
         return resp.getData()[0] & 0xFF;
     }
 
@@ -1110,14 +1105,14 @@ public class ContactlessRegistryTest {
     // Validate SELECT CRS FCI shape (GPC v2.3.1 Amd C Table 3-30) and return the counter bytes.
     private static byte[] parseUpdateCounter(byte[] fci) {
         var parsed = TLV.parse(fci);
-        assertEquals(1, parsed.size());
+        assertEquals(parsed.size(), 1);
         var template = parsed.get(0);
-        assertEquals(Tag.ber(0x6F), template.tag());
+        assertEquals(template.tag(), Tag.ber(0x6F));
         var aidTlv = template.find(0x84).orElseThrow(() -> new AssertionError("FCI must carry tag 84 (AID)"));
-        assertArrayEquals(AIDUtil.bytes(CRS_AID), aidTlv.value());
+        assertEquals(aidTlv.value(), AIDUtil.bytes(CRS_AID));
         var proprietary = template.find(0xA5).orElseThrow(() -> new AssertionError("FCI must carry tag A5 (proprietary template)"));
         var versionTlv = proprietary.find(0x9F08).orElseThrow(() -> new AssertionError("A5 must carry tag 9F08 (version)"));
-        assertArrayEquals(new byte[]{0x01, 0x00}, versionTlv.value());
+        assertEquals(versionTlv.value(), new byte[]{0x01, 0x00});
         var counterTlv = proprietary.find(0x80).orElseThrow(() -> new AssertionError("A5 must carry tag 80 (Global Update Counter)"));
         return counterTlv.value();
     }
@@ -1125,7 +1120,7 @@ public class ContactlessRegistryTest {
     // Send raw SELECT-by-AID and return the response data (FCI). Asserts SW=9000.
     private static byte[] selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW());
+        assertEquals(r.getSW(), 0x9000);
         return r.getData();
     }
 
@@ -1134,14 +1129,14 @@ public class ContactlessRegistryTest {
     private static List<byte[]> dumpCrelEvents(BIBO bibo) {
         selectAID(bibo, T);
         var dump = bibo.transmit(new CommandAPDU(CREL_CLA, CREL_INS_DUMP, CREL_P1_READ, 0x00, 256));
-        assertEquals(0x9000, dump.getSW());
+        assertEquals(dump.getSW(), 0x9000);
         byte[] data = dump.getData();
         var records = new ArrayList<byte[]>();
         int i = 0;
         while (i < data.length) {
             int aidLen = data[i + 2] & 0xFF;
             int recLen = 2 + 1 + aidLen + 1;
-            assertEquals((byte) 0x01, data[i + recLen - 1]); // prev-null flag
+            assertEquals(data[i + recLen - 1], (byte) 0x01); // prev-null flag
             records.add(Arrays.copyOfRange(data, i, i + recLen));
             i += recLen;
         }
@@ -1172,7 +1167,7 @@ public class ContactlessRegistryTest {
             resp = bibo.transmit(new CommandAPDU(CRS_CLA, INS_GET_STATUS, P1_GET_APPLICATIONS, 0x01, dataField, 256));
             assembled.writeBytes(resp.getData());
         }
-        assertEquals(0x9000, resp.getSW());
+        assertEquals(resp.getSW(), 0x9000);
         return assembled.toByteArray();
     }
 
@@ -1223,7 +1218,7 @@ public class ContactlessRegistryTest {
         var v = findEntryInGetStatus(bibo, target).find(0x9F70)
                 .orElseThrow(() -> new AssertionError("9F70 missing from 61 record")).value();
         // 9F70 must be 2 bytes (lifecycle + clState).
-        assertEquals(2, v.length);
+        assertEquals(v.length, 2);
         return v[1];
     }
 
@@ -1231,7 +1226,7 @@ public class ContactlessRegistryTest {
     private static int findUpdateCounterInGetStatus(BIBO bibo, AID target) {
         var v = findEntryInGetStatus(bibo, target).find(0x80)
                 .orElseThrow(() -> new AssertionError("80 missing from 61 record")).value();
-        assertEquals(2, v.length);
+        assertEquals(v.length, 2);
         return ((v[0] & 0xFF) << 8) | (v[1] & 0xFF);
     }
 
@@ -1239,7 +1234,7 @@ public class ContactlessRegistryTest {
         selectAID(bibo, CRS_AID);
         byte[] targetBytes = AIDUtil.bytes(target);
         for (var entry : TLV.parse(getStatusAll(bibo))) {
-            assertEquals(Tag.ber(0x61), entry.tag());
+            assertEquals(entry.tag(), Tag.ber(0x61));
             var aidTlv = entry.find(0x4F).orElse(null);
             if (aidTlv != null && Arrays.equals(aidTlv.value(), targetBytes)) {
                 return entry;
@@ -1250,10 +1245,10 @@ public class ContactlessRegistryTest {
 
     // Assert a recorded CREL event matches the expected event short and target AID.
     private static void assertEvent(byte[] rec, short expectedEvent, AID expectedTarget) {
-        assertEquals(expectedEvent, eventOf(rec));
+        assertEquals(eventOf(rec), expectedEvent);
         var target = targetOf(rec);
         assertNotNull(target);
-        assertEquals(expectedTarget, target);
+        assertEquals(target, expectedTarget);
     }
 
 }

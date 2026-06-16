@@ -9,13 +9,13 @@ import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.samples.HelloWorldApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.CardException;
 import java.time.Duration;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 /**
  * Contains all listing from the documentation
@@ -53,7 +53,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
             var response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
             // 3. Check response status word
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
         }
     }
 
@@ -71,17 +71,17 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
             // test NOP
             var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             // test hello world from card
             response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x00, 0x00));
-            assertEquals(0x9000, response.getSW());
-            assertEquals("Hello world !", new String(response.getData()));
+            assertEquals(response.getSW(), 0x9000);
+            assertEquals(new String(response.getData()), "Hello world !");
 
             // test echo
             response = bibo.transmit(new CommandAPDU(0x00, 0x01, 0x01, 0x00, "Hello javacard world !".getBytes()));
-            assertEquals(0x9000, response.getSW());
-            assertEquals("Hello javacard world !", new String(response.getData()));
+            assertEquals(response.getSW(), 0x9000);
+            assertEquals(new String(response.getData()), "Hello javacard world !");
         }
     }
 
@@ -99,7 +99,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
 
             // test NOP
             var response = bibo.transmit(new CommandAPDU(0x00, 0x02, 0x00, 0x00));
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
         }
     }
 
@@ -124,7 +124,7 @@ public class DocumentationCodeSamplesTest implements SmartCardTest {
         var response = channel.transmit(new javax.smartcardio.CommandAPDU(0x00, 0x01, 0x00, 0x00));
 
         // 6. Check response status word
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
     }
 
     @Test

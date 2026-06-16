@@ -6,7 +6,7 @@ import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.PPSEApplet;
 import pro.javacard.engine.testapplets.PaymentApplet;
@@ -17,7 +17,7 @@ import pro.javacard.tlv.TLV;
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class PPSETest {
 
@@ -55,7 +55,7 @@ public class PPSETest {
             installPayment(gp, PAY_A, v1);
         }
         try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(v1), selectAID(bibo, PPSE));
+            assertEquals(selectAID(bibo, PPSE), expectedFci(v1));
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, PAY_A);
@@ -64,18 +64,18 @@ public class PPSETest {
         try (var bibo = sim.connect()) {
             byte[] fci = selectAID(bibo, PPSE);
             assertTrue(fci.length > 127);
-            assertArrayEquals(expectedFci(v2), fci);
+            assertEquals(fci, expectedFci(v2));
         }
         try (var bibo = sim.connect()) {
             selectAID(bibo, CRS_AID);
             byte[] data = TLV.of(0x4F, AIDUtil.bytes(PAY_A)).encode();
             var r = bibo.transmit(new CommandAPDU(CRS_CLA, INS_SET_STATUS, P1_SET_AVAILABILITY, STATE_CL_DEACTIVATED, data));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
         }
         try (var bibo = sim.connect()) {
             // tracked applet deactivated: PPSE falls back to 6A82
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(PPSE), 256));
-            assertEquals(0x6A82, r.getSW());
+            assertEquals(r.getSW(), 0x6A82);
         }
     }
 
@@ -91,7 +91,7 @@ public class PPSETest {
         try (var bibo = sim.connect()) {
             // no applet active yet: Internal-Mode PPSE returns 6A82 (R3.5.1)
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(PPSE), 256));
-            assertEquals(0x6A82, r.getSW());
+            assertEquals(r.getSW(), 0x6A82);
         }
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
@@ -99,7 +99,7 @@ public class PPSETest {
             installPayment(gp, PAY_B, dirB);
         }
         try (var bibo = sim.connect()) {
-            assertArrayEquals(expectedFci(dirB), selectAID(bibo, PPSE));
+            assertEquals(selectAID(bibo, PPSE), expectedFci(dirB));
         }
     }
 
@@ -137,12 +137,12 @@ public class PPSETest {
 
     private static void updateDD(BIBO bibo, byte[] dd) {
         var r = bibo.transmit(new CommandAPDU(0x80, INS_UPDATE_DD, 0x00, 0x00, dd));
-        assertEquals(0x9000, r.getSW());
+        assertEquals(r.getSW(), 0x9000);
     }
 
     private static byte[] selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW());
+        assertEquals(r.getSW(), 0x9000);
         return r.getData();
     }
 }

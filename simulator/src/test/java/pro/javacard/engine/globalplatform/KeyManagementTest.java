@@ -3,10 +3,8 @@
 package pro.javacard.engine.globalplatform;
 
 import apdu4j.core.CommandAPDU;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.gp.GPCrypto;
 import pro.javacard.gp.GPException;
@@ -19,11 +17,8 @@ import java.security.KeyPairGenerator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.MasterKeys;
 import static pro.javacard.engine.globalplatform.GPTestUtils.addKvn;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
@@ -37,23 +32,23 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.replaceKvn;
 public class KeyManagementTest {
 
     // Mirrors PutKeyTest.scpConfigs(): SCP02 and SCP03 via gp-pro's MAC mode.
-    static Stream<Arguments> scpConfigs() {
-        return Stream.of(
-                Arguments.of("SCP02", (Supplier<SCPConfig>) SCPConfig.SCP02::new, EnumSet.of(GPSession.APDUMode.MAC)),
-                Arguments.of("SCP03", (Supplier<SCPConfig>) SCPConfig.SCP03::new, EnumSet.of(GPSession.APDUMode.MAC))
-        );
+    @DataProvider(name = "scpConfigs")
+    public static Object[][] scpConfigs() {
+        return new Object[][] {
+                {"SCP02", (Supplier<SCPConfig>) SCPConfig.SCP02::new, EnumSet.of(GPSession.APDUMode.MAC)},
+                {"SCP03", (Supplier<SCPConfig>) SCPConfig.SCP03::new, EnumSet.of(GPSession.APDUMode.MAC)}
+        };
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("scpConfigs")
-    void fullKeystoreLifecycle(String name, Supplier<SCPConfig> cfgFactory, EnumSet<GPSession.APDUMode> mode) throws Exception {
+    @Test(dataProvider = "scpConfigs")
+    public void fullKeystoreLifecycle(String name, Supplier<SCPConfig> cfgFactory, EnumSet<GPSession.APDUMode> mode) throws Exception {
         var sim = new JavaCardEngine.Builder().withSCP(cfgFactory.get()).build();
 
         // 1. Fresh sim - KIT shows 3 KIDs (ENC/MAC/DEK) all at the factory KVN=0xFF.
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo, mode);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size());
+            assertEquals(kit.size(), 3);
             assertTrue(allAtKvn(kit, 0xFF));
         }
 
@@ -63,7 +58,7 @@ public class KeyManagementTest {
             var gp = openIsd(bibo, mode);
             addKvn(gp, 0x01, MasterKeys.A);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size());
+            assertEquals(kit.size(), 3);
             assertTrue(allAtKvn(kit, 0x01));
         }
 
@@ -80,7 +75,7 @@ public class KeyManagementTest {
         // 4. IU P1=0 (kvn=0 leaves setVersion unset) - newest-selection picks the only keyset 0x01.
         try (var bibo = sim.connect()) {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0, mode);
-            assertEquals(3, gp.getKeyInfoTemplate().size());
+            assertEquals(gp.getKeyInfoTemplate().size(), 3);
         }
 
         // 5. PUT KEY add of KVN=0x02 with master_B alongside 0x01 (no factory trigger: factory
@@ -89,9 +84,9 @@ public class KeyManagementTest {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.A, 0x01, mode);
             addKvn(gp, 0x02, MasterKeys.B);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(6, kit.size());
-            assertEquals(3, countAtKvn(kit, 0x01));
-            assertEquals(3, countAtKvn(kit, 0x02));
+            assertEquals(kit.size(), 6);
+            assertEquals(countAtKvn(kit, 0x01), 3);
+            assertEquals(countAtKvn(kit, 0x02), 3);
         }
 
         // 6. IU P1=0 with master_B - newest-selection now resolves to KVN=0x02 (the most-recently
@@ -129,8 +124,8 @@ public class KeyManagementTest {
             var gp = openSdAt(bibo, SecurityDomainApplet.OPEN_AID, MasterKeys.C, 0x01, mode);
             gp.deleteKey(0x02, null);
             var kit = gp.getKeyInfoTemplate();
-            assertEquals(3, kit.size());
-            assertEquals(0, countAtKvn(kit, 0x02));
+            assertEquals(kit.size(), 3);
+            assertEquals(countAtKvn(kit, 0x02), 0);
         }
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, GPTestUtils.gpAID(SecurityDomainApplet.OPEN_AID));
@@ -153,26 +148,26 @@ public class KeyManagementTest {
     // KeySet is an atomic ENC/MAC/DEK triple. Reject with SW_FUNC_NOT_SUPPORTED rather than
     // silently widen to whole-KVN deletion. GPC v2.3.1 11.2.2.3.2.
     @Test
-    void deleteByKidAloneRejected() throws Exception {
+    public void deleteByKidAloneRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
-            var ex = assertThrows(GPException.class, () -> gp.deleteKey(null, 0x01));
+            var ex = expectThrows(GPException.class, () -> gp.deleteKey(null, 0x01));
             // SW_FUNC_NOT_SUPPORTED
-            assertEquals(0x6A81, ex.sw);
+            assertEquals(ex.sw, 0x6A81);
         }
     }
 
     // DELETE [key] with an unknown KVN: gp-pro's deleteKey throws GPException carrying the
     // card's SW_REFERENCED_DATA_NOT_FOUND (0x6A88). GPC v2.3.1 11.2.3.2 / Table 11-26.
     @Test
-    void deleteUnknownKvnRejected() throws Exception {
+    public void deleteUnknownKvnRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
-            var ex = assertThrows(GPException.class, () -> gp.deleteKey(0x55, null));
+            var ex = expectThrows(GPException.class, () -> gp.deleteKey(0x55, null));
             // SW_REFERENCED_DATA_NOT_FOUND
-            assertEquals(0x6A88, ex.sw);
+            assertEquals(ex.sw, 0x6A88);
         }
     }
 
@@ -182,7 +177,7 @@ public class KeyManagementTest {
     // every probe: a rejected PUT KEY leaves the SCP sequence counter untouched (only a successful
     // PUT KEY resets it, GPC v2.3.1 E.1.2), and the lone addKvn resets host and card symmetrically.
     @Test
-    void putKeyBodyRejects() throws Exception {
+    public void putKeyBodyRejects() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         byte[] key16 = MasterKeys.A;
 
@@ -191,15 +186,15 @@ public class KeyManagementTest {
 
             // KCV length 0 - mandatory for DES/AES (GPC v2.3.1 11.8.2.3.3) -> 6A80.
             // P1=00 add, KVN=05, P2=81 (multi-key flag, first KID=01), single block.
-            assertEquals(0x6A80, gp.transmit(putKey(0x00, 0x81, 0x05, aesBlockNoKcv(gp, key16))).getSW());
+            assertEquals(gp.transmit(putKey(0x00, 0x81, 0x05, aesBlockNoKcv(gp, key16))).getSW(), 0x6A80);
 
             // KCV does not match the key value (GPC v2.3.1 11.8.3.2 Table 11-78) -> 6982.
-            assertEquals(0x6982, gp.transmit(putKey(0x00, 0x81, 0x05, aesBlock(gp, key16, new byte[]{0x00, 0x00, 0x00}))).getSW());
+            assertEquals(gp.transmit(putKey(0x00, 0x81, 0x05, aesBlock(gp, key16, new byte[]{0x00, 0x00, 0x00}))).getSW(), 0x6982);
 
             // Consecutive KIDs must stay within 00..7F (GPC v2.3.1 11.8.2.2). First KID 0x7F + a second
             // block makes the next KID 0x80, out of range -> 6A80 (the second block is never parsed).
             var body = concat(aesBlock(gp, key16, GPCrypto.kcv_aes(key16)), new byte[]{(byte) 0x80, 0x01, 0x00});
-            assertEquals(0x6A80, gp.transmit(putKey(0x00, 0xFF, 0x06, body)).getSW());
+            assertEquals(gp.transmit(putKey(0x00, 0xFF, 0x06, body)).getSW(), 0x6A80);
 
             // The replace-path guards need an existing keyset. Add a real KVN=0x10 (AES, KIDs 1/2/3) -
             // the only successful PUT KEY here, so the only point the SCP counter resets.
@@ -208,13 +203,13 @@ public class KeyManagementTest {
             // Replacing a KVN with a block whose KID is absent from the existing keyset
             // (GPC v2.3.1 11.8.2.3.3) -> 6A88. KVN 0x10 holds KIDs 1/2/3; first KID 0x05 is absent.
             var miss = aesBlock(gp, key16, GPCrypto.kcv_aes(key16));
-            assertEquals(0x6A88, gp.transmit(putKey(0x10, 0x85, 0x10, miss)).getSW()); // P2=85: first KID=05
+            assertEquals(gp.transmit(putKey(0x10, 0x85, 0x10, miss)).getSW(), 0x6A88); // P2=85: first KID=05
 
             // A replacement key must keep the existing type and length (GPC v2.3.1 11.8.2.3.3) -> 6A80.
             // Existing KID 1 at KVN 0x10 is AES-16; replace it with an AES-32 block.
             byte[] key32 = concat(key16, key16); // a 32-byte AES key value
             var widen = aesBlock(gp, key32, GPCrypto.kcv_aes(key32));
-            assertEquals(0x6A80, gp.transmit(putKey(0x10, 0x81, 0x10, widen)).getSW()); // P2=81: first KID=01 (AES-16)
+            assertEquals(gp.transmit(putKey(0x10, 0x81, 0x10, widen)).getSW(), 0x6A80); // P2=81: first KID=01 (AES-16)
         }
     }
 
@@ -224,16 +219,16 @@ public class KeyManagementTest {
     // SCP03 S8 and S16 (8- vs 16-byte C-MAC, which the reassembly path strips). SCP02 chaining is
     // spec-valid (GPC v2.3.1 11.1.5.1) but gp-pro's SCP02 wrapper refuses >255-byte commands, so it
     // cannot drive a chained SCP02 PUT KEY here.
-    static Stream<Arguments> chainingConfigs() {
-        return Stream.of(
-                Arguments.of("SCP03", (Supplier<SCPConfig>) SCPConfig.SCP03::new),
-                Arguments.of("SCP03-S16", (Supplier<SCPConfig>) () -> new SCPConfig.SCP03(true))
-        );
+    @DataProvider(name = "chainingConfigs")
+    public static Object[][] chainingConfigs() {
+        return new Object[][] {
+                {"SCP03", (Supplier<SCPConfig>) SCPConfig.SCP03::new},
+                {"SCP03-S16", (Supplier<SCPConfig>) () -> new SCPConfig.SCP03(true)}
+        };
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("chainingConfigs")
-    void putKeyRsaPublicKey(String name, Supplier<SCPConfig> cfgFactory) throws Exception {
+    @Test(dataProvider = "chainingConfigs")
+    public void putKeyRsaPublicKey(String name, Supplier<SCPConfig> cfgFactory) throws Exception {
         var kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         var pair = kpg.generateKeyPair();
@@ -247,11 +242,11 @@ public class KeyManagementTest {
             gp.putKey(pair.getPublic(), DM_TOKEN_KVN, false);
             var kit = gp.getKeyInfoTemplate();
             var rsa = kit.stream().filter(k -> k.getVersion() == DM_TOKEN_KVN).findFirst().orElseThrow();
-            assertEquals(GPKeyInfo.GPKey.RSA_PUB_N, rsa.getType());
+            assertEquals(rsa.getType(), GPKeyInfo.GPKey.RSA_PUB_N);
             // GPC v2.3.1 11.3.3.1.1: a modulus >= 256 bytes is length-coded 0x00; gp-pro decodes it to 256.
-            assertEquals(256, rsa.getLength());
+            assertEquals(rsa.getLength(), 256);
             // Asymmetric key add must leave the factory ENC/MAC/DEK triple at KVN 0xFF intact.
-            assertEquals(3, countAtKvn(kit, 0xFF));
+            assertEquals(countAtKvn(kit, 0xFF), 3);
         }
 
         // MAC-only (no ENC) also chains a 2048-bit key: covers reassembly without decryption, and
@@ -260,7 +255,7 @@ public class KeyManagementTest {
             var gp = openIsd(bibo, EnumSet.of(GPSession.APDUMode.MAC));
             gp.putKey(kpg.generateKeyPair().getPublic(), DM_TOKEN_KVN + 1, false);
             var rsa = gp.getKeyInfoTemplate().stream().filter(k -> k.getVersion() == DM_TOKEN_KVN + 1).findFirst().orElseThrow();
-            assertEquals(GPKeyInfo.GPKey.RSA_PUB_N, rsa.getType());
+            assertEquals(rsa.getType(), GPKeyInfo.GPKey.RSA_PUB_N);
         }
     }
 

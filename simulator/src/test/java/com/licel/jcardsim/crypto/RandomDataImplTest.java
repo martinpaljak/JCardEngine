@@ -9,12 +9,12 @@ import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.RandomData;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 /**
  * Test for <code>RandomDataImpl</code>
@@ -113,13 +113,13 @@ public class RandomDataImplTest extends SimulatorCoreTest {
         byte[] data = new byte[4];
 
         short len = rnd.nextBytes(data, (short) 0, (short)data.length);
-        assertEquals(4, len);
+        assertEquals(len, 4);
         assertFalse(Arrays.equals(new byte[4], data));
 
         rnd.close();
         // after close(), a further call throws ILLEGAL_USE
-        CryptoException e = assertThrows(CryptoException.class, () -> rnd.nextBytes(data, (short) 0, (short) data.length));
-        assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+        CryptoException e = expectThrows(CryptoException.class, () -> rnd.nextBytes(data, (short) 0, (short) data.length));
+        assertEquals(e.getReason(), CryptoException.ILLEGAL_USE);
     }
 
     // GH #20: building a card with the jcardengine.rng.seed preference seeds the per-card RNG, so
@@ -133,9 +133,9 @@ public class RandomDataImplTest extends SimulatorCoreTest {
             // Two cards built with the SAME seed produce identical RandomData output, plus an exact vector.
             byte[] a = generateSeeded(0x0102030405060708L);
             byte[] b = generateSeeded(0x0102030405060708L);
-            assertArrayEquals(a, b);
+            assertEquals(b, a);
             // Exact byte vector for seed 0x0102030405060708 (DigestRandomGenerator over SHA-1, GH #20 path).
-            assertEquals("935299e79c4cca58", Hex.toHexString(a));
+            assertEquals(Hex.toHexString(a), "935299e79c4cca58");
 
             // A different seed yields a different stream.
             byte[] c = generateSeeded(0x1122334455667788L);

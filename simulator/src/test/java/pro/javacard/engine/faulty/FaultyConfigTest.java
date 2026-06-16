@@ -4,12 +4,13 @@ package pro.javacard.engine.faulty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+
+import static org.testng.Assert.*;
 
 public class FaultyConfigTest {
 
@@ -21,8 +22,8 @@ public class FaultyConfigTest {
         var r = objectMapper.readValue(getClass().getResourceAsStream("faulty.yaml"), FaultyConfig.class);
         log.info("Read {} ", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(r));
 
-        Assertions.assertEquals(2, r.step().size());
-        Assertions.assertEquals(2, r.apdu().size());
+        assertEquals(r.step().size(), 2);
+        assertEquals(r.apdu().size(), 2);
     }
 
     @Test
@@ -32,9 +33,9 @@ public class FaultyConfigTest {
 
         // Query step 1 with non-matching APDU
         var faults = config.getFaults(1, new byte[]{0x00, 0x00, 0x00, 0x00});
-        Assertions.assertEquals(1, faults.size());
-        Assertions.assertTrue(faults.containsKey("FooBar"));
-        Assertions.assertEquals(3, faults.get("FooBar").size());
+        assertEquals(faults.size(), 1);
+        assertTrue(faults.containsKey("FooBar"));
+        assertEquals(faults.get("FooBar").size(), 3);
     }
 
     @Test
@@ -44,9 +45,9 @@ public class FaultyConfigTest {
 
         // Query non-matching step with SELECT APDU
         var faults = config.getFaults(99, new byte[]{0x00, (byte) 0xA4, 0x04, 0x00});
-        Assertions.assertEquals(1, faults.size());
-        Assertions.assertTrue(faults.containsKey("SelectHandler"));
-        Assertions.assertEquals("exception", faults.get("SelectHandler").get(56));
+        assertEquals(faults.size(), 1);
+        assertTrue(faults.containsKey("SelectHandler"));
+        assertEquals(faults.get("SelectHandler").get(56), "exception");
     }
 
     @Test
@@ -57,9 +58,9 @@ public class FaultyConfigTest {
         // Query with GET DATA APDU matching 80CAXXXX pattern
         var faults = config.getFaults(99,
                 new byte[]{(byte) 0x80, (byte) 0xCA, (byte) 0x9F, 0x17 });
-        Assertions.assertEquals(1, faults.size());
-        Assertions.assertTrue(faults.containsKey("GetDataHandler"));
-        Assertions.assertEquals(2, faults.get("GetDataHandler").size());
+        assertEquals(faults.size(), 1);
+        assertTrue(faults.containsKey("GetDataHandler"));
+        assertEquals(faults.get("GetDataHandler").size(), 2);
     }
 
     @Test
@@ -69,9 +70,9 @@ public class FaultyConfigTest {
 
         // Query step 1 with SELECT APDU - should merge both
         var faults = config.getFaults(1, new byte[]{0x00, (byte) 0xA4, 0x04, 0x00});
-        Assertions.assertEquals(2, faults.size());
-        Assertions.assertTrue(faults.containsKey("FooBar"));
-        Assertions.assertTrue(faults.containsKey("SelectHandler"));
+        assertEquals(faults.size(), 2);
+        assertTrue(faults.containsKey("FooBar"));
+        assertTrue(faults.containsKey("SelectHandler"));
     }
 
     @Test
@@ -80,6 +81,6 @@ public class FaultyConfigTest {
         var config = objectMapper.readValue("{}", FaultyConfig.class);
 
         var faults = config.getFaults(1, new byte[]{0x00, 0x00, 0x00, 0x00});
-        Assertions.assertTrue(faults.isEmpty());
+        assertTrue(faults.isEmpty());
     }
 }

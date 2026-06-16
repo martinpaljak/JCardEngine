@@ -9,12 +9,12 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 
 import javax.smartcardio.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 // Tests the bridge between JavaCardEngine and pcsc-sim (SynthesizedCardTerminal).
 // pcsc-sim terminal/card behavior is tested in apdu4j itself.
@@ -24,44 +24,44 @@ public class CardTerminalSimulatorTest {
     private static final String DUAL_AID = "D0000CAFE00001";
 
     @Test
-    void testTerminalBridge() throws CardException {
+    public void testTerminalBridge() throws CardException {
         var engine = JavaCardEngine.create();
         engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class, Hex.decode("0F0F"));
         var terminal = engine.toTerminal();
 
         var card = terminal.connect("T=1");
-        assertEquals(ETALON_ATR, card.getATR());
-        assertEquals("T=1", card.getProtocol());
+        assertEquals(card.getATR(), ETALON_ATR);
+        assertEquals(card.getProtocol(), "T=1");
 
         // select and exchange APDUs via javax.smartcardio
         var channel = card.getBasicChannel();
         var response = channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
 
         response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
-        assertEquals("Hello world !", new String(response.getData()));
+        assertEquals(response.getSW(), 0x9000);
+        assertEquals(new String(response.getData()), "Hello world !");
     }
 
     @Test
-    void testTerminalFactory() throws CardException {
+    public void testTerminalFactory() throws CardException {
         var engine = JavaCardEngine.create();
         engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class);
         var factory = engine.toTerminalFactory();
         var terminal = factory.terminals().list().get(0);
 
-        assertEquals("jcardengine.Terminal", terminal.getName());
+        assertEquals(terminal.getName(), "jcardengine.Terminal");
         assertTrue(terminal.isCardPresent());
 
         var card = terminal.connect("T=1");
         var channel = card.getBasicChannel();
         channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
         var response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
     }
 
     @Test
-    void testReconnectAfterResetDisconnect() throws CardException {
+    public void testReconnectAfterResetDisconnect() throws CardException {
         var engine = JavaCardEngine.create();
         engine.installApplet(AIDUtil.create(HELLO_AID), HelloWorldApplet.class, Hex.decode("0F0F"));
         var terminal = engine.toTerminal();
@@ -72,8 +72,8 @@ public class CardTerminalSimulatorTest {
         channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
         var echoData = "TestData".getBytes();
         var response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x01, 0x00, echoData));
-        assertEquals(0x9000, response.getSW());
-        assertArrayEquals(echoData, response.getData());
+        assertEquals(response.getSW(), 0x9000);
+        assertEquals(response.getData(), echoData);
 
         // disconnect with reset - transient memory should be cleared
         card.disconnect(true);
@@ -84,12 +84,12 @@ public class CardTerminalSimulatorTest {
         channel = card.getBasicChannel();
         channel.transmit(new CommandAPDU(ISO7816.CLA_ISO7816, ISO7816.INS_SELECT, 4, 0, Hex.decode(HELLO_AID)));
         response = channel.transmit(new CommandAPDU(0x01, 0x01, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
-        assertEquals("Hello world !", new String(response.getData()));
+        assertEquals(response.getSW(), 0x9000);
+        assertEquals(new String(response.getData()), "Hello world !");
     }
 
     @Test
-    void testContactlessProtocol() throws CardException {
+    public void testContactlessProtocol() throws CardException {
         var engine = JavaCardEngine.create();
         engine.installApplet(AIDUtil.create(DUAL_AID), DualInterfaceApplet.class);
 
@@ -103,17 +103,17 @@ public class CardTerminalSimulatorTest {
 
         // INS_INFO returns protocol byte - should be contactless
         var response = channel.transmit(new CommandAPDU(0x80, 0x04, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
         byte protocol = response.getData()[0];
-        assertEquals(APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1, protocol);
+        assertEquals(protocol, APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A | APDU.PROTOCOL_T1);
 
         // write should fail on contactless interface
         response = channel.transmit(new CommandAPDU(0x80, 0x02, 0x00, 0x00, new byte[]{(byte) 0xCA, (byte) 0xFE}));
-        assertEquals(ISO7816.SW_CONDITIONS_NOT_SATISFIED, response.getSW());
+        assertEquals(response.getSW(), ISO7816.SW_CONDITIONS_NOT_SATISFIED);
     }
 
     @Test
-    void testContactProtocol() throws CardException {
+    public void testContactProtocol() throws CardException {
         var engine = JavaCardEngine.create();
         engine.installApplet(AIDUtil.create(DUAL_AID), DualInterfaceApplet.class);
 
@@ -125,17 +125,17 @@ public class CardTerminalSimulatorTest {
 
         // INS_INFO - should be contact (T=1, media default)
         var response = channel.transmit(new CommandAPDU(0x80, 0x04, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
         byte protocol = response.getData()[0];
-        assertEquals(APDU.PROTOCOL_T1, protocol);
+        assertEquals(protocol, APDU.PROTOCOL_T1);
 
         // write should succeed on contact interface
         response = channel.transmit(new CommandAPDU(0x80, 0x02, 0x00, 0x00, new byte[]{(byte) 0xCA, (byte) 0xFE}));
-        assertEquals(0x9000, response.getSW());
+        assertEquals(response.getSW(), 0x9000);
 
         // read it back
         response = channel.transmit(new CommandAPDU(0x80, 0x00, 0x00, 0x00));
-        assertEquals(0x9000, response.getSW());
-        assertArrayEquals(new byte[]{(byte) 0xCA, (byte) 0xFE}, response.getData());
+        assertEquals(response.getSW(), 0x9000);
+        assertEquals(response.getData(), new byte[]{(byte) 0xCA, (byte) 0xFE});
     }
 }

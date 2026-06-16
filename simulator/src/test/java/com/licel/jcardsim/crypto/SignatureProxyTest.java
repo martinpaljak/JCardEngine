@@ -6,7 +6,7 @@ import javacard.security.CryptoException;
 import javacard.security.MessageDigest;
 import javacard.security.Signature;
 import javacardx.crypto.Cipher;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,8 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.testng.Assert.*;
 
 public class SignatureProxyTest {
 
@@ -81,15 +80,15 @@ public class SignatureProxyTest {
         Signature.OneShot sig = Signature.OneShot.open(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2);
         try {
             // getAlgorithm() returns the resolved algorithm before init()
-            assertEquals(Signature.ALG_AES_CMAC_128, sig.getAlgorithm());
+            assertEquals(sig.getAlgorithm(), Signature.ALG_AES_CMAC_128);
             // multi-part update is not supported on OneShot
-            CryptoException u = assertThrows(CryptoException.class, () -> sig.update(new byte[16], (short) 0, (short) 16));
-            assertEquals(CryptoException.ILLEGAL_USE, u.getReason());
+            CryptoException u = expectThrows(CryptoException.class, () -> sig.update(new byte[16], (short) 0, (short) 16));
+            assertEquals(u.getReason(), CryptoException.ILLEGAL_USE);
         } finally {
             sig.close();
         }
         // after close(), a further call throws ILLEGAL_USE
-        CryptoException e = assertThrows(CryptoException.class, sig::getAlgorithm);
-        assertEquals(CryptoException.ILLEGAL_USE, e.getReason());
+        CryptoException e = expectThrows(CryptoException.class, sig::getAlgorithm);
+        assertEquals(e.getReason(), CryptoException.ILLEGAL_USE);
     }
 }

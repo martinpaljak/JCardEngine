@@ -9,9 +9,9 @@ import com.licel.jcardsim.utils.AIDUtil;
 import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
 public class DeleteTest {
     private static final byte CLA = (byte) 0x80;
@@ -32,8 +32,8 @@ public class DeleteTest {
 
             // check instance counter == 1
             var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
-            assertEquals(1, ByteUtil.getShort(result.getData(), 0));
+            assertEquals((short) result.getSW(), ISO7816.SW_NO_ERROR);
+            assertEquals(ByteUtil.getShort(result.getData(), 0), 1);
         }
 
         // install second instance
@@ -43,8 +43,8 @@ public class DeleteTest {
             // check instance counter == 2
             bibo.transmit(AIDUtil.select(aid2));
             var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
-            assertEquals(2, ByteUtil.getShort(result.getData(), 0));
+            assertEquals((short) result.getSW(), ISO7816.SW_NO_ERROR);
+            assertEquals(ByteUtil.getShort(result.getData(), 0), 2);
         }
 
         // delete instance 1
@@ -54,8 +54,8 @@ public class DeleteTest {
             // check instance counter == 1
             bibo.transmit(AIDUtil.select(aid2));
             var result = bibo.transmit(new CommandAPDU(CLA, INS_GET_COUNT, 0, 0));
-            assertEquals(ISO7816.SW_NO_ERROR, (short) result.getSW());
-            assertEquals(1, ByteUtil.getShort(result.getData(), 0));
+            assertEquals((short) result.getSW(), ISO7816.SW_NO_ERROR);
+            assertEquals(ByteUtil.getShort(result.getData(), 0), 1);
         }
     }
 }

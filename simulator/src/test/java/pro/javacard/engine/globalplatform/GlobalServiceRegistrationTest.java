@@ -6,7 +6,7 @@ import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalServiceTestApplet;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
@@ -15,8 +15,7 @@ import pro.javacard.tlv.TLV;
 
 import java.util.EnumSet;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
@@ -159,18 +158,18 @@ public class GlobalServiceRegistrationTest {
     private static byte[] call(BIBO bibo, AID aid, byte p1, byte[] name) {
         bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
         var resp = bibo.transmit(new CommandAPDU(SVC_CLA, SVC_INS, p1, 0x00, name, 256));
-        assertEquals(0x9000, resp.getSW());
+        assertEquals(resp.getSW(), 0x9000);
         return resp.getData();
     }
 
     // Success response: a single 0x01 byte.
     private static void assertOk(byte[] data) {
-        assertArrayEquals(new byte[]{0x01}, data);
+        assertEquals(data, new byte[]{0x01});
     }
 
     // Failure response: the 2-byte SW that registerService/deregisterService threw.
     private static void assertSw(int sw, byte[] data) {
-        assertEquals(2, data.length);
-        assertEquals(sw, ((data[0] & 0xFF) << 8) | (data[1] & 0xFF));
+        assertEquals(data.length, 2);
+        assertEquals(((data[0] & 0xFF) << 8) | (data[1] & 0xFF), sw);
     }
 }

@@ -8,12 +8,12 @@ import com.licel.jcardsim.samples.MultiInstanceApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class SelectTest {
     private static final byte CLA = (byte) 0x80;
@@ -89,7 +89,7 @@ public class SelectTest {
         };
         Arrays.sort(input, AIDUtil.comparator());
 
-        assertArrayEquals(expected, input);
+        assertEquals(input, expected);
     }
 
     private Simulator prepareSimulator() {
@@ -111,18 +111,18 @@ public class SelectTest {
         try (var bibo = simulator.connect()) {
             // should select d0000cafe00001
             var sel = bibo.transmit(AIDUtil.select(AIDUtil.create("d0000cafe0")));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
             byte[] expected = Hex.decode("d0000cafe000019000");
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+            assertEquals(actual.getBytes(), expected);
 
             // GPC v2.3.1 6.4.2.1.2: SELECT [by name] [next occurrence] (P2 b2) walks past the first partial
             // match to the next one - d0000cafe00002.
             var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe0")));
-            assertEquals(0x9000, next.getSW());
+            assertEquals(next.getSW(), 0x9000);
             byte[] expectedNext = Hex.decode("d0000cafe000029000");
             var actualNext = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(Arrays.toString(expectedNext), Arrays.toString(actualNext.getBytes()));
+            assertEquals(actualNext.getBytes(), expectedNext);
         }
     }
 
@@ -147,24 +147,24 @@ public class SelectTest {
             // Self-lock bb via the GP test applet's setState(0x83) instruction: b8=1 marks it LOCKED.
             bibo.transmit(AIDUtil.select(bb));
             var lock = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS_VIA_REGISTRY, 0x83, 0x00, 256));
-            assertEquals(0x9000, lock.getSW());
-            assertEquals((byte) 0x01, lock.getData()[0]);
+            assertEquals(lock.getSW(), 0x9000);
+            assertEquals(lock.getData()[0], (byte) 0x01);
 
             // Full-AID select aa, then next-occurrence over the shared prefix: bb is LOCKED so the
             // search skips it and lands on cc.
-            assertEquals(0x9000, bibo.transmit(AIDUtil.select(aa)).getSW());
+            assertEquals(bibo.transmit(AIDUtil.select(aa)).getSW(), 0x9000);
             var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
-            assertEquals(0x9000, next.getSW());
+            assertEquals(next.getSW(), 0x9000);
             byte[] onCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();
-            assertArrayEquals(AIDUtil.bytes(cc), onCc);
+            assertEquals(onCc, AIDUtil.bytes(cc));
 
             // From cc, next-occurrence over the same prefix finds no further match: the walk runs past
             // the unrelated e0... entry and exhausts, so the SELECT is dispatched to the current applet
             // (cc, a MultiInstanceApplet) which rejects the ISO-class SELECT with 6E00 and stays selected.
             var miss = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
-            assertEquals(0x6E00, miss.getSW());
+            assertEquals(miss.getSW(), 0x6E00);
             byte[] stillCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();
-            assertArrayEquals(AIDUtil.bytes(cc), stillCc);
+            assertEquals(stillCc, AIDUtil.bytes(cc));
         }
     }
 
@@ -178,7 +178,7 @@ public class SelectTest {
 
             byte[] expected = Hex.decode("d0000cafe000019000");
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(Arrays.toString(expected), Arrays.toString(actual.getBytes()));
+            assertEquals(actual.getBytes(), expected);
         }
     }
 
@@ -189,7 +189,7 @@ public class SelectTest {
         Simulator simulator = prepareSimulator();
         try (var bibo = simulator.connect()) {
             var actual = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00));
-            assertEquals(0x9000, actual.getSW());
+            assertEquals(actual.getSW(), 0x9000);
         }
     }
 
@@ -200,8 +200,8 @@ public class SelectTest {
         simulator.installExposedApplet(aid, UnselectableApplet.class);
 
         byte[] result = simulator.transceive(AIDUtil.selectBytes(aid));
-        assertEquals(2, result.length);
-        assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, Util.getShort(result, (short) 0));
+        assertEquals(result.length, 2);
+        assertEquals(Util.getShort(result, (short) 0), ISO7816.SW_APPLET_SELECT_FAILED);
         assertTrue(UnselectableApplet.selectedCalled);
     }
 
@@ -215,10 +215,10 @@ public class SelectTest {
 
         try (var bibo = simulator.connect()) {
             var sel = bibo.transmit(AIDUtil.select(aid));
-            assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) sel.getSW());
+            assertEquals((short) sel.getSW(), ISO7816.SW_APPLET_SELECT_FAILED);
             // No applet is active on the channel - JCRE 3.2 4.8 rejects subsequent non-SELECT with 6999.
             var follow = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(ISO7816.SW_APPLET_SELECT_FAILED, (short) follow.getSW());
+            assertEquals((short) follow.getSW(), ISO7816.SW_APPLET_SELECT_FAILED);
         }
     }
 
@@ -231,7 +231,7 @@ public class SelectTest {
         try (var bibo = simulator.connect()) {
             // select() returning true with a transaction in progress is a selection failure
             var sel = bibo.transmit(AIDUtil.select(aid));
-            assertEquals(0x6999, sel.getSW());
+            assertEquals(sel.getSW(), 0x6999);
         }
     }
 
@@ -246,14 +246,14 @@ public class SelectTest {
         simulator.installApplet(good, MultiInstanceApplet.class);
 
         try (var bibo = simulator.connect()) {
-            assertEquals(0x9000, bibo.transmit(AIDUtil.select(good)).getSW());   // good selected
+            assertEquals(bibo.transmit(AIDUtil.select(good)).getSW(), 0x9000);   // good selected
             // SELECT miss is dispatched to the current applet (good), not a reselection: good
             // rejects the ISO CLA of the SELECT command
-            assertEquals(0x6E00, bibo.transmit(AIDUtil.select(bad)).getSW());
+            assertEquals(bibo.transmit(AIDUtil.select(bad)).getSW(), 0x6E00);
             // good is still selected
             var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(0x9000, actual.getSW());
-            assertArrayEquals(AIDUtil.bytes(good), actual.getData());
+            assertEquals(actual.getSW(), 0x9000);
+            assertEquals(actual.getData(), AIDUtil.bytes(good));
         }
     }
 }

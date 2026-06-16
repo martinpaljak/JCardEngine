@@ -9,9 +9,9 @@ import javacard.security.RSAPrivateKey;
 import javacard.security.RSAPublicKey;
 import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 import org.bouncycastle.util.encoders.Hex;
 
 /**
@@ -53,7 +53,7 @@ public class RSACipherPKCS1Test extends SimulatorCoreTest {
         cipher.init(privateKey, Cipher.MODE_DECRYPT);
         byte[] decryptedMsg = new byte[64];
         short decryptedMsgLen = cipher.doFinal(encryptedMsg, (short) 0, (short) encryptedMsg.length, decryptedMsg, (short) 0);
-        assertEquals(msg.length, decryptedMsgLen);
-        assertEquals(0, Util.arrayCompare(msg, (short) 0, decryptedMsg, (short) 0, decryptedMsgLen));
+        assertEquals(decryptedMsgLen, msg.length);
+        assertEquals(Util.arrayCompare(msg, (short) 0, decryptedMsg, (short) 0, decryptedMsgLen), 0);
     }
 }

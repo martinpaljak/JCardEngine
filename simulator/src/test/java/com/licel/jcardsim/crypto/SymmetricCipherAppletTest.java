@@ -11,9 +11,9 @@ import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 // Split out from SymmetricCipherImplTest because these go strictly through the Simulator interface
 public class SymmetricCipherAppletTest {
@@ -29,7 +29,7 @@ public class SymmetricCipherAppletTest {
         sim.installApplet(appletAID, SymmetricCipherApplet.class);
         try (var instance = sim.connect()) {
             var selectResponse = instance.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, selectResponse.getSW());
+            assertEquals(selectResponse.getSW(), 0x9000);
 
             // 1. Send C-APDU to set AES key
             // Create C-APDU to send 128-bit AES key in CData
@@ -38,7 +38,7 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU
             var response = instance.transmit(new CommandAPDU(0x10, 0x10, KeyBuilder.LENGTH_AES_128, 0x00, key));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             // 2. Send C-APDU to encrypt data with ALG_AES_BLOCK_128_CBC_NOPAD
             // Create C-APDU to send data to encrypt and read the encrypted back
@@ -48,7 +48,7 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x10, 0x11, Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, 0x00, data, apdu_Le));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             var encryptedData = response.getData();
 
@@ -62,12 +62,12 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x10, 0x12, Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, 0x00, encryptedData, apdu_Le));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             var decryptedData = response.getData();
 
             // Check decrypted data is equal to the original one
-            assertTrue(Arrays.areEqual(decryptedData, data));
+            assertEquals(decryptedData, data);
 
             // 4. Send C-APDU to encrypt data with ALG_DES_CBC_NOPAD, intend to send mismatched cipher DES algorithm
             data = Hex.decode(SymmetricCipherImplTest.MESSAGE_15);
@@ -76,7 +76,7 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x20, 0x11, Cipher.ALG_DES_CBC_NOPAD, 0x00, data, apdu_Le));
             // Check exception for ISO7816.SW_UNKNOWN
-            assertEquals(0x6F00, response.getSW());
+            assertEquals(response.getSW(), 0x6F00);
 
         }
     }
@@ -94,7 +94,7 @@ public class SymmetricCipherAppletTest {
 
         try (var instance = sim.connect()) {
             var selectResponse = instance.transmit(AIDUtil.select(appletAID));
-            assertEquals(0x9000, selectResponse.getSW());
+            assertEquals(selectResponse.getSW(), 0x9000);
 
             // 1. Send C-APDU to set DES key
             // Create C-APDU to send DES3_3KEY in CData
@@ -103,7 +103,7 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU
             var response = instance.transmit(new CommandAPDU(0x20, 0x10, KeyBuilder.LENGTH_DES3_3KEY, 0x00, key));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             // 2. Send C-APDU to encrypt data with ALG_DES_CBC_ISO9797_M1
             // Create C-APDU to send data to encrypt and read the encrypted back
@@ -113,14 +113,14 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x20, 0x11, Cipher.ALG_DES_CBC_ISO9797_M1, 0x00, data, apdu_Le));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             var encryptedData = response.getData();
 
             // Prove that encrypted data is not equal the original one
             assertFalse(Arrays.areEqual(encryptedData, data));
             // Check that encrypted data is correct
-            assertTrue(Arrays.areEqual(encryptedData, Hex.decode(SymmetricCipherImplTest.DES3_ENCRYPTED_15[0])));
+            assertEquals(encryptedData, Hex.decode(SymmetricCipherImplTest.DES3_ENCRYPTED_15[0]));
 
             // 3. Send C-APDU to decrypt data with ALG_DES_CBC_ISO9797_M1 and read back to check
             // Create C-APDU to decrypt data
@@ -129,12 +129,12 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x20, 0x12, Cipher.ALG_DES_CBC_ISO9797_M1, 0x00, encryptedData, apdu_Le));
             // Check command succeeded
-            assertEquals(0x9000, response.getSW());
+            assertEquals(response.getSW(), 0x9000);
 
             var decryptedData = response.getData();
 
             // Check decrypted data is equal to the original one
-            assertTrue(Arrays.areEqual(decryptedData, data));
+            assertEquals(decryptedData, data);
 
             // 4. Send C-APDU to encrypt data with ALG_AES_BLOCK_128_CBC_NOPAD, intend to send mismatched cipher AES algorithm
             data = Hex.decode(SymmetricCipherImplTest.AES_CBC_128_TEST[1]);
@@ -143,7 +143,7 @@ public class SymmetricCipherAppletTest {
             // Send C-APDU to encrypt data
             response = instance.transmit(new CommandAPDU(0x10, 0x11, Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, 0x00, data, apdu_Le));
             // Check exception for ISO7816.SW_UNKNOWN
-            assertEquals(0x6F00, response.getSW());
+            assertEquals(response.getSW(), 0x6F00);
         }
     }
 }

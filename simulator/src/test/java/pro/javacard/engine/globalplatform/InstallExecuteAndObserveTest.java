@@ -6,10 +6,8 @@ import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPCrypto;
@@ -22,13 +20,8 @@ import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
-import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 
 // End-to-end install/execute/observe narrative across the supported SCP variants, plus the GP
@@ -43,17 +36,18 @@ public class InstallExecuteAndObserveTest {
     private static final byte ID_A = (byte) 0xA1;
     private static final byte ID_B = (byte) 0xB2;
 
-    static Stream<Arguments> scpConfigs() {
+    @DataProvider(name = "scpConfigs")
+    public static Object[][] scpConfigs() {
         byte[] custom128 = Hex.decode("000102030405060708090A0B0C0D0E0F");
         byte[] custom256 = Hex.decode("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F");
-        return Stream.of(
-                Arguments.of("SCP02-MAC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.MAC)),
-                Arguments.of("SCP02-ENC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.ENC)),
-                Arguments.of("SCP03-MAC", new SCPConfig.SCP03(), null, EnumSet.of(GPSession.APDUMode.MAC)),
-                Arguments.of("SCP03-S16-ENC", new SCPConfig.SCP03(true), null, EnumSet.of(GPSession.APDUMode.ENC)),
-                Arguments.of("Custom128-SCP03-ENC", new SCPConfig.SCP03(custom128), custom128, EnumSet.of(GPSession.APDUMode.ENC)),
-                Arguments.of("Custom256-SCP03-ENC", new SCPConfig.SCP03(custom256), custom256, EnumSet.of(GPSession.APDUMode.ENC))
-        );
+        return new Object[][] {
+                {"SCP02-MAC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.MAC)},
+                {"SCP02-ENC", new SCPConfig.SCP02(), null, EnumSet.of(GPSession.APDUMode.ENC)},
+                {"SCP03-MAC", new SCPConfig.SCP03(), null, EnumSet.of(GPSession.APDUMode.MAC)},
+                {"SCP03-S16-ENC", new SCPConfig.SCP03(true), null, EnumSet.of(GPSession.APDUMode.ENC)},
+                {"Custom128-SCP03-ENC", new SCPConfig.SCP03(custom128), custom128, EnumSet.of(GPSession.APDUMode.ENC)},
+                {"Custom256-SCP03-ENC", new SCPConfig.SCP03(custom256), custom256, EnumSet.of(GPSession.APDUMode.ENC)}
+        };
     }
 
     // Single end-to-end narrative across all 5 SCP variants:
@@ -66,10 +60,9 @@ public class InstallExecuteAndObserveTest {
     //   7. SELECT applet; INS_GET_IDENTITY round-trips the install-param byte.
     //   8. Reopen SCP to applet; SCP-encrypted INS 0x42 cgram round-trip (Hello, World!).
     //   9. Reopen ISD; gp.deleteAID(applet); assert applet gone from registry.
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("scpConfigs")
-    void installExecuteObserve(String name, SCPConfig config, byte[] masterKey,
-                               EnumSet<GPSession.APDUMode> mode) throws Exception {
+    @Test(dataProvider = "scpConfigs")
+    public void installExecuteObserve(String name, SCPConfig config, byte[] masterKey,
+                                      EnumSet<GPSession.APDUMode> mode) throws Exception {
         var sim = new JavaCardEngine.Builder().withSCP(config).build();
         // ELF and instance AIDs must differ (GPC v2.3.1 6.5.1.1); instance = ELF + instance byte.
         var pkgAID = AIDUtil.create("010203040506070809");
@@ -86,8 +79,8 @@ public class InstallExecuteAndObserveTest {
             // payload is the per-variant EXT AUTH length so the length check passes to the session
             // check. A failed EXT AUTH leaves the channel clean for the positive open below.
             byte[] auth = new byte[config instanceof SCPConfig.SCP03 scp03 && scp03.s16() ? 32 : 16];
-            assertEquals(0x6A86, bibo.transmit(new CommandAPDU(0x84, 0x82, 0x02, 0x00, auth)).getSW());
-            assertEquals(0x6985, bibo.transmit(new CommandAPDU(0x84, 0x82, 0x01, 0x00, auth)).getSW());
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0x82, 0x02, 0x00, auth)).getSW(), 0x6A86);
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0x82, 0x01, 0x00, auth)).getSW(), 0x6985);
 
             var gp = openWith(bibo, masterKey, mode);
             assertKit(gp, config);
@@ -116,12 +109,12 @@ public class InstallExecuteAndObserveTest {
 
             // 7: SELECT applet; round-trip install-param byte via INS_GET_IDENTITY.
             var sel = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(appletAID), 256));
-            assertEquals(0x9000, sel.getSW());
+            assertEquals(sel.getSW(), 0x9000);
             var ident = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
-            assertEquals(0x9000, ident.getSW());
-            assertEquals(1, ident.getData().length);
+            assertEquals(ident.getSW(), 0x9000);
+            assertEquals(ident.getData().length, 1);
             // install-param byte round-trips
-            assertEquals((byte) 0x55, ident.getData()[0]);
+            assertEquals(ident.getData()[0], (byte) 0x55);
         }
 
         // 8: reopen SCP to applet AID with ENC mode; SCP-encrypted INS 0x42 cgram round-trip.
@@ -136,10 +129,10 @@ public class InstallExecuteAndObserveTest {
                 gp.openSecureChannel(pk, null, null, EnumSet.of(GPSession.APDUMode.ENC));
                 var cgram = pk.encrypt(GPCrypto.pad80("Hello, World!".getBytes(StandardCharsets.UTF_8), 16), new byte[]{0x00, 0x00});
                 var set = gp.transmit(new CommandAPDU(0x80, 0x42, 0x00, 0x00, cgram));
-                assertEquals(0x9000, set.getSW());
+                assertEquals(set.getSW(), 0x9000);
                 var get = bibo.transmit(new CommandAPDU(0x00, 0x42, 0x00, 0x00, 256));
-                assertEquals(0x9000, get.getSW());
-                assertArrayEquals("Hello, World!".getBytes(StandardCharsets.UTF_8), get.getData());
+                assertEquals(get.getSW(), 0x9000);
+                assertEquals(get.getData(), "Hello, World!".getBytes(StandardCharsets.UTF_8));
             }
         }
 
@@ -196,10 +189,10 @@ public class InstallExecuteAndObserveTest {
             selectAID(bibo, B);
 
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_PEER_IDENTITY, 0x00, 0x00, AIDUtil.bytes(A), 256));
-            assertEquals(0x9000, r.getSW());
-            assertEquals(1, r.getData().length);
+            assertEquals(r.getSW(), 0x9000);
+            assertEquals(r.getData().length, 1);
             // returns A's identity, not B's, proving cross-context dispatch
-            assertEquals(ID_A, r.getData()[0]);
+            assertEquals(r.getData()[0], ID_A);
         }
     }
 
@@ -214,7 +207,7 @@ public class InstallExecuteAndObserveTest {
             bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00,
                     AIDUtil.bytes(SecurityDomainApplet.OPEN_AID)));
             var unknown = bibo.transmit(new CommandAPDU(0x80, 0xCA, 0x12, 0x34, 256));
-            assertEquals(0x6A88, unknown.getSW());
+            assertEquals(unknown.getSW(), 0x6A88);
         }
     }
 
@@ -239,7 +232,7 @@ public class InstallExecuteAndObserveTest {
                     .orElseThrow(() -> new AssertionError("SSD package must be in the registry"));
             var modules = ssdPkg.getModules();
             // only the built-in SD module, no merged user applet
-            assertEquals(1, modules.size());
+            assertEquals(modules.size(), 1);
             assertTrue(modules.contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)));
             assertFalse(modules.contains(gpAID(userAppAid)));
         }
@@ -254,8 +247,8 @@ public class InstallExecuteAndObserveTest {
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
             // Instance AID == loaded ELF AID must be refused with SW_CONDITIONS_NOT_SATISFIED.
-            var ex = assertThrows(GPException.class, () -> installWith(gp, PKG, EnumSet.noneOf(Privilege.class)));
-            assertEquals(0x6985, ex.sw);
+            var ex = expectThrows(GPException.class, () -> installWith(gp, PKG, EnumSet.noneOf(Privilege.class)));
+            assertEquals(ex.sw, 0x6985);
             // The rejected install must leave no applet entry behind.
             assertFalse(gp.getRegistry().allAppletAIDs().contains(gpAID(PKG)));
         }
@@ -278,10 +271,10 @@ public class InstallExecuteAndObserveTest {
         // and a DELETE whose data field carries no '4F' AID tag -> 6A80.
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
-            assertEquals(0x6A88, assertThrows(GPException.class, () -> gp.deleteAID(gpAID(A), false)).sw);
-            assertEquals(0x6985, assertThrows(GPException.class, () -> gp.deleteAID(gpAID(SecurityDomainApplet.OPEN_AID), false)).sw);
+            assertEquals(expectThrows(GPException.class, () -> gp.deleteAID(gpAID(A), false)).sw, 0x6A88);
+            assertEquals(expectThrows(GPException.class, () -> gp.deleteAID(gpAID(SecurityDomainApplet.OPEN_AID), false)).sw, 0x6985);
             var noAid = gp.transmit(new CommandAPDU(0x80, 0xE4, 0x00, 0x00, new byte[]{0x4E, 0x01, 0x00}));
-            assertEquals(0x6A80, noAid.getSW());
+            assertEquals(noAid.getSW(), 0x6A80);
         }
     }
 
@@ -298,13 +291,13 @@ public class InstallExecuteAndObserveTest {
     // Appendix E); KVN coding is GPC v2.3.1 11.1.9.
     private static void assertKit(GPSession gp, SCPConfig config) throws Exception {
         var kit = gp.getKeyInfoTemplate();
-        assertEquals(3, kit.size());
+        assertEquals(kit.size(), 3);
         var expectedType = config instanceof SCPConfig.SCP02 ? GPKeyInfo.GPKey.DES3 : GPKeyInfo.GPKey.AES;
         for (int i = 0; i < 3; i++) {
             var ki = kit.get(i);
-            assertEquals(0xFF, ki.getVersion());
-            assertEquals(i + 1, ki.getID());
-            assertEquals(expectedType, ki.getType());
+            assertEquals(ki.getVersion(), 0xFF);
+            assertEquals(ki.getID(), i + 1);
+            assertEquals(ki.getType(), expectedType);
         }
     }
 
@@ -314,27 +307,27 @@ public class InstallExecuteAndObserveTest {
     // IC Serial (15..18) = ASCII "JCEN" (KDD-relevant). Everything else zero.
     private static void assertCplc(apdu4j.core.BIBO bibo) throws Exception {
         var data = GPData.fetchCPLC(bibo);
-        assertEquals(45, data.length);
-        assertEquals((byte) 0x9F, data[0]);
-        assertEquals((byte) 0x7F, data[1]);
-        assertEquals((byte) 0x2A, data[2]);
-        assertEquals((byte) 0x42, data[3]);
-        assertEquals((byte) 0x42, data[4]);
+        assertEquals(data.length, 45);
+        assertEquals(data[0], (byte) 0x9F);
+        assertEquals(data[1], (byte) 0x7F);
+        assertEquals(data[2], (byte) 0x2A);
+        assertEquals(data[3], (byte) 0x42);
+        assertEquals(data[4], (byte) 0x42);
         // unused CPLC bytes are zero
         for (int i = 5; i <= 12; i++) {
-            assertEquals(0, data[i]);
+            assertEquals(data[i], 0);
         }
-        assertEquals((byte) 0x42, data[13]);
-        assertEquals((byte) 0x42, data[14]);
-        assertEquals((byte) 'J', data[15]);
-        assertEquals((byte) 'C', data[16]);
-        assertEquals((byte) 'E', data[17]);
-        assertEquals((byte) 'N', data[18]);
-        assertEquals((byte) 0x42, data[19]);
-        assertEquals((byte) 0x42, data[20]);
+        assertEquals(data[13], (byte) 0x42);
+        assertEquals(data[14], (byte) 0x42);
+        assertEquals(data[15], (byte) 'J');
+        assertEquals(data[16], (byte) 'C');
+        assertEquals(data[17], (byte) 'E');
+        assertEquals(data[18], (byte) 'N');
+        assertEquals(data[19], (byte) 0x42);
+        assertEquals(data[20], (byte) 0x42);
         // remaining CPLC bytes are zero
         for (int i = 21; i < 45; i++) {
-            assertEquals(0, data[i]);
+            assertEquals(data[i], 0);
         }
     }
 
@@ -348,7 +341,7 @@ public class InstallExecuteAndObserveTest {
         assertTrue(registry.allPackageAIDs().contains(ssdPkgAid));
         var pkgEntry = registry.allPackages().stream().filter(e -> e.getAID().equals(ssdPkgAid)).findFirst().orElseThrow();
         // lifecycle LOADED
-        assertEquals((byte) 0x01, pkgEntry.getLifeCycle());
+        assertEquals(pkgEntry.getLifeCycle(), (byte) 0x01);
         assertTrue(pkgEntry.getModules().contains(gpAID(SecurityDomainApplet.SSD_MODULE_AID)));
     }
 
@@ -368,6 +361,6 @@ public class InstallExecuteAndObserveTest {
 
     private static void selectAID(apdu4j.core.BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
-        assertEquals(0x9000, r.getSW());
+        assertEquals(r.getSW(), 0x9000);
     }
 }

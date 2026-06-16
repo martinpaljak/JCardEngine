@@ -6,7 +6,7 @@ import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.gp.GPException;
@@ -25,10 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.MasterKeys;
 import static pro.javacard.engine.globalplatform.GPTestUtils.addKvn;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
@@ -53,7 +50,7 @@ public class SecurityDomainTest {
     private static final AID NEW_ISD = AIDUtil.create("A0000001515555");
 
     @Test
-    void ssdLifecycleAndKeyResolution() throws Exception {
+    public void ssdLifecycleAndKeyResolution() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
 
         // 1. Install SSD via ISD; reopen the ISD and inspect the registry. The SSD must show
@@ -65,11 +62,11 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
             var ssdEntry = findDomain(registry, SSD);
-            assertEquals(Kind.SSD, ssdEntry.getType());
+            assertEquals(ssdEntry.getType(), Kind.SSD);
             // SSD parent is the issuing ISD (GPC v2.3.1 6.5.1.6)
-            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), ssdEntry.getDomain());
+            assertEquals(ssdEntry.getDomain(), Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)));
             // SELECTABLE per GPC v2.3.1 Table 11-5
-            assertEquals((byte) 0x07, ssdEntry.getLifeCycle());
+            assertEquals(ssdEntry.getLifeCycle(), (byte) 0x07);
             assertTrue(ssdEntry.getPrivileges().contains(Privilege.SecurityDomain));
             // install() insists on TrustedPath too
             assertTrue(ssdEntry.getPrivileges().contains(Privilege.TrustedPath));
@@ -82,17 +79,17 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var ssdBytes = AIDUtil.bytes(SSD);
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, ssdBytes, 256));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
             var fci = r.getData();
             // FCI template tag (GPC v2.3.1 11.9.3.1 / Table 11-82)
-            assertEquals((byte) 0x6F, fci[0]);
+            assertEquals(fci[0], (byte) 0x6F);
             // Application AID tag inside FCI
-            assertEquals((byte) 0x84, fci[2]);
+            assertEquals(fci[2], (byte) 0x84);
             int aidLen = fci[3] & 0xFF;
             byte[] aidInFci = new byte[aidLen];
             System.arraycopy(fci, 4, aidInFci, 0, aidLen);
             // FCI carries the selected SSD's own AID, not the ISD AID
-            assertArrayEquals(ssdBytes, aidInFci);
+            assertEquals(aidInFci, ssdBytes);
         }
 
         // 3. Open SCP to the freshly-installed SSD with the bootstrap default key. The SSD owns
@@ -118,7 +115,7 @@ public class SecurityDomainTest {
         // GPC v2.3.1 5.3.2.3 / Table 11-5 (first PUT KEY of an owner key).
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals((byte) 0x0F, findDomain(registry, SSD).getLifeCycle());
+            assertEquals(findDomain(registry, SSD).getLifeCycle(), (byte) 0x0F);
         }
 
         // 7. Owner master at KVN=0x01 authenticates the SSD directly (no parent walk).
@@ -150,7 +147,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)), findEntry(registry, APP).getDomain());
+            assertEquals(findEntry(registry, APP).getDomain(), Optional.of(gpAID(SecurityDomainApplet.OPEN_AID)));
         }
 
         // 11. INSTALL [for extradition] of APP onto the SSD. After extradition, the registry's
@@ -161,7 +158,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = sim.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain());
+            assertEquals(findEntry(registry, APP).getDomain(), Optional.of(gpAID(SSD)));
         }
 
         // 12. Post-extradition key resolution: SCP to APP with the SSD owner's master at KVN=0x01
@@ -181,31 +178,31 @@ public class SecurityDomainTest {
     // rejects it as engine policy with SW_WRONG_DATA (6A80) drawn from GPC v2.3.1 11.5.3.2 /
     // Table 11-55.
     @Test
-    void selfExtraditionRejected() throws Exception {
+    public void selfExtraditionRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
-            var ex = assertThrows(GPException.class, () -> gp.extradite(gpAID(SSD), gpAID(SSD)));
-            assertEquals(0x6A80, ex.sw);
+            var ex = expectThrows(GPException.class, () -> gp.extradite(gpAID(SSD), gpAID(SSD)));
+            assertEquals(ex.sw, 0x6A80);
         }
     }
 
     // Extradition of an unknown target AID, or onto an unknown SD AID, must yield
     // SW_REFERENCED_DATA_NOT_FOUND (6A88) per GPC v2.3.1 11.5.3.2 / Table 11-55.
     @Test
-    void unknownTargetAndUnknownSdRejected() throws Exception {
+    public void unknownTargetAndUnknownSdRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         sim.loadApplet(PKG, APP, GlobalPlatformTestApplet.class);
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
-            var unknownTarget = assertThrows(GPException.class, () -> gp.extradite(gpAID(GHOST), gpAID(SSD)));
-            assertEquals(0x6A88, unknownTarget.sw);
+            var unknownTarget = expectThrows(GPException.class, () -> gp.extradite(gpAID(GHOST), gpAID(SSD)));
+            assertEquals(unknownTarget.sw, 0x6A88);
 
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(APP), gpAID(APP), EnumSet.noneOf(Privilege.class), new byte[0]);
-            var unknownSd = assertThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(GHOST)));
-            assertEquals(0x6A88, unknownSd.sw);
+            var unknownSd = expectThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(GHOST)));
+            assertEquals(unknownSd.sw, 0x6A88);
         }
     }
 
@@ -213,7 +210,7 @@ public class SecurityDomainTest {
     // Scenario A: SSD without AM, authenticated via parent walk-up, must be denied with 6982.
     // Scenario B: SSD WITH AM on a fresh sim must succeed and the registry must flip.
     @Test
-    void extraditionRequiresAuthorizedManagement() throws Exception {
+    public void extraditionRequiresAuthorizedManagement() throws Exception {
         // Scenario A: SSD without AM.
         var simA = new JavaCardEngine.Builder().build();
         simA.loadApplet(PKG, APP, GlobalPlatformTestApplet.class);
@@ -224,8 +221,8 @@ public class SecurityDomainTest {
         }
         try (var bibo = simA.connect()) {
             var gp = openSdMac(bibo, SSD, MasterKeys.BOOTSTRAP, 0);
-            var ex = assertThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(SSD)));
-            assertEquals(0x6982, ex.sw);
+            var ex = expectThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(SSD)));
+            assertEquals(ex.sw, 0x6982);
         }
 
         // Scenario B: SSD WITH AM privilege - extradition must succeed and the registry flips.
@@ -242,7 +239,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = simB.connect()) {
             var registry = openIsd(bibo).getRegistry();
-            assertEquals(Optional.of(gpAID(SSD)), findEntry(registry, APP).getDomain());
+            assertEquals(findEntry(registry, APP).getDomain(), Optional.of(gpAID(SSD)));
         }
     }
 
@@ -251,7 +248,7 @@ public class SecurityDomainTest {
     // selected, with the FCI still returned alongside the warning so the host can recognise the
     // selected SD before reacting to the locked state.
     @Test
-    void finalApplicationSelectWarningWhenCardLocked() throws Exception {
+    public void finalApplicationSelectWarningWhenCardLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
@@ -264,15 +261,15 @@ public class SecurityDomainTest {
             var ssdBytes = AIDUtil.bytes(SSD);
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, ssdBytes, 256));
             // warning SW per GPC v2.3.1 11.9.3.2 / Table 11-83
-            assertEquals(0x6283, r.getSW());
+            assertEquals(r.getSW(), 0x6283);
             var fci = r.getData();
             // warning response still carries the FCI template
-            assertEquals((byte) 0x6F, fci[0]);
-            assertEquals((byte) 0x84, fci[2]);
+            assertEquals(fci[0], (byte) 0x6F);
+            assertEquals(fci[2], (byte) 0x84);
             int aidLen = fci[3] & 0xFF;
             byte[] aidInFci = new byte[aidLen];
             System.arraycopy(fci, 4, aidInFci, 0, aidLen);
-            assertArrayEquals(ssdBytes, aidInFci);
+            assertEquals(aidInFci, ssdBytes);
         }
     }
 
@@ -280,7 +277,7 @@ public class SecurityDomainTest {
     // return a clean SW 9000 with FCI; the warning is gated specifically on the privilege per
     // Table 11-83. This guards against the warning leaking to ordinary SDs.
     @Test
-    void nonFinalApplicationSelectIsCleanWhenCardLocked() throws Exception {
+    public void nonFinalApplicationSelectIsCleanWhenCardLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
@@ -292,14 +289,14 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(SSD), 256));
             // warning is privilege-gated (Table 11-83): non-final SD selects cleanly
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
         }
     }
 
     // Negative: SSD with FinalApplication but card NOT in CARD_LOCKED must return SW 9000, since
     // the warning is gated on both the privilege AND the locked lifecycle per Table 11-83.
     @Test
-    void finalApplicationSelectIsCleanWhenCardNotLocked() throws Exception {
+    public void finalApplicationSelectIsCleanWhenCardNotLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             installSSD(openIsd(bibo), SSD, EnumSet.of(Privilege.FinalApplication));
@@ -307,7 +304,7 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(SSD), 256));
             // warning needs both privilege AND CARD_LOCKED (Table 11-83); not locked -> clean
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
         }
     }
 
@@ -316,15 +313,15 @@ public class SecurityDomainTest {
     // this via GPSession.renameISD(). The new AID only takes over after a reconnect (real cards: a
     // card reset clears the live selection), modelled here by closing a reset-on-close session.
     @Test
-    void renameISDViaStoreData() throws Exception {
+    public void renameISDViaStoreData() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
 
         try (var bibo = sim.connect("*", true)) {
             var gp = openIsd(bibo);
             // First try a collision: an already-registered AID (here the ISD's own current AID) is
             // refused with 6A80, registry untouched. Then rename to a free AID on the same session.
-            var ex = assertThrows(GPException.class, () -> gp.renameISD(gpAID(SecurityDomainApplet.OPEN_AID)));
-            assertEquals(0x6A80, ex.sw);
+            var ex = expectThrows(GPException.class, () -> gp.renameISD(gpAID(SecurityDomainApplet.OPEN_AID)));
+            assertEquals(ex.sw, 0x6A80);
             gp.renameISD(gpAID(NEW_ISD));
         }
 
@@ -333,7 +330,7 @@ public class SecurityDomainTest {
             gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC));
             var registry = gp.getRegistry();
             // ISD now registered under the new AID, with the original bootstrap keys intact
-            assertEquals(gpAID(NEW_ISD), registry.getISD().orElseThrow().getAID());
+            assertEquals(registry.getISD().orElseThrow().getAID(), gpAID(NEW_ISD));
             // the original ISD AID is gone from the registry
             assertTrue(registry.getDomain(gpAID(SecurityDomainApplet.OPEN_AID)).isEmpty());
         }
@@ -356,14 +353,14 @@ public class SecurityDomainTest {
             gp.storeData(TLV.of(0x9F67, preperso).encode(), 0x00);
 
             // 9F7F is read-only; an unknown tag and a wrong-length slice all reject.
-            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F7F, new byte[8]).encode(), 0x00)).sw);
-            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F50, new byte[2]).encode(), 0x00)).sw);
-            assertEquals(0x6A80, assertThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F66, new byte[7]).encode(), 0x00)).sw);
+            assertEquals(expectThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F7F, new byte[8]).encode(), 0x00)).sw, 0x6A80);
+            assertEquals(expectThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F50, new byte[2]).encode(), 0x00)).sw, 0x6A80);
+            assertEquals(expectThrows(GPException.class, () -> gp.storeData(TLV.of(0x9F66, new byte[7]).encode(), 0x00)).sw, 0x6A80);
 
             // Encrypted STORE DATA format (P1 bits 0x18) is unsupported. gp-pro's storeData refuses
             // to build it, so wrap a hand-built last-block command (P1=0x98) through the channel.
             var enc = gp.transmit(new CommandAPDU(0x80, 0xE2, 0x98, 0x00, TLV.of(0x9F66, perso).encode()));
-            assertEquals(0x6A80, enc.getSW());
+            assertEquals(enc.getSW(), 0x6A80);
         }
 
         // Multi-block: a single 9F67 slice split into two STORE DATA blocks is accumulated then committed.
@@ -376,10 +373,10 @@ public class SecurityDomainTest {
         // GET DATA 9F7F (public, unauthenticated): both slices landed at offsets 26 and 34.
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x80, 0xCA, 0x9F, 0x7F, 256));
-            assertEquals(0x9000, r.getSW());
+            assertEquals(r.getSW(), 0x9000);
             byte[] cplc = TLV.parse(r.getData()).find(0x9F7F).orElseThrow().value();
-            assertArrayEquals(preperso, Arrays.copyOfRange(cplc, 26, 34));
-            assertArrayEquals(perso, Arrays.copyOfRange(cplc, 34, 42));
+            assertEquals(Arrays.copyOfRange(cplc, 26, 34), preperso);
+            assertEquals(Arrays.copyOfRange(cplc, 34, 42), perso);
         }
     }
 

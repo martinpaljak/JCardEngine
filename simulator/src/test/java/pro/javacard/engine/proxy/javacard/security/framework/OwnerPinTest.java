@@ -6,9 +6,9 @@ package pro.javacard.engine.proxy.javacard.security.framework;
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.OwnerPIN;
 import javacard.framework.PINException;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.testng.Assert.*;
 
 public class OwnerPinTest extends SimulatorCoreTest {
 
@@ -19,7 +19,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
             OwnerPIN o = new OwnerPIN((byte) 0, (byte) 1);
         } catch (Exception e) {
             assertTrue(e instanceof PINException);
-            assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
+            assertEquals(((PINException) e).getReason(), PINException.ILLEGAL_VALUE);
             isException = true;
         }
         assertTrue(isException);
@@ -32,7 +32,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
             OwnerPIN o = new OwnerPIN((byte) 1, (byte) 0);
         } catch (Exception e) {
             assertTrue(e instanceof PINException);
-            assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
+            assertEquals(((PINException) e).getReason(), PINException.ILLEGAL_VALUE);
             isException = true;
         }
         assertTrue(isException);
@@ -42,7 +42,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
     public void testConstructor3() {
         byte tries = 3;
         OwnerPIN o = new OwnerPIN(tries, (byte) 16);
-        assertEquals(tries, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
             o.update(pin, (short) 0, (byte) pin.length);
         } catch (Exception e) {
             assertTrue(e instanceof PINException);
-            assertEquals(PINException.ILLEGAL_VALUE, ((PINException) e).getReason());
+            assertEquals(((PINException) e).getReason(), PINException.ILLEGAL_VALUE);
             isException = true;
         }
         assertTrue(isException);
@@ -67,7 +67,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
         assertTrue(o.check(pin, (short) 0, (byte) pin.length));
-        assertEquals(tries, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries);
     }
 
     @Test
@@ -79,15 +79,15 @@ public class OwnerPinTest extends SimulatorCoreTest {
         o.update(pin, (short) 0, (byte) pin.length);
         // correct
         assertTrue(o.check(pin, (short) 0, (byte) pin.length));
-        assertEquals(tries, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries);
         assertTrue(o.isValidated());
         // incorrect
         assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
-        assertEquals(tries - 1, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries - 1);
         assertFalse(o.isValidated());
         // incorrect
         assertFalse(o.check(pin2, (short) 0, (byte) (pin2.length - 1)));
-        assertEquals(tries - 2, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries - 2);
         assertFalse(o.isValidated());
         // incorrect
         try {
@@ -95,7 +95,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         } catch (Exception e) {
             assertTrue(e instanceof NullPointerException);
         }
-        assertEquals(tries - 3, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries - 3);
         assertFalse(o.isValidated());
         // incorrect
         try {
@@ -103,7 +103,7 @@ public class OwnerPinTest extends SimulatorCoreTest {
         } catch (Exception e) {
             assertTrue(e instanceof ArrayIndexOutOfBoundsException);
         }
-        assertEquals(0, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), 0);
         assertFalse(o.isValidated());
     }
 
@@ -115,9 +115,9 @@ public class OwnerPinTest extends SimulatorCoreTest {
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
         assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
-        assertEquals(0, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), 0);
         o.reset();
-        assertEquals(0, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), 0);
     }
 
     @Test
@@ -128,10 +128,10 @@ public class OwnerPinTest extends SimulatorCoreTest {
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
         assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
-        assertEquals(tries - 1, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries - 1);
         assertTrue(o.check(pin, (short) 0, (byte) pin.length));
         o.reset();
-        assertEquals(tries, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries);
     }
 
     @Test
@@ -142,9 +142,9 @@ public class OwnerPinTest extends SimulatorCoreTest {
         OwnerPIN o = new OwnerPIN(tries, (byte) 3);
         o.update(pin, (short) 0, (byte) pin.length);
         assertFalse(o.check(pin2, (short) 0, (byte) pin2.length));
-        assertEquals(0, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), 0);
         o.resetAndUnblock();
-        assertEquals(tries, o.getTriesRemaining());
+        assertEquals(o.getTriesRemaining(), tries);
         assertFalse(o.isValidated());
     }
 
