@@ -16,6 +16,7 @@ import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 import pro.javacard.engine.globalplatform.SCPConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -160,6 +161,17 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
             verifyEngine.init(kp.getPublic(), Signature.MODE_VERIFY);
             assertTrue(verifyEngine.verifyPreComputedHash(hash, (short) 0, (short) hash.length, sig, (short) 0,
                     signLen));
+
+            // non-minimal DER: redundant leading zero on r must be rejected, not throw
+            byte[] nonMinimal = new byte[signLen + 1];
+            nonMinimal[0] = 0x30;
+            nonMinimal[1] = (byte) (sig[1] + 1);
+            nonMinimal[2] = 0x02;
+            nonMinimal[3] = (byte) (sig[3] + 1);
+            nonMinimal[4] = 0x00;
+            System.arraycopy(sig, 4, nonMinimal, 5, signLen - 4);
+            assertFalse(verifyEngine.verifyPreComputedHash(hash, (short) 0, (short) hash.length, nonMinimal,
+                    (short) 0, (short) nonMinimal.length));
         } finally {
             base.asCurrent();
         }

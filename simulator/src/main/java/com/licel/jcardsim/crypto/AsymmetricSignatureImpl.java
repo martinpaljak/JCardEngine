@@ -446,8 +446,9 @@ public final class AsymmetricSignatureImpl extends Signature implements Signatur
             try {
                 BigInteger[] rs = StandardDSAEncoding.INSTANCE.decode(((DSAExt) dsa).getOrder(), encoded);
                 return dsa.verifySignature(message, rs[0], rs[1]);
-            } catch (IOException e) {
-                throw new org.bouncycastle.crypto.CryptoException("ECDSA signature decoding failed", e);
+            } catch (IOException | IllegalArgumentException e) {
+                // malformed or non-canonical signature: invalid, not an error
+                return false;
             }
         }
     }
