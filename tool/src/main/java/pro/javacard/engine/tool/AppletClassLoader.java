@@ -35,7 +35,11 @@ public final class AppletClassLoader extends URLClassLoader {
         }
         // Option two: points to a file (.jar or .cap)
         Path tmp = Files.createTempDirectory("applet");
-        String name = file.getFileName().toString().toLowerCase();
+        Path filename = file.getFileName();
+        if (filename == null) {
+            throw new FileNotFoundException("Not a file: " + file);
+        }
+        String name = filename.toString().toLowerCase();
 
         try (FileSystem fs = FileSystems.newFileSystem(file)) {
             // Look into .cap structure or assume plain .jar
@@ -57,7 +61,11 @@ public final class AppletClassLoader extends URLClassLoader {
 
     private void copy(Path from, Path to) {
         try {
-            Files.createDirectories(to.getParent());
+            Path parent = to.getParent();
+            if (parent == null) {
+                throw new FileNotFoundException("No parent directory: " + to);
+            }
+            Files.createDirectories(parent);
             Files.copy(from, to);
         } catch (IOException e) {
             throw new UncheckedIOException(e);

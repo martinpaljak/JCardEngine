@@ -22,6 +22,7 @@ import pro.javacard.capfile.CAPFile;
 import pro.javacard.engine.JavaCardEngine;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -127,8 +128,12 @@ public class JCardTool {
                 // Load non-options as applets & classes
                 for (File f : options.valuesOf(toLoad)) {
                     Path p = f.toPath();
+                    Path filename = p.getFileName();
+                    if (filename == null) {
+                        throw new FileNotFoundException("Not a file: " + p);
+                    }
 
-                    if (Files.isRegularFile(p) && p.getFileName().toString().endsWith(".cap")) {
+                    if (Files.isRegularFile(p) && filename.toString().endsWith(".cap")) {
                         CAPFile cap = CAPFile.fromFile(p);
                         for (Map.Entry<pro.javacard.capfile.AID, String> app : cap.getApplets().entrySet()) {
                             defaultAID.put(app.getValue(), app.getKey().getBytes());
