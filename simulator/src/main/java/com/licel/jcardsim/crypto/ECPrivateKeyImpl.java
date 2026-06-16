@@ -14,13 +14,13 @@ public final class ECPrivateKeyImpl extends ECKeyImpl implements ECPrivateKey {
     public ECPrivateKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
         // stored as-is, no padding; capacity equals the curve order in bytes
-        s = new ByteContainer(memoryType, ECDomain.orderBytes(keyType, keySize), true);
+        s = new ByteContainer(memoryType, ECDomain.orderBytes(keySize), true);
     }
 
     public ECPrivateKeyImpl(byte keyType, short keySize, byte memoryType, ECKeyImpl shared) {
         super(keyType, keySize, memoryType, shared);
         // stored as-is, no padding; capacity equals the curve order in bytes
-        s = new ByteContainer(memoryType, ECDomain.orderBytes(keyType, keySize), true);
+        s = new ByteContainer(memoryType, ECDomain.orderBytes(keySize), true);
     }
 
     @Override

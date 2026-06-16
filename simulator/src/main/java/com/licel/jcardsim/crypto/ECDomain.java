@@ -35,13 +35,13 @@ final class ECDomain {
     ECDomain(byte keyType, short keySize, byte memoryType) {
         this.size = keySize;
 
-        // field elements occupy the field byte length; the order can be a byte wider than the field
-        // (e.g. secp160r1), so r takes the curve's exact order width.
+        // field elements occupy the field byte length; a curve's order is at most one byte wider
+        // than the field, so r is sized to that bound and holds the order at whatever width is set.
         var fieldBytes = (keySize + 7) / 8;
         a = new ByteContainer(memoryType, fieldBytes);
         b = new ByteContainer(memoryType, fieldBytes);
         g = new ByteContainer(memoryType, 1 + 2 * fieldBytes);
-        r = new ByteContainer(memoryType, orderBytes(keyType, keySize));
+        r = new ByteContainer(memoryType, orderBytes(keySize), true);
         fp = new ByteContainer(memoryType, fieldBytes);
 
         var defaults = getOptionalDomainParameters(keyType, keySize);
@@ -50,14 +50,10 @@ final class ECDomain {
         }
     }
 
-    // the order can be a byte wider than the field; fall back to the field width for an
-    // applet-defined curve that has no named defaults
-    static short orderBytes(byte keyType, short keySize) {
-        var defaults = getOptionalDomainParameters(keyType, keySize);
-        if (defaults == null) {
-            return (short) ((keySize + 7) / 8);
-        }
-        return (short) ((defaults.getN().bitLength() + 7) / 8);
+    // a curve's order is at most one byte wider than its field, so this width holds the order of
+    // any curve at this field size, named or applet-defined.
+    static short orderBytes(short keySize) {
+        return (short) ((keySize + 7) / 8 + 1);
     }
 
     void clear() {
