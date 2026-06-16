@@ -116,7 +116,7 @@ public final class MessageDigestImpl extends InitializedMessageDigest {
         byte[] enc = ((EncodableDigest) engine).getEncodedState();
         System.arraycopy(initialDigestBuf, initialDigestOffset, enc, stateOffset(), stateSize);
         if (!(engine instanceof KeccakDigest)) {
-            int countOff = (engine instanceof LongDigest) ? 12 : 8;
+            int countOff = engine instanceof LongDigest ? 12 : 8;
             Pack.longToBigEndian(byteCountLo, enc, countOff);
             if (engine instanceof LongDigest) {
                 Pack.longToBigEndian(byteCountHi, enc, countOff + 8);

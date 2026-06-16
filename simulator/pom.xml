@@ -100,6 +100,13 @@
             <version>${apdu4j.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- CardBIBO: wraps a PC/SC Card as a BIBO for CryptoParityTest's reader backend -->
+        <dependency>
+            <groupId>com.github.martinpaljak</groupId>
+            <artifactId>apdu4j-pcsc</artifactId>
+            <version>${apdu4j.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

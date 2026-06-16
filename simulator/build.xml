@@ -12,6 +12,9 @@
       <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java">
         <applet class="pro.javacard.engine.testapplets.MemoryApplet" aid="D233000000774D454D2D303101"/>
       </cap>
+      <cap targetsdk="3.0.5" aid="D233000000774352592D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CryptoProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CryptoProbeApplet.java">
+        <applet class="pro.javacard.engine.testapplets.CryptoProbeApplet" aid="D233000000774352592D303101"/>
+      </cap>
       <cap targetsdk="3.0.4" aid="D2330000007743524C2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRELTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRELTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.CRELTestApplet" aid="D2330000007743524C2D303101"/>
         <import jar="gpapi-globalplatform_1.6.jar"/>
