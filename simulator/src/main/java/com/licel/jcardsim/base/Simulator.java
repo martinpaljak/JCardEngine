@@ -76,12 +76,12 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // Handles APDU state and IO
     private final CurrentAPDU currentAPDU;
 
-    // The active applet instance: the applet currently selected on the channel (JC RE: "active applet
-    // instance"). Distinct from getAID() == contextStack.peek(), the current executing context.
+    // The applet currently selected on the channel (JCRE "active applet instance").
+    // Not the same as the current executing context (contextStack.peek().getAID()).
     private AID activeAID;
 
-    // Context stack
-    private final Deque<AID> contextStack = new ArrayDeque<>();
+    // Executing context stack. getAID/caller/getPreviousContextAID all derive from the top entry.
+    private final Deque<EngineRegistryEntry> contextStack = new ArrayDeque<>();
 
     // If applet selection is ongoing - FIXME: refactor
     private boolean selecting = false;
@@ -197,7 +197,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             deselect(globalPlatform.lookup(activeAID));
         }
         contextStack.clear();
-        contextStack.push(aid);
+        contextStack.push(instance);
         // JC API isAppletActive: the applet is the active instance during its own select() callback;
         // rolled back to null below if it refuses selection.
         activeAID = aid;
@@ -298,7 +298,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         if (options.get() != null) {
             return null;
         }
-        return contextStack.peek();
+        var top = contextStack.peek();
+        return top == null ? null : top.getAID();
     }
 
     @Override
@@ -308,8 +309,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
     @Override
     public EngineRegistryEntry caller() {
-        var aid = contextStack.peek();
-        return aid == null ? null : globalPlatform.lookup(aid);
+        return contextStack.peek();
     }
 
     /**
@@ -341,7 +341,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         if (it.hasNext()) {
             it.next(); // skip current
         }
-        return it.hasNext() ? it.next() : null;
+        return it.hasNext() ? it.next().getAID() : null;
     }
 
     /**
@@ -377,7 +377,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         if (applet instanceof AppletEvent) {
             try {
                 contextStack.clear();
-                contextStack.push(aid);
+                contextStack.push(app);
                 ((AppletEvent) applet).uninstall();
             } catch (Exception e) {
                 // JCRE ignores uninstall() exceptions; we still throw so deleteApplet() is testable.
@@ -539,7 +539,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                     }
                 }
                 currentAPDU.reset(command);
-                contextStack.push(activeAID);
+                contextStack.push(globalPlatform.lookup(activeAID));
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
             } catch (Throwable e) {
@@ -608,7 +608,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         log.trace("Applet.deselect(): {}", app.getAID());
         try {
             var applet = app.getApplet();
-            contextStack.push(app.getAID());
+            contextStack.push(app);
             applet.deselect();
         } catch (Exception e) {
             log_exception(e, "Exception in Applet.deselect()");
@@ -779,7 +779,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             return null;
         }
         // Wrap in context pusher
-        return ContextStackProxy.wrap(serverAID, contextStack, shareable);
+        return ContextStackProxy.wrap(globalPlatform.lookup(serverAID), contextStack, shareable);
     }
 
     // Platform-context SIO fetch: getShareableInterfaceObject(null, parameter), so the server
@@ -795,7 +795,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
         // wrapPlatform suspends the applet stack so the callee sees getAID() == serverAID
         // and getPreviousContextAID() == null.
-        return ContextStackProxy.wrapPlatform(serverAID, contextStack, shareable);
+        return ContextStackProxy.wrapPlatform(globalPlatform.lookup(serverAID), contextStack, shareable);
     }
 
     // Context-switching proxy for a Shareable sub-interface, bypassing getShareableInterfaceObject().
@@ -810,7 +810,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         if (!iface.isInstance(applet)) {
             return null;
         }
-        return iface.cast(ContextStackProxy.wrap(aid, contextStack, (Shareable) applet));
+        return iface.cast(ContextStackProxy.wrap(entry, contextStack, (Shareable) applet));
     }
 
     /**
@@ -843,6 +843,10 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges,
                                      byte[] parameters, boolean exposed, EngineRegistryEntry pkg) {
+        // Every applet must have a package; pkg == null is always a caller bug.
+        if (pkg == null) {
+            throw new IllegalStateException("internalInstallApplet requires a package");
+        }
         final Class<?> klass;
 
         log.info("Installing applet class {}, loaded by {}", appletClass.getName(),
@@ -888,7 +892,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
         interesting.add(klass.getPackageName());
         var registered = false;
-        contextStack.push(appletAID);
+        // install() runs before register(), so the applet has no own entry yet.
+        // Push the package entry so allocations are attributed to the right context.
+        contextStack.push(pkg);
         try {
             installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
             registered = options.get() == null;
@@ -920,10 +926,16 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             if (activeAID != null) {
                 deselect(globalPlatform.lookup(activeAID));
             }
+            // Derive the package AID from the applet AID: strip the trailing instance byte,
+            // or append a marker byte when the AID is already at the 5-byte minimum.
+            // Both forms stay within the legal 5..16 byte range.
+            var ab = AIDUtil.bytes(appletAID);
+            var pkgAid = AIDUtil.create(ab.length > 5 ? Arrays.copyOf(ab, ab.length - 1) : Arrays.copyOf(ab, ab.length + 1));
+            var pkg = globalPlatform.ensurePackage(pkgAid, appletAID, appletClass);
             // Install as the ISD, so install() sees getPreviousContextAID() == ISD like a GP install.
-            contextStack.push(globalPlatform.isd().getAID());
+            contextStack.push(globalPlatform.isd());
             try {
-                return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, null);
+                return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, pkg);
             } finally {
                 contextStack.pop();
             }

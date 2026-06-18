@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.core;
 
-import javacard.framework.AID;
 import javacard.framework.CardException;
 import javacard.framework.CardRuntimeException;
 import javacard.framework.Shareable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -16,34 +16,34 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
 
-// Dynamic proxy that pushes the server AID on the context stack around each Shareable call.
+// Wraps a Shareable in a dynamic proxy that pushes the server entry onto the context stack for each call.
 public class ContextStackProxy {
     private static final Logger log = LoggerFactory.getLogger(ContextStackProxy.class);
 
-    public static Shareable wrap(AID serverAID, Deque<AID> stack, Shareable shareable) {
-        return wrap0(serverAID, stack, shareable, false);
+    public static Shareable wrap(EngineRegistryEntry server, Deque<EngineRegistryEntry> stack, Shareable shareable) {
+        return wrap0(server, stack, shareable, false);
     }
 
-    // Platform-initiated wrap (CRS/OPEN caller): suspends the applet stack so the callee sees
-    // getAID() == serverAID and getPreviousContextAID() == null (clientAID=null SIO contract).
-    public static Shareable wrapPlatform(AID serverAID, Deque<AID> stack, Shareable shareable) {
-        return wrap0(serverAID, stack, shareable, true);
+    // Platform-initiated wrap (CRS/OPEN caller): clears the applet stack first, so the callee runs with
+    // no previous applet context and getPreviousContextAID() returns null.
+    public static Shareable wrapPlatform(EngineRegistryEntry server, Deque<EngineRegistryEntry> stack, Shareable shareable) {
+        return wrap0(server, stack, shareable, true);
     }
 
-    private static Shareable wrap0(AID serverAID, Deque<AID> stack, Shareable shareable, boolean platform) {
+    private static Shareable wrap0(EngineRegistryEntry server, Deque<EngineRegistryEntry> stack, Shareable shareable, boolean platform) {
         var klass = shareable.getClass();
         return (Shareable) Proxy.newProxyInstance(
                 klass.getClassLoader(),
                 allShareables(klass),
-                (proxy, method, args) -> invoke(serverAID, stack, shareable, method, args, platform)
+                (proxy, method, args) -> invoke(server, stack, shareable, method, args, platform)
         );
     }
 
-    private static Object invoke(AID serverAID, Deque<AID> stack, Shareable shareable, Method method, Object[] args, boolean platform) throws Throwable {
-        Deque<AID> saved = null;
+    private static Object invoke(EngineRegistryEntry server, Deque<EngineRegistryEntry> stack, Shareable shareable, Method method, Object[] args, boolean platform) throws Throwable {
+        Deque<EngineRegistryEntry> saved = null;
         if (platform) {
-            log.info("Switching from <platform> to {}", serverAID);
-            // Snapshot and clear so the callee sees only [serverAID].
+            log.info("Switching from <platform> to {}", server.getAID());
+            // Save the current stack and clear it so the callee sees only [server].
             saved = new ArrayDeque<>(stack);
             stack.clear();
         } else {
@@ -51,9 +51,9 @@ public class ContextStackProxy {
             if (caller == null) {
                 throw new IllegalStateException("Must be called from applet context");
             }
-            log.info("Switching context: {} -> {}", caller, serverAID);
+            log.info("Switching context: {} -> {}", caller.getAID(), server.getAID());
         }
-        stack.push(serverAID);
+        stack.push(server);
         try {
             return method.invoke(shareable, args);
         } catch (InvocationTargetException e) {

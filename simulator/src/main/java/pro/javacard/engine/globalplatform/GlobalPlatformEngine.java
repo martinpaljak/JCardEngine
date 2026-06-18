@@ -80,6 +80,16 @@ public class GlobalPlatformEngine {
         log.info("Loaded applet {}", appletClass.getCanonicalName());
     }
 
+    // Host install has no prior LOAD: creates the PKG entry and module mapping for the
+    // synthesized load file if absent; safe to call again after delete or for same-package siblings.
+    public EngineRegistryEntry ensurePackage(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
+        var pkg = lookup(packageAid);
+        if (pkg == null || !pkg.getModules().containsKey(appletAid)) {
+            loadClass(packageAid, appletAid, appletClass, null);
+        }
+        return lookup(packageAid);
+    }
+
     // Register a built-in load file at boot (e.g. SD code) targetable via INSTALL [for install].
     public void addBuiltinPackage(AID packageAid, AID moduleAid, Class<? extends Applet> moduleClass) {
         if (registry.get(packageAid) != null) {
