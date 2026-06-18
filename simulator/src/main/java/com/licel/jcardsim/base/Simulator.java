@@ -354,7 +354,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         var top = it.next().getContext();
         while (it.hasNext()) {
             var below = it.next();
-            if (below.getContext() != top) {
+            if (!Objects.equals(below.getContext(), top)) {
                 return below.getAID();
             }
         }

@@ -130,12 +130,10 @@ public class GlobalPlatformEngine {
         return entry;
     }
 
-    // GPC v2.3.1 9.3.6: App inherits the ELF's parent SD. Host install passes pkg=null -> ISD.
+    // GPC v2.3.1 9.3.6: the applet inherits its load file's parent SD and firewall context (JCRE 6.1.2).
     public void register(AID aid, Object instance, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {
-        var packageAID = pkg != null ? pkg.getAID() : null;
-        var parent = pkg != null ? pkg.getParentSD() : isd;
-        var entry = EngineRegistryEntry.forApplet(aid, instance, exposed, privileges, packageAID, parent);
-        // Applet inherits its package's firewall context (JCRE 6.1.2).
+        Objects.requireNonNull(pkg, "register requires a package");
+        var entry = EngineRegistryEntry.forApplet(aid, instance, exposed, privileges, pkg.getAID(), pkg.getParentSD());
         entry.setContext(pkg.getContext());
         // GPC v2.3.1 6.6.2: Card Reset is single-holder.
         if (entry.getPrivileges().contains(Privilege.CardReset)) {

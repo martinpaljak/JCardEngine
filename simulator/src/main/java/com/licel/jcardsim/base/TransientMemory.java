@@ -14,7 +14,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -25,7 +24,7 @@ public final class TransientMemory {
 
     // CLEAR_ON_DESELECT arrays keyed by owning context (JCRE 5.1.2): deselecting one applet clears
     // only its context's arrays, never another's.
-    private final Map<Context, List<Object>> clearOnDeselect = new IdentityHashMap<>();
+    private final Map<Context, List<Object>> clearOnDeselect = new HashMap<>();
     private final ArrayList<Object> clearOnReset = new ArrayList<>();
     private final ArrayList<Object> sensitive = new ArrayList<>(); // TODO: map of object to checksum
     private final ArrayList<Object> persistent = new ArrayList<>();
