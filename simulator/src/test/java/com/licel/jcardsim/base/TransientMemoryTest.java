@@ -30,21 +30,21 @@ public class TransientMemoryTest {
         final short size = 1;
         TransientMemory transientMemory = new TransientMemory();
 
-        byte[] corBytes = transientMemory.makeByteArray(size, JCSystem.CLEAR_ON_RESET);
-        short[] corShorts = transientMemory.makeShortArray(size, JCSystem.CLEAR_ON_RESET);
-        boolean[] corBooleans = transientMemory.makeBooleanArray(size, JCSystem.CLEAR_ON_RESET);
+        byte[] corBytes = transientMemory.makeByteArray(size, JCSystem.CLEAR_ON_RESET, null);
+        short[] corShorts = transientMemory.makeShortArray(size, JCSystem.CLEAR_ON_RESET, null);
+        boolean[] corBooleans = transientMemory.makeBooleanArray(size, JCSystem.CLEAR_ON_RESET, null);
 
-        Object[] corObjects = transientMemory.makeObjectArray(size, JCSystem.CLEAR_ON_RESET);
+        Object[] corObjects = transientMemory.makeObjectArray(size, JCSystem.CLEAR_ON_RESET, null);
         corBytes[0] = 123;
         corShorts[0] = 123;
         corBooleans[0] = true;
         corObjects[0] = dummy1;
 
-        byte[] codBytes = transientMemory.makeByteArray(size, JCSystem.CLEAR_ON_DESELECT);
-        short[] codShorts = transientMemory.makeShortArray(size, JCSystem.CLEAR_ON_DESELECT);
-        boolean[] codBooleans = transientMemory.makeBooleanArray(size, JCSystem.CLEAR_ON_DESELECT);
+        byte[] codBytes = transientMemory.makeByteArray(size, JCSystem.CLEAR_ON_DESELECT, null);
+        short[] codShorts = transientMemory.makeShortArray(size, JCSystem.CLEAR_ON_DESELECT, null);
+        boolean[] codBooleans = transientMemory.makeBooleanArray(size, JCSystem.CLEAR_ON_DESELECT, null);
 
-        Object[] codObjects = transientMemory.makeObjectArray(size, JCSystem.CLEAR_ON_DESELECT);
+        Object[] codObjects = transientMemory.makeObjectArray(size, JCSystem.CLEAR_ON_DESELECT, null);
         codBytes[0] = 123;
         codShorts[0] = 123;
         codBooleans[0] = true;
@@ -76,17 +76,30 @@ public class TransientMemoryTest {
         assertEquals(transientMemory.isTransient(codShorts), JCSystem.CLEAR_ON_DESELECT);
         assertEquals(transientMemory.isTransient(codBooleans), JCSystem.CLEAR_ON_DESELECT);
         assertEquals(transientMemory.isTransient(codObjects), JCSystem.CLEAR_ON_DESELECT);
+    }
 
-        transientMemory.forgetBuffers();
+    // Deselecting one applet clears only its context's CLEAR_ON_DESELECT arrays (JCRE 3.2 5.1.2),
+    // never another context's. Unobservable through single-channel selection, so driven directly.
+    @Test
+    public void clearOnDeselectIsContextScoped() {
+        var sim = new Simulator();
+        var aidA = AIDUtil.create("a00000001101");
+        var aidB = AIDUtil.create("b00000002202");
+        sim.installApplet(aidA, Sha1Applet.class);
+        sim.installApplet(aidB, Sha1Applet.class);
+        var ctxA = sim.gp().lookup(aidA).getContext();
+        var ctxB = sim.gp().lookup(aidB).getContext();
+        assertNotSame(ctxA, ctxB);
 
-        assertEquals(transientMemory.isTransient(corBytes), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(corShorts), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(corBooleans), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(corObjects), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(codBytes), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(codShorts), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(codBooleans), JCSystem.NOT_A_TRANSIENT_OBJECT);
-        assertEquals(transientMemory.isTransient(codObjects), JCSystem.NOT_A_TRANSIENT_OBJECT);
+        var tm = sim.getTransientMemory();
+        byte[] a = tm.makeByteArray(4, JCSystem.CLEAR_ON_DESELECT, ctxA);
+        byte[] b = tm.makeByteArray(4, JCSystem.CLEAR_ON_DESELECT, ctxB);
+        a[0] = 0x11;
+        b[0] = 0x22;
+
+        tm.clearOnDeselect(ctxA);
+        assertEquals(a[0], 0);
+        assertEquals(b[0], 0x22);
     }
 
 
@@ -96,28 +109,28 @@ public class TransientMemoryTest {
         TransientMemory transientMemory = new TransientMemory();
 
         try {
-            transientMemory.makeByteArray(2, invalid);
+            transientMemory.makeByteArray(2, invalid, null);
             fail("No exception");
         } catch (SystemException e) {
             assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
-            transientMemory.makeBooleanArray((short) 1, invalid);
+            transientMemory.makeBooleanArray((short) 1, invalid, null);
             fail("No exception");
         } catch (SystemException e) {
             assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
-            transientMemory.makeObjectArray((short) 1, invalid);
+            transientMemory.makeObjectArray((short) 1, invalid, null);
             fail("No exception");
         } catch (SystemException e) {
             assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);
         }
 
         try {
-            transientMemory.makeBooleanArray((short) 1, invalid);
+            transientMemory.makeShortArray((short) 1, invalid, null);
             fail("No exception");
         } catch (SystemException e) {
             assertEquals(e.getReason(), SystemException.ILLEGAL_VALUE);

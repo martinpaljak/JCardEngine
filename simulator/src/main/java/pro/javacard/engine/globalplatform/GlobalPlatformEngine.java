@@ -59,6 +59,7 @@ public class GlobalPlatformEngine {
         // CPLC (9F7F) is card-wide: seed the default into the ISD's data store as a usual tag.
         isd.putData(GPData.CPLC, SecurityDomainApplet.DEFAULT_CPLC);
         addBuiltinPackage(SecurityDomainApplet.SSD_PACKAGE_AID, SecurityDomainApplet.SSD_MODULE_AID, SecurityDomainApplet.class);
+        isd.setContext(lookup(SecurityDomainApplet.SSD_PACKAGE_AID).getContext());
     }
 
     // Virtual load: collapses INSTALL [for load] + LOAD blocks into one call; null parent = ISD.
@@ -112,6 +113,7 @@ public class GlobalPlatformEngine {
         crsEntry.state = GPCLRegistryEntry.STATE_CL_ACTIVATED;
         registry.put(EngineCRSApplet.CRS_AID, crsEntry);
         addBuiltinPackage(EngineCRSApplet.CRS_PACKAGE_AID, EngineCRSApplet.CRS_AID, EngineCRSApplet.class);
+        crsEntry.setContext(lookup(EngineCRSApplet.CRS_PACKAGE_AID).getContext());
     }
 
     public EngineRegistryEntry isd() {
@@ -133,6 +135,8 @@ public class GlobalPlatformEngine {
         var packageAID = pkg != null ? pkg.getAID() : null;
         var parent = pkg != null ? pkg.getParentSD() : isd;
         var entry = EngineRegistryEntry.forApplet(aid, instance, exposed, privileges, packageAID, parent);
+        // Applet inherits its package's firewall context (JCRE 6.1.2).
+        entry.setContext(pkg.getContext());
         // GPC v2.3.1 6.6.2: Card Reset is single-holder.
         if (entry.getPrivileges().contains(Privilege.CardReset)) {
             RegistryPolicy.stripFromOthers(this, entry, Privilege.CardReset);

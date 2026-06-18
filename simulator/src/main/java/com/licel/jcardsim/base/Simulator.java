@@ -18,6 +18,7 @@ import pro.javacard.engine.core.DependencyAnalyzer;
 import pro.javacard.engine.core.Faulty;
 import pro.javacard.engine.core.IsolatingClassReloader;
 import pro.javacard.engine.faulty.FaultyConfig;
+import pro.javacard.engine.globalplatform.Context;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 import pro.javacard.engine.globalplatform.RegistryPolicy;
@@ -230,7 +231,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @SuppressWarnings("unused") // used from intercept
     public static byte[] allocateBytes(int size) {
         Simulator current = (Simulator) current();
-        byte[] v = current.getTransientMemory().makeByteArray(size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        byte[] v = current.getTransientMemory().makeByteArray(size, JCSystem.MEMORY_TYPE_PERSISTENT, null);
         current.registerAllocation(v);
         return v;
     }
@@ -239,7 +240,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     public static short[] allocateShorts(int size) {
         log.debug("Allocating short array");
         Simulator current = (Simulator) current();
-        var v = current.getTransientMemory().makeShortArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        var v = current.getTransientMemory().makeShortArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT, null);
         current.registerAllocation(v);
         return v;
     }
@@ -248,7 +249,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     public static boolean[] allocateBooleans(int size) {
         log.debug("Allocating boolean array");
         Simulator current = (Simulator) current();
-        var v = current.getTransientMemory().makeBooleanArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT);
+        var v = current.getTransientMemory().makeBooleanArray((short) size, JCSystem.MEMORY_TYPE_PERSISTENT, null);
         current.registerAllocation(v);
         return v;
     }
@@ -312,6 +313,12 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         return contextStack.peek();
     }
 
+    @Override
+    public Context activeContext() {
+        var top = contextStack.peek();
+        return top == null ? null : top.getContext();
+    }
+
     /**
      * Lookup applet by aid contains in byte array
      *
@@ -338,10 +345,20 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public AID getPreviousContextAID() {
         var it = contextStack.iterator();
-        if (it.hasNext()) {
-            it.next(); // skip current
+        if (!it.hasNext()) {
+            return null;
         }
-        return it.hasNext() ? it.next().getAID() : null;
+        // JCRE 6.2.5: the AID active at the last context switch. Walk down past same-context frames
+        // (e.g. same-package SIO) to the first frame with a different context. Null when the run was
+        // entered directly from the JCRE context, which has no AID (6.2.5.1).
+        var top = it.next().getContext();
+        while (it.hasNext()) {
+            var below = it.next();
+            if (below.getContext() != top) {
+                return below.getAID();
+            }
+        }
+        return null;
     }
 
     /**
@@ -623,7 +640,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             log.warn("Applet deselected with transactions pending");
             abortTransaction();
         }
-        transientMemory.clearOnDeselect();
+        // JCRE 5.1.2: clears only this context's CLEAR_ON_DESELECT arrays, and only when no other applet
+        // in the same context remains selected.
+        transientMemory.clearOnDeselect(app.getContext());
         // GPC v2.3.1 10.2.3: SC session closes when the Application Session ends, so the next
         // INITIALIZE_UPDATE re-resolves master keys via the new applet's associated-SD chain.
         globalPlatform.getSecureChannel().resetSecurity();

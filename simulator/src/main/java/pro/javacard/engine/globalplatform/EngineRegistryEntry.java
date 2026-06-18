@@ -38,6 +38,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     private byte lifecycle;                 // mutable: getState/setState
     private final String javaPackageName;   // PKG only
     private final Map<AID, Class<? extends Applet>> modules; // PKG only
+    private Context context;                // owning firewall context: PKG mints its own; applets inherit from their package
 
     // ---- CL state (applet-kind only; PKG entries throw on CL methods).
     byte state = STATE_CL_DEACTIVATED;
@@ -114,7 +115,9 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
     // PKG factory. associatedSD is the SD that issued the load (real GP: INSTALL [for load]).
     static EngineRegistryEntry forPackage(AID packageAID, String javaPackageName, EngineRegistryEntry associatedSD) {
-        return new EngineRegistryEntry(packageAID, javaPackageName, PKG_LOADED, associatedSD);
+        var pkg = new EngineRegistryEntry(packageAID, javaPackageName, PKG_LOADED, associatedSD);
+        pkg.context = Context.of(pkg);
+        return pkg;
     }
 
     static EnumSet<Privilege> decodePrivileges(byte[] bytes) {
@@ -178,6 +181,15 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
     EngineRegistryEntry getParentSD() {
         return parentSD;
+    }
+
+    public Context getContext() {
+        return context;
+    }
+
+    // Set once: at load for PKGs, at install for applets.
+    void setContext(Context context) {
+        this.context = context;
     }
 
     // INSTALL [for extradition] (GPC v2.3.1 11.5.2.3.4): rebind to a new associated SD. OPEN-only; ISD never extradited.

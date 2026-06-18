@@ -49,7 +49,7 @@ public class JCSystemProxy {
     public static boolean[] makeTransientBooleanArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
         checkDeselectContext(event);
-        return Simulator.current().getTransientMemory().makeBooleanArray(length, event);
+        return Simulator.current().getTransientMemory().makeBooleanArray(length, event, Simulator.current().activeContext());
     }
 
     /**
@@ -70,7 +70,7 @@ public class JCSystemProxy {
     public static byte[] makeTransientByteArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
         checkDeselectContext(event);
-        return Simulator.current().getTransientMemory().makeByteArray(length, event);
+        return Simulator.current().getTransientMemory().makeByteArray(length, event, Simulator.current().activeContext());
     }
 
     /**
@@ -91,7 +91,7 @@ public class JCSystemProxy {
     public static short[] makeTransientShortArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
         checkDeselectContext(event);
-        return Simulator.current().getTransientMemory().makeShortArray(length, event);
+        return Simulator.current().getTransientMemory().makeShortArray(length, event, Simulator.current().activeContext());
     }
 
     /**
@@ -112,7 +112,7 @@ public class JCSystemProxy {
     public static Object[] makeTransientObjectArray(short length, byte event)
             throws NegativeArraySizeException, SystemException {
         checkDeselectContext(event);
-        return Simulator.current().getTransientMemory().makeObjectArray(length, event);
+        return Simulator.current().getTransientMemory().makeObjectArray(length, event, Simulator.current().activeContext());
     }
 
     // JCRE 3.2 6.1.5: a CLEAR_ON_DESELECT array may be created only while the active context is the

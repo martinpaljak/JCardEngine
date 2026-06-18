@@ -5,6 +5,7 @@ package com.licel.jcardsim.base;
 import javacard.framework.AID;
 import javacard.framework.Applet;
 import javacard.framework.Shareable;
+import pro.javacard.engine.globalplatform.Context;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 
@@ -25,6 +26,9 @@ public interface JavaCardRuntime {
 
     // Currently executing applet's registry entry, or null in platform context.
     EngineRegistryEntry caller();
+
+    // Active firewall context (JCRE 3.2 6.1.2); null in platform context.
+    Context activeContext();
 
     AID lookupAID(byte[] buffer, short offset, byte length);
 

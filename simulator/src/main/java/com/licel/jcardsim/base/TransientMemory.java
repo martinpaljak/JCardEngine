@@ -8,18 +8,24 @@ import javacard.framework.SystemException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import pro.javacard.engine.globalplatform.Context;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 // Manages transient, persistent, and sensitive memory
 public final class TransientMemory {
     private static final Logger log = LoggerFactory.getLogger(TransientMemory.class);
 
-    private final ArrayList<Object> clearOnDeselect = new ArrayList<>();
+    // CLEAR_ON_DESELECT arrays keyed by owning context (JCRE 5.1.2): deselecting one applet clears
+    // only its context's arrays, never another's.
+    private final Map<Context, List<Object>> clearOnDeselect = new IdentityHashMap<>();
     private final ArrayList<Object> clearOnReset = new ArrayList<>();
     private final ArrayList<Object> sensitive = new ArrayList<>(); // TODO: map of object to checksum
     private final ArrayList<Object> persistent = new ArrayList<>();
@@ -100,9 +106,9 @@ public final class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientBooleanArray(short, byte)
      */
-    public boolean[] makeBooleanArray(short length, byte event) {
+    public boolean[] makeBooleanArray(short length, byte event, Context owner) {
         boolean[] array = new boolean[length];
-        storeArray(array, event);
+        storeArray(array, event, owner);
         return array;
     }
 
@@ -112,9 +118,9 @@ public final class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientByteArray(short, byte)
      */
-    public byte[] makeByteArray(int length, byte event) {
+    public byte[] makeByteArray(int length, byte event, Context owner) {
         byte[] array = new byte[length];
-        storeArray(array, event);
+        storeArray(array, event, owner);
         return array;
     }
 
@@ -124,9 +130,9 @@ public final class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientShortArray(short, byte)
      */
-    public short[] makeShortArray(int length, byte event) {
+    public short[] makeShortArray(int length, byte event, Context owner) {
         short[] array = new short[length];
-        storeArray(array, event);
+        storeArray(array, event, owner);
         return array;
     }
 
@@ -136,9 +142,9 @@ public final class TransientMemory {
      * @return the new transient array
      * @see javacard.framework.JCSystem#makeTransientObjectArray(short, byte)
      */
-    public Object[] makeObjectArray(int length, byte event) {
+    public Object[] makeObjectArray(int length, byte event, Context owner) {
         Object[] array = new Object[length];
-        storeArray(array, event);
+        storeArray(array, event, owner);
         return array;
     }
 
@@ -152,16 +158,16 @@ public final class TransientMemory {
         Object array = null;
         switch (type) {
             case JCSystem.ARRAY_TYPE_BOOLEAN:
-                array = makeBooleanArray(length, JCSystem.CLEAR_ON_RESET);
+                array = makeBooleanArray(length, JCSystem.CLEAR_ON_RESET, null);
                 break;
             case JCSystem.ARRAY_TYPE_BYTE:
-                array = makeByteArray(length, JCSystem.CLEAR_ON_RESET);
+                array = makeByteArray(length, JCSystem.CLEAR_ON_RESET, null);
                 break;
             case JCSystem.ARRAY_TYPE_SHORT:
-                array = makeShortArray(length, JCSystem.CLEAR_ON_RESET);
+                array = makeShortArray(length, JCSystem.CLEAR_ON_RESET, null);
                 break;
             case JCSystem.ARRAY_TYPE_OBJECT:
-                array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET);
+                array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET, null);
                 break;
             case JCSystem.ARRAY_TYPE_INT:
                 log.warn("int arrays not supported");
@@ -180,7 +186,7 @@ public final class TransientMemory {
      * @see javacard.framework.JCSystem#isTransient(Object)
      */
     public byte isTransient(Object theObj) {
-        if (clearOnDeselect.contains(theObj)) {
+        if (isClearOnDeselect(theObj)) {
             return JCSystem.CLEAR_ON_DESELECT;
         } else if (clearOnReset.contains(theObj)) {
             return JCSystem.CLEAR_ON_RESET;
@@ -205,11 +211,11 @@ public final class TransientMemory {
      * @param arrayRef array reference
      * @param event    event type
      */
-    private void storeArray(Object arrayRef, byte event) {
+    private void storeArray(Object arrayRef, byte event, Context owner) {
         add(arrayRef, event);
         switch (event) {
             case JCSystem.CLEAR_ON_DESELECT:
-                clearOnDeselect.add(arrayRef);
+                clearOnDeselect.computeIfAbsent(owner, k -> new ArrayList<>()).add(arrayRef);
                 break;
             case JCSystem.CLEAR_ON_RESET:
                 clearOnReset.add(arrayRef);
@@ -222,11 +228,20 @@ public final class TransientMemory {
         }
     }
 
-    /**
-     * Zero <code>CLEAR_ON_DESELECT</code> buffers
-     */
+    // Zero one context's CLEAR_ON_DESELECT buffers (JCRE 5.1.2: applet deselected, no other applet
+    // of the same context active).
+    void clearOnDeselect(Context owner) {
+        var arrays = clearOnDeselect.get(owner);
+        if (arrays != null) {
+            zero(arrays);
+        }
+    }
+
+    // Zero every context's CLEAR_ON_DESELECT buffers (card reset implicitly deselects, JCRE 5.1.2).
     void clearOnDeselect() {
-        zero(clearOnDeselect);
+        for (var arrays : clearOnDeselect.values()) {
+            zero(arrays);
+        }
     }
 
     /**
@@ -234,19 +249,17 @@ public final class TransientMemory {
      * buffers
      */
     void clearOnReset() {
-        zero(clearOnDeselect);
+        clearOnDeselect();
         zero(clearOnReset);
     }
 
-    /**
-     * Perform <code>clearOnReset</code> and forget all buffers
-     */
-    void forgetBuffers() {
-        clearOnReset();
-        clearOnDeselect.clear();
-        clearOnReset.clear();
-        sumCOD = 0;
-        sumCOR = 0;
+    private boolean isClearOnDeselect(Object theObj) {
+        for (var arrays : clearOnDeselect.values()) {
+            if (arrays.contains(theObj)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
