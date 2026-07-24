@@ -8,6 +8,9 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import javacard.framework.JCSystem;
 import javacard.framework.SystemException;
+import javacard.security.AESKey;
+import javacard.security.CryptoException;
+import javacard.security.KeyBuilder;
 import org.testng.annotations.Test;
 
 import java.security.MessageDigest;
@@ -151,6 +154,22 @@ public class TransientMemoryTest {
             responseApdu = bibo.transmit(new CommandAPDU(CLA, INS_LAST_DIGEST, 0x00, 0x00));
             assertEquals(responseApdu.getSW(), 0x9000);
             assertEquals(responseApdu.getData(), new byte[20]);
+        }
+    }
+
+    // A transient key holds its initialized state in the same transient memory as its bytes, so the
+    // CLEAR_ON_* event resets both: after the event the key reads back uninitialized, not merely zeroed.
+    @Test
+    public void transientKeyClearsInitializedState() {
+        var sim = new Simulator();
+        try (var current = sim.asCurrent()) {
+            AESKey key = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
+            key.setKey(new byte[16], (short) 0);
+            assertTrue(key.isInitialized());
+
+            sim.getTransientMemory().clearOnReset();
+            assertFalse(key.isInitialized());
+            assertThrows(CryptoException.class, () -> key.getKey(new byte[16], (short) 0));
         }
     }
 

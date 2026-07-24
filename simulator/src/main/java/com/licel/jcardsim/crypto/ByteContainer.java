@@ -17,7 +17,10 @@ final class ByteContainer {
 
     private final byte[] data;
     private final boolean minimalReadback;
-    private short length = 0;
+    // Current length, kept in a 1-element array rather than a field, allocated in the same memory type as
+    // data. A transient key's initialized state then clears with the same CLEAR_ON_* event as its bytes; a
+    // plain field would survive the event, leaving a wiped key still reporting isInitialized().
+    private final short[] len;
 
     ByteContainer(byte memoryType, int fixedSize) {
         this(memoryType, fixedSize, false);
@@ -30,17 +33,19 @@ final class ByteContainer {
             throw new IllegalArgumentException("fixedSize out of range: " + fixedSize);
         }
         this.minimalReadback = minimalReadback;
-        this.data = allocate(memoryType, fixedSize);
-    }
-
-    private static byte[] allocate(byte memoryType, int capacity) {
         switch (memoryType) {
-            case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT:
-                return JCSystem.makeTransientByteArray((short) capacity, JCSystem.CLEAR_ON_DESELECT);
-            case JCSystem.MEMORY_TYPE_TRANSIENT_RESET:
-                return JCSystem.makeTransientByteArray((short) capacity, JCSystem.CLEAR_ON_RESET);
-            default:
-                return Simulator.allocateBytes(capacity);
+            case JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT -> {
+                this.data = JCSystem.makeTransientByteArray((short) fixedSize, JCSystem.CLEAR_ON_DESELECT);
+                this.len = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_DESELECT);
+            }
+            case JCSystem.MEMORY_TYPE_TRANSIENT_RESET -> {
+                this.data = JCSystem.makeTransientByteArray((short) fixedSize, JCSystem.CLEAR_ON_RESET);
+                this.len = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
+            }
+            default -> {
+                this.data = Simulator.allocateBytes(fixedSize);
+                this.len = Simulator.allocateShorts(1);
+            }
         }
     }
 
@@ -75,42 +80,42 @@ final class ByteContainer {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         Util.arrayCopy(buff, offset, data, (short) 0, length);
-        this.length = length;
+        len[0] = length;
     }
 
     BigInteger getBigInteger() {
-        if (length == 0) {
+        if (len[0] == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new BigInteger(1, data, 0, length);
+        return new BigInteger(1, data, 0, len[0]);
     }
 
     byte[] getBytes() {
-        if (length == 0) {
+        if (len[0] == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        var result = new byte[length];
+        var result = new byte[len[0]];
         getBytes(result, (short) 0);
         return result;
     }
 
     short getBytes(byte[] dest, short offset) {
-        if (length == 0) {
+        if (len[0] == 0) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        if (dest.length - offset < length) {
+        if (dest.length - offset < len[0]) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        Util.arrayCopy(data, (short) 0, dest, offset, length);
-        return length;
+        Util.arrayCopy(data, (short) 0, dest, offset, len[0]);
+        return len[0];
     }
 
     void clear() {
         Util.arrayFillNonAtomic(data, (short) 0, (short) data.length, (byte) 0);
-        length = 0;
+        len[0] = 0;
     }
 
     boolean isInitialized() {
-        return length > 0;
+        return len[0] > 0;
     }
 }
