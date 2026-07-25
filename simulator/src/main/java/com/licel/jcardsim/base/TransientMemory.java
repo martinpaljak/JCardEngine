@@ -92,10 +92,8 @@ public final class TransientMemory {
             sumCOR += toAdd;
         } else if (event == JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT) {
             sumCOD += toAdd;
-        } else if (event == JCSystem.MEMORY_TYPE_PERSISTENT) {
-            sumPersistent += toAdd;
         } else {
-            log.warn("Unsupported memory type {}", event);
+            sumPersistent += toAdd;
         }
     }
 
@@ -211,7 +209,6 @@ public final class TransientMemory {
      * @param event    event type
      */
     private void storeArray(Object arrayRef, byte event, Context owner) {
-        add(arrayRef, event);
         switch (event) {
             case JCSystem.CLEAR_ON_DESELECT:
                 clearOnDeselect.computeIfAbsent(owner, k -> new ArrayList<>()).add(arrayRef);
@@ -225,6 +222,7 @@ public final class TransientMemory {
             default:
                 SystemException.throwIt(SystemException.ILLEGAL_VALUE);
         }
+        add(arrayRef, event);
     }
 
     // Zero one context's CLEAR_ON_DESELECT buffers (JCRE 5.1.2: applet deselected, no other applet
