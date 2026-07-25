@@ -296,6 +296,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
      */
     @Override
     public AID getAID() {
+        // install() ongoing and register() not yet called - null
         if (options.get() != null) {
             return null;
         }
@@ -933,6 +934,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             contextStack.pop();
             interesting.clear();
             options.remove();
+            // JCRE 3.2 11.2: bArray is zeroed after install() returns
+            Arrays.fill(install_buffer, (byte) 0);
         }
         if (!registered) {
             log.warn("install() did not call register()");
