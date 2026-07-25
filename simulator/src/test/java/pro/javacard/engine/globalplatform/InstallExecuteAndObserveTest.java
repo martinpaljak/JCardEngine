@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.globalplatform;
 
+import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
@@ -19,7 +20,9 @@ import pro.javacard.gp.GPSession;
 import pro.javacard.gp.keys.PlaintextKeys;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.Map;
 
 import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
@@ -174,11 +177,6 @@ public class InstallExecuteAndObserveTest {
         }
     }
 
-    // JCSystem.getAppletShareableInterfaceObject + ContextStackProxy: A and B are same-class
-    // instances of GlobalPlatformTestApplet with distinct identity bytes. While B is selected,
-    // it looks up A by AID and calls A's IdentityShareable.identity() across the context boundary.
-    // The returned byte must be A's identity (0xA1), proving the call dispatched into A's instance
-    // and the proxy preserved the cross-context return.
     @Test
     public void shareableCrossInstance() throws Exception {
         var sim = freshEngine();
@@ -188,11 +186,29 @@ public class InstallExecuteAndObserveTest {
             installWith(gp, B, EnumSet.noneOf(Privilege.class), ID_B);
             selectAID(bibo, B);
 
+            // B, selected, fetches A's SIO by AID and calls identity() on it
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_PEER_IDENTITY, 0x00, 0x00, AIDUtil.bytes(A), 256));
             assertEquals(r.getSW(), 0x9000);
             assertEquals(r.getData().length, 1);
-            // returns A's identity, not B's, proving cross-context dispatch
+            // the SIO belongs to A, so identity() returns A's byte, JCRE 3.2 6.2.7.1
             assertEquals(r.getData()[0], ID_A);
+
+            // What A recorded when B fetched its SIO above (Simulator.getSharedObject)
+            selectAID(bibo, A);
+            var sioA = sioAids(bibo);
+            // owner is the server itself, JCRE 3.2 6.2.7.2 step 4
+            assertEquals(sioA.getKey(), AIDUtil.bytes(A));
+            // clientAID is the caller, JCRE 3.2 6.2.7.2 step 3
+            assertEquals(sioA.getValue(), AIDUtil.bytes(B));
+
+            // What B recorded during its own install, when EVENT_SELECTABLE reached it through
+            // getSystemSharedObject with the ISD on the context stack
+            selectAID(bibo, B);
+            var sioB = sioAids(bibo);
+            // owner is the server itself, JCRE 3.2 6.2.7.2 step 4
+            assertEquals(sioB.getKey(), AIDUtil.bytes(B));
+            // platform fetch has no client
+            assertEquals(sioB.getValue().length, 0);
         }
     }
 
@@ -279,7 +295,7 @@ public class InstallExecuteAndObserveTest {
     }
 
     // Open ISD via gp-pro using the (possibly custom) master key and SCP mode for this variant.
-    private static GPSession openWith(apdu4j.core.BIBO bibo, byte[] masterKey, EnumSet<GPSession.APDUMode> mode) throws Exception {
+    private static GPSession openWith(BIBO bibo, byte[] masterKey, EnumSet<GPSession.APDUMode> mode) throws Exception {
         var pk = masterKey != null ? PlaintextKeys.fromMasterKey(masterKey) : PlaintextKeys.defaultKey();
         var gp = GPSession.discover(bibo);
         gp.openSecureChannel(pk, null, null, mode);
@@ -305,7 +321,7 @@ public class InstallExecuteAndObserveTest {
     // IC Fabricator (offset 3..4) = 0x4242 (engine signature).
     // IC Fab Date (13..14) and IC Batch ID (19..20) = 0x4242 (KDD-relevant).
     // IC Serial (15..18) = ASCII "JCEN" (KDD-relevant). Everything else zero.
-    private static void assertCplc(apdu4j.core.BIBO bibo) throws Exception {
+    private static void assertCplc(BIBO bibo) throws Exception {
         var data = GPData.fetchCPLC(bibo);
         assertEquals(data.length, 45);
         assertEquals(data[0], (byte) 0x9F);
@@ -359,8 +375,20 @@ public class InstallExecuteAndObserveTest {
         gp.installAndMakeSelectable(gpAID(PKG), gpAID(PKG), gpAID(instance), privs, new byte[]{identity});
     }
 
-    private static void selectAID(apdu4j.core.BIBO bibo, AID aid) {
+    private static void selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
         assertEquals(r.getSW(), 0x9000);
+    }
+
+    // INS_SIO_AIDS response is [len][own AID][len][clientAID], returned as (own, client).
+    private static Map.Entry<byte[], byte[]> sioAids(BIBO bibo) {
+        var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SIO_AIDS, 0x00, 0x00, 256));
+        assertEquals(r.getSW(), 0x9000);
+        var data = r.getData();
+        int ownLen = data[0] & 0xFF;
+        int clientLen = data[1 + ownLen] & 0xFF;
+        var own = Arrays.copyOfRange(data, 1, 1 + ownLen);
+        var client = Arrays.copyOfRange(data, 2 + ownLen, 2 + ownLen + clientLen);
+        return Map.entry(own, client);
     }
 }

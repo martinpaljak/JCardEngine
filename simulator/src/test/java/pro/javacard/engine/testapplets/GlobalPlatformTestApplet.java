@@ -29,6 +29,7 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     public static final byte INS_QUERY_AID = (byte) 0xCA;     // GPSystem.getRegistryEntry(<AID from cdata>)
     public static final byte INS_QUERY_SELF = (byte) 0xCB;    // GPSystem.getRegistryEntry(null)
     public static final byte INS_QUERY_PRIVS = (byte) 0x0B;   // getRegistryEntry(null).getPrivileges(buf, off)
+    public static final byte INS_SIO_AIDS = (byte) 0x0C; // AIDs captured during getShareableInterfaceObject
     // Global PIN CVM driver. P1 sub-op: 0 status, 1 setTryLimit(P2), 2 update, 3 verify, 4 block,
     // 5 resetAndUnblock, 6 reset. P2 carries the CVM format (0 -> FORMAT_HEX) for update/verify.
     public static final byte INS_CVM = (byte) 0x66;
@@ -44,6 +45,12 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     private short persoAIDLen = 0;
     private final byte[] persoPrevAID = new byte[16];
     private short persoPrevAIDLen = 0;
+
+    // Fires on every getShareableInterfaceObject call, not just install, unlike the perso fields above.
+    private final byte[] sioAID = new byte[16];
+    private short sioAIDLen = 0;
+    private final byte[] sioClientAID = new byte[16];
+    private short sioClientAIDLen = 0;
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
         short offset = bOffset;
@@ -83,6 +90,17 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
 
     @Override
     public Shareable getShareableInterfaceObject(AID clientAID, byte parameter) {
+        AID my = JCSystem.getAID();
+        if (my != null) {
+            sioAIDLen = my.getBytes(sioAID, (short) 0);
+        } else {
+            sioAIDLen = 0;
+        }
+        if (clientAID != null) {
+            sioClientAIDLen = clientAID.getBytes(sioClientAID, (short) 0);
+        } else {
+            sioClientAIDLen = 0;
+        }
         return this;
     }
 
@@ -272,6 +290,17 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
                 case INS_PERSO_PREVAID: {
                     Util.arrayCopyNonAtomic(persoPrevAID, (short) 0, buffer, (short) 0, persoPrevAIDLen);
                     apdu.setOutgoingAndSend((short) 0, persoPrevAIDLen);
+                    return;
+                }
+                case INS_SIO_AIDS: {
+                    short off = 0;
+                    buffer[off++] = (byte) sioAIDLen;
+                    Util.arrayCopyNonAtomic(sioAID, (short) 0, buffer, off, sioAIDLen);
+                    off += sioAIDLen;
+                    buffer[off++] = (byte) sioClientAIDLen;
+                    Util.arrayCopyNonAtomic(sioClientAID, (short) 0, buffer, off, sioClientAIDLen);
+                    off += sioClientAIDLen;
+                    apdu.setOutgoingAndSend((short) 0, off);
                     return;
                 }
                 case INS_QUERY_PEER_IDENTITY: {

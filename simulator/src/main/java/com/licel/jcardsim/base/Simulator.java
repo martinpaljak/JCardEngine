@@ -781,41 +781,58 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         if (serverAID == null) {
             return null;
         }
-        var serverApplet = getApplet(serverAID);
+        var entry = globalPlatform.lookup(serverAID);
+        var serverApplet = entry == null ? null : entry.getApplet();
         if (serverApplet == null) {
             log.warn("Did not find server AID {} in {}", serverAID, System.identityHashCode(this));
             return null;
         }
         // JC API: null if the server applet throws an uncaught exception.
         Shareable shareable;
+        var clientAID = getAID();
+        // JCRE 6.2.7.2 step 4: context switches to the server applet for the getShareableInterfaceObject call.
+        contextStack.push(entry);
         try {
-            shareable = serverApplet.getShareableInterfaceObject(getAID(), parameter);
+            shareable = serverApplet.getShareableInterfaceObject(clientAID, parameter);
         } catch (Exception e) {
             log.warn("{}({}) threw during getShareableInterfaceObject: {}", serverApplet.getClass().getSimpleName(), serverAID, e.getMessage(), e);
             return null;
+        } finally {
+            contextStack.pop();
         }
         if (shareable == null) {
             log.warn("{}({}) did not return a Shareable in {}", serverApplet.getClass().getSimpleName(), serverAID, System.identityHashCode(this));
             return null;
         }
         // Wrap in context pusher
-        return ContextStackProxy.wrap(globalPlatform.lookup(serverAID), contextStack, shareable);
+        return ContextStackProxy.wrap(entry, contextStack, shareable);
     }
 
     // Platform-context SIO fetch: getShareableInterfaceObject(null, parameter), so the server
     // sees a null clientAID (system/CRS/OPEN caller). Used by CL event fan-out. GPC v2.3.1 Amd C 3.10.
     public Shareable getSystemSharedObject(AID serverAID, byte parameter) {
-        var serverApplet = getApplet(serverAID);
+        var entry = globalPlatform.lookup(serverAID);
+        var serverApplet = entry == null ? null : entry.getApplet();
         if (serverApplet == null) {
             return null;
         }
-        var shareable = serverApplet.getShareableInterfaceObject(null, parameter);
+        // Platform-initiated fetch: suspend the caller stack so the server sees itself with no applet caller beneath it.
+        var saved = new ArrayDeque<>(contextStack);
+        contextStack.clear();
+        contextStack.push(entry);
+        Shareable shareable;
+        try {
+            shareable = serverApplet.getShareableInterfaceObject(null, parameter);
+        } finally {
+            contextStack.clear();
+            contextStack.addAll(saved);
+        }
         if (shareable == null) {
             return null;
         }
         // wrapPlatform suspends the applet stack so the callee sees getAID() == serverAID
         // and getPreviousContextAID() == null.
-        return ContextStackProxy.wrapPlatform(globalPlatform.lookup(serverAID), contextStack, shareable);
+        return ContextStackProxy.wrapPlatform(entry, contextStack, shareable);
     }
 
     // Context-switching proxy for a Shareable sub-interface, bypassing getShareableInterfaceObject().
