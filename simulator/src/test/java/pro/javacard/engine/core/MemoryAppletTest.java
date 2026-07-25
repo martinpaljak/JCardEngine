@@ -6,6 +6,7 @@ import apdu4j.core.BIBO;
 import apdu4j.core.CommandAPDU;
 import com.licel.jcardsim.base.Simulator;
 import com.licel.jcardsim.utils.AIDUtil;
+import javacard.framework.JCSystem;
 import org.testng.annotations.Test;
 import pro.javacard.engine.testapplets.MemoryApplet;
 
@@ -42,6 +43,28 @@ public class MemoryAppletTest {
             assertTrue(persistent > 0);
             assertTrue(reset > 0);
             assertTrue(deselect > 0);
+        }
+    }
+
+    @Test
+    public void globalArrays() {
+        try (var bibo = selectFresh()) {
+            var r = bibo.transmit(new CommandAPDU(0x00, 0x43, 0x00, 0x00, 256));
+            assertEquals(r.getSW(), 0x9000);
+            var data = r.getData();
+            assertEquals(data.length, 6);
+
+            var bb = ByteBuffer.wrap(data);
+            var apduBufferType = bb.get();
+            var bArrayType = bb.get();
+            var apduBufferLength = Short.toUnsignedInt(bb.getShort());
+            var bArrayLength = Short.toUnsignedInt(bb.getShort());
+
+            // both global arrays are CLEAR_ON_RESET transient objects
+            assertEquals(apduBufferType, JCSystem.CLEAR_ON_RESET);
+            assertEquals(bArrayType, JCSystem.CLEAR_ON_RESET);
+            // install() receives the APDU buffer itself as bArray
+            assertEquals(bArrayLength, apduBufferLength);
         }
     }
 

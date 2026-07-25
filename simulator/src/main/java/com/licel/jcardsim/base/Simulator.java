@@ -106,7 +106,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform, Long seed) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = globalPlatform;
-        this.currentAPDU = new CurrentAPDU();
+        this.currentAPDU = new CurrentAPDU(transientMemory);
         this.classLoader = new IsolatingClassReloader(loader);
         this.faultConfig = faultConfig;
         this.rng = seed == null ? new SecureRandom() : new DeterministicRandom(seed);
@@ -906,6 +906,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
         // Construct _actual_ install parameters
         var install_parameters = Helpers.install_parameters(AIDUtil.bytes(appletAID), privileges, parameters);
+        // Real hardware passes install() the actual APDU buffer, not a separately allocated array.
+        var install_buffer = currentAPDU.getBuffer();
+        System.arraycopy(install_parameters, 0, install_buffer, 0, install_parameters.length);
 
         options.set(new RegisterCallbackOptions(appletAID, exposed, privileges, pkg));
 
@@ -915,7 +918,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         // Push the package entry so allocations are attributed to the right context.
         contextStack.push(pkg);
         try {
-            installMethod.invoke(null, install_parameters, (short) 0, (byte) install_parameters.length);
+            installMethod.invoke(null, install_buffer, (short) 0, (byte) install_parameters.length);
             registered = options.get() == null;
         } catch (InvocationTargetException e) {
             log.warn("Exception in install(): {}", appletAID, e);

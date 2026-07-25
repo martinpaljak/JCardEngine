@@ -7,6 +7,7 @@ import com.licel.jcardsim.utils.ByteUtil;
 import javacard.framework.APDU;
 import javacard.framework.APDUException;
 import javacard.framework.ISO7816;
+import javacard.framework.JCSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,7 @@ public class CurrentAPDU {
     private static final byte T0_NAD = 0;
 
     // transient array to store variables
-    private short[] ramVars;
+    private final short[] ramVars;
     // LE variable offset in ramVars
     private static final byte LE = 0;
     // LR variable offset in ramVars
@@ -57,9 +58,9 @@ public class CurrentAPDU {
     // APDU class instance (Current APDU for simulator)
     private final APDU apdu;
 
-    CurrentAPDU() {
-        apdu_buffer = new byte[APDU_BUFFER_SIZE];
-        ramVars = new short[RAM_VARS_LENGTH];
+    CurrentAPDU(TransientMemory transientMemory) {
+        apdu_buffer = (byte[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, APDU_BUFFER_SIZE);
+        ramVars = transientMemory.makeShortArray(RAM_VARS_LENGTH, JCSystem.CLEAR_ON_RESET, null);
 
         // Create the APDU instance
         try {
