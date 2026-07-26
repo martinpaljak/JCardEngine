@@ -11,11 +11,7 @@ import pro.javacard.gp.GPSession;
 import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
-// On-card loading is not supported by this engine: load files are planted by the host via
-// Simulator.loadApplet(...) before the simulator runs. The Security Domain therefore actively
-// rejects the LOAD APDU and any INSTALL P1 carrying the "for load" bit (b2 = 0x02), with
-// SW_FUNC_NOT_SUPPORTED (0x6A81). This is the SOLE legitimate use of hand-rolled CommandAPDU
-// in the GP test suite - gp-pro deliberately has no installForLoad surface.
+// The engine has no on-card loading: load files are planted by the host via Simulator.loadApplet(...).
 public class DispatchRejectionTest {
 
     @DataProvider(name = "loadFamilyCases")
@@ -43,6 +39,7 @@ public class DispatchRejectionTest {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
+            // gp-pro has no installForLoad surface, so the APDU is hand-built.
             var r = gp.transmit(new CommandAPDU(GPSession.CLA_GP, ins, p1, 0x00, payload, 256));
             assertEquals(r.getSW(), 0x6A81, label + " must be rejected with SW_FUNC_NOT_SUPPORTED (0x6A81) per engine's no-on-card-load rule");
         }

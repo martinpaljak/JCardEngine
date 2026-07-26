@@ -38,7 +38,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     private byte lifecycle;                 // mutable: getState/setState
     private final String javaPackageName;   // PKG only
     private final Map<AID, Class<? extends Applet>> modules; // PKG only
-    private Context context;                // owning firewall context: PKG mints its own; applets inherit from their package
+    private Context context;                // owning firewall context: PKG creates its own; applets inherit from their package
 
     // ---- CL state (applet-kind only; PKG entries throw on CL methods).
     byte state = STATE_CL_DEACTIVATED;
@@ -132,7 +132,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         return privileges.isEmpty() ? EnumSet.noneOf(Privilege.class) : EnumSet.copyOf(privileges);
     }
 
-    // Attaching the instance is what turns a minted entry into a registered Application; only
+    // Attaching the instance is what turns an entry into a registered Application; only
     // GlobalPlatformEngine.publish does it, at register().
     void setInstance(Object instance) {
         this.instance = instance;

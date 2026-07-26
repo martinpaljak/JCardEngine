@@ -21,14 +21,7 @@ import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
-// Single end-to-end narrative covering indirect personalization (GPC v2.3.1 11.5.2.3.6 INSTALL
-// [for personalization], 11.11 STORE DATA) and the JCRE context switch into the target applet
-// during Personalization.processData(). GPC v2.3.1 7.3.2: "the command is forwarded to the
-// Application by the GlobalPlatformEngine Trusted Framework which handles inter-application
-// communication between Security Domains and Applications". Replaces IndirectPersonalizationTest.
-// Read-back of the captured payload, JCSystem.getAID() and JCSystem.getPreviousContextAID() is
-// driven by the test applet's own INS protocol (gp-pro does not expose application-level SELECT
-// for arbitrary applets).
+// INSTALL [for personalization] and STORE DATA forwarding, plus the standalone INSTALL [for install] / [for make selectable] flow.
 public class PersonalizationTest {
 
     @Test
@@ -88,11 +81,6 @@ public class PersonalizationTest {
         }
     }
 
-    // INSTALL [for personalization] only succeeds when the target implements Personalization or
-    // Application per the rule in GPC v2.3.1 7.3.2 with SW codes drawn from 11.5.3.2 / Table 11-55,
-    // so HelloWorldApplet (which implements neither) must be rejected with SW_WRONG_DATA (6A80)
-    // and the malformed-payload probe additionally exercises the SD's INSTALL P1 dispatch and
-    // payload validation path.
     @Test
     public void nonPersonalizableAppletRejected() throws Exception {
         var sim = JavaCardEngine.create();
@@ -125,11 +113,6 @@ public class PersonalizationTest {
         }
     }
 
-    // Standalone three-state flow (GPC v2.3.1 9.3.7): INSTALL [for install] (P1 b3 = 0x04) leaves the
-    // applet INSTALLED, then a standalone INSTALL [for make selectable] (P1 b4 = 0x08) promotes it to
-    // SELECTABLE. gp-pro's GPSession exposes only the combined 0x0C install and no plain make selectable,
-    // so the two INSTALL APDUs are hand-built (still wrapped by the live MAC session); the lifecycle
-    // transition is observed via gp.getRegistry().
     @Test
     public void installOnlyThenStandaloneMakeSelectable() throws Exception {
         var sim = JavaCardEngine.create();
@@ -145,6 +128,7 @@ public class PersonalizationTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
 
+            // gp-pro's GPSession exposes only the combined 0x0C install, so both INSTALL APDUs are hand-built and sent through the MAC session.
             // INSTALL [for install] only (Table 11-43): ELF | module | instance | privileges | C9 params | token.
             var installOnly = lv(pkgBytes, appletBytes, appletBytes, new byte[]{0x00}, new byte[]{(byte) 0xC9, 0x00}, new byte[0]);
             var r1 = gp.transmit(new CommandAPDU(GPSession.CLA_GP, GPSession.INS_INSTALL, GPSession.P1_INSTALL_FOR_INSTALL, 0x00, installOnly, 256));

@@ -19,9 +19,7 @@ import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
-// Global Service registration (GPC v2.3.1 8.1.1): registerService / deregisterService runtime
-// behavior plus install-time CB Global Service Parameters. Driven via GPSession installs; the
-// register/deregister outcome is observed through the test applet's own APDU response.
+// Global Service registration (GPC v2.3.1 8.1.1), including install-time CB Global Service Parameters.
 public class GlobalServiceRegistrationTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");

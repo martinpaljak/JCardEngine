@@ -78,8 +78,6 @@ public class TransientMemoryTest {
         assertEquals(transientMemory.isTransient(codObjects), JCSystem.CLEAR_ON_DESELECT);
     }
 
-    // Deselecting one applet clears only its context's CLEAR_ON_DESELECT arrays (JCRE 3.2 5.1.2),
-    // never another context's. Unobservable through single-channel selection, so driven directly.
     @Test
     public void clearOnDeselectIsContextScoped() {
         var sim = new Simulator();
@@ -97,7 +95,9 @@ public class TransientMemoryTest {
         a[0] = 0x11;
         b[0] = 0x22;
 
+        // Single-channel selection never leaves two applets selected, so the deselect event is driven directly.
         tm.clearOnDeselect(ctxA);
+        // JCRE 3.2 5.1.2: the event clears the CLEAR_ON_DESELECT arrays of the deselected context only.
         assertEquals(a[0], 0);
         assertEquals(b[0], 0x22);
     }
@@ -170,8 +170,6 @@ public class TransientMemoryTest {
         }
     }
 
-    // A transient key holds its initialized state in the same transient memory as its bytes, so the
-    // CLEAR_ON_* event resets both: after the event the key reads back uninitialized, not merely zeroed.
     @Test
     public void transientKeyClearsInitializedState() {
         var sim = new Simulator();
@@ -181,6 +179,8 @@ public class TransientMemoryTest {
             assertTrue(key.isInitialized());
 
             sim.getTransientMemory().clearOnReset();
+            // The initialized state lives in the same transient memory as the key bytes, so the event
+            // leaves the key uninitialized rather than merely zeroed.
             assertFalse(key.isInitialized());
             assertThrows(CryptoException.class, () -> key.getKey(new byte[16], (short) 0));
         }

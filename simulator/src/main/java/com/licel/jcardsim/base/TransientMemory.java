@@ -23,7 +23,7 @@ public final class TransientMemory {
     private static final Logger log = LoggerFactory.getLogger(TransientMemory.class);
 
     // CLEAR_ON_DESELECT arrays keyed by owning context (JCRE 5.1.2): deselecting one applet clears
-    // only its context's arrays, never another's.
+    // only its own context's arrays.
     private final Map<Context, List<Object>> clearOnDeselect = new HashMap<>();
     private final ArrayList<Object> clearOnReset = new ArrayList<>();
     private final ArrayList<Object> sensitive = new ArrayList<>(); // TODO: map of object to checksum

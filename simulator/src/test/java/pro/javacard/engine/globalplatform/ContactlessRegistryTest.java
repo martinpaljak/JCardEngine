@@ -734,10 +734,6 @@ public class ContactlessRegistryTest {
         }
     }
 
-    // INSTALL [for registry update] (GPC v2.3.1 11.5.2.3.5; Amd C 11.2): partial, per-tag update of a
-    // live Application. Sending only Display Required (tag 88) must update it and RETAIN CL state and the
-    // CREL link; sending only CL state (tag 81) must retain Display Required; zero-length 88 deletes it
-    // (11.2.3); unknown AID -> 6A88 (9.4.2.1 existence check).
     @Test
     public void registryUpdateContactlessParams() throws Exception {
         // X is a CRELTestApplet here (freshEngine loads it at X), so it can read its own getInfo.
@@ -758,7 +754,8 @@ public class ContactlessRegistryTest {
             assertEquals(readDisplayRequired(bibo, X), 0x00);
         }
 
-        // 1. Registry update with ONLY tag 88 -> 01. Display Required changes; nothing else sent.
+        // 1. Registry update with ONLY tag 88 -> 01 (GPC v2.3.1 11.5.2.3.5; Amd C 11.2: partial, per-tag
+        //    update of a live Application). Display Required changes; nothing else sent.
         try (var bibo = sim.connect()) {
             var ef = TLV.build(0xEF).add(TLV.build(0xA1).add(0x88, new byte[]{0x01}));
             assertEquals(registryUpdate(openIsd(bibo), X, ef), 0x9000);
@@ -850,20 +847,18 @@ public class ContactlessRegistryTest {
         }
     }
 
-    // GPC v2.3.1 Amd C 8.3 / 4.2: the OPEN owns a default Initial Contactless Activation State, set by the
-    // ISD ("root") via an empty-AID INSTALL [for registry update]. An Application installed without its own
-    // tag 81 inherits that default and is activated on make-selectable accordingly.
     @Test
     public void openDefaultInitialActivation() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
-            // ISD sets the OPEN default to ACTIVATED, then installs T with no contactless params.
+            // The ISD sets the OPEN default via an empty-AID INSTALL [for registry update] (GPC v2.3.1 Amd C 4.2),
+            // then installs T with no contactless params.
             var ef = TLV.build(0xEF).add(TLV.build(0xA0).add(0x81, new byte[]{STATE_CL_ACTIVATED}));
             assertEquals(registryUpdateOpenDefault(gp, ef), 0x9000);
             installCRELTestApplet(gp);
         }
-        // T carried no tag 81, so it inherits the OPEN default and comes up ACTIVATED.
+        // GPC v2.3.1 Amd C 8.3: T carried no tag 81, so it inherits the OPEN default and comes up ACTIVATED.
         try (var bibo = sim.connect()) {
             assertEquals(findClStateInGetStatus(bibo, T), STATE_CL_ACTIVATED);
         }
@@ -902,11 +897,6 @@ public class ContactlessRegistryTest {
         }
     }
 
-    // Implicit CRS subscription + originator-suppress (GPC v2.3.1 Amd C 3.10.3/4), four engines:
-    //   1. CRS receives EVENT_SELECTABLE for an unrelated applet (no per-applet CREL link).
-    //   2. CRS does NOT receive an event it originated via cross-applet setCLState.
-    //   3. CRS notified exactly once when also on the per-applet CREL list (dedupe).
-    //   4. self-originated state change is not self-delivered (3.10.4).
     @Test
     public void crsImplicitSubscriptionAndOriginatorSuppress() throws Exception {
         // 1. Implicit subscription. CRSTestApplet at T with ContactlessActivation becomes the

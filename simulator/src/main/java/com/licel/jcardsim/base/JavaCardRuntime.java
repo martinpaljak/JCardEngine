@@ -20,13 +20,13 @@ public interface JavaCardRuntime {
 
     AID getAID();
 
-    // The active applet instance (JC RE): the applet currently selected on the channel, or the one
+    // The active applet instance (JCRE): the applet currently selected on the channel, or the one
     // being installed. Distinct from getAID() (the current executing context).
     AID getActiveAID();
 
     // The Application executing now, in GP API terms "the Application invoking this method". Null when
     // there is none: the JCRE context, or an applet inside install() that has not called register() and
-    // so is in no registry to be found in.
+    // so is not in the registry.
     EngineRegistryEntry currentApplication();
 
     // Active firewall context (JCRE 3.2 6.1.2); Context.JCRE when no applet frame is executing.

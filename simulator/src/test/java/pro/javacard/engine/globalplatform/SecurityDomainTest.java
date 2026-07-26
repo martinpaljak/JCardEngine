@@ -33,14 +33,7 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.installSSD;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openSdMac;
 
-// Single end-to-end narrative covering the SSD lifecycle: install via ISD, parent walk-up key
-// resolution (GPC v2.3.1 7.1 SD key separation; chain via 6.5.1.6 Associated SD AID), per-applet
-// SELECT FCI build-out (GPC v2.3.1 11.9.3.1 / Table 11-82), the SELECTABLE -> PERSONALIZED
-// transition triggered by the SSD owner's first PUT KEY (GPC v2.3.1 5.3.2.3 / Table 11-5),
-// key-isolation cut-off after personalization, and extradition (GPC v2.3.1 11.5.2.3.4 /
-// Table 11-45; semantics in 9.4.1) including post-extradition key resolution along the new chain.
-// Replaces SSDInstallTest, SSDPersonalizationTest, AssociationTest, ExtraditionTest. Wire-only
-// observability via gp-pro's GPRegistry; no engine-internal casts.
+// SSD lifecycle, key resolution along the SD chain, extradition and ISD-level STORE DATA.
 public class SecurityDomainTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
@@ -174,22 +167,18 @@ public class SecurityDomainTest {
         }
     }
 
-    // Self-extradition (target == new SD) would self-parent a non-ISD entity, so the SD applet
-    // rejects it as engine policy with SW_WRONG_DATA (6A80) drawn from GPC v2.3.1 11.5.3.2 /
-    // Table 11-55.
     @Test
     public void selfExtraditionRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
+            // Extraditing an SD onto itself would self-parent a non-ISD entity, refused with 6A80 (GPC v2.3.1 11.5.3.2 / Table 11-55)
             var ex = expectThrows(GPException.class, () -> gp.extradite(gpAID(SSD), gpAID(SSD)));
             assertEquals(ex.sw, 0x6A80);
         }
     }
 
-    // Extradition of an unknown target AID, or onto an unknown SD AID, must yield
-    // SW_REFERENCED_DATA_NOT_FOUND (6A88) per GPC v2.3.1 11.5.3.2 / Table 11-55.
     @Test
     public void unknownTargetAndUnknownSdRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -197,18 +186,17 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             installSSD(gp, SSD);
+            // An unknown extradition target is 6A88 (GPC v2.3.1 11.5.3.2 / Table 11-55)
             var unknownTarget = expectThrows(GPException.class, () -> gp.extradite(gpAID(GHOST), gpAID(SSD)));
             assertEquals(unknownTarget.sw, 0x6A88);
 
             gp.installAndMakeSelectable(gpAID(PKG), gpAID(APP), gpAID(APP), EnumSet.noneOf(Privilege.class), new byte[0]);
+            // A known target onto an unknown SD is 6A88 as well
             var unknownSd = expectThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(GHOST)));
             assertEquals(unknownSd.sw, 0x6A88);
         }
     }
 
-    // Extradition requires AuthorizedManagement on the executing SD (GPC v2.3.1 9.4.1 + 6.6.1).
-    // Scenario A: SSD without AM, authenticated via parent walk-up, must be denied with 6982.
-    // Scenario B: SSD WITH AM on a fresh sim must succeed and the registry must flip.
     @Test
     public void extraditionRequiresAuthorizedManagement() throws Exception {
         // Scenario A: SSD without AM.
@@ -221,6 +209,7 @@ public class SecurityDomainTest {
         }
         try (var bibo = simA.connect()) {
             var gp = openSdMac(bibo, SSD, MasterKeys.BOOTSTRAP, 0);
+            // Extradition requires AuthorizedManagement on the executing SD (GPC v2.3.1 9.4.1, 6.6.1); without it, 6982
             var ex = expectThrows(GPException.class, () -> gp.extradite(gpAID(APP), gpAID(SSD)));
             assertEquals(ex.sw, 0x6982);
         }
@@ -243,10 +232,6 @@ public class SecurityDomainTest {
         }
     }
 
-    // GPC v2.3.1 11.9.3.2 / Table 11-83: SELECT may return warning SW '62' '83' "Card Life Cycle
-    // State is CARD_LOCKED" when the Security Domain with the Final Application privilege is being
-    // selected, with the FCI still returned alongside the warning so the host can recognise the
-    // selected SD before reacting to the locked state.
     @Test
     public void finalApplicationSelectWarningWhenCardLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -260,7 +245,7 @@ public class SecurityDomainTest {
         try (var bibo = sim.connect()) {
             var ssdBytes = AIDUtil.bytes(SSD);
             var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, ssdBytes, 256));
-            // warning SW per GPC v2.3.1 11.9.3.2 / Table 11-83
+            // SELECT of a Final Application SD under CARD_LOCKED warns 6283 (GPC v2.3.1 11.9.3.2 / Table 11-83)
             assertEquals(r.getSW(), 0x6283);
             var fci = r.getData();
             // warning response still carries the FCI template
@@ -273,9 +258,6 @@ public class SecurityDomainTest {
         }
     }
 
-    // Negative: when the SSD lacks the FinalApplication privilege, SELECT under CARD_LOCKED must
-    // return a clean SW 9000 with FCI; the warning is gated specifically on the privilege per
-    // Table 11-83. This guards against the warning leaking to ordinary SDs.
     @Test
     public void nonFinalApplicationSelectIsCleanWhenCardLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -293,8 +275,6 @@ public class SecurityDomainTest {
         }
     }
 
-    // Negative: SSD with FinalApplication but card NOT in CARD_LOCKED must return SW 9000, since
-    // the warning is gated on both the privilege AND the locked lifecycle per Table 11-83.
     @Test
     public void finalApplicationSelectIsCleanWhenCardNotLocked() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -308,14 +288,11 @@ public class SecurityDomainTest {
         }
     }
 
-    // STORE DATA tag 4F renames the ISD (GPC v2.3.1 11.11.2.3: 4F is a settable Issuer Security
-    // Domain data object); the engine re-keys the ISD in the registry. gp-pro's --rename-isd drives
-    // this via GPSession.renameISD(). The new AID only takes over after a reconnect (real cards: a
-    // card reset clears the live selection), modelled here by closing a reset-on-close session.
     @Test
     public void renameISDViaStoreData() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
 
+        // STORE DATA tag 4F renames the ISD (GPC v2.3.1 11.11.2.3: 4F is a settable Issuer Security Domain data object)
         try (var bibo = sim.connect("*", true)) {
             var gp = openIsd(bibo);
             // First try a collision: an already-registered AID (here the ISD's own current AID) is
@@ -325,6 +302,7 @@ public class SecurityDomainTest {
             gp.renameISD(gpAID(NEW_ISD));
         }
 
+        // The new AID only takes over once the live selection is cleared by a card reset, modelled by closing the reset-on-close session above
         try (var bibo = sim.connect()) {
             var gp = GPSession.connect(bibo, gpAID(NEW_ISD));
             gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC));
@@ -336,11 +314,6 @@ public class SecurityDomainTest {
         }
     }
 
-    // GPC v2.3.1 11.11.2 STORE DATA [GP data] on the ISD. The CPLC perso (9F66) and pre-perso (9F67)
-    // slices are read-modify-written into the card's read-only 9F7F CPLC at fixed offsets; the full
-    // CPLC, an unknown data object, a wrong-length slice and the encrypted P1 format are each
-    // rejected with 6A80. A slice split across two blocks proves multi-block accumulation. Driven
-    // through gp-pro's GPSession.storeData (last-block bit and block numbering managed by gp-pro).
     @Test
     public void storeDataCplcSlicesAndRejects() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -349,6 +322,7 @@ public class SecurityDomainTest {
 
         try (var bibo = sim.connect("*", true)) {
             var gp = openIsd(bibo);
+            // STORE DATA (GPC v2.3.1 11.11.2) merges the CPLC perso (9F66) and pre-perso (9F67) slices into the read-only 9F7F CPLC
             gp.storeData(TLV.of(0x9F66, perso).encode(), 0x00);
             gp.storeData(TLV.of(0x9F67, preperso).encode(), 0x00);
 

@@ -15,11 +15,6 @@ import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
-// Drives ContextProbeApplet through install and indirect personalization to verify the runtime
-// against JCRE 3.2 6.1.5, 6.2.8.2 and 11.2 and GP API 1.8: what an applet owns and can reach during
-// install(), what the OPEN tells it before it has registered, and whether its CLEAR_ON_DESELECT
-// memory stays out of reach while a Security Domain forwards STORE DATA. The same applet and driver
-// run against a real card, so a reading here can always be checked against one.
 public class ContextProbeTest {
 
     private static final AID PKG_AID = AIDUtil.create("D233000000774354582D3031");
@@ -68,9 +63,8 @@ public class ContextProbeTest {
         assertEquals(r.persoPrevAID(), AIDUtil.bytes(SecurityDomainApplet.OPEN_AID));
     }
 
-    // Known gap: the CLEAR_ON_DESELECT access rule of JCRE 3.2 6.1.5 and 6.2.8.2 has no enforcement
-    // point, because no object carries an owning context yet. Only the create half of the rule is
-    // implemented. Disabled until the firewall lands; enable it to see where enforcement stands.
+    // Disabled until the firewall lands: no object carries an owning context yet, so the access half
+    // of the rule has no enforcement point.
     @Test(enabled = false)
     public void codAccessOutsideSelectedContextIsNotDeniedYet() throws Exception {
         var r = drive();
@@ -84,8 +78,6 @@ public class ContextProbeTest {
     }
 
     // Installs the applet, personalizes it indirectly through the ISD and reads back what it recorded.
-    // Both preconditions every probe reading depends on are checked here: the applet survived the run,
-    // and the same operations are allowed while it is itself selected.
     private static ContextProber.Results drive() throws Exception {
         var sim = JavaCardEngine.create();
         sim.loadApplet(PKG_AID, APPLET_AID, ContextProbeApplet.class);

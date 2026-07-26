@@ -84,14 +84,7 @@ import java.util.function.Function;
 import pro.javacard.engine.crypto.CryptoProber.Result;
 import pro.javacard.engine.testapplets.CryptoProbeApplet;
 
-// Parity test for the engine's JavaCard crypto. Drives CryptoProbeApplet over a BIBO and
-// cross-checks each result against an independent BouncyCastle oracle (BC primitives, not the
-// engine's own mapping classes). The same run(BIBO) drives the in-process engine (jcardengine,
-// always on) or a PC/SC reader (pcsc, gated on PROBE_READER).
-// Checks structural format compliance: the card must emit well-formed data (DER signatures,
-// full-width NOPAD, uncompressed EC points, RSA CRT) that a standard host stack consumes. For
-// on-card generated keys the public half is read back and the card's own signature or cryptogram
-// verified on the host.
+// Drives CryptoProbeApplet over a BIBO and cross-checks every result against a BouncyCastle oracle.
 public class CryptoParityTest {
 
     private static final String AID = "D23300000077" + "4352592D3031" + "01";

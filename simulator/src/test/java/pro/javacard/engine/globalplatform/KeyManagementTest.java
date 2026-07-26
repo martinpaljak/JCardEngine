@@ -25,13 +25,8 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openSdAt;
 import static pro.javacard.engine.globalplatform.GPTestUtils.replaceKvn;
 
-// Single end-to-end narrative covering the ISD keystore lifecycle: factory KVN=0xFF eviction,
-// PUT KEY add/replace, newest-keyset selection (IU P1=0), DELETE [key] per-KVN, and the
-// engine's two PUT KEY range/collision rules. Replaces FactoryKeyTest, PutKeyTest,
-// DeleteKeyTest, NewestKeysetTest. Observability is wire-only via gp.getKeyInfoTemplate().
 public class KeyManagementTest {
 
-    // Mirrors PutKeyTest.scpConfigs(): SCP02 and SCP03 via gp-pro's MAC mode.
     @DataProvider(name = "scpConfigs")
     public static Object[][] scpConfigs() {
         return new Object[][] {
@@ -144,16 +139,14 @@ public class KeyManagementTest {
         }
     }
 
-    // DELETE [key] with 'D0' (Key Identifier) alone: engine has no per-KID deletion model; the
-    // KeySet is an atomic ENC/MAC/DEK triple. Reject with SW_FUNC_NOT_SUPPORTED rather than
-    // silently widen to whole-KVN deletion. GPC v2.3.1 11.2.2.3.2.
     @Test
     public void deleteByKidAloneRejected() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
             var ex = expectThrows(GPException.class, () -> gp.deleteKey(null, 0x01));
-            // SW_FUNC_NOT_SUPPORTED
+            // The engine has no per-KID deletion model: a keyset is an atomic ENC/MAC/DEK triple, so a 'D0' Key Identifier
+            // alone gets SW_FUNC_NOT_SUPPORTED instead of widening to the whole KVN.
             assertEquals(ex.sw, 0x6A81);
         }
     }
@@ -171,11 +164,6 @@ public class KeyManagementTest {
         }
     }
 
-    // PUT KEY body-level guards (GPC v2.3.1 11.8). gp-pro's putKeys only builds well-formed
-    // commands, so each malformed case is hand-assembled (valid DEK-encrypted AES-16 blocks via
-    // gp.encryptDEK) and sent through the SCP-wrapped channel with gp.transmit. One channel carries
-    // every probe: a rejected PUT KEY leaves the SCP sequence counter untouched (only a successful
-    // PUT KEY resets it, GPC v2.3.1 E.1.2), and the lone addKvn resets host and card symmetrically.
     @Test
     public void putKeyBodyRejects() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -184,6 +172,7 @@ public class KeyManagementTest {
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
 
+            // gp-pro's putKeys only builds well-formed commands, so every malformed body below is hand-assembled and sent with gp.transmit.
             // KCV length 0 - mandatory for DES/AES (GPC v2.3.1 11.8.2.3.3) -> 6A80.
             // P1=00 add, KVN=05, P2=81 (multi-key flag, first KID=01), single block.
             assertEquals(gp.transmit(putKey(0x00, 0x81, 0x05, aesBlockNoKcv(gp, key16))).getSW(), 0x6A80);
@@ -196,8 +185,8 @@ public class KeyManagementTest {
             var body = concat(aesBlock(gp, key16, GPCrypto.kcv_aes(key16)), new byte[]{(byte) 0x80, 0x01, 0x00});
             assertEquals(gp.transmit(putKey(0x00, 0xFF, 0x06, body)).getSW(), 0x6A80);
 
-            // The replace-path guards need an existing keyset. Add a real KVN=0x10 (AES, KIDs 1/2/3) -
-            // the only successful PUT KEY here, so the only point the SCP counter resets.
+            // The replace-path guards need an existing keyset. Add a real KVN=0x10 (AES, KIDs 1/2/3) - the only successful PUT KEY here,
+            // so the only point the SCP counter resets (GPC v2.3.1 Amd D 6.2.2.1), which is why one channel can carry every probe.
             addKvn(gp, 0x10, MasterKeys.A);
 
             // Replacing a KVN with a block whose KID is absent from the existing keyset

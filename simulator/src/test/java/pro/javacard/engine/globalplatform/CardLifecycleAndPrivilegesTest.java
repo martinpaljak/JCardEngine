@@ -23,10 +23,7 @@ import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 
-// Card-wide lifecycle (GPC v2.3.1 5.1.1), GPSystem JC-API state surface, CardReset auto-select
-// transfer (GPC v2.3.1 6.6.2), and the GlobalRegistry privilege gate (GPC v2.3.1 6.6.1 / 9.6.5).
-// Wire-only observability: gp-pro for SCP/registry; raw bibo for the test applet's INS surface
-// and the lifecycle SET STATUS reject probes (no GPSession surface for those).
+// Card and application life cycle state machines, the GPSystem and registry-entry JC-API surface, CardReset auto-select and the Global PIN CVM.
 public class CardLifecycleAndPrivilegesTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
@@ -39,12 +36,6 @@ public class CardLifecycleAndPrivilegesTest {
     private static final byte INS_SET_STATUS = (byte) 0xF0;
     private static final byte P1_CARD_LCS = (byte) 0x80;
 
-    // GPC v2.3.1 5.1.1: full ISD lifecycle state machine on one card.
-    //   OP_READY (0x01) -> INITIALIZED (0x07) -> SECURED (0x0F) -> CARD_LOCKED (0x7F)
-    //                  -> SECURED -> TERMINATED (0xFF)
-    // At each source state, every invalid target is rejected with 0x6985 and the lifecycle byte
-    // remains unchanged. The ISD performs all transitions using its default privileges
-    // (AuthorizedManagement, CardLock, CardTerminate).
     @Test
     public void cardLifecycleStateMachine() throws Exception {
         var sim = freshEngine();
@@ -93,9 +84,6 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // GPC v2.3.1 5.1.1.4 / 5.1.1.5: GPSystem.lockCard and GPSystem.terminateCard from inside an
-    // applet are gated by privileges (CardLock, CardTerminate) and by source-state preconditions.
-    // The applet can't bypass GPC v2.3.1 5.1.1 just by holding a privilege - the JC-API path enforces both.
     @Test
     public void gpSystemCardStateApi() throws Exception {
         // From SECURED: lockCard gated by CardLock; ISD stays SECURED on rejection.
@@ -106,7 +94,7 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.of(Privilege.CardLock));    // with CardLock
 
             selectAID(bibo, A);
-            // lockCard without CardLock
+            // GPC v2.3.1 5.1.1.4: an Application needs Card Lock to initiate the transition to CARD_LOCKED
             assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false);
             // ISD stays SECURED after rejected lockCard
             assertEquals(openIsd(bibo).getRegistry().getISD().get().getLifeCycle(), (byte) 0x0F);
@@ -131,9 +119,7 @@ public class CardLifecycleAndPrivilegesTest {
             assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_LOCK_CARD, false);
         }
 
-        // terminateCard requires CardTerminate; CardLock alone is insufficient. With the
-        // privilege granted, the call succeeds. terminateCard is irreversible, so it must be
-        // the last assertion against this card.
+        // terminateCard is irreversible, so it comes last on its own card.
         try (var bibo = freshEngine().connect()) {
             var gp = openIsd(bibo);
             advanceToSecured(gp);
@@ -141,7 +127,7 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.of(Privilege.CardTerminate));
 
             selectAID(bibo, A);
-            // terminateCard without CardTerminate
+            // GPC v2.3.1 5.1.1.5: Card Lock alone does not authorize the move to TERMINATED
             assertGpSystemReturns(bibo, GlobalPlatformTestApplet.INS_TERMINATE_CARD, false);
 
             selectAID(bibo, B);
@@ -150,13 +136,6 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // GPC v2.3.1 6.6.2: install with CardReset transfers the privilege from the current holder.
-    // After installing A then B both with CardReset, B holds the privilege and auto-selects on
-    // the next power-up (its INS_GET_IDENTITY returns ID_B, not ID_A). Deleting B then A returns CardReset
-    // to the ISD; the ISD then auto-selects on power-up and an unknown INS reaches it (returns
-    // SW_SECURITY_STATUS_NOT_SATISFIED rather than 6985 "no applet selected"). Finally, a CardReset
-    // holder whose select() refuses (JCRE 3.2 4.6.2) leaves nothing selected on power-up, so the
-    // following non-SELECT command returns SW_APPLET_SELECT_FAILED 0x6999 (JCRE 3.2 4.8).
     @Test
     public void cardResetTransferAndAutoSelect() throws Exception {
         var sim = freshEngine();
@@ -167,7 +146,7 @@ public class CardLifecycleAndPrivilegesTest {
         }
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
-            // B (last CardReset holder) auto-selects on power-up, not A
+            // GPC v2.3.1 6.6.2: only one Application holds Card Reset at a time, so installing B takes it from A and B auto-selects on power-up
             assertEquals(r.getSW(), 0x9000);
             assertEquals(r.getData().length, 1);
             assertEquals(r.getData()[0], ID_B);
@@ -180,11 +159,11 @@ public class CardLifecycleAndPrivilegesTest {
         }
         try (var bibo = sim.connect()) {
             var r = bibo.transmit(new CommandAPDU(0x00, 0x07, 0x00, 0x00, 256));
-            // ISD regains CardReset and processes APDUs once all holders are deleted
+            // GPC v2.3.1 6.6.2: deleting the holder reassigns Card Reset to the ISD, which then auto-selects and answers the unknown INS itself
             assertEquals((short) r.getSW(), ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
 
-        // CardReset holder that refuses selection: nothing is selected after power-up.
+        // JCRE 3.2 4.2.1: a Card Reset holder whose select() refuses leaves nothing selected after power-up.
         var simReject = freshEngine();
         try (var bibo = simReject.connect("*", true)) {
             installWith(openIsd(bibo), A, EnumSet.of(Privilege.CardReset), ID_A, true);
@@ -196,12 +175,8 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // GP JC API (org.globalplatform): getRegistryEntry on self (null or own AID) must succeed
-    // without GlobalRegistry; cross-applet getRegistryEntry requires the GlobalRegistry
-    // privilege (GPC v2.3.1 6.6.1 / 9.6.5).
     @Test
     public void globalRegistryGate() throws Exception {
-        // Without GlobalRegistry: self-query (both shapes) succeeds; cross-applet denied 6A82.
         var sim1 = freshEngine();
         try (var bibo = sim1.connect()) {
             var gp = openIsd(bibo);
@@ -209,7 +184,7 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(gp, B, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
-            // self-query via null
+            // GPC v2.3.1 9.6.5: the entity being interrogated is always allowed, so a self-query (null) needs no privilege
             var rNull = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_SELF, 0x00, 0x00, 256));
             assertEquals(rNull.getSW(), 0x9000);
             assertEquals(rNull.getData()[0], GPSystem.APPLICATION_SELECTABLE);
@@ -219,12 +194,11 @@ public class CardLifecycleAndPrivilegesTest {
             assertEquals(rSelf.getSW(), 0x9000);
             assertEquals(rSelf.getData()[0], GPSystem.APPLICATION_SELECTABLE);
 
-            // unprivileged cross-applet query denied
+            // GPC v2.3.1 9.6.5: querying another Application without Global Registry is denied
             var rCross = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_QUERY_AID, 0x00, 0x00, AIDUtil.bytes(B), 256));
             assertEquals(rCross.getSW(), 0x6A82);
         }
 
-        // With GlobalRegistry on A: cross-applet A->B succeeds (returns SELECTABLE for B).
         var sim2 = freshEngine();
         try (var bibo = sim2.connect()) {
             var gp = openIsd(bibo);
@@ -245,13 +219,6 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // GP API GPSystem.setCardContentState (export file v1.8): an Application updates its own LCS.
-    // The OPEN leaves application-specific transitions unconstrained per GPC v2.3.1 5.3.1.5 but
-    // enforces irreversibility of the INSTALLED -> SELECTABLE move (5.3.1.2). The 5.3.1.3
-    // catalogue of entities allowed to set LOCKED includes "the Application itself", so self-lock
-    // is accepted (since GP API export file 1.5) but self-unlock is forbidden by the API contract
-    // and only a Global Lock privilege holder can clear the lock via getRegistryEntry().setState().
-    // The applet starts at SELECTABLE (0x07).
     @Test
     public void appletSelfLifecycleTransitions() throws Exception {
         var sim = freshEngine();
@@ -259,8 +226,7 @@ public class CardLifecycleAndPrivilegesTest {
             installWith(openIsd(bibo), A, EnumSet.noneOf(Privilege.class));
             selectAID(bibo, A);
 
-            // Forward to an app-specific state succeeds and GPSystem.getCardContentState()
-            // reflects the new value.
+            // GP API 1.8 GPSystem.setCardContentState: the applet drives its own life cycle, starting from SELECTABLE (0x07)
             var advance = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SET_OWN_LCS, 0x0F, 0x00, 256));
             assertEquals(advance.getSW(), 0x9000);
             // GPC v2.3.1 5.3.1.5: OPEN accepts app-specific forward transition
@@ -305,11 +271,6 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // The same GP API rules must apply when an applet self-mutates via the alternate path
-    // GPSystem.getRegistryEntry(null).setState(...) instead of GPSystem.setCardContentState(...).
-    // Both paths converge on the same EngineRegistryEntry.setState() validator, so a self-LOCK
-    // succeeds but a self-unlock requires the Global Lock privilege which an ordinary applet
-    // does not hold.
     @Test
     public void registryEntrySelfStateMatchesContentStateRules() throws Exception {
         var sim = freshEngine();
@@ -335,10 +296,6 @@ public class CardLifecycleAndPrivilegesTest {
         }
     }
 
-    // GPC v2.3.1 11.10 SET STATUS [for application] (P1=0x40): the associated SD (here the ISD,
-    // which installed A) locks the applet (P2 b8=1) and unlocks it back. The data field is the
-    // target AID, the new state is in P2. GPSession.lockUnlockApplet drives the success path;
-    // the reject probes go over the same authenticated session as the card-LCS probes above.
     @Test
     public void applicationSetStatusLockUnlock() throws Exception {
         var sim = freshEngine();
@@ -349,7 +306,7 @@ public class CardLifecycleAndPrivilegesTest {
             // Freshly made-selectable applet starts at SELECTABLE (0x07).
             assertEquals(appLifecycle(gp, A), (byte) 0x07);
 
-            // Unknown target AID -> 0x6A88 (referenced data not found).
+            // GPC v2.3.1 11.10 SET STATUS [for application]: P1=0x40, new state in P2, target AID in the data field. An unknown AID gives 0x6A88.
             var unknown = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, 0x40, 0x80, AIDUtil.bytes(B)));
             assertEquals(unknown.getSW(), 0x6A88);
         }
@@ -497,17 +454,12 @@ public class CardLifecycleAndPrivilegesTest {
                 .orElseThrow(() -> new AssertionError("applet not in registry: " + aid)).getLifeCycle();
     }
 
-    // GPC v2.3.1 Table 11-43: the Card Reset privilege cannot be set on an INSTALL [for install]
-    // that does not also make the Application selectable in the same command. The engine must
-    // reject this with 0x6A80 before any registry mutation. GPSession models only the combined
-    // install-and-make-selectable (P1=0x0C); the install-only P1=0x04 case is driven over the
-    // authenticated session the same way the SET STATUS reject probes above are.
     @Test
     public void cardResetRequiresMakeSelectable() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
-            // INSTALL [for install] only (P1=0x04, no make-selectable) carrying Card Reset is rejected.
+            // GPC v2.3.1 Table 11-43: Card Reset requires the same command to make the Application selectable, so install-only (P1=0x04) is rejected
             var r = gp.transmit(installOnlyCommand(A, EnumSet.of(Privilege.CardReset)));
             assertEquals(r.getSW(), 0x6A80);
 
@@ -573,6 +525,7 @@ public class CardLifecycleAndPrivilegesTest {
         assertEquals(r.getSW(), 0x9000);
     }
 
+    // GPSession only exposes accepted card-LCS transitions, so the rejected ones are hand-built and sent over the authenticated session.
     private static void assertSetStatusRejected(GPSession gp, int newLcs) throws Exception {
         var r = gp.transmit(new CommandAPDU(0x80, INS_SET_STATUS, P1_CARD_LCS, newLcs));
         assertEquals(r.getSW(), 0x6985);

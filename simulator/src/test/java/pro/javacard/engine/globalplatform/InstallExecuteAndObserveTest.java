@@ -27,9 +27,8 @@ import java.util.Map;
 import static org.testng.Assert.*;
 import static pro.javacard.engine.globalplatform.GPTestUtils.gpAID;
 
-// End-to-end install/execute/observe narrative across the supported SCP variants, plus the GP
-// surfaces that don't fit the keystore or SD-lifecycle narratives: GET STATUS chunking,
-// shareable cross-instance, GET DATA unknown-tag rejection, and the SSD load-file registration guard.
+// Install/execute/observe over the SCP variants, plus GET STATUS chunking, shareable cross-instance,
+// GET DATA unknown tags and load-file registration.
 public class InstallExecuteAndObserveTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
@@ -53,16 +52,6 @@ public class InstallExecuteAndObserveTest {
         };
     }
 
-    // Single end-to-end narrative across all 5 SCP variants:
-    //   1. Build sim, register test applet load file.
-    //   2. Open ISD; assert KIT shape (3 KIDs, type per SCP, all KVN=0xFF, KIDs 1/2/3).
-    //   3. Fetch CPLC and assert engine signature ("JCEN" IC serial, 0x4242 in fab/serial slots).
-    //   4. Assert SSD load file planted at boot (registry visibility, lifecycle LOADED, modules).
-    //   5. Install applet via SCP with install-param byte 0x55.
-    //   6. Reopen ISD; assert applet/PKG/ISD all present in registry.
-    //   7. SELECT applet; INS_GET_IDENTITY round-trips the install-param byte.
-    //   8. Reopen SCP to applet; SCP-encrypted INS 0x42 cgram round-trip (Hello, World!).
-    //   9. Reopen ISD; gp.deleteAID(applet); assert applet gone from registry.
     @Test(dataProvider = "scpConfigs")
     public void installExecuteObserve(String name, SCPConfig config, byte[] masterKey,
                                       EnumSet<GPSession.APDUMode> mode) throws Exception {
@@ -73,9 +62,9 @@ public class InstallExecuteAndObserveTest {
         var jcaid = gpAID(appletAID);
         sim.loadApplet(pkgAID, appletAID, GlobalPlatformTestApplet.class);
 
-        // 2: open ISD, inspect KIT. Done in its own session - gp.getKeyInfoTemplate() takes the
-        // SCP-wrapped GET DATA path when a session is open, and we don't want to reuse this
-        // session for follow-up SCP-wrapped commands in the same connection.
+        // Open ISD, inspect KIT. Own session: gp.getKeyInfoTemplate() takes the SCP-wrapped GET DATA
+        // path when a session is open, and that session is not reused for follow-up SCP-wrapped
+        // commands on the same connection.
         try (var bibo = sim.connect()) {
             // EXTERNAL AUTHENTICATE rejected before any INITIALIZE UPDATE: C-DECRYPTION without C-MAC
             // is an unattainable level (6A86); a valid level with no session keys yet is 6985. The
@@ -89,20 +78,19 @@ public class InstallExecuteAndObserveTest {
             assertKit(gp, config);
         }
 
-        // 3 + 4: fresh session - CPLC via raw bibo, registry visibility for the planted SSD load file.
+        // Fresh session: CPLC via raw bibo, registry visibility for the planted SSD load file.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             assertCplc(bibo);
             assertSsdLoadFilePlanted(gp);
         }
 
-        // 5: install applet via SCP with install-param byte 0x55.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             gp.installAndMakeSelectable(gpAID(pkgAID), jcaid, jcaid, EnumSet.noneOf(Privilege.class), new byte[]{(byte) 0x55});
         }
 
-        // 6: reopen ISD; registry sees applet + package + ISD.
+        // Reopen ISD; registry sees applet + package + ISD.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             var registry = gp.getRegistry();
@@ -110,7 +98,7 @@ public class InstallExecuteAndObserveTest {
             assertTrue(registry.allPackageAIDs().contains(gpAID(pkgAID)));
             assertTrue(registry.getISD().isPresent());
 
-            // 7: SELECT applet; round-trip install-param byte via INS_GET_IDENTITY.
+            // SELECT applet; round-trip install-param byte via INS_GET_IDENTITY.
             var sel = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(appletAID), 256));
             assertEquals(sel.getSW(), 0x9000);
             var ident = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_GET_IDENTITY, 0x00, 0x00, 256));
@@ -120,7 +108,7 @@ public class InstallExecuteAndObserveTest {
             assertEquals(ident.getData()[0], (byte) 0x55);
         }
 
-        // 8: reopen SCP to applet AID with ENC mode; SCP-encrypted INS 0x42 cgram round-trip.
+        // Reopen SCP to applet AID with ENC mode; SCP-encrypted INS 0x42 cgram round-trip.
         // SCP02 SC.decryptData uses the static master DEK while PlaintextKeys.encrypt for SCP02
         // uses a session-derived SDEK (engine vs spec asymmetry; outside this test's scope), so
         // the cgram path is exercised only on the SCP03 family. KIT/CPLC/install/registry/delete
@@ -139,7 +127,7 @@ public class InstallExecuteAndObserveTest {
             }
         }
 
-        // 9: reopen ISD; delete applet; reopen and confirm registry no longer holds it.
+        // Reopen ISD; delete applet; reopen and confirm registry no longer holds it.
         try (var bibo = sim.connect()) {
             var gp = openWith(bibo, masterKey, mode);
             gp.deleteAID(jcaid, false);
@@ -150,13 +138,12 @@ public class InstallExecuteAndObserveTest {
         }
     }
 
-    // GET STATUS chunking: install enough APP instances to push the P1=0x40 response over 256
-    // bytes, forcing 0x6310 continuation(s). Each E3 entry is ~30 bytes (AID 9 + 5 framing,
-    // lifecycle 1 + 3, privs 3 + 2, load-file AID 9 + 2, outer 2-byte length envelope).
-    // 12 instances = ~360 bytes, comfortably crossing the 256-byte boundary.
     @Test
     public void getStatusChunkedAcrossBoundary() throws Exception {
         var sim = freshEngine();
+        // Each E3 entry is ~30 bytes (AID 9 + 5 framing, lifecycle 1 + 3, privs 3 + 2, load-file AID
+        // 9 + 2, outer 2-byte length envelope), so 12 instances are ~360 bytes: enough to push the
+        // P1=0x40 response past 256 bytes and force 0x6310 continuation(s).
         int n = 12;
         var aids = new AID[n];
         for (int i = 0; i < n; i++) {
@@ -212,27 +199,20 @@ public class InstallExecuteAndObserveTest {
         }
     }
 
-    // GPC v2.3.1 11.3.3.2 / Table 11-31 specifies that GET DATA returns "'6A' '88' Referenced
-    // data not found" for an unknown tag, and this engine treats GET DATA as unauthenticated by
-    // convention since the spec does not mandate auth either way. gp-pro does not expose an
-    // arbitrary tag probe, so the request goes via raw bibo after a raw SELECT of the ISD.
     @Test
     public void getDataUnknownTagRejected() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
+            // gp-pro exposes no arbitrary tag probe, so the request goes via raw bibo after a raw SELECT.
+            // The engine treats GET DATA as unauthenticated (the spec mandates auth neither way).
             bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00,
                     AIDUtil.bytes(SecurityDomainApplet.OPEN_AID)));
             var unknown = bibo.transmit(new CommandAPDU(0x80, 0xCA, 0x12, 0x34, 256));
+            // GPC v2.3.1 11.3.3.2 Table 11-31: an unknown tag returns "'6A' '88' Referenced data not found"
             assertEquals(unknown.getSW(), 0x6A88);
         }
     }
 
-    // Regression guard: loadClass() matches an existing PKG entry by Java package name OR by AID.
-    // Built-in entries pass null for the Java package name so they can never merge with user-loaded
-    // classes that happen to live in the same Java package as a hypothetical SSD class. Observed
-    // over GET STATUS (p1=0x10) which exposes module AIDs per package; the underlying classloader
-    // map is engine-internal but the on-wire module set is enough - if a hypothetical merge had
-    // happened, the user applet AID would have been added to the SSD package's module list.
     @Test
     public void ssdPackageNotMergedByLoadClass() throws Exception {
         var sim = new JavaCardEngine.Builder().build();
@@ -246,6 +226,9 @@ public class InstallExecuteAndObserveTest {
                     .filter(e -> e.getAID().equals(gpAID(SecurityDomainApplet.SSD_PACKAGE_AID)))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("SSD package must be in the registry"));
+            // loadClass() matches a package entry by Java package name or by AID; built-in entries carry
+            // a null package name, so a user class in the same Java package cannot join the SSD module
+            // list reported by GET STATUS (p1=0x10).
             var modules = ssdPkg.getModules();
             // only the built-in SD module, no merged user applet
             assertEquals(modules.size(), 1);
@@ -254,15 +237,13 @@ public class InstallExecuteAndObserveTest {
         }
     }
 
-    // GPC v2.3.1 6.5.1.1 / 11.5.3.1: an Application (instance) AID may not equal an Executable Load
-    // File AID. freshEngine() loads PKG as the ELF; installing an instance with that same AID must be
-    // rejected, since ELFs and Applications share the one registry's AID keyspace.
     @Test
     public void instanceAidEqualToLoadFileRejected() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
             var gp = GPTestUtils.openIsd(bibo);
-            // Instance AID == loaded ELF AID must be refused with SW_CONDITIONS_NOT_SATISFIED.
+            // GPC v2.3.1 6.5.1.1: an instance AID equal to the loaded ELF AID (both share the one registry
+            // AID keyspace) is refused with SW_CONDITIONS_NOT_SATISFIED.
             var ex = expectThrows(GPException.class, () -> installWith(gp, PKG, EnumSet.noneOf(Privilege.class)));
             assertEquals(ex.sw, 0x6985);
             // The rejected install must leave no applet entry behind.

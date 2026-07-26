@@ -133,7 +133,7 @@ public class GlobalPlatformEngine {
         return entry;
     }
 
-    // Mint the entry install() will run for. GPC v2.3.1 9.3.6: the applet inherits its load file's parent
+    // Create the entry install() will run for. GPC v2.3.1 9.3.6: the applet inherits its load file's parent
     // SD and firewall context (JCRE 6.1.2). It stays out of the registry until publish, so nothing can
     // look it up and it leaves no trace if install() throws.
     public EngineRegistryEntry newApplet(AID aid, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {

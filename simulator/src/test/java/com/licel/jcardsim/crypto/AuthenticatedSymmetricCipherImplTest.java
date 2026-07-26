@@ -19,9 +19,7 @@ import java.util.Random;
 
 import static org.testng.Assert.*;
 
-// AEAD card contract (confirmed on real hardware): ENCRYPT doFinal emits ciphertext only and the tag is
-// fetched separately via retrieveTag(); DECRYPT doFinal emits plaintext only without verifying, and
-// verifyTag() is the sole verifier returning true/false rather than throwing on a bad tag.
+// AEAD contract: doFinal emits data only, the tag goes through retrieveTag(), and verifyTag() returns false on a bad tag instead of throwing.
 public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
     private static final String LOREM_PART1 = """
@@ -485,13 +483,10 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         }
     }
 
-    // Use C.1 Example 1 in Appendix C of NIST Special Publication 800-38C
-    // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
-    // Supports only the 12 byte IV length, which is the value recommended by NIST Special Publication 800-38D 5.2.1.1 Input Data
-    // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
     @Test
     public void testAES_CCM_Sample_Key128Bit_AAD64Bit_Tag32Bit_NotSupportNonce56Bit() {
-        //In the following example, Klen = 128, Tlen=32, Nlen = 56, Alen = 64, and Plen = 32.
+        // NIST SP 800-38C Appendix C.1 Example 1: Klen = 128, Tlen = 32, Nlen = 56, Alen = 64, Plen = 32
+        // https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38c.pdf
         String[] testData = {
                 "40414243 44454647 48494a4b 4c4d4e4f",// Key
                 "20212223",//Payload
@@ -514,6 +509,8 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
 
         AEADCipher engine = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_CCM, false);
         try {
+            // JavaCard supports only the 12 byte nonce, so the 7 byte one of the vector is rejected
+            // https://docs.oracle.com/javacard/3.0.5/guide/supported-cryptography-classes.htm#JCUGC356
             engine.init(aesKey, Cipher.MODE_ENCRYPT, nonce, (short) 0, (short) nonce.length, (short) aad.length, (short) payload.length, TAG_LEN);
             fail("No exception");
         } catch (CryptoException e) {

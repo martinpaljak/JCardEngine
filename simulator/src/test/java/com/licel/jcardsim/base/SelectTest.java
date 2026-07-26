@@ -126,12 +126,9 @@ public class SelectTest {
         }
     }
 
-    // GPC v2.3.1 6.4.2.1.2: SELECT [by name] [next occurrence] (P2 b2) walks the registry after the
-    // currently selected Application, skipping LOCKED entries, until it finds the next partial match or
-    // runs out. Prefix d0000cafe000 holds aa (match), bb (locked - skipped), cc (match); e0... is an
-    // unrelated AID iterated after cc so the second walk runs past it and exhausts the search.
     @Test
     public void testNextOccurrenceSkipsLockedAndExhausts() {
+        // Prefix d0000cafe000: aa and cc match it, bb is locked below and skipped. e0... is unrelated and iterated after cc.
         AID aa = AIDUtil.create("d0000cafe000aa");
         AID bb = AIDUtil.create("d0000cafe000bb");
         AID cc = AIDUtil.create("d0000cafe000cc");
@@ -150,17 +147,16 @@ public class SelectTest {
             assertEquals(lock.getSW(), 0x9000);
             assertEquals(lock.getData()[0], (byte) 0x01);
 
-            // Full-AID select aa, then next-occurrence over the shared prefix: bb is LOCKED so the
-            // search skips it and lands on cc.
+            // GPC v2.3.1 6.4.2.1.2: next occurrence (P2 b2) walks the registry after the selected Application. From aa
+            // the walk skips LOCKED bb and lands on cc.
             assertEquals(bibo.transmit(AIDUtil.select(aa)).getSW(), 0x9000);
             var next = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
             assertEquals(next.getSW(), 0x9000);
             byte[] onCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();
             assertEquals(onCc, AIDUtil.bytes(cc));
 
-            // From cc, next-occurrence over the same prefix finds no further match: the walk runs past
-            // the unrelated e0... entry and exhausts, so the SELECT is dispatched to the current applet
-            // (cc, a MultiInstanceApplet) which rejects the ISO-class SELECT with 6E00 and stays selected.
+            // From cc the walk runs past the unrelated e0... entry and exhausts, so the SELECT is dispatched to the
+            // current applet (cc), which rejects the ISO-class SELECT with 6E00 and stays selected.
             var miss = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
             assertEquals(miss.getSW(), 0x6E00);
             byte[] stillCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();

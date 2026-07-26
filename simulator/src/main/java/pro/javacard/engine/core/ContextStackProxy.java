@@ -43,7 +43,7 @@ public class ContextStackProxy {
         Deque<EngineRegistryEntry> saved = null;
         if (platform) {
             log.info("Switching from <platform> to {}", server.getAID());
-            // Save the current stack and clear it so the callee sees only [server].
+            // Suspend the caller stack: the callee sees only [server].
             saved = new ArrayDeque<>(stack);
             stack.clear();
         } else {
