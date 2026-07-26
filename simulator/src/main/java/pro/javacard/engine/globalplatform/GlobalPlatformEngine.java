@@ -208,25 +208,17 @@ public class GlobalPlatformEngine {
         return null;
     }
 
-    // The Application invoking an OPEN service, in GP API terms "the Application invoking this method".
-    // Null when there is none: the JCRE context, or an applet inside install() that has not called
-    // register() and so is in no registry to be found in.
-    public static EngineRegistryEntry callingApplication() {
-        var caller = Simulator.current().caller();
-        return caller == null || caller.owner() == null ? null : caller;
-    }
-
     public EngineRegistryEntry getRegistryEntry(AID aid) {
-        // System context bypasses the gate. Asked of the raw frame, because an applet that has not
-        // registered is not the system and must not inherit its rights.
-        if (Simulator.current().caller() == null) {
+        // The JCRE context bypasses the gate. Asked of the context, because an applet that has not
+        // registered runs in its own context and must not inherit the system's rights.
+        if (Context.JCRE.equals(Simulator.current().activeContext())) {
             return selectable(lookup(aid));
         }
 
         // GP API 1.8 GPSystem.getRegistryEntry: an entry is returned only "if it was found in the
         // GlobalPlatform Registry". Before register() the caller has neither an entry of its own nor an
         // identity to gate a cross-application lookup with.
-        var caller = callingApplication();
+        var caller = Simulator.current().currentApplication();
         if (caller == null) {
             return null;
         }
@@ -256,7 +248,7 @@ public class GlobalPlatformEngine {
     // or indirectly associated applications; a CREL Application sees the applications referencing it. A
     // caller holding none of these roles gets SW_CONDITIONS_NOT_SATISFIED.
     public GPCLRegistryEntry nextContactlessEntry(GPCLRegistryEntry oEntry, short family) {
-        var caller = callingApplication();
+        var caller = Simulator.current().currentApplication();
         if (caller == null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
@@ -364,7 +356,7 @@ public class GlobalPlatformEngine {
 
     public boolean setCardLifecycleState(byte newState) {
         // Always reached from applet context (SET STATUS, GP-API setState on the ISD, GPSystem.lock/terminate).
-        var caller = callingApplication();
+        var caller = Simulator.current().currentApplication();
         if (caller == null) {
             return false;
         }
@@ -391,7 +383,7 @@ public class GlobalPlatformEngine {
 
     // GPSystem.setCardContentState() - self-only shortcut to update own LCS.
     public boolean setCardContentState(byte newState) {
-        var caller = callingApplication();
+        var caller = Simulator.current().currentApplication();
         if (caller == null) {
             return false;
         }

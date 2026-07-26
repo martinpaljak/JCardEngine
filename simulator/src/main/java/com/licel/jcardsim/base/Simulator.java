@@ -82,7 +82,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // as the selected applet for the whole of install(), before and after register() (JCRE 3.2 11.2).
     private EngineRegistryEntry installing;
 
-    // Executing context stack. getAID/caller/getPreviousContextAID all derive from the top entry.
+    // Executing context stack. getAID/activeContext/getPreviousContextAID all derive from the top entry.
     private final Deque<EngineRegistryEntry> contextStack = new ArrayDeque<>();
 
     // If applet selection is ongoing - FIXME: refactor
@@ -314,23 +314,23 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         return entry == null ? null : entry.owner();
     }
 
-    // JCRE 3.2 6.1.5: CLEAR_ON_DESELECT memory of this context may be created and touched only while
-    // the currently selected applet is in it. Nothing selected denies everyone.
+    // Nothing selected matches nothing, the JCRE context included: it owns no CLEAR_ON_DESELECT memory.
     @Override
     public boolean isSelectedContext(Context context) {
         var current = currentlySelected();
-        return context != null && current != null && context.equals(current.getContext());
+        return current != null && context.equals(current.getContext());
     }
 
     @Override
-    public EngineRegistryEntry caller() {
-        return contextStack.peek();
+    public EngineRegistryEntry currentApplication() {
+        var top = contextStack.peek();
+        return top == null || top.owner() == null ? null : top;
     }
 
     @Override
     public Context activeContext() {
         var top = contextStack.peek();
-        return top == null ? null : top.getContext();
+        return top == null ? Context.JCRE : top.getContext();
     }
 
     /**
@@ -358,17 +358,12 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
      */
     @Override
     public AID getPreviousContextAID() {
-        var it = contextStack.iterator();
-        if (!it.hasNext()) {
-            return null;
-        }
         // JCRE 6.2.5: the AID active at the last context switch. Walk down past same-context frames
-        // (e.g. same-package SIO) to the first frame with a different context. Null when the run was
-        // entered directly from the JCRE context, which has no AID (6.2.5.1).
-        var top = it.next().getContext();
-        while (it.hasNext()) {
-            var below = it.next();
-            if (!Objects.equals(below.getContext(), top)) {
+        // (e.g. same-package SIO) to the first frame with a different context. Below the bottom frame is
+        // the JCRE context, which has no AID (6.2.5.1).
+        var top = activeContext();
+        for (var below : contextStack) {
+            if (!top.equals(below.getContext())) {
                 return below.getAID();
             }
         }

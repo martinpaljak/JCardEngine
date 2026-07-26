@@ -593,7 +593,7 @@ public class SecurityDomainApplet extends Applet {
     // Caller must hold AM or DM (GPC v2.3.1 9.4.1); ISD has AM by default.
     private void installForExtradition(APDU apdu, byte[] buffer, List<byte[]> fields) {
         var sim = Simulator.current();
-        var caller = GlobalPlatformEngine.callingApplication();
+        var caller = sim.currentApplication();
         if (caller == null || (!caller.isPrivileged(GPRegistryEntry.PRIVILEGE_AUTHORIZED_MANAGEMENT) && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_DELEGATED_MANAGEMENT))) {
             log.warn("INSTALL [for extradition]: caller lacks AM/DM privilege: {}", caller == null ? null : caller.getAID());
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);

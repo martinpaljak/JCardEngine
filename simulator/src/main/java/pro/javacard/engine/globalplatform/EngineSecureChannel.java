@@ -39,7 +39,7 @@ public abstract sealed class EngineSecureChannel implements SecureChannel permit
     // the calling applet context and the requested key version (IU P1). The resolved set is this SD's
     // own keys or, failing that, its parent SD's (GPC v2.3.1 7.1).
     protected final PlaintextKeys initializeMasterKey(byte requestedKvn) {
-        var ks = SecurityDomainApplet.resolveKeySet(GlobalPlatformEngine.callingApplication(), requestedKvn);
+        var ks = SecurityDomainApplet.resolveKeySet(Simulator.current().currentApplication(), requestedKvn);
         if (ks.isEmpty()) {
             ISOException.throwIt(requestedKvn == 0 ? ISO7816.SW_CONDITIONS_NOT_SATISFIED : ISO7816.SW_INCORRECT_P1P2);
         }

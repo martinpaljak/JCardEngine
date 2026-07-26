@@ -155,16 +155,16 @@ public final class TransientMemory {
         Object array = null;
         switch (type) {
             case JCSystem.ARRAY_TYPE_BOOLEAN:
-                array = makeBooleanArray(length, JCSystem.CLEAR_ON_RESET, null);
+                array = makeBooleanArray(length, JCSystem.CLEAR_ON_RESET, Context.JCRE);
                 break;
             case JCSystem.ARRAY_TYPE_BYTE:
-                array = makeByteArray(length, JCSystem.CLEAR_ON_RESET, null);
+                array = makeByteArray(length, JCSystem.CLEAR_ON_RESET, Context.JCRE);
                 break;
             case JCSystem.ARRAY_TYPE_SHORT:
-                array = makeShortArray(length, JCSystem.CLEAR_ON_RESET, null);
+                array = makeShortArray(length, JCSystem.CLEAR_ON_RESET, Context.JCRE);
                 break;
             case JCSystem.ARRAY_TYPE_OBJECT:
-                array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET, null);
+                array = makeObjectArray(length, JCSystem.CLEAR_ON_RESET, Context.JCRE);
                 break;
             case JCSystem.ARRAY_TYPE_INT:
                 log.warn("int arrays not supported");

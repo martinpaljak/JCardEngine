@@ -208,7 +208,7 @@ public class ContextProbeApplet extends Applet implements Personalization {
             results[slot] = 0;
             return;
         }
-        results[slot] = (byte) aid.getBytes(results, (short) (slot + 1));
+        results[slot] = aid.getBytes(results, (short) (slot + 1));
     }
 
     private static byte present(Object o) {

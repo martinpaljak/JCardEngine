@@ -10,6 +10,7 @@ import javacard.framework.ISO7816;
 import javacard.framework.JCSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pro.javacard.engine.globalplatform.Context;
 
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
@@ -60,7 +61,7 @@ public class CurrentAPDU {
 
     CurrentAPDU(TransientMemory transientMemory) {
         apdu_buffer = (byte[]) transientMemory.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, APDU_BUFFER_SIZE);
-        ramVars = transientMemory.makeShortArray(RAM_VARS_LENGTH, JCSystem.CLEAR_ON_RESET, null);
+        ramVars = transientMemory.makeShortArray(RAM_VARS_LENGTH, JCSystem.CLEAR_ON_RESET, Context.JCRE);
 
         // Create the APDU instance
         try {

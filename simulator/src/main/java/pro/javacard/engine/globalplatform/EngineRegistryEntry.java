@@ -277,7 +277,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     public boolean setState(byte newState) {
         checkAlive();
         var sim = Simulator.current();
-        var caller = GlobalPlatformEngine.callingApplication();
+        var caller = sim.currentApplication();
         if (caller == null) {
             return false;
         }
@@ -553,7 +553,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         checkAlive();
         requireAppletKind();
         var sim = Simulator.current();
-        var caller = GlobalPlatformEngine.callingApplication();
+        var caller = sim.currentApplication();
         if (caller == null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }

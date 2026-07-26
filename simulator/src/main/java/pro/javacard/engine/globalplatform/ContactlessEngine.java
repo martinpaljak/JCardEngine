@@ -52,7 +52,7 @@ public final class ContactlessEngine {
         var sim = Simulator.current();
         // Originator = on-card actor that triggered the chain (caller of the API, or the SD/CRS in its
         // process method). Null at boot = no originator, suppress nothing.
-        var callerEntry = GlobalPlatformEngine.callingApplication();
+        var callerEntry = sim.currentApplication();
         AID originator = callerEntry == null ? null : callerEntry.getAID();
         AID crsAID = RegistryPolicy.findHolder(sim.gp(), Privilege.ContactlessActivation).map(EngineRegistryEntry::getAID).orElse(null);
         var delivered = new HashSet<AID>();
@@ -120,7 +120,7 @@ public final class ContactlessEngine {
     // DEACTIVATED self|CONTACTLESS_ACTIVATION|CREL | ACTIVATED self=SELF_ACTIVATION or CONTACTLESS_ACTIVATION,
     // cross=CONTACTLESS_ACTIVATION | NON_ACTIVATABLE self only.
     public static byte setCLState(EngineRegistryEntry cl, byte state) {
-        var caller = GlobalPlatformEngine.callingApplication();
+        var caller = Simulator.current().currentApplication();
         if (caller == null) {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             return 0;
@@ -178,7 +178,7 @@ public final class ContactlessEngine {
         var sim = Simulator.current();
         var sio = sim.getSystemSharedObject(crsEntry.getAID(), GPCLSystem.GPCL_CRS_APPLICATION);
         if (sio instanceof CRSApplication crs) {
-            var requester = GlobalPlatformEngine.callingApplication();
+            var requester = Simulator.current().currentApplication();
             if (requester == null) {
                 return false;
             }

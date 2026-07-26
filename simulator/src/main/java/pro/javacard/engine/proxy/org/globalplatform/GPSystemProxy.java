@@ -5,7 +5,6 @@ package pro.javacard.engine.proxy.org.globalplatform;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
 import org.globalplatform.*;
-import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
 
 public class GPSystemProxy {
 
@@ -21,14 +20,14 @@ public class GPSystemProxy {
     // GP API 1.8 GPSystem.getCVM and getSecureChannel: the OPEN resolves both through the calling
     // Application's own registry entry, which an applet that has not called register() does not have.
     public static CVM getCVM(byte bCVMIdentifier) {
-        if (bCVMIdentifier == GPSystem.CVM_GLOBAL_PIN && GlobalPlatformEngine.callingApplication() != null) {
+        if (bCVMIdentifier == GPSystem.CVM_GLOBAL_PIN && Simulator.current().currentApplication() != null) {
             return Simulator.current().gp().getGlobalPIN();
         }
         return null;
     }
 
     public static SecureChannel getSecureChannel() {
-        if (GlobalPlatformEngine.callingApplication() == null) {
+        if (Simulator.current().currentApplication() == null) {
             return null;
         }
         return Simulator.current().gp().getSecureChannel();

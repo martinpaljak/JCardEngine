@@ -8,6 +8,11 @@ import java.util.Set;
 // in 3.2. Two contexts are equal iff they own the same packages; one Context is minted per package,
 // so value equality also coincides with reference identity.
 public record Context(Set<EngineRegistryEntry> packages) {
+
+    // The JCRE's own context. It owns no applet package, so it equals no applet context and needs no
+    // special case at a comparison site.
+    public static final Context JCRE = new Context(Set.of());
+
     public static Context of(EngineRegistryEntry pkg) {
         return new Context(Set.of(pkg));
     }
