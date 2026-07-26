@@ -14,14 +14,14 @@ import java.security.SecureRandom;
 // The interface of the simulator towards JC implementation classes inside the engine itself
 public interface JavaCardRuntime {
 
-    AID internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed, EngineRegistryEntry pkg);
+    EngineRegistryEntry internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges, byte[] parameters, boolean exposed, EngineRegistryEntry pkg);
 
     void internalDeleteApplet(AID aid);
 
     AID getAID();
 
-    // The active applet instance (JC RE): the applet currently selected on the channel, or null.
-    // Distinct from getAID() (the current executing context).
+    // The active applet instance (JC RE): the applet currently selected on the channel, or the one
+    // being installed. Distinct from getAID() (the current executing context).
     AID getActiveAID();
 
     // Currently executing applet's registry entry, or null in platform context.
@@ -29,6 +29,9 @@ public interface JavaCardRuntime {
 
     // Active firewall context (JCRE 3.2 6.1.2); null in platform context.
     Context activeContext();
+
+    // Whether the given context is the currently selected applet's (JCRE 3.2 6.1.5).
+    boolean isSelectedContext(Context context);
 
     AID lookupAID(byte[] buffer, short offset, byte length);
 

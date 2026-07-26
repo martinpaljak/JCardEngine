@@ -225,8 +225,7 @@ public final class TransientMemory {
         add(arrayRef, event);
     }
 
-    // Zero one context's CLEAR_ON_DESELECT buffers (JCRE 5.1.2: applet deselected, no other applet
-    // of the same context active).
+    // Zero one context's CLEAR_ON_DESELECT buffers. The caller decides when JCRE 3.2 5.1.2 allows it.
     void clearOnDeselect(Context owner) {
         var arrays = clearOnDeselect.get(owner);
         if (arrays != null) {

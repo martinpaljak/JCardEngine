@@ -115,18 +115,12 @@ public class JCSystemProxy {
         return Simulator.current().getTransientMemory().makeObjectArray(length, event, Simulator.current().activeContext());
     }
 
-    // JCRE 3.2 6.1.5: a CLEAR_ON_DESELECT array may be created only while the active context is the
-    // currently selected applet. getAID() == null is install/platform context, where the installer is
-    // treated as the selected applet (JCRE 3.2 3.4.4) and creation is allowed.
     private static void checkDeselectContext(byte event) {
         if (event != JCSystem.CLEAR_ON_DESELECT) {
             return;
         }
         var current = Simulator.current();
-        if (current.getAID() == null) {
-            return;
-        }
-        if (!current.getAID().equals(current.getActiveAID())) {
+        if (!current.isSelectedContext(current.activeContext())) {
             SystemException.throwIt(SystemException.ILLEGAL_TRANSIENT);
         }
     }

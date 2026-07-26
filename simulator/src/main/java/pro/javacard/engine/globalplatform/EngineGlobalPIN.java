@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.globalplatform;
 
-import com.licel.jcardsim.base.Simulator;
 import org.globalplatform.CVM;
 import org.globalplatform.GPRegistryEntry;
 
@@ -26,7 +25,7 @@ public class EngineGlobalPIN implements CVM {
     // resetAndUnblockState/setTryLimit are gated on PRIVILEGE_CVM_MANAGEMENT held by the
     // current applet context.
     private static boolean callerHasCvmManagement() {
-        var caller = Simulator.current().caller();
+        var caller = GlobalPlatformEngine.callingApplication();
         return caller != null && caller.isPrivileged(GPRegistryEntry.PRIVILEGE_CVM_MANAGEMENT);
     }
 

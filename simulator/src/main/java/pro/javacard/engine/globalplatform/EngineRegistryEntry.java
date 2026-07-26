@@ -24,12 +24,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     // Load-file (ELF) initial lifecycle, GPC v2.3.1 11.1.1: LOADED. GPSystem defines no load-file
     // state constant (only APPLICATION_*/CARD_*/SECURITY_DOMAIN_*), so this one stays local. The
     // applet/ISD initial states use GPSystem.APPLICATION_SELECTABLE / CARD_OP_READY directly.
-    public static final byte PKG_LOADED = (byte) 0x01;
+    private static final byte PKG_LOADED = (byte) 0x01;
 
     private static final short SW_FUNC_NOT_SUPPORTED = 0x6A81;
 
     private AID aid;                        // mutable: STORE DATA tag 4F renames the ISD (GPC v2.3.1 11.11.2.3)
-    private final Object instance;          // null for PKG
+    private Object instance;                // null for PKG, and for an applet until register() publishes it
     private final boolean exposed;          // ignored for PKG
     private EnumSet<Privilege> privileges;
     private final Kind kind;
@@ -91,16 +91,13 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         this.modules = new TreeMap<>(AIDUtil.comparator());
     }
 
-    // APP/SSD factory. Kind auto-promotes to SSD when the SecurityDomain privilege is present (ISD goes via forISD).
-    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, EnumSet<Privilege> privileges, AID packageAID, EngineRegistryEntry parentSD) {
-        var privSet = copyPrivileges(privileges);
+    // APP/SSD factory for the GP install boundary. The entry is made before install() runs and gets its
+    // instance at register(). Kind auto-promotes to SSD when the SecurityDomain privilege is present
+    // (ISD goes via forISD).
+    static EngineRegistryEntry forApplet(AID aid, boolean exposed, byte[] privBytes, AID packageAID, EngineRegistryEntry parentSD) {
+        var privSet = decodePrivileges(privBytes);
         Kind kind = privSet.contains(Privilege.SecurityDomain) ? Kind.SSD : Kind.APP;
-        return new EngineRegistryEntry(aid, instance, exposed, privSet, kind, packageAID, GPSystem.APPLICATION_SELECTABLE, parentSD);
-    }
-
-    // APP/SSD factory: byte[] convenience for the GP install boundary.
-    public static EngineRegistryEntry forApplet(AID aid, Object instance, boolean exposed, byte[] privBytes, AID packageAID, EngineRegistryEntry parentSD) {
-        return forApplet(aid, instance, exposed, decodePrivileges(privBytes), packageAID, parentSD);
+        return new EngineRegistryEntry(aid, null, exposed, privSet, kind, packageAID, GPSystem.APPLICATION_SELECTABLE, parentSD);
     }
 
     // ISD factory used by bootstrap. The ISD self-parents (GPC v2.3.1 7.2) and is not extraditable.
@@ -133,6 +130,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
 
     private static EnumSet<Privilege> copyPrivileges(EnumSet<Privilege> privileges) {
         return privileges.isEmpty() ? EnumSet.noneOf(Privilege.class) : EnumSet.copyOf(privileges);
+    }
+
+    // Attaching the instance is what turns a minted entry into a registered Application; only
+    // GlobalPlatformEngine.publish does it, at register().
+    void setInstance(Object instance) {
+        this.instance = instance;
     }
 
     public Applet getApplet() {
@@ -171,7 +174,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         data.put(element, value.clone());
     }
 
-    public Kind getKind() {
+    Kind getKind() {
         return kind;
     }
 
@@ -242,6 +245,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         return aid;
     }
 
+    // The AID this entry answers under, or null when nothing owns it yet: a load file, or an applet
+    // inside install() that has not reached register() (JCRE 3.2 11.2).
+    public AID owner() {
+        return instance == null ? null : aid;
+    }
+
     // The registry key must be re-pointed in lockstep; only GlobalPlatformEngine.renameISD calls this.
     void setAID(AID aid) {
         this.aid = aid;
@@ -268,7 +277,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     public boolean setState(byte newState) {
         checkAlive();
         var sim = Simulator.current();
-        var caller = sim.caller();
+        var caller = GlobalPlatformEngine.callingApplication();
         if (caller == null) {
             return false;
         }
@@ -544,7 +553,10 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         checkAlive();
         requireAppletKind();
         var sim = Simulator.current();
-        var caller = sim.caller();
+        var caller = GlobalPlatformEngine.callingApplication();
+        if (caller == null) {
+            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        }
         boolean callerIsSelf = caller.getAID().equals(getAID());
         boolean callerPrivileged = caller.isPrivileged(GPCLRegistryEntry.PRIVILEGE_CONTACTLESS_ACTIVATION);
         if (!callerIsSelf && !callerPrivileged) {

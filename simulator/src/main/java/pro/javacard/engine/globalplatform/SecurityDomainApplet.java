@@ -270,6 +270,10 @@ public class SecurityDomainApplet extends Applet {
     // Keys are this SD's own, else its parent SD's - never deeper. A sub-SSD cannot be created until
     // its owning SSD is personalized (owns keys), so a two-level check covers every real hierarchy.
     static Optional<KeySet> resolveKeySet(EngineRegistryEntry self, byte requestedKvn) {
+        // No calling Application, no associated-SD chain to walk.
+        if (self == null) {
+            return Optional.empty();
+        }
         var own = selectKeySet(self, requestedKvn);
         return own.isPresent() ? own : selectKeySet(self.getParentSD(), requestedKvn);
     }
@@ -438,28 +442,25 @@ public class SecurityDomainApplet extends Applet {
             ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
         }
         // exposed=true for the SD class: platform code touching Simulator/GP statics, not isolated.
-        sim.internalInstallApplet(instanceAid, appletClass, privileges, appletParams, isSD, pkgEntry);
+        var newEntry = sim.internalInstallApplet(instanceAid, appletClass, privileges, appletParams, isSD, pkgEntry);
 
         // Commit done; apply CL params and fan out EVENT_SELECTABLE. Straight-line, no rollback -
         // everything fed below was validated above.
-        var newEntry = sim.gp().lookup(instanceAid);
-        if (newEntry != null && newEntry.getKind() != Kind.PKG) {
-            applyEF(newEntry, top);
-            // GPC v2.3.1 Amd C 8.3: EVENT_SELECTABLE and the initial CL activation state apply when the
-            // Application is made selectable - here for install & make selectable, or later via a standalone
-            // INSTALL [for make selectable]. Install-only (b3 without b4) stays INSTALLED and fires nothing.
-            if (makeSelectable) {
-                clState.ifPresent(s -> newEntry.initial = s);
-                ContactlessEngine.notifyContactlessEvent(newEntry, CLAppletEvent.EVENT_SELECTABLE);
-                // GPC v2.3.1 Amd C 8.3: first make-selectable attempts the Initial Contactless Activation State.
-                // TODO: GPC v2.3.1 Amd C 8.3 / Table 11-7 - warning 6200 when activation cannot be honored.
-                ContactlessEngine.applyInitial(newEntry);
-            } else {
-                newEntry.internalForceState(GPSystem.APPLICATION_INSTALLED);
-            }
+        applyEF(newEntry, top);
+        // GPC v2.3.1 Amd C 8.3: EVENT_SELECTABLE and the initial CL activation state apply when the
+        // Application is made selectable - here for install & make selectable, or later via a standalone
+        // INSTALL [for make selectable]. Install-only (b3 without b4) stays INSTALLED and fires nothing.
+        if (makeSelectable) {
+            clState.ifPresent(s -> newEntry.initial = s);
+            ContactlessEngine.notifyContactlessEvent(newEntry, CLAppletEvent.EVENT_SELECTABLE);
+            // GPC v2.3.1 Amd C 8.3: first make-selectable attempts the Initial Contactless Activation State.
+            // TODO: GPC v2.3.1 Amd C 8.3 / Table 11-7 - warning 6200 when activation cannot be honored.
+            ContactlessEngine.applyInitial(newEntry);
+        } else {
+            newEntry.internalForceState(GPSystem.APPLICATION_INSTALLED);
         }
 
-        // The update counter is bumped by gp().register() at the commit point (GPC v2.3.1 Amd C 3.11.2.3).
+        // The update counter is bumped by gp().publish() at the commit point (GPC v2.3.1 Amd C 3.11.2.3).
         buffer[0] = 0x00;
         apdu.setOutgoingAndSend((short) 0, (short) 1);
     }
@@ -592,7 +593,7 @@ public class SecurityDomainApplet extends Applet {
     // Caller must hold AM or DM (GPC v2.3.1 9.4.1); ISD has AM by default.
     private void installForExtradition(APDU apdu, byte[] buffer, List<byte[]> fields) {
         var sim = Simulator.current();
-        var caller = sim.caller();
+        var caller = GlobalPlatformEngine.callingApplication();
         if (caller == null || (!caller.isPrivileged(GPRegistryEntry.PRIVILEGE_AUTHORIZED_MANAGEMENT) && !caller.isPrivileged(GPRegistryEntry.PRIVILEGE_DELEGATED_MANAGEMENT))) {
             log.warn("INSTALL [for extradition]: caller lacks AM/DM privilege: {}", caller == null ? null : caller.getAID());
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);

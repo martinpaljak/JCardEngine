@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import pro.javacard.engine.JavaCardEngineException;
 import pro.javacard.gp.GPRegistryEntry.Kind;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
+import pro.javacard.gp.data.BitField;
 
 import java.util.*;
 
@@ -101,19 +102,20 @@ public class GlobalPlatformEngine {
         registry.put(packageAid, pkg);
     }
 
-    // Register the default CRS applet. Deferred out of the constructor because EngineCRSApplet
-    // allocates transient arrays via JCSystem and so needs the Simulator to be current; build() calls
-    // this inside asCurrent().
+    // Register the default CRS applet. Deferred out of the constructor because install() runs applet
+    // code that uses JCSystem and so needs the Simulator to be current; build() calls this inside
+    // asCurrent(). Installed exposed: it is an engine class, not applet code to isolate.
     public void bootstrap() {
-        var crsEntry = EngineRegistryEntry.forApplet(EngineCRSApplet.CRS_AID, new EngineCRSApplet(), true,
-                EnumSet.of(Privilege.ContactlessActivation, Privilege.GlobalRegistry), EngineCRSApplet.CRS_PACKAGE_AID, isd);
+        addBuiltinPackage(EngineCRSApplet.CRS_PACKAGE_AID, EngineCRSApplet.CRS_AID, EngineCRSApplet.class);
+        var privileges = BitField.encode(EnumSet.of(Privilege.ContactlessActivation, Privilege.GlobalRegistry), 3);
+        var crsEntry = Simulator.current().internalInstallApplet(EngineCRSApplet.CRS_AID, EngineCRSApplet.class, privileges, null, true,
+                lookup(EngineCRSApplet.CRS_PACKAGE_AID));
         // GPC v2.3.1 Amd C 8.1: the CRS is contactless-ACTIVATED from boot, else it is unreachable over the
         // contactless interface it exists to manage.
         crsEntry.initial = CLState.ACTIVATED;
         crsEntry.state = GPCLRegistryEntry.STATE_CL_ACTIVATED;
-        registry.put(EngineCRSApplet.CRS_AID, crsEntry);
-        addBuiltinPackage(EngineCRSApplet.CRS_PACKAGE_AID, EngineCRSApplet.CRS_AID, EngineCRSApplet.class);
-        crsEntry.setContext(lookup(EngineCRSApplet.CRS_PACKAGE_AID).getContext());
+        // GPC v2.3.1 Amd C 3.11.2.3: the counter is zero on the issued card, which already carries the CRS.
+        updateCounter = 0;
     }
 
     public EngineRegistryEntry isd() {
@@ -130,11 +132,21 @@ public class GlobalPlatformEngine {
         return entry;
     }
 
-    // GPC v2.3.1 9.3.6: the applet inherits its load file's parent SD and firewall context (JCRE 6.1.2).
-    public void register(AID aid, Object instance, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {
-        Objects.requireNonNull(pkg, "register requires a package");
-        var entry = EngineRegistryEntry.forApplet(aid, instance, exposed, privileges, pkg.getAID(), pkg.getParentSD());
+    // Mint the entry install() will run for. GPC v2.3.1 9.3.6: the applet inherits its load file's parent
+    // SD and firewall context (JCRE 6.1.2). It stays out of the registry until publish, so nothing can
+    // look it up and it leaves no trace if install() throws.
+    public EngineRegistryEntry newApplet(AID aid, boolean exposed, byte[] privileges, EngineRegistryEntry pkg) {
+        Objects.requireNonNull(pkg, "an applet requires a package");
+        var entry = EngineRegistryEntry.forApplet(aid, exposed, privileges, pkg.getAID(), pkg.getParentSD());
         entry.setContext(pkg.getContext());
+        return entry;
+    }
+
+    // The register() commit point: the instance is attached and the entry becomes findable. Taking the
+    // single-holder privileges happens here rather than at newApplet, so an install() that throws does
+    // not leave another Application stripped for an installation that never happened.
+    public void publish(EngineRegistryEntry entry, Object instance) {
+        entry.setInstance(instance);
         // GPC v2.3.1 6.6.2: Card Reset is single-holder.
         if (entry.getPrivileges().contains(Privilege.CardReset)) {
             RegistryPolicy.stripFromOthers(this, entry, Privilege.CardReset);
@@ -147,7 +159,7 @@ public class GlobalPlatformEngine {
         if (entry.getPrivileges().contains(Privilege.ContactlessActivation)) {
             RegistryPolicy.stripFromOthers(this, entry, Privilege.ContactlessActivation);
         }
-        registry.put(aid, entry);
+        registry.put(entry.getAID(), entry);
         bumpUpdateCounter();
     }
 
@@ -196,13 +208,27 @@ public class GlobalPlatformEngine {
         return null;
     }
 
-    public EngineRegistryEntry getRegistryEntry(AID aid) {
-        var sim = Simulator.current();
-        var caller = sim.caller();
+    // The Application invoking an OPEN service, in GP API terms "the Application invoking this method".
+    // Null when there is none: the JCRE context, or an applet inside install() that has not called
+    // register() and so is in no registry to be found in.
+    public static EngineRegistryEntry callingApplication() {
+        var caller = Simulator.current().caller();
+        return caller == null || caller.owner() == null ? null : caller;
+    }
 
-        // System context bypasses the gate.
-        if (caller == null) {
+    public EngineRegistryEntry getRegistryEntry(AID aid) {
+        // System context bypasses the gate. Asked of the raw frame, because an applet that has not
+        // registered is not the system and must not inherit its rights.
+        if (Simulator.current().caller() == null) {
             return selectable(lookup(aid));
+        }
+
+        // GP API 1.8 GPSystem.getRegistryEntry: an entry is returned only "if it was found in the
+        // GlobalPlatform Registry". Before register() the caller has neither an entry of its own nor an
+        // identity to gate a cross-application lookup with.
+        var caller = callingApplication();
+        if (caller == null) {
+            return null;
         }
 
         // null target resolves to the caller's own entry.
@@ -230,7 +256,7 @@ public class GlobalPlatformEngine {
     // or indirectly associated applications; a CREL Application sees the applications referencing it. A
     // caller holding none of these roles gets SW_CONDITIONS_NOT_SATISFIED.
     public GPCLRegistryEntry nextContactlessEntry(GPCLRegistryEntry oEntry, short family) {
-        var caller = Simulator.current().caller();
+        var caller = callingApplication();
         if (caller == null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
@@ -338,7 +364,10 @@ public class GlobalPlatformEngine {
 
     public boolean setCardLifecycleState(byte newState) {
         // Always reached from applet context (SET STATUS, GP-API setState on the ISD, GPSystem.lock/terminate).
-        var caller = Simulator.current().caller();
+        var caller = callingApplication();
+        if (caller == null) {
+            return false;
+        }
         byte current = isd.getState();
 
         boolean allowed = switch (newState) {
@@ -362,7 +391,10 @@ public class GlobalPlatformEngine {
 
     // GPSystem.setCardContentState() - self-only shortcut to update own LCS.
     public boolean setCardContentState(byte newState) {
-        var caller = Simulator.current().caller();
+        var caller = callingApplication();
+        if (caller == null) {
+            return false;
+        }
         int current = caller.getState() & 0xFF;
         if (current < 0x07 || current > 0x7F || (current & 0x07) != 0x07) {
             return false;

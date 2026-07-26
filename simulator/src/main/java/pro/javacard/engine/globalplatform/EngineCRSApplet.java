@@ -101,6 +101,10 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
         pagingOffset = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_DESELECT);
     }
 
+    public static void install(byte[] bArray, short bOffset, byte bLength) {
+        new EngineCRSApplet().register();
+    }
+
     private byte[] paging() {
         return (byte[]) pagingBuffer[0];
     }

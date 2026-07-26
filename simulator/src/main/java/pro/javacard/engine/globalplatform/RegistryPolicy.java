@@ -59,7 +59,7 @@ public final class RegistryPolicy {
     // (current), so a client can walk multiple partial matches; [first or only occurrence] starts from the start.
     // A LOCKED Application is not a valid by-name target (GPC v2.3.1 6.4.2.1.2): skip it and keep searching.
     public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, byte[] selectApdu, int apduCase,
-                                                              AID current, boolean nextOccurrence) {
+                                                              EngineRegistryEntry current, boolean nextOccurrence) {
         if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
             // No data: select the ISD via the stable reference (its AID may have been re-keyed).
             log.info("Selecting OPEN");
@@ -71,7 +71,7 @@ public final class RegistryPolicy {
             boolean afterCurrent = current == null;
             for (var e : gp.getApplets()) {
                 if (!afterCurrent) {
-                    afterCurrent = e.getAID().equals(current);
+                    afterCurrent = e == current;
                     continue;
                 }
                 if (e.isLocked()) {

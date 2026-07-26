@@ -45,14 +45,14 @@ public final class ContactlessEngine {
         return EVENT_NAMES.getOrDefault(event, "0x" + Integer.toHexString(event & 0xFFFF));
     }
 
-    // Fan out a CL event for cl, originator = Simulator.caller(): CREL fan-out (3.10.2), CRS implicit
+    // Fan out a CL event for cl, originator = the calling Application: CREL fan-out (3.10.2), CRS implicit
     // subscription (3.10.3), self-delivery (3.10.4). Originator and EVENT_DELETED-self are suppressed.
     // A throwing callee is logged and skipped; remaining recipients still fire.
     public static void notifyContactlessEvent(EngineRegistryEntry cl, short event) {
         var sim = Simulator.current();
         // Originator = on-card actor that triggered the chain (caller of the API, or the SD/CRS in its
         // process method). Null at boot = no originator, suppress nothing.
-        var callerEntry = sim.caller();
+        var callerEntry = GlobalPlatformEngine.callingApplication();
         AID originator = callerEntry == null ? null : callerEntry.getAID();
         AID crsAID = RegistryPolicy.findHolder(sim.gp(), Privilege.ContactlessActivation).map(EngineRegistryEntry::getAID).orElse(null);
         var delivered = new HashSet<AID>();
@@ -120,7 +120,7 @@ public final class ContactlessEngine {
     // DEACTIVATED self|CONTACTLESS_ACTIVATION|CREL | ACTIVATED self=SELF_ACTIVATION or CONTACTLESS_ACTIVATION,
     // cross=CONTACTLESS_ACTIVATION | NON_ACTIVATABLE self only.
     public static byte setCLState(EngineRegistryEntry cl, byte state) {
-        var caller = Simulator.current().caller();
+        var caller = GlobalPlatformEngine.callingApplication();
         if (caller == null) {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             return 0;
@@ -178,7 +178,7 @@ public final class ContactlessEngine {
         var sim = Simulator.current();
         var sio = sim.getSystemSharedObject(crsEntry.getAID(), GPCLSystem.GPCL_CRS_APPLICATION);
         if (sio instanceof CRSApplication crs) {
-            var requester = sim.caller();
+            var requester = GlobalPlatformEngine.callingApplication();
             if (requester == null) {
                 return false;
             }
