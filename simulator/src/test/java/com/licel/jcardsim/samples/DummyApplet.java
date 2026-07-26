@@ -11,6 +11,8 @@ public class DummyApplet extends Applet implements AppletEvent {
     public static boolean exceptionInUninstall = false;
     public static boolean exceptionIllegalUse1 = false;
     public static boolean exceptionIllegalUse2 = false;
+    // Starts true so an assertion of false only passes once deselect() has run and observed it.
+    public static boolean selectingInDeselect = true;
 
     @SuppressWarnings("unused")
     public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -20,6 +22,7 @@ public class DummyApplet extends Applet implements AppletEvent {
         exceptionInUninstall = false;
         exceptionIllegalUse1 = false;
         exceptionIllegalUse2 = false;
+        selectingInDeselect = true;
 
         try {
             APDU.getCurrentAPDU();
@@ -62,6 +65,7 @@ public class DummyApplet extends Applet implements AppletEvent {
 
     @Override
     public void deselect() {
+        selectingInDeselect = selectingApplet();
         try {
             APDU.getCurrentAPDU();
         } catch (SecurityException se) {

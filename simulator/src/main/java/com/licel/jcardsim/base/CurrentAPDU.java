@@ -651,13 +651,14 @@ public class CurrentAPDU {
     // Called by Simulator after process() invocation
     void disable() {
         available = false;
+        // JCRE 3.2 11.2: the APDU buffer is zeroed on return from process()
+        Arrays.fill(apdu_buffer, (byte) 0);
     }
 
     /**
      * clear internal state of the APDU
      */
     void reset(byte[] inputBuffer) {
-        Arrays.fill(apdu_buffer, (byte) 0);
         Arrays.fill(ramVars, (short) 0);
         incoming_buffer = inputBuffer.clone();
 

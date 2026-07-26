@@ -202,6 +202,9 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         // JC API isAppletActive: the applet is the active instance during its own select() callback;
         // rolled back to null below if it refuses selection.
         selected = instance;
+        // JCRE 3.2 3.2 and 3.4: true from select() through the SELECT command's process(), false during
+        // the outgoing applet's deselect() above.
+        selecting = true;
         boolean success;
         try {
             success = instance.getApplet().select();
@@ -536,7 +539,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                     applet = selected.getApplet();
                 } else {
                     // applet was found, so we will trigger Applet.select() via _select() later
-                    selecting = true;
                     applet = newEntry.getApplet();
                 }
             } else {
@@ -559,7 +561,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             responseBufferSize = 0;
             var apdu = currentAPDU.getAPDU();
             try {
-                if (selecting) {
+                if (newEntry != null) {
                     log.trace("Calling Applet.select(): {}", newEntry);
                     if (!_select(newEntry)) {
                         // JCRE 4.6: on refusal return SW_APPLET_SELECT_FAILED, nothing selected.

@@ -37,6 +37,9 @@ public class ApduContextTest {
 
             bibo.transmit(AIDUtil.select(otherAppletAID));
             assertTrue(DummyApplet.exceptionInDeselect);
+            // JCRE 3.2 3.4: selectingApplet() is false during deselect(), even though the SELECT that
+            // triggers it goes on to select another applet
+            assertFalse(DummyApplet.selectingInDeselect);
 
             simulator.deleteApplet(dummyAppletAID);
             assertTrue(DummyApplet.exceptionInUninstall);
