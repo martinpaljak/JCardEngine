@@ -18,7 +18,8 @@ public final class CRC32 extends Checksum {
     };
 
     public CRC32() {
-        crc32 = JCSystem.makeTransientByteArray(LENGTH, JCSystem.CLEAR_ON_DESELECT);
+        // JCRE 3.2 9.1: the API must not spend the caller's CLEAR_ON_DESELECT budget.
+        crc32 = JCSystem.makeTransientByteArray(LENGTH, JCSystem.CLEAR_ON_RESET);
     }
 
     @Override

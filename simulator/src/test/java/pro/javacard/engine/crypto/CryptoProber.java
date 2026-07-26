@@ -158,13 +158,18 @@ public final class CryptoProber {
         return send(INS_MEMORY, 0x01, 0, null);
     }
 
-    // Tries a transient (DESELECT) key first; on any non-success outcome retries with a persistent key of the same length.
-    public Result newKeyWithFallback(int slot, int algTypeForTransient, int typeForPersistent, int len) {
-        Result transient_ = newKey(slot, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT, algTypeForTransient, len);
-        if (transient_.ok()) {
-            return transient_;
+    // Tries a transient (DESELECT) key in both KeyBuilder spellings; on any non-success outcome retries
+    // with a persistent key of the same length. A build that fails leaves the slot holding the earlier key.
+    public Result newKeyWithFallback(int slot, int algType, int deselectType, int persistentType, int len) {
+        Result byKeyType = newKey(slot, 0, deselectType, len);
+        Result byMemoryType = newKey(slot, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT, algType, len);
+        if (byMemoryType.ok()) {
+            return byMemoryType;
         }
-        return newKey(slot, 0, typeForPersistent, len);
+        if (byKeyType.ok()) {
+            return byKeyType;
+        }
+        return newKey(slot, 0, persistentType, len);
     }
 
     private Result send(int ins, int p1, int p2, byte[] data) {

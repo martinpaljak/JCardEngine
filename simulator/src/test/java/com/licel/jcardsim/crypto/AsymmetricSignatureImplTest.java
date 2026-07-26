@@ -302,7 +302,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         // generate keys
         Key sharedDomain = KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, JCSystem.MEMORY_TYPE_PERSISTENT, keySize, false);
 
-        byte memType = JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+        byte memType = JCSystem.MEMORY_TYPE_TRANSIENT_RESET;
         PublicKey publicKey = (PublicKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PUBLIC, memType, sharedDomain, false);
         PrivateKey privateKey = (PrivateKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PRIVATE, memType, sharedDomain, false);
 

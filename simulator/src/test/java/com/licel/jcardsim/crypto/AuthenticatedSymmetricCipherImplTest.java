@@ -410,17 +410,12 @@ public class AuthenticatedSymmetricCipherImplTest extends SimulatorCoreTest {
         aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
         testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
 
-        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_256, false);
-        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
-
         aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_256, false);
         testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
 
 
-        // test AES with JCSystem.MEMORY_TYPE_*
-        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_AES, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_256, false);
-        testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
-
+        // test AES with JCSystem.MEMORY_TYPE_*. CLEAR_ON_DESELECT keys need a selected applet, so they
+        // are covered by the applet-driven CryptoParityTest instead.
         aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_AES, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_256, false);
         testAES_GCM_OnlineEncryptAndDecryptWithIV(aesKey);
 

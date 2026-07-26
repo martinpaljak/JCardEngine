@@ -117,7 +117,8 @@ public final class AsymmetricCipherImpl extends Cipher {
         KeyWithParameters key = (KeyWithParameters) theKey;
         initMode = theMode;
         engine.init(theMode == MODE_ENCRYPT, key.getParameters());
-        buffer = JCSystem.makeTransientByteArray((short) (engine.getInputBlockSize() + (theMode == MODE_ENCRYPT ? 1 : 0)), JCSystem.CLEAR_ON_DESELECT);
+        // JCRE 3.2 9.1: the API must not spend the caller's CLEAR_ON_DESELECT budget.
+        buffer = JCSystem.makeTransientByteArray((short) (engine.getInputBlockSize() + (theMode == MODE_ENCRYPT ? 1 : 0)), JCSystem.CLEAR_ON_RESET);
         bufferPos = 0;
         state = CipherState.INITIALIZED;
     }

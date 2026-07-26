@@ -14,7 +14,8 @@ public final class CRC16 extends Checksum {
     private final byte[] crc16;
 
     public CRC16() {
-        crc16 = JCSystem.makeTransientByteArray(LENGTH, JCSystem.CLEAR_ON_DESELECT);
+        // JCRE 3.2 9.1: the API must not spend the caller's CLEAR_ON_DESELECT budget.
+        crc16 = JCSystem.makeTransientByteArray(LENGTH, JCSystem.CLEAR_ON_RESET);
     }
 
     @Override

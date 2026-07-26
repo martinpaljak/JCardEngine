@@ -92,7 +92,7 @@ public class KeyAgreementImplTest extends SimulatorCoreTest {
     public void testSharedDomainECDH() {
         // P-256 domain shared across both key pairs
         Key sharedDomain = KeyBuilder.buildKey(KeyBuilder.ALG_TYPE_EC_FP_PARAMETERS, JCSystem.MEMORY_TYPE_PERSISTENT, KeyBuilder.LENGTH_EC_FP_256, false);
-        byte mem = JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+        byte mem = JCSystem.MEMORY_TYPE_TRANSIENT_RESET;
 
         ECPublicKey pubA = (ECPublicKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PUBLIC, mem, sharedDomain, false);
         ECPrivateKey privA = (ECPrivateKey) KeyBuilder.buildKeyWithSharedDomain(KeyBuilder.ALG_TYPE_EC_FP_PRIVATE, mem, sharedDomain, false);

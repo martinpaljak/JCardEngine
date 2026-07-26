@@ -322,7 +322,7 @@ public class CryptoParityTest {
                 case 256 -> KeyBuilder.LENGTH_AES_256;
                 default -> throw new IllegalArgumentException();
             };
-            return prober.newKeyWithFallback(SLOT_SYM, KeyBuilder.ALG_TYPE_AES, KeyBuilder.TYPE_AES, len);
+            return prober.newKeyWithFallback(SLOT_SYM, KeyBuilder.ALG_TYPE_AES, KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.TYPE_AES, len);
         }
         int len = switch (keyBits) {
             case 64 -> KeyBuilder.LENGTH_DES;
@@ -330,7 +330,7 @@ public class CryptoParityTest {
             case 192 -> KeyBuilder.LENGTH_DES3_3KEY;
             default -> throw new IllegalArgumentException();
         };
-        return prober.newKeyWithFallback(SLOT_SYM, KeyBuilder.ALG_TYPE_DES, KeyBuilder.TYPE_DES, len);
+        return prober.newKeyWithFallback(SLOT_SYM, KeyBuilder.ALG_TYPE_DES, KeyBuilder.TYPE_DES_TRANSIENT_DESELECT, KeyBuilder.TYPE_DES, len);
     }
 
     // BC reference run for a symmetric case, in either direction; encrypt selects init's processing mode.

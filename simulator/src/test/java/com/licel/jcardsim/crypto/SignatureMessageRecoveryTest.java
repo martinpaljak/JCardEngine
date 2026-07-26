@@ -3,7 +3,6 @@
 package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
-import javacard.framework.JCSystem;
 import javacard.security.*;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -69,7 +68,7 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
         for (byte i = 0; i < data.length; i++) {
             data[i] = i;
         }
-        short[] m1Data = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_DESELECT);
+        short[] m1Data = new short[1];
         byte[] signature = new byte[(short) 256];
 
         sig.init(selfTestKeys.getPrivate(), Signature.MODE_SIGN);
@@ -115,7 +114,7 @@ public class SignatureMessageRecoveryTest extends SimulatorCoreTest {
         for (short i = 0; i < data.length; i++) {
             data[i] = (byte) i;
         }
-        short[] m1Data = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_DESELECT);
+        short[] m1Data = new short[1];
         byte[] signature = new byte[(short) 256];
 
         sig.init(selfTestKeys.getPrivate(), Signature.MODE_SIGN);
