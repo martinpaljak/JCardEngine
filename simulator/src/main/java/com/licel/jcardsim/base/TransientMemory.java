@@ -39,13 +39,6 @@ public final class TransientMemory {
     private final HashMap<String, HashMap<Integer, CopyOnWriteArrayList<WeakReference<Object>>>> allocations = new HashMap<>();
 
     public void registerAllocation(Object array, String className, int line) {
-        if (array == null) {
-            return;
-        }
-
-        // Normalize class name
-        className = className.replace('/', '.');
-
         allocations.computeIfAbsent(className, k -> new HashMap<>())
                 .computeIfAbsent(line, k -> new CopyOnWriteArrayList<>())
                 .add(new WeakReference<>(array));

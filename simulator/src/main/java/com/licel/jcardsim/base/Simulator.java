@@ -413,7 +413,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         contextStack.clear();
         contextStack.addAll(savedStack);
         // The OPEN restores spec-defaulted privileges (still seeing the deletee's set) and removes it.
-        globalPlatform.remove(aid);
+        globalPlatform.remove(app);
         if (selected == app) {
             selected = null;
         }
@@ -889,14 +889,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
     }
 
-    // pkg is the loaded PKG entry the install was certified against, or null for host install.
+    // pkg is the loaded PKG entry the install was certified against; the host path synthesizes one
+    // through ensurePackage. newApplet rejects a missing package.
     @Override
     public EngineRegistryEntry internalInstallApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] privileges,
                                                      byte[] parameters, boolean exposed, EngineRegistryEntry pkg) {
-        // Every applet must have a package; pkg == null is always a caller bug.
-        if (pkg == null) {
-            throw new IllegalStateException("internalInstallApplet requires a package");
-        }
         final Class<?> klass;
 
         log.info("Installing applet class {}, loaded by {}", appletClass.getName(),

@@ -145,10 +145,8 @@ public final class KeyPairImpl {
         if (publicKey != null) {
             keyGenerationParameters = ((KeyWithParameters) publicKey).getKeyGenerationParameters(rnd);
         }
+        // Both constructors resolve the algorithm, so it is known good here.
         var a = Alg.byByte(algorithm);
-        if (a == null) {
-            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
-        }
         if (keyGenerationParameters == null) {
             keyGenerationParameters = a.defaultParams.apply(keyLength, rnd);
         }

@@ -294,6 +294,7 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
     // selects the returned objects; 4F + 9F70 are always included (Table 3-9).
     private byte[] buildGetStatusResponse(Query query) {
         var templates = new ArrayList<TLV>();
+        var tagList = query.tagList();
         boolean anyMatch = false;
         boolean anyListedPresent = false;
         for (var entry : Simulator.current().gp().getApplets()) {
@@ -304,8 +305,8 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
             var template = TLV.build(TAG_APPLICATION_TEMPLATE);
             for (var obj : availableObjects(entry)) {
                 boolean always = obj.tag().equals(T_AID) || obj.tag().equals(T_LIFECYCLE);
-                boolean listed = query.tagList() != null && containsTag(query.tagList(), obj.tag());
-                if (query.tagList() == null || always || listed) {
+                boolean listed = tagList != null && containsTag(tagList, obj.tag());
+                if (tagList == null || always || listed) {
                     template.add(obj);
                 }
                 if (listed) {
@@ -315,7 +316,7 @@ public final class EngineCRSApplet extends Applet implements CRSApplication {
             templates.add(template);
         }
         // GPC v2.3.1 Amd C 3.11.3.3.1: with a tag list, no matching entry carrying any listed object is an error.
-        if (query.tagList() != null && anyMatch && !anyListedPresent) {
+        if (tagList != null && anyMatch && !anyListedPresent) {
             ISOException.throwIt(SW_REFERENCED_DATA_NOT_FOUND);
         }
         return TLV.encode(templates);

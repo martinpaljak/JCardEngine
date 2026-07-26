@@ -88,8 +88,9 @@ public class GlobalPlatformEngine {
         var pkg = lookup(packageAid);
         if (pkg == null || !pkg.getModules().containsKey(appletAid)) {
             loadClass(packageAid, appletAid, appletClass, null);
+            pkg = lookup(packageAid);
         }
-        return lookup(packageAid);
+        return pkg;
     }
 
     // Register a built-in load file at boot (e.g. SD code) targetable via INSTALL [for install].
@@ -164,11 +165,7 @@ public class GlobalPlatformEngine {
     }
 
     // Called before the entry is removed. Restores spec-defaulted privileges to their fallback (the ISD).
-    public void remove(AID aid) {
-        var deleted = registry.get(aid);
-        if (deleted == null) {
-            throw new IllegalStateException("Not present in registry: " + aid);
-        }
+    public void remove(EngineRegistryEntry deleted) {
         if (deleted.getKind() == Kind.ISD) {
             throw new IllegalStateException("ISD cannot be deleted");
         }
@@ -181,7 +178,7 @@ public class GlobalPlatformEngine {
             RegistryPolicy.grant(isd, Privilege.FinalApplication);
         }
         // GPC v2.3.1 Amd C 7.1: Contactless Activation has no default holder; falls back to 6982.
-        registry.remove(aid);
+        registry.remove(deleted.getAID());
         // GPC v2.3.1 Amd C 3.11.2.3: a DELETE increments the global update counter.
         bumpUpdateCounter();
     }
@@ -305,17 +302,15 @@ public class GlobalPlatformEngine {
     // Directly or indirectly associated: walk the entry's associated-SD chain (ISD is self-parented).
     private static boolean associatedTo(EngineRegistryEntry entry, EngineRegistryEntry sd) {
         AID sdAID = sd.getAID();
-        for (var p = entry.getParentSD(); p != null; ) {
-            if (p.getAID().equals(sdAID)) {
-                return true;
-            }
+        var p = entry.getParentSD();
+        while (!p.getAID().equals(sdAID)) {
             var parent = p.getParentSD();
             if (parent == p) {
-                break;
+                return false;
             }
             p = parent;
         }
-        return false;
+        return true;
     }
 
     public EngineSecureChannel getSecureChannel() {

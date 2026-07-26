@@ -366,8 +366,7 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
     @Override
     public boolean isPrivileged(byte b) {
         checkAlive();
-        Privilege p = GPPrivilege.toPrivilege(b);
-        return p != null && privileges.contains(p);
+        return privileges.contains(GPPrivilege.toPrivilege(b));
     }
 
     EnumSet<Privilege> getPrivileges() {
