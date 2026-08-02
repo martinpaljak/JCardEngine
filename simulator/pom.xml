@@ -14,6 +14,7 @@
         <javacard.version>3.0.5</javacard.version>
         <globalplatform.version>1.8</globalplatform.version>
         <globalplatform.contactless.version>1.4</globalplatform.contactless.version>
+        <globalplatform.broker.version>1.1</globalplatform.broker.version>
         <coverage.dir>${project.basedir}/../coverage</coverage.dir>
     </properties>
 
@@ -37,6 +38,13 @@
             <groupId>org.globalplatform</groupId>
             <artifactId>contactless</artifactId>
             <version>${globalplatform.contactless.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.globalplatform</groupId>
+            <artifactId>broker</artifactId>
+            <version>${globalplatform.broker.version}</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
@@ -170,6 +178,20 @@
                             <file>gpapi-contactless_${globalplatform.contactless.version}.jar</file>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>globalplatform-broker</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.globalplatform</groupId>
+                            <artifactId>broker</artifactId>
+                            <version>${globalplatform.broker.version}</version>
+                            <packaging>jar</packaging>
+                            <file>gpapi-broker_${globalplatform.broker.version}.jar</file>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <!-- Extract java card API classes -->
@@ -229,6 +251,26 @@
                                     <groupId>org.globalplatform</groupId>
                                     <artifactId>contactless</artifactId>
                                     <version>${globalplatform.contactless.version}</version>
+                                    <type>jar</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                                    <includes>**/*.class</includes>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>globalplatform-broker</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.globalplatform</groupId>
+                                    <artifactId>broker</artifactId>
+                                    <version>${globalplatform.broker.version}</version>
                                     <type>jar</type>
                                     <overWrite>true</overWrite>
                                     <outputDirectory>${project.build.directory}/classes</outputDirectory>

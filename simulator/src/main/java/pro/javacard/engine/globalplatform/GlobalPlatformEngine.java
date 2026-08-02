@@ -234,6 +234,28 @@ public class GlobalPlatformEngine {
         return selectable(lookup(aid));
     }
 
+    // GPC v2.3.1 8.1.2: find the Global Services Application providing a service name.
+    public EngineRegistryEntry resolveService(AID serverAID, short sServiceName) {
+        if (serverAID == null) {
+            // Registry order decides when a family name has several matches: GP API 1.8 GPSystem.getService
+            // leaves that search strategy to the implementation.
+            return getApplets().stream().filter(e -> e.hasRegisteredService(sServiceName)).findFirst().orElse(null);
+        }
+        var entry = selectable(lookup(serverAID));
+        if (entry == null) {
+            return null;
+        }
+        if (!entry.isPrivileged(GPRegistryEntry.PRIVILEGE_GLOBAL_SERVICE)) {
+            log.warn("getService denied, Global Service privilege required: {}", serverAID);
+            return null;
+        }
+        if (!entry.offersService(sServiceName)) {
+            log.warn("getService denied, service name not offered: {}", serverAID);
+            return null;
+        }
+        return entry;
+    }
+
     // The org.globalplatform registry API exposes selectable entries only - never ELFs (Kind.PKG).
     private static EngineRegistryEntry selectable(EngineRegistryEntry e) {
         return e != null && e.getKind() != Kind.PKG ? e : null;

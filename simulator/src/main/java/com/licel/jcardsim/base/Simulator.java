@@ -479,7 +479,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     byte[] _transceive(byte protocol, byte[] command) throws SystemException {
         command_counter++;
 
-        log.info("Processing command #{}", command_counter);
+        log.debug("Processing command #{}", command_counter);
         // Reset faults
         correct();
 
@@ -496,7 +496,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             }
         }
 
-        try (var sim = asCurrent()) {
+        // try-with-resources solely to trigger close()
+        try (var ignored = asCurrent()) {
             // Set before the applet's select() runs, so getProtocol() reports the command's interface.
             currentAPDU.protocol = protocol;
             if (command_counter == 1) {
@@ -786,20 +787,30 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     @Override
     public Shareable getSharedObject(AID serverAID, byte parameter) {
         log.info("Getting Shareable from {} in {}", serverAID, System.identityHashCode(this));
+        // JC API: null if serverAID is null; avoids an NPE from getApplet.
+        if (serverAID == null) {
+            return null;
+        }
+        var entry = globalPlatform.lookup(serverAID);
+        if (entry == null) {
+            log.warn("Did not find server AID {} in {}", serverAID, System.identityHashCode(this));
+            return null;
+        }
+        return getSharedObject(entry, parameter);
+    }
+
+    // Same fetch for a caller that already holds the server's entry, e.g. the Global Service lookup.
+    public Shareable getSharedObject(EngineRegistryEntry entry, byte parameter) {
+        var serverAID = entry.getAID();
         // JC API: null if the calling applet has not yet invoked Applet.register(), which is exactly
         // the frame that has no owner.
         if (getAID() == null) {
             log.warn("getShareableInterfaceObject before caller register(): {}", serverAID);
             return null;
         }
-        // JC API: null if serverAID is null (must not propagate as NPE from getApplet).
-        if (serverAID == null) {
-            return null;
-        }
-        var entry = globalPlatform.lookup(serverAID);
-        var serverApplet = entry == null ? null : entry.getApplet();
+        var serverApplet = entry.getApplet();
         if (serverApplet == null) {
-            log.warn("Did not find server AID {} in {}", serverAID, System.identityHashCode(this));
+            log.warn("Server {} has no applet in {}", serverAID, System.identityHashCode(this));
             return null;
         }
         // JC API: null if the server applet throws an uncaught exception.

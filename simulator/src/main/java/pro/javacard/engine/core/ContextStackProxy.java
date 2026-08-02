@@ -55,7 +55,13 @@ public class ContextStackProxy {
         }
         stack.push(server);
         try {
-            return method.invoke(shareable, args);
+            var result = method.invoke(shareable, args);
+            // An SIO returned across the boundary belongs to the server: wrap it so later calls
+            // switch context to the server too. Skip results already wrapped; they name their own owner.
+            if (result instanceof Shareable sio && !Proxy.isProxyClass(sio.getClass())) {
+                return wrap0(server, stack, sio, platform);
+            }
+            return result;
         } catch (InvocationTargetException e) {
             var real = e.getTargetException();
             if (real instanceof CardException ce) {

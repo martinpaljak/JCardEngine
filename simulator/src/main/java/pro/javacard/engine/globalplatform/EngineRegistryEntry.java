@@ -390,11 +390,14 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         if (!privileges.contains(Privilege.GlobalService)) {
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
-        if (!installedServices.isEmpty() && !matchesRecorded(sServiceName)) {
+        if (!offersService(sServiceName)) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
         for (var e : Simulator.current().gp().getApplets()) {
-            if (e != this && e.registeredServices.contains(sServiceName)) {
+            if (e == this) {
+                continue;
+            }
+            if (e.hasRegisteredService(sServiceName)) {
                 ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             }
         }
@@ -413,14 +416,35 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         }
     }
 
-    // GPC v2.3.1 8.1.1: requested name matches a recorded one exactly, or a recorded family-only
-    // (id byte 00) name covers any requested name with the same family byte.
-    private boolean matchesRecorded(short requested) {
-        if (installedServices.contains(requested)) {
+    // GPC v2.3.1 8.1.2 lookup and 8.1.1 uniqueness ask whether two names collide at all, with neither
+    // side privileged over the other.
+    static boolean matches(short a, short b) {
+        return covers(a, b) || covers(b, a);
+    }
+
+    // GPC v2.3.1 8.1.3: a service name is a family byte plus an id byte, and an id of 00 stands for
+    // the whole family. Directional: a family name covers every id in it, never the other way round.
+    static boolean covers(short name, short requested) {
+        if (name == requested) {
             return true;
         }
-        short family = (short) (requested & 0xFF00);
-        return installedServices.contains(family);
+        if ((name & 0x00FF) != 0) {
+            return false;
+        }
+        return (name & 0xFF00) == (requested & 0xFF00);
+    }
+
+    // The name is uniquely registered here: lookup without an AID (GPC v2.3.1 8.1.2) and the collision
+    // another Application's registration must avoid (8.1.1), which are the same question.
+    boolean hasRegisteredService(short requested) {
+        return registeredServices.stream().anyMatch(registered -> matches(registered, requested));
+    }
+
+    // Recorded CB names bound what this Application offers, for lookup by AID (GPC v2.3.1 8.1.2) and for
+    // what it may register (8.1.1). With none recorded the search cannot fail on the name (GP API 1.8
+    // GPSystem.getService).
+    boolean offersService(short requested) {
+        return installedServices.isEmpty() || installedServices.stream().anyMatch(recorded -> covers(recorded, requested));
     }
 
     // Install-path recorder for CB Global Service Parameters (GPC v2.3.1 8.1.1): NOT uniqueness-checked.

@@ -8,6 +8,7 @@ import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
+import pro.javacard.engine.testapplets.GlobalPlatformTestApplet;
 import pro.javacard.engine.testapplets.GlobalServiceTestApplet;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
 import pro.javacard.gp.GPSession;
@@ -23,25 +24,32 @@ import static pro.javacard.engine.globalplatform.GPTestUtils.openIsd;
 public class GlobalServiceRegistrationTest {
 
     private static final AID PKG = AIDUtil.create("01020304050607080F");
+    private static final AID PKG_B = AIDUtil.create("01020304050607081F");
     private static final AID A = GPTestUtils.test_aid("9001");
     private static final AID B = GPTestUtils.test_aid("9002");
+    private static final AID C = GPTestUtils.test_aid("9003");
+    private static final AID D = GPTestUtils.test_aid("9004");
 
     private static final byte SVC_CLA = (byte) 0x80;
     private static final byte SVC_INS = (byte) 0xEE;
     private static final byte P1_REGISTER = (byte) 0x01;
     private static final byte P1_DEREGISTER = (byte) 0x02;
+    private static final byte P1_GET_SERVICE = (byte) 0x03;
+    private static final byte P1_OBSERVED = (byte) 0x04;
 
     // GPC v2.3.1 8.1.3: 0x8101 = GP Secure Channel family, id 01; 0x8100 = the family-only form.
     private static final byte[] SVC_8101 = {(byte) 0x81, 0x01};
     private static final byte[] SVC_8102 = {(byte) 0x81, 0x02};
     private static final byte[] SVC_8100 = {(byte) 0x81, 0x00};
+    // GPC Amd J v1.1 3.2: SERVICE_BROKER_CDCVM, the broker family 88 with id 01.
+    private static final byte[] SVC_8801 = {(byte) 0x88, 0x01};
 
     // No CB recorded: any service name may be registered, then deregistered (8.1.1).
     @Test
     public void registerWithoutInstalledNames() throws Exception {
         var sim = engine(A);
         try (var bibo = sim.connect()) {
-            install(openIsd(bibo), A, null);
+            install(openIsd(bibo), PKG, A, null);
         }
         try (var bibo = sim.connect()) {
             assertOk(register(bibo, A, SVC_8101));
@@ -73,7 +81,7 @@ public class GlobalServiceRegistrationTest {
     public void installedNameConstrainsRegistration() throws Exception {
         var sim = engine(A);
         try (var bibo = sim.connect()) {
-            install(openIsd(bibo), A, SVC_8101);
+            install(openIsd(bibo), PKG, A, SVC_8101);
         }
         try (var bibo = sim.connect()) {
             assertOk(register(bibo, A, SVC_8101));
@@ -88,7 +96,7 @@ public class GlobalServiceRegistrationTest {
     public void familyOnlyRecordMatchesAnyId() throws Exception {
         var sim = engine(A);
         try (var bibo = sim.connect()) {
-            install(openIsd(bibo), A, SVC_8100);
+            install(openIsd(bibo), PKG, A, SVC_8100);
         }
         try (var bibo = sim.connect()) {
             assertOk(register(bibo, A, SVC_8101));
@@ -99,14 +107,14 @@ public class GlobalServiceRegistrationTest {
     }
 
     // Cross-entry uniqueness: a name uniquely registered by A cannot be registered by B (8.1.1
-    // step c); after A deregisters, B may register it.
+    // step c); after A deregisters, B may register it. Families collide in both directions.
     @Test
     public void uniquenessAcrossEntries() throws Exception {
         var sim = engine(A, B);
         try (var bibo = sim.connect()) {
             var gp = openIsd(bibo);
-            install(gp, A, null);
-            install(gp, B, null);
+            install(gp, PKG, A, null);
+            install(gp, PKG, B, null);
         }
         try (var bibo = sim.connect()) {
             assertOk(register(bibo, A, SVC_8101));
@@ -119,6 +127,73 @@ public class GlobalServiceRegistrationTest {
         }
         try (var bibo = sim.connect()) {
             assertOk(register(bibo, B, SVC_8101));
+        }
+        // B holds 8101, so A cannot take the whole 81 family (GP API 1.8 registerService: a family name
+        // requires that no service name of that family is registered).
+        try (var bibo = sim.connect()) {
+            assertSw(0x6985, register(bibo, A, SVC_8100));
+        }
+        try (var bibo = sim.connect()) {
+            assertOk(deregister(bibo, B, SVC_8101));
+        }
+        try (var bibo = sim.connect()) {
+            assertOk(register(bibo, A, SVC_8100));
+        }
+        // A holds the whole 81 family, so no specific id in it is available to B.
+        try (var bibo = sim.connect()) {
+            assertSw(0x6985, register(bibo, B, SVC_8102));
+        }
+    }
+
+    @Test
+    public void accessGlobalService() throws Exception {
+        var sim = new JavaCardEngine.Builder().build();
+        sim.loadApplet(PKG, A, GlobalServiceTestApplet.class);
+        sim.loadApplet(PKG, C, GlobalServiceTestApplet.class);
+        // B loads from its own package: applets of one package share a context (JCRE 3.2 6.1.2), and a
+        // call between them would switch nothing.
+        sim.loadApplet(PKG_B, B, GlobalServiceTestApplet.class);
+        // D is privileged but answers the SIO fetch with an applet that is no Global Services Application.
+        sim.loadApplet(PKG, D, GlobalPlatformTestApplet.class);
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
+            install(gp, PKG, A, SVC_8801);
+            install(gp, PKG_B, B, null);
+            gp.installAndMakeSelectable(gpAID(PKG), gpAID(C), gpAID(C), EnumSet.noneOf(Privilege.class), new byte[0]);
+            install(gp, PKG, D, null);
+        }
+        try (var bibo = sim.connect()) {
+            assertOk(register(bibo, A, SVC_8801));
+        }
+        // A uniquely registered name resolves without an AID (GPC v2.3.1 8.1.2); pulls the CDCVM SIO from the result.
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8801, null), new byte[]{1, 1});
+        }
+        // Same service named by AID: 8801 is recorded for A.
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8801, A), new byte[]{1, 1});
+        }
+        // Nobody registered 8101.
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8101, null), new byte[]{0, 0});
+        }
+        // A recorded 8801 only, so 8101 is not among its names.
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8101, A), new byte[]{0, 0});
+        }
+        // C answers with a GlobalService SIO but holds no Global Service privilege.
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8801, C), new byte[]{0, 0});
+        }
+        // D passes both registry checks but hands back an SIO that is no GlobalService (GP API 1.8
+        // GPSystem.getService returns null when the Application provides no GlobalService instance).
+        try (var bibo = sim.connect()) {
+            assertEquals(getService(bibo, B, SVC_8801, D), new byte[]{0, 0});
+        }
+        // The pulled SIO belongs to A, so A runs its own context and sees B as the previous one
+        // (JCRE 3.2 6.2.5), even though B is the one invoking it.
+        try (var bibo = sim.connect()) {
+            assertEquals(call(bibo, A, P1_OBSERVED, new byte[0]), AIDUtil.bytes(B));
         }
     }
 
@@ -134,7 +209,7 @@ public class GlobalServiceRegistrationTest {
 
     // INSTALL the service applet with the Global Service privilege; optional CB Global Service
     // Parameters in the EF block. Leading empty C9 stops GPSession from re-wrapping the payload.
-    private static void install(GPSession gp, AID aid, byte[] cbName) throws Exception {
+    private static void install(GPSession gp, AID pkg, AID aid, byte[] cbName) throws Exception {
         byte[] params;
         if (cbName == null) {
             params = new byte[0];
@@ -142,7 +217,7 @@ public class GlobalServiceRegistrationTest {
             var ef = TLV.build(0xEF).add(0xCB, cbName);
             params = TLV.encode(TLV.of(0xC9, new byte[0]), ef);
         }
-        gp.installAndMakeSelectable(gpAID(PKG), gpAID(aid), gpAID(aid), EnumSet.of(Privilege.GlobalService), params);
+        gp.installAndMakeSelectable(gpAID(pkg), gpAID(aid), gpAID(aid), EnumSet.of(Privilege.GlobalService), params);
     }
 
     private static byte[] register(BIBO bibo, AID aid, byte[] name) {
@@ -151,6 +226,18 @@ public class GlobalServiceRegistrationTest {
 
     private static byte[] deregister(BIBO bibo, AID aid, byte[] name) {
         return call(bibo, aid, P1_DEREGISTER, name);
+    }
+
+    // A null provider asks for a uniquely registered name; otherwise the AID follows the name.
+    private static byte[] getService(BIBO bibo, AID aid, byte[] name, AID provider) {
+        if (provider == null) {
+            return call(bibo, aid, P1_GET_SERVICE, name);
+        }
+        var providerAID = AIDUtil.bytes(provider);
+        var data = new byte[name.length + providerAID.length];
+        System.arraycopy(name, 0, data, 0, name.length);
+        System.arraycopy(providerAID, 0, data, name.length, providerAID.length);
+        return call(bibo, aid, P1_GET_SERVICE, data);
     }
 
     private static byte[] call(BIBO bibo, AID aid, byte p1, byte[] name) {

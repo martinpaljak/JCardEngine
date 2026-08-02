@@ -65,6 +65,9 @@ public interface JavaCardRuntime {
 
     Shareable getSharedObject(AID serverAID, byte parameter);
 
+    // Same fetch for a caller holding the server's entry, e.g. the Global Service lookup.
+    Shareable getSharedObject(EngineRegistryEntry entry, byte parameter);
+
     // Platform-context SIO fetch (null clientAID = system/CRS/OPEN). GPC v2.3.1 Amd C 3.10.
     Shareable getSystemSharedObject(AID serverAID, byte parameter);
 

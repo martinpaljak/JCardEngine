@@ -37,8 +37,15 @@ public class GPSystemProxy {
         return Simulator.current().gp().getRegistryEntry(reqAID);
     }
 
+    // GPC v2.3.1 8.1.2 resolves the Global Services Application; GP API 1.8 GPSystem.getService then
+    // fetches its SIO with getShareableInterfaceObject(clientAID, GLOBAL_SERVICE_IDENTIFIER).
     public static GlobalService getService(AID serverAID, short sServiceName) {
-        return null;
+        var entry = Simulator.current().gp().resolveService(serverAID, sServiceName);
+        if (entry == null) {
+            return null;
+        }
+        var sio = Simulator.current().getSharedObject(entry, GPSystem.GLOBAL_SERVICE_IDENTIFIER);
+        return sio instanceof GlobalService service ? service : null;
     }
 
     public static boolean lockCard() {
