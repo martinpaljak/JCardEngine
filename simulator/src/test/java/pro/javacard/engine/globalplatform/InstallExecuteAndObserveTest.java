@@ -200,6 +200,68 @@ public class InstallExecuteAndObserveTest {
     }
 
     @Test
+    public void secureChannelApiContract() throws Exception {
+        var sim = freshEngine();
+        try (var bibo = sim.connect()) {
+            var gp = GPTestUtils.openIsd(bibo);
+            installWith(gp, A, EnumSet.noneOf(Privilege.class), ID_A);
+        }
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, A);
+            var idle = probeSecureChannel(bibo);
+            // no session: unwrap leaves the command alone and returns its length, header only here
+            assertEquals(idle[0], 5);
+            // wrap returns the data without the status bytes the applet appended, SecureChannel.wrap
+            assertEquals(idle[1], 4);
+            // no sensitive data encryption mechanism, SecureChannel.encryptData
+            assertEquals(idle[2], 0x6982);
+            // a null buffer is a NullPointerException even on the path that never touches it
+            assertEquals(idle[3], 0xFFFF);
+        }
+        try (var bibo = sim.connect()) {
+            var gp = GPSession.connect(bibo, gpAID(A));
+            gp.openSecureChannel(PlaintextKeys.defaultKey(), null, null, EnumSet.of(GPSession.APDUMode.MAC));
+            // a command arriving without the C-MAC the session negotiated aborts it, GPC v2.3.1 10.2.3
+            assertEquals(probeSecureChannel(bibo)[0], 0x6982);
+            var stuck = probeSecureChannel(bibo);
+            // the aborted session keeps rejecting both directions until it is terminated
+            assertEquals(stuck[0], 0x6985);
+            assertEquals(stuck[1], 0x6985);
+            // selecting terminates it, and unwrap is back to passing commands through
+            selectAID(bibo, A);
+            assertEquals(probeSecureChannel(bibo)[0], 5);
+        }
+        try (var bibo = sim.connect()) {
+            selectAID(bibo, SecurityDomainApplet.OPEN_AID);
+            // S16 lengths: 16-byte host challenge, 32-byte host cryptogram plus C-MAC
+            assertEquals(bibo.transmit(new CommandAPDU(0x80, 0x50, 0x00, 0x00, new byte[16])).getSW(), 0x9000);
+            // EXTERNAL AUTHENTICATE with a bad C-MAC aborts, GPC v2.3.1 10.2.3
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0x82, 0x03, 0x00, new byte[32])).getSW(), 0x6982);
+            // and the abort drops the session keys, so the next one has no INITIALIZE UPDATE to build
+            // on (GPC v2.3.1 E.5.2.1) instead of authenticating under an all-zero key
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0x82, 0x03, 0x00, new byte[32])).getSW(), 0x6985);
+        }
+        var scp02 = new JavaCardEngine.Builder().withSCP(new SCPConfig.SCP02()).build();
+        try (var bibo = scp02.connect()) {
+            var gp = GPTestUtils.openIsd(bibo, EnumSet.of(GPSession.APDUMode.ENC));
+            // Garbage in place of a cryptogram: SCP02 has to decrypt before it can check the C-MAC, so
+            // this is a security error, not an unmapped exception.
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0xE4, 0x00, 0x00, new byte[16])).getSW(), 0x6982);
+            // and it aborted the session rather than leaving it open with a desynchronized ICV
+            assertEquals(gp.transmit(new CommandAPDU(0x80, 0xF2, 0x80, 0x02, new byte[]{0x4F, 0x00}, 256)).getSW(), 0x6982);
+        }
+        try (var bibo = sim.connect()) {
+            var gp = GPTestUtils.openIsd(bibo);
+            var status = new CommandAPDU(0x80, 0xF2, 0x80, 0x02, new byte[]{0x4F, 0x00}, 256);
+            assertEquals(gp.transmit(status).getSW(), 0x9000);
+            // a secure messaging command too short to carry the C-MAC is a security error, not a crash
+            assertEquals(bibo.transmit(new CommandAPDU(0x84, 0xE4, 0x00, 0x00, new byte[]{0x4F, 0x00})).getSW(), 0x6982);
+            // and it took the session down with it, so the same wrapped GET STATUS no longer passes
+            assertEquals(gp.transmit(status).getSW(), 0x6982);
+        }
+    }
+
+    @Test
     public void getDataUnknownTagRejected() throws Exception {
         var sim = freshEngine();
         try (var bibo = sim.connect()) {
@@ -359,6 +421,18 @@ public class InstallExecuteAndObserveTest {
     private static void selectAID(BIBO bibo, AID aid) {
         var r = bibo.transmit(new CommandAPDU(0x00, 0xA4, 0x04, 0x00, AIDUtil.bytes(aid), 256));
         assertEquals(r.getSW(), 0x9000);
+    }
+
+    // INS_SC_CONTRACT response is four shorts: what unwrap, wrap, encryptData and wrap(null) answered.
+    private static int[] probeSecureChannel(BIBO bibo) {
+        var r = bibo.transmit(new CommandAPDU(0x00, GlobalPlatformTestApplet.INS_SC_CONTRACT, 0x00, 0x00, 256));
+        assertEquals(r.getSW(), 0x9000);
+        var data = r.getData();
+        var out = new int[data.length / 2];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (data[2 * i] & 0xFF) << 8 | (data[2 * i + 1] & 0xFF);
+        }
+        return out;
     }
 
     // INS_SIO_AIDS response is [len][own AID][len][clientAID], returned as (own, client).

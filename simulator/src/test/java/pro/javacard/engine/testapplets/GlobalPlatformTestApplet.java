@@ -30,6 +30,7 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
     public static final byte INS_QUERY_SELF = (byte) 0xCB;    // GPSystem.getRegistryEntry(null)
     public static final byte INS_QUERY_PRIVS = (byte) 0x0B;   // getRegistryEntry(null).getPrivileges(buf, off)
     public static final byte INS_SIO_AIDS = (byte) 0x0C; // AIDs captured during getShareableInterfaceObject
+    public static final byte INS_SC_CONTRACT = (byte) 0x0D; // SecureChannel unwrap/wrap/encryptData outcomes
     // Global PIN CVM driver. P1 sub-op: 0 status, 1 setTryLimit(P2), 2 update, 3 verify, 4 block,
     // 5 resetAndUnblock, 6 reset. P2 carries the CVM format (0 -> FORMAT_HEX) for update/verify.
     public static final byte INS_CVM = (byte) 0x66;
@@ -290,6 +291,48 @@ public final class GlobalPlatformTestApplet extends Applet implements IdentitySh
                 case INS_PERSO_PREVAID: {
                     Util.arrayCopyNonAtomic(persoPrevAID, (short) 0, buffer, (short) 0, persoPrevAIDLen);
                     apdu.setOutgoingAndSend((short) 0, persoPrevAIDLen);
+                    return;
+                }
+                case INS_SC_CONTRACT: {
+                    // What the SecureChannel answers for a command carrying no secure messaging:
+                    // unwrap length, wrap length, encryptData outcome. A status word thrown by any of
+                    // them is reported in place of the length.
+                    SecureChannel sc = GPSystem.getSecureChannel();
+                    short inlen = apdu.setIncomingAndReceive();
+                    short cmdlen = (short) (apdu.getOffsetCdata() + inlen);
+                    short unwrapRc;
+                    try {
+                        unwrapRc = sc.unwrap(buffer, (short) 0, cmdlen);
+                    } catch (ISOException e) {
+                        unwrapRc = e.getReason();
+                    }
+                    // wrap() input: four data bytes plus the status bytes an application appends for it to protect
+                    Util.arrayFillNonAtomic(buffer, (short) 32, (short) 4, (byte) 0x5A);
+                    Util.setShort(buffer, (short) 36, (short) 0x9000);
+                    short wrapRc;
+                    try {
+                        wrapRc = sc.wrap(buffer, (short) 32, (short) 6);
+                    } catch (ISOException e) {
+                        wrapRc = e.getReason();
+                    }
+                    short encRc;
+                    try {
+                        encRc = sc.encryptData(buffer, (short) 32, (short) 16);
+                    } catch (ISOException e) {
+                        encRc = e.getReason();
+                    }
+                    // wrap() over a null buffer, reported as 0xFFFF when it threw NullPointerException
+                    short nullRc = (short) 0xFFFF;
+                    try {
+                        nullRc = sc.wrap(null, (short) 0, (short) 6);
+                    } catch (NullPointerException e) {
+                        // reported as the sentinel above
+                    }
+                    Util.setShort(buffer, (short) 0, unwrapRc);
+                    Util.setShort(buffer, (short) 2, wrapRc);
+                    Util.setShort(buffer, (short) 4, encRc);
+                    Util.setShort(buffer, (short) 6, nullRc);
+                    apdu.setOutgoingAndSend((short) 0, (short) 8);
                     return;
                 }
                 case INS_SIO_AIDS: {

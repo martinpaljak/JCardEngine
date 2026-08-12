@@ -51,6 +51,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
         }
 
         byte[] buffer = apdu.getBuffer();
+        checkCLA(buffer[ISO7816.OFFSET_CLA]);
 
         if (buffer[ISO7816.OFFSET_INS] == INS_INITIALIZE_UPDATE) {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x80) {
@@ -88,18 +89,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             if (buffer[ISO7816.OFFSET_CLA] != (byte) 0x84) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
             }
-            // Validate P1
-            if ((buffer[ISO7816.OFFSET_P1] & (SecureChannel.AUTHENTICATED | SecureChannel.ANY_AUTHENTICATED)) != 0) {
-                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-            }
-            if ((buffer[ISO7816.OFFSET_P1] & ~(SecureChannel.C_MAC | SecureChannel.C_DECRYPTION | SecureChannel.R_MAC | SecureChannel.R_ENCRYPTION)) != 0) {
-                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-            }
-            // SCP03 Amendment D v1.2 7.1.2.3 Table 7-6: C-DECRYPTION implies C-MAC, R-ENCRYPTION implies R-MAC.
-            if (((buffer[ISO7816.OFFSET_P1] & SecureChannel.C_DECRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.C_MAC) == 0)
-                    || ((buffer[ISO7816.OFFSET_P1] & SecureChannel.R_ENCRYPTION) != 0 && (buffer[ISO7816.OFFSET_P1] & SecureChannel.R_MAC) == 0)) {
-                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-            }
+            checkSecurityLevel(buffer[ISO7816.OFFSET_P1]);
             if (buffer[ISO7816.OFFSET_P2] != 0x00) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
@@ -137,8 +127,8 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
         byte[] check = Arrays.copyOf(cmac, maclen);
         if (!Arrays.equals(check, mac)) {
             log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
-            resetSecurity();
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            abort();
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
     }
 
@@ -167,15 +157,22 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
     }
 
     @Override
-    public short wrap(byte[] bytes, short i, short i1) throws ISOException {
-        throw new UnsupportedOperationException("SecureChannel.wrap()");
-    }
-
-    @Override
     public short unwrap(byte[] bytes, short offset, short length) throws ISOException {
-        requireAuthenticated();
-        log.trace("Unwrapping ...");
+        checkBounds(bytes, offset, length);
+        rejectIfAborted();
+        // No session yet, or a session that protects no commands: nothing to strip.
+        if ((state & (SecureChannel.C_MAC | SecureChannel.C_DECRYPTION)) == 0) {
+            return length;
+        }
         final int maclen = s16 ? 16 : 8;
+        // SCP03 Amd D v1.2 5.6: the security of the command is checked regardless of its secure messaging
+        // indicator, so a command arriving without the negotiated protection aborts the session. That
+        // covers both a class byte with no secure messaging and a command too short to carry the C-MAC.
+        if ((bytes[offset + ISO7816.OFFSET_CLA] & 0x04) != 0x04 || length < ISO7816.OFFSET_CDATA + maclen) {
+            abort();
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+        }
+        log.trace("Unwrapping ...");
         byte[] cryptogram = Arrays.copyOfRange(bytes, offset + ISO7816.OFFSET_CDATA, offset + length - maclen);
 
         try {
@@ -183,7 +180,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 process_mac(bytes, offset, length);
             }
             log.trace("Cryptogram len={} {}", cryptogram.length, Hex.toHexString(cryptogram));
-            if ((bytes[offset + ISO7816.OFFSET_CLA] & 0x04) == 0x04 && (state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
+            if ((state & SecureChannel.C_DECRYPTION) == SecureChannel.C_DECRYPTION) {
                 // GPC v2.3.1 Amd D 6.2.6: increment the counter even with no data field, to stay
                 // in sync with GPPro's wrapper.
                 GPCrypto.buffer_increment(enc_counter);
@@ -200,11 +197,11 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             if ((state & SecureChannel.C_MAC) == SecureChannel.C_MAC) {
                 bytes[offset + ISO7816.OFFSET_LC] -= maclen;
             }
-            return (short) (offset + ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
+            return (short) (ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
         } catch (GeneralSecurityException e) {
             log.error("Decryption failed", e);
-            resetSecurity();
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            abort();
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             return 0;
         }
     }
@@ -225,8 +222,8 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             byte[] cmac = cmac(cla, ins, p1, p2, GPUtils.encodeLcLength(wrapped.length, 256), data);
             if (!Arrays.equals(Arrays.copyOf(cmac, maclen), mac)) {
                 log.error("MAC mismatch on reassembled chained command");
-                resetSecurity();
-                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                abort();
+                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             }
             body = data;
         }
@@ -239,8 +236,8 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 return decryptCommand(body);
             } catch (GeneralSecurityException e) {
                 log.error("Decryption failed", e);
-                resetSecurity();
-                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                abort();
+                ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
                 return null;
             }
         }
@@ -250,10 +247,10 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
     @Override
     public short decryptData(byte[] buffer, short offset, short length) throws ISOException {
         Objects.requireNonNull(buffer);
-        if (length % 16 != 0) {
+        requireAuthenticated();
+        if (length < 0 || length % 16 != 0) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
-        requireAuthenticated();
         try {
             // SCP03 uses static DEK
             byte[] result = GPCrypto.aes_cbc_decrypt(Arrays.copyOfRange(buffer, offset, offset + length), currentMasterKey.value(KeySet.KID_DEK), new byte[16]);
@@ -261,19 +258,16 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             return (short) result.length;
         } catch (GeneralSecurityException e) {
             log.error("Decrypt failed", e);
-            throw new RuntimeException(e);
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+            return 0;
         }
-    }
-
-    @Override
-    public short encryptData(byte[] bytes, short i, short i1) throws ISOException {
-        throw new UnsupportedOperationException("SecureChannel.encryptData()");
     }
 
     // ssc deliberately persists across sessions.
     @Override
     protected void wipeScpState() {
         zeroize(encKey, macKey, chaining, enc_counter);
+        ctx = null;
     }
 
     @Override
