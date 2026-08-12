@@ -63,6 +63,15 @@ public class ProtocolTest {
             assertEquals((short) response.getSW(), ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         }
 
+        // Type B carries its own media nibble over the same T=1
+        try (var conn = simulator.connect("T=CL,TYPE_B,T1")) {
+            var response = conn.transmit(new CommandAPDU(CLA, INS_INFO, 0, 0));
+            assertEquals(response.getData()[0], APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B | APDU.PROTOCOL_T1);
+        }
+
+        // connect() refuses an unusable protocol before taking the card lock
+        assertThrows(IllegalArgumentException.class, () -> simulator.connect("T=42"));
+
         // After a contactless session, selecting on a contact session: select() must observe the
         // contact interface, not the previous contactless protocol. The applet rejects a SELECT
         // whose select()-time protocol differs from process()-time, so 9000 proves it matched.

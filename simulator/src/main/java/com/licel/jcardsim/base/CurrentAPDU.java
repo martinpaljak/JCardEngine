@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.base;
 
-import com.licel.jcardsim.utils.ByteUtil;
+import apdu4j.core.CommandAPDU;
 import javacard.framework.APDU;
 import javacard.framework.APDUException;
 import javacard.framework.ISO7816;
@@ -655,64 +655,32 @@ public class CurrentAPDU {
         Arrays.fill(apdu_buffer, (byte) 0);
     }
 
+    // A zero Lc byte after the header introduces the extended form
+    // TODO: remove when apdu4j is updated, CommandAPDU.isExtended() covers this
+    static boolean isExtended(byte[] command) {
+        return command.length > 5 && command[ISO7816.OFFSET_LC] == 0;
+    }
+
     /**
      * clear internal state of the APDU
      */
-    void reset(byte[] inputBuffer) {
+    void reset(CommandAPDU command) {
         Arrays.fill(ramVars, (short) 0);
-        incoming_buffer = inputBuffer.clone();
+        incoming_buffer = command.getBytes();
 
         // Reset state
         state = APDU.STATE_INITIAL;
         noChaining = false;
         available = true; // make available as current APDU
-        int apduCase = APDUHelper.getAPDUCase(inputBuffer);
-        extended = APDUHelper.isExtendedAPDU(apduCase);
+        extended = isExtended(incoming_buffer);
 
         // Copy header
         // XXX: it shows how simulator messes with transport layering
-        System.arraycopy(incoming_buffer, 0, apdu_buffer, 0, apduCase == APDUHelper.CASE1 ? 4 : (extended ? 7 : 5));
+        System.arraycopy(incoming_buffer, 0, apdu_buffer, 0, Math.min(incoming_buffer.length, extended ? 7 : 5));
         current_pos = (short) (extended ? 7 : 5);
 
-        final short lc;
-        final short le;
-        switch (apduCase) {
-            case APDUHelper.CASE2: {
-                lc = (short) 0;
-                final byte leByte = incoming_buffer[ISO7816.OFFSET_LC];
-                le = leByte == 0 ? 256 : (short) (0xFF & leByte);
-                break;
-            }
-            case APDUHelper.CASE2_EXTENDED:
-                lc = (short) 0;
-                le = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
-                break;
-            case APDUHelper.CASE3:
-                lc = (short) (0xFF & incoming_buffer[ISO7816.OFFSET_LC]);
-                le = (short) 0;
-                break;
-            case APDUHelper.CASE3_EXTENDED:
-                lc = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
-                le = (short) 0;
-                break;
-            case APDUHelper.CASE4: {
-                lc = (short) (0xFF & incoming_buffer[ISO7816.OFFSET_LC]);
-                final byte leByte = incoming_buffer[ISO7816.OFFSET_CDATA + lc];
-                le = leByte == 0 ? 256 : (short) (0xFF & leByte);
-                break;
-            }
-            case APDUHelper.CASE4_EXTENDED:
-                lc = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 1);
-                le = ByteUtil.getShort(incoming_buffer, ISO7816.OFFSET_LC + 3 + lc);
-                break;
-            case APDUHelper.CASE1:
-            default:
-                lc = (short) 0;
-                le = (short) 0;
-                break;
-        }
-        ramVars[LC] = remaining_bytes = lc;
-        ramVars[LE] = le;
+        ramVars[LC] = remaining_bytes = (short) command.getNc();
+        ramVars[LE] = (short) command.getNe();
     }
 
     public APDU getAPDU() {

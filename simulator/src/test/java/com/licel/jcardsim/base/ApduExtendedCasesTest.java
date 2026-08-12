@@ -4,6 +4,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.CommandAPDU;
+import apdu4j.core.ResponseAPDU;
 import com.licel.jcardsim.samples.ApduExtendedCasesApplet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
@@ -120,6 +121,26 @@ public class ApduExtendedCasesTest {
             for (short i = 0; i < 256; i++) {
                 assertEquals(respData[i], (byte) 0x5a);
             }
+        }
+    }
+
+    @Test
+    public void malformedInputRejectedAtTheBoundary() {
+        Simulator instance = getReadySimulator();
+
+        try (var bibo = instance.connect()) {
+            // null is not a frame, so it is a bad argument rather than a card response
+            assertThrows(NullPointerException.class, () -> bibo.transceive(null));
+            // Lc announces 2 bytes and 4 follow: neither a case 3 (5+Lc) nor a case 4 (5+Lc+1) frame
+            assertEquals(new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS, 0, 0, 2, 1, 2, 3, 4})).getSW(), 0x6700);
+            // zero Lc byte promises a 3-byte extended Lc, but the header stops one byte short
+            assertEquals(new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS, 0, 0, 0, 0})).getSW(), 0x6700);
+            // extended Lc of zero cannot carry data
+            assertEquals(new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS, 0, 0, 0, 0, 0, 1, 2})).getSW(), 0x6700);
+            // shorter than the mandatory CLA INS P1 P2 header
+            assertEquals(new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS, 0})).getSW(), 0x6700);
+            // the card is untouched, so the first valid command still powers up and selects
+            assertEquals(bibo.transmit(AIDUtil.select(AIDUtil.create(appletAIDBytes))).getSW(), 0x9000);
         }
     }
 

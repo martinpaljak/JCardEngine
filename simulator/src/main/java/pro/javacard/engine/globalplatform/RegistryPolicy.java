@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.globalplatform;
 
-import com.licel.jcardsim.base.APDUHelper;
-import javacard.framework.AID;
-import javacard.framework.ISO7816;
+import apdu4j.core.CommandAPDU;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
@@ -58,14 +56,15 @@ public final class RegistryPolicy {
     // For [next occurrence] (GPC v2.3.1 6.4.2.1.2) the search resumes after the currently selected Application
     // (current), so a client can walk multiple partial matches; [first or only occurrence] starts from the start.
     // A LOCKED Application is not a valid by-name target (GPC v2.3.1 6.4.2.1.2): skip it and keep searching.
-    public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, byte[] selectApdu, int apduCase,
+    public static EngineRegistryEntry findAppletForSelectApdu(GlobalPlatformEngine gp, CommandAPDU select,
                                                               EngineRegistryEntry current, boolean nextOccurrence) {
-        if (apduCase == APDUHelper.CASE1 || apduCase == APDUHelper.CASE2) {
+        if (select.getNc() == 0) {
             // No data: select the ISD via the stable reference (its AID may have been re-keyed).
             log.info("Selecting OPEN");
             return gp.isd();
         }
-        byte lc = selectApdu[ISO7816.OFFSET_LC];
+        final byte[] aid = select.getData();
+        final byte lc = (byte) aid.length;
         if (nextOccurrence) {
             // Single ordered pass over the entries following current, returning the next full or partial match.
             boolean afterCurrent = current == null;
@@ -77,7 +76,7 @@ public final class RegistryPolicy {
                 if (e.isLocked()) {
                     continue;
                 }
-                if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+                if (!e.getAID().partialEquals(aid, (short) 0, lc)) {
                     continue;
                 }
                 log.trace("Selecting next occurrence: {}", e.getAID());
@@ -89,7 +88,7 @@ public final class RegistryPolicy {
             if (e.isLocked()) {
                 continue;
             }
-            if (!e.getAID().equals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+            if (!e.getAID().equals(aid, (short) 0, lc)) {
                 continue;
             }
             log.trace("Selecting on full AID match: {}", e.getAID());
@@ -99,7 +98,7 @@ public final class RegistryPolicy {
             if (e.isLocked()) {
                 continue;
             }
-            if (!e.getAID().partialEquals(selectApdu, ISO7816.OFFSET_CDATA, lc)) {
+            if (!e.getAID().partialEquals(aid, (short) 0, lc)) {
                 continue;
             }
             log.trace("Selecting on partial AID match: {}", e.getAID());

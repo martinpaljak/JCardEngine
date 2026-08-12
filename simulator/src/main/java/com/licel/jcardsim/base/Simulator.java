@@ -4,6 +4,7 @@
 package com.licel.jcardsim.base;
 
 import apdu4j.core.BIBO;
+import apdu4j.core.CommandAPDU;
 import pro.javacard.engine.core.DeterministicRandom;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.*;
@@ -477,6 +478,17 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     int command_counter = 0;
 
     byte[] _transceive(byte protocol, byte[] command) throws SystemException {
+        final CommandAPDU cmd;
+        try {
+            cmd = new CommandAPDU(command);
+        } catch (IllegalArgumentException e) {
+            // The card advances no state for a frame it cannot decode.
+            log.warn("Rejecting malformed command APDU: {}", e.getMessage());
+            final var theSW = new byte[2];
+            Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
+            return theSW;
+        }
+        final var extended = CurrentAPDU.isExtended(command);
         command_counter++;
 
         log.debug("Processing command #{}", command_counter);
@@ -508,7 +520,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 }
             }
             log.trace("APDU: {}", Hex.toHexString(command));
-            final var apduCase = APDUHelper.getAPDUCase(command);
             final var theSW = new byte[2];
             byte[] response;
 
@@ -523,12 +534,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             final Applet applet;
             final EngineRegistryEntry newEntry;
             // check if there is an applet to be selected
-            if (!APDUHelper.isExtendedAPDU(apduCase) && isAppletSelectionApdu(command)) {
+            if (!extended && isAppletSelectionApdu(command)) {
                 log.trace("Currently selected {}, looking up applet ...", selected);
                 // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after the selected one.
                 final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
-                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, command, apduCase, selected,
-                        nextOccurrence);
+                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, cmd, selected, nextOccurrence);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected
@@ -552,7 +562,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 newEntry = null;
             }
 
-            if (APDUHelper.isExtendedAPDU(apduCase)) {
+            if (extended) {
                 if (!(applet instanceof ExtendedLength)) {
                     Util.setShort(theSW, (short) 0, ISO7816.SW_WRONG_LENGTH);
                     return theSW;
@@ -570,7 +580,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                         throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
                     }
                 }
-                currentAPDU.reset(command);
+                currentAPDU.reset(cmd);
                 contextStack.push(selected);
                 applet.process(apdu);
                 Util.setShort(theSW, (short) 0, (short) 0x9000);
