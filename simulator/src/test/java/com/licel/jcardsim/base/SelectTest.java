@@ -165,16 +165,17 @@ public class SelectTest {
     }
 
     @Test
-    public void testPartialSelectWorks2() {
+    public void testSelectSearchesOnAValidAidOnly() {
         Simulator simulator = prepareSimulator();
 
         try (var bibo = simulator.connect()) {
-            // should select d0000cafe00001
-            bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00, new byte[]{(byte) 0xD0}));
+            // Shorter than an ISO 7816-5 RID: no AID matches, so the SELECT is dispatched to the ISD
+            var tooShort = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00, new byte[]{(byte) 0xD0}));
+            assertEquals(tooShort.getSW(), 0x6A82);
 
-            byte[] expected = Hex.decode("d0000cafe000019000");
-            var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
-            assertEquals(actual.getBytes(), expected);
+            // Longer than the 16-byte maximum, and past the point where the length truncates to a byte
+            var tooLong = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00, new byte[200]));
+            assertEquals(tooLong.getSW(), 0x6A82);
         }
     }
 

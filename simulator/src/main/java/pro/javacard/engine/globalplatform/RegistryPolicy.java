@@ -65,6 +65,11 @@ public final class RegistryPolicy {
             return List.of(gp.isd());
         }
         final byte[] aid = select.getData();
+        // A search string that is not an AID (ISO 7816-5: 5..16 bytes) matches nothing.
+        if (aid.length < 5 || aid.length > 16) {
+            log.warn("Not an AID: {} bytes", aid.length);
+            return List.of();
+        }
         final var candidates = new ArrayList<EngineRegistryEntry>();
         boolean afterCurrent = !nextOccurrence || current == null;
         // The registry is AID-ordered, so a full match precedes every AID extending it: one pass suffices.
