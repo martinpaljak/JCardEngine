@@ -542,9 +542,10 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 newEntry = candidates.isEmpty() ? null : candidates.get(0);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
-                    // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected
-                    // and the SELECT is dispatched to it; with nothing selected the OPEN returns 6A82.
-                    if (selected == null) {
+                    // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected and
+                    // the SELECT is dispatched to it. An exhausted [next occurrence] is answered by the OPEN
+                    // instead (GPC v2.3.1 Amd C 6.7), as is a miss with nothing selected.
+                    if (nextOccurrence || selected == null) {
                         Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
                         return theSW;
                     }
