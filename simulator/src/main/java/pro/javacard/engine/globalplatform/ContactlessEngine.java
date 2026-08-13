@@ -193,7 +193,7 @@ public final class ContactlessEngine {
         return false;
     }
 
-    static byte applyCLState(EngineRegistryEntry cl, CLState newState) {
+    public static byte applyCLState(EngineRegistryEntry cl, CLState newState) {
         if (cl.internalApplyCLState(newState.value)) {
             log.info("{} -> {}", cl.getAID(), newState);
             cl.bumpUpdateCounter();

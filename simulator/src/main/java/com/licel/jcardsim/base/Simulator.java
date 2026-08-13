@@ -19,6 +19,8 @@ import pro.javacard.engine.core.DependencyAnalyzer;
 import pro.javacard.engine.core.Faulty;
 import pro.javacard.engine.core.IsolatingClassReloader;
 import pro.javacard.engine.faulty.FaultyConfig;
+import pro.javacard.engine.globalplatform.CLState;
+import pro.javacard.engine.globalplatform.ContactlessEngine;
 import pro.javacard.engine.globalplatform.Context;
 import pro.javacard.engine.globalplatform.EngineRegistryEntry;
 import pro.javacard.engine.globalplatform.GlobalPlatformEngine;
@@ -537,7 +539,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 log.trace("Currently selected {}, looking up applet ...", selected);
                 // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after the selected one.
                 final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
-                var candidates = RegistryPolicy.findSelectCandidates(globalPlatform, cmd, selected, nextOccurrence);
+                var candidates = RegistryPolicy.findSelectCandidates(globalPlatform, cmd, selected, nextOccurrence, isContactless(protocol));
                 // GPC v2.3.1 6.4.2.1.2: a match that refuses selection does not end the search.
                 boolean accepted = false;
                 for (var candidate : candidates) {
@@ -621,6 +623,13 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         } else {
             log.warn("{}: {}", message, e.getClass().getSimpleName(), e);
         }
+    }
+
+    // The media nibble of the JC protocol byte, whatever the transport protocol below it.
+    static boolean isContactless(byte protocol) {
+        final var media = (byte) (protocol & APDU.PROTOCOL_MEDIA_MASK);
+        return media == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A || media == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B
+                || media == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_F;
     }
 
     static boolean isAppletSelectionApdu(byte[] apdu) {
@@ -1013,7 +1022,11 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             // Install as the ISD, so install() sees getPreviousContextAID() == ISD like a GP install.
             contextStack.push(globalPlatform.isd());
             try {
-                return internalInstallApplet(appletAID, appletClass, null, parameters, exposed, pkg).getAID();
+                var entry = internalInstallApplet(appletAID, appletClass, null, parameters, exposed, pkg);
+                // This path carries no INSTALL parameters to ask for contactless activation with, so the
+                // applet is born ACTIVATED and is reachable on either interface.
+                ContactlessEngine.applyCLState(entry, CLState.ACTIVATED);
+                return entry.getAID();
             } finally {
                 contextStack.pop();
             }

@@ -3,6 +3,7 @@
 package pro.javacard.engine.globalplatform;
 
 import apdu4j.core.CommandAPDU;
+import org.globalplatform.contactless.GPCLRegistryEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pro.javacard.gp.GPRegistryEntry.Privilege;
@@ -58,7 +59,7 @@ public final class RegistryPolicy {
     // by-name target (GPC v2.3.1 6.4.2.1.2). [next occurrence] resumes after the currently selected
     // Application (current); [first or only occurrence] starts from the start of the registry.
     public static List<EngineRegistryEntry> findSelectCandidates(GlobalPlatformEngine gp, CommandAPDU select,
-                                                                 EngineRegistryEntry current, boolean nextOccurrence) {
+                                                                 EngineRegistryEntry current, boolean nextOccurrence, boolean contactless) {
         if (select.getNc() == 0) {
             // No data: select the ISD via the stable reference (its AID may have been re-keyed).
             log.info("Selecting OPEN");
@@ -79,6 +80,10 @@ public final class RegistryPolicy {
                 continue;
             }
             if (!e.isSelectable()) {
+                continue;
+            }
+            // GPC v2.3.1 Amd C 6.3.1: over the contactless interface only an ACTIVATED Application is a candidate.
+            if (contactless && e.internalGetCLState() != GPCLRegistryEntry.STATE_CL_ACTIVATED) {
                 continue;
             }
             if (!e.getAID().partialEquals(aid, (short) 0, (byte) aid.length)) {
