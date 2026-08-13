@@ -532,16 +532,28 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
             selecting = false;
             final Applet applet;
-            final EngineRegistryEntry newEntry;
             // check if there is an applet to be selected
             if (!extended && isAppletSelectionApdu(command)) {
                 log.trace("Currently selected {}, looking up applet ...", selected);
                 // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after the selected one.
                 final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
                 var candidates = RegistryPolicy.findSelectCandidates(globalPlatform, cmd, selected, nextOccurrence);
-                newEntry = candidates.isEmpty() ? null : candidates.get(0);
-                log.trace("Found {}", newEntry);
-                if (newEntry == null) {
+                // GPC v2.3.1 6.4.2.1.2: a match that refuses selection does not end the search.
+                boolean accepted = false;
+                for (var candidate : candidates) {
+                    log.trace("Calling Applet.select(): {}", candidate);
+                    accepted = _select(candidate);
+                    if (accepted) {
+                        break;
+                    }
+                }
+                if (!accepted) {
+                    if (!candidates.isEmpty()) {
+                        // JCRE 4.6: every match refused, so nothing is selected.
+                        log.warn("Applet.select() denied selection: {}", candidates);
+                        Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
+                        return theSW;
+                    }
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected and
                     // the SELECT is dispatched to it. An exhausted [next occurrence] is answered by the OPEN
                     // instead (GPC v2.3.1 Amd C 6.7), as is a miss with nothing selected.
@@ -549,10 +561,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                         Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
                         return theSW;
                     }
-                    applet = selected.getApplet();
-                } else {
-                    // applet was found, so we will trigger Applet.select() via _select() later
-                    applet = newEntry.getApplet();
                 }
             } else {
                 // Non-SELECT command with no applet active: JCRE 3.2 4.8 mandates 6999.
@@ -560,9 +568,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                     Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
                     return theSW;
                 }
-                applet = selected.getApplet();
-                newEntry = null;
             }
+            applet = selected.getApplet();
 
             if (extended) {
                 if (!(applet instanceof ExtendedLength)) {
@@ -574,14 +581,6 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             responseBufferSize = 0;
             var apdu = currentAPDU.getAPDU();
             try {
-                if (newEntry != null) {
-                    log.trace("Calling Applet.select(): {}", newEntry);
-                    if (!_select(newEntry)) {
-                        // JCRE 4.6: on refusal return SW_APPLET_SELECT_FAILED, nothing selected.
-                        log.warn("Applet.select() denied selection: {}", newEntry);
-                        throw new ISOException(ISO7816.SW_APPLET_SELECT_FAILED);
-                    }
-                }
                 currentAPDU.reset(cmd);
                 contextStack.push(selected);
                 applet.process(apdu);

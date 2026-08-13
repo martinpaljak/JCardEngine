@@ -192,14 +192,25 @@ public class SelectTest {
 
     @Test
     public void testCanNotSelectUnselectableApplet() {
-        AID aid = AIDUtil.create("010203040506070809");
+        AID refusing = AIDUtil.create("010203040506070809");
+        AID accepting = AIDUtil.create("010203040506070810");
         Simulator simulator = new Simulator();
-        simulator.installExposedApplet(aid, UnselectableApplet.class);
+        simulator.installExposedApplet(refusing, UnselectableApplet.class);
+        simulator.installApplet(accepting, MultiInstanceApplet.class);
 
-        byte[] result = simulator.transceive(AIDUtil.selectBytes(aid));
+        byte[] result = simulator.transceive(AIDUtil.selectBytes(refusing));
         assertEquals(result.length, 2);
         assertEquals(Util.getShort(result, (short) 0), ISO7816.SW_APPLET_SELECT_FAILED);
         assertTrue(UnselectableApplet.selectedCalled);
+
+        try (var bibo = simulator.connect()) {
+            // GPC v2.3.1 6.4.2.1.2: a refused match does not end the search. Both applets match the prefix,
+            // the refusing one comes first, so the walk carries on to the one that accepts.
+            var sel = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x00, Hex.decode("0102030405")));
+            assertEquals(sel.getSW(), 0x9000);
+            var actual = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0));
+            assertEquals(actual.getData(), AIDUtil.bytes(accepting));
+        }
     }
 
     // JCRE 3.2 4.6.2 step 7: select() returning true with a transaction
