@@ -78,7 +78,7 @@ public final class RegistryPolicy {
                 afterCurrent = e == current;
                 continue;
             }
-            if (e.isLocked()) {
+            if (!e.isSelectable()) {
                 continue;
             }
             if (!e.getAID().partialEquals(aid, (short) 0, (byte) aid.length)) {

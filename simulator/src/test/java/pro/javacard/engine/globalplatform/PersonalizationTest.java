@@ -135,10 +135,16 @@ public class PersonalizationTest {
             assertEquals(r1.getSW(), 0x9000);
             // Install without the make selectable bit leaves the applet INSTALLED (GPC v2.3.1 11.1.1 Table 11-4).
             assertEquals(appletLifeCycle(gp, jcaid), 0x03);
+        }
 
-            // Fresh session for the make selectable phase - GPSession caches getRegistry() until its own
-            // mutators dirty it, and a hand-built transmit() does not, so a new session forces a re-read.
-            gp = openIsd(bibo);
+        try (var bibo = sim.connect()) {
+            // An INSTALLED applet is not a SELECT [by name] target (GPC v2.3.1 6.4.2.1.2): the miss is
+            // dispatched to the ISD, which answers application not found.
+            assertEquals(bibo.transmit(AIDUtil.select(appletAID)).getSW(), 0x6A82);
+        }
+
+        try (var bibo = sim.connect()) {
+            var gp = openIsd(bibo);
 
             // Standalone INSTALL [for make selectable] (Table 11-44): empty | empty | App AID | privileges | params | token.
             var makeSel = lv(new byte[0], new byte[0], appletBytes, new byte[]{0x00}, new byte[0], new byte[0]);
@@ -146,6 +152,11 @@ public class PersonalizationTest {
             assertEquals(r2.getSW(), 0x9000);
             // Make selectable promotes INSTALLED -> SELECTABLE (GPC v2.3.1 9.3.7 / 5.3.1.2).
             assertEquals(appletLifeCycle(gp, jcaid), 0x07);
+        }
+
+        try (var bibo = sim.connect()) {
+            // SELECTABLE, so now a valid target
+            assertEquals(bibo.transmit(AIDUtil.select(appletAID)).getSW(), 0x9000);
         }
     }
 

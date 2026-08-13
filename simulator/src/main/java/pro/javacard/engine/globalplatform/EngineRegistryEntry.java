@@ -355,6 +355,12 @@ public final class EngineRegistryEntry implements GPCLRegistryEntry {
         return (lifecycle & (byte) 0x80) != 0;
     }
 
+    // GPC v2.3.1 Table 11-3 / 11-5: SELECTABLE and every application state beyond it keep b1-b3 set.
+    // The ISD carries the card life cycle instead and is selectable in all of its states.
+    boolean isSelectable() {
+        return !isLocked() && (kind == Kind.ISD || (lifecycle & 0x07) == 0x07);
+    }
+
     @Override
     public short getPrivileges(byte[] buf, short off) throws ArrayIndexOutOfBoundsException {
         checkAlive();
