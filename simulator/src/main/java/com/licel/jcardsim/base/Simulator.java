@@ -538,7 +538,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 log.trace("Currently selected {}, looking up applet ...", selected);
                 // GPC v2.3.1 Table 11-81: P2 b2 set requests [next occurrence] - continue the search after the selected one.
                 final var nextOccurrence = (command[ISO7816.OFFSET_P2] & 0x02) == 0x02;
-                newEntry = RegistryPolicy.findAppletForSelectApdu(globalPlatform, cmd, selected, nextOccurrence);
+                var candidates = RegistryPolicy.findSelectCandidates(globalPlatform, cmd, selected, nextOccurrence);
+                newEntry = candidates.isEmpty() ? null : candidates.get(0);
                 log.trace("Found {}", newEntry);
                 if (newEntry == null) {
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected
