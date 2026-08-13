@@ -55,9 +55,9 @@ public final class RegistryPolicy {
 
     // SELECT [by name] is processed by the OPEN (GPC v2.3.1 6.3): every selectable full or partial match,
     // in registry order. Case 1/2 (no data) selects the ISD; ELFs (Kind.PKG) are never selectable
-    // (GPC v2.3.1 6.5.1.1), so getApplets() already excludes them. A LOCKED Application is not a valid
-    // by-name target (GPC v2.3.1 6.4.2.1.2). [next occurrence] resumes after the currently selected
-    // Application (current); [first or only occurrence] starts from the start of the registry.
+    // (GPC v2.3.1 6.5.1.1), so getApplets() already excludes them. An INSTALLED or LOCKED Application is
+    // not a valid by-name target (GPC v2.3.1 6.4.2.1.2). [next occurrence] resumes after the currently
+    // selected Application (current); [first or only occurrence] starts from the start of the registry.
     public static List<EngineRegistryEntry> findSelectCandidates(GlobalPlatformEngine gp, CommandAPDU select,
                                                                  EngineRegistryEntry current, boolean nextOccurrence, boolean contactless) {
         if (select.getNc() == 0) {

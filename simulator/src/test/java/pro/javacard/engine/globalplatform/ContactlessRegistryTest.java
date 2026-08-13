@@ -158,11 +158,11 @@ public class ContactlessRegistryTest {
         try (var bibo = sim.connect("T=CL")) {
             selectAID(bibo, SecurityDomainApplet.OPEN_AID);
             // GPC v2.3.1 Amd C 6.3.1: DEACTIVATED is no candidate over the contactless interface, so the
-            // SELECT misses and lands on the ISD, which answers application not found.
+            // SELECT misses and lands on the ISD, which answers with application not found.
             assertEquals(bibo.transmit(AIDUtil.select(X)).getSW(), 0x6A82);
         }
         try (var bibo = sim.connect()) {
-            // The same Application stays selectable over the contact interface
+            // the same Application stays selectable over the contact interface
             assertEquals(bibo.transmit(AIDUtil.select(X)).getSW(), 0x9000);
         }
 

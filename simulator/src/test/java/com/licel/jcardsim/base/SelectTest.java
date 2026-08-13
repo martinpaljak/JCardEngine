@@ -156,7 +156,7 @@ public class SelectTest {
             assertEquals(onCc, AIDUtil.bytes(cc));
 
             // From cc the walk runs past the unrelated e0... entry and exhausts. An exhausted [next occurrence]
-            // is answered by the OPEN with 6A82 (GPC v2.3.1 6.4.2.1.2, Amd C 6.7), not dispatched to cc.
+            // is answered by the OPEN with 6A82 (GPC v2.3.1 6.4.2.1.2, Table 11-84), not dispatched to cc.
             var miss = bibo.transmit(new CommandAPDU(0x00, ISO7816.INS_SELECT, 0x04, 0x02, Hex.decode("d0000cafe000")));
             assertEquals(miss.getSW(), 0x6A82);
             byte[] stillCc = bibo.transmit(new CommandAPDU(CLA, INS_GET_FULL_AID, 0, 0)).getData();

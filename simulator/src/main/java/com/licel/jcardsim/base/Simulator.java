@@ -551,14 +551,14 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
                 }
                 if (!accepted) {
                     if (!candidates.isEmpty()) {
-                        // JCRE 4.6: every match refused, so nothing is selected.
+                        // JCRE 3.2 4.6.2: every match refused, so nothing is selected.
                         log.warn("Applet.select() denied selection: {}", candidates);
                         Util.setShort(theSW, (short) 0, ISO7816.SW_APPLET_SELECT_FAILED);
                         return theSW;
                     }
                     // SELECT [by name] miss (GPC v2.3.1 6.4.2.1.2): the current Application stays selected and
                     // the SELECT is dispatched to it. An exhausted [next occurrence] is answered by the OPEN
-                    // instead (GPC v2.3.1 Amd C 6.7), as is a miss with nothing selected.
+                    // instead (GPC v2.3.1 Table 11-84), as is a miss with nothing selected.
                     if (nextOccurrence || selected == null) {
                         Util.setShort(theSW, (short) 0, ISO7816.SW_FILE_NOT_FOUND);
                         return theSW;
@@ -625,7 +625,7 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
     }
 
-    // The media nibble of the JC protocol byte, whatever the transport protocol below it.
+    // The media nibble of the JC protocol byte, independent of the transport protocol below it.
     static boolean isContactless(byte protocol) {
         final var media = (byte) (protocol & APDU.PROTOCOL_MEDIA_MASK);
         return media == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A || media == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B
@@ -1023,8 +1023,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             contextStack.push(globalPlatform.isd());
             try {
                 var entry = internalInstallApplet(appletAID, appletClass, null, parameters, exposed, pkg);
-                // This path carries no INSTALL parameters to ask for contactless activation with, so the
-                // applet is born ACTIVATED and is reachable on either interface.
+                // This path carries no INSTALL parameters requesting contactless activation, so the applet
+                // is born ACTIVATED and reachable on either interface.
                 ContactlessEngine.applyCLState(entry, CLState.ACTIVATED);
                 return entry.getAID();
             } finally {
