@@ -21,25 +21,38 @@ jobs:
       matrix:
         java: [ 17, 21, 25 ]
     name: Java ${{ matrix.java }} build
+    env:
+      PUBLISH: ${{ matrix.java == '17' && github.ref == 'refs/heads/next' }}
+      RELEASE: ${{ matrix.java == '17' && startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
           fetch-depth: 0 # To make git describe give the intended output
           fetch-tags: true
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: ${{ matrix.java }}
           distribution: zulu
           cache: maven
-      - name: Run Maven
-        run: ./mvnw -B --no-transfer-progress initialize && ./mvnw -B --no-transfer-progress -T1C -U verify
-      - name: Deploy package
-        if: matrix.java == '17' && (github.ref == 'refs/heads/next' || startsWith(github.ref, 'refs/tags/v'))
-        uses: martinpaljak/maven-ssh-deploy@v1
+      - name: Bootstrap
+        run: TZ=UTC ./mvnw -B initialize
+      - name: Set up publishing
+        if: env.PUBLISH == 'true'
+        uses: martinpaljak/maven-ssh-deploy@v2
         with:
+          host: mvn.javacard.pro
           key: ${{ secrets.SSH_KEY }}
-          user: mvn@mvn.javacard.pro
-          host_fp: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
+          fingerprint: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
+      - name: Build and deploy
+        run: TZ=UTC ./mvnw -B -U deploy -Dmaven.deploy.skip=${{ env.PUBLISH != 'true' }}
+      - name: Release
+        if: env.RELEASE == 'true'
+        uses: softprops/action-gh-release@v3.0.2
+        with:
+          prerelease: true
+          files: ./tool/target/jcard.jar
+          fail_on_unmatched_files: true
+          body: Release ${{ github.ref_name }}

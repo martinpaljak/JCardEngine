@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.martinpaljak</groupId>
+        <groupId>pro.javacard</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>26.06.05-SNAPSHOT</version>
+        <version>26.08.31-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
@@ -68,24 +68,24 @@
         </dependency>
         <!-- Global Platform support -->
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
+            <groupId>pro.javacard</groupId>
             <artifactId>globalplatformpro</artifactId>
             <version>${gppro.version}</version>
         </dependency>
         <!-- apdu4j: explicit core to override transitive version from globalplatformpro -->
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
+            <groupId>pro.javacard</groupId>
             <artifactId>apdu4j-core</artifactId>
             <version>${apdu4j.version}</version>
         </dependency>
         <!-- apdu4j pcsc-sim (transitively brings apdu4j-prefs) -->
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
+            <groupId>pro.javacard</groupId>
             <artifactId>apdu4j-pcsc-sim</artifactId>
             <version>${apdu4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
+            <groupId>pro.javacard</groupId>
             <artifactId>apdu4j-prefs</artifactId>
             <version>${apdu4j.version}</version>
         </dependency>
@@ -103,7 +103,7 @@
         <!-- unit tests -->
         <!-- CardBIBO: wraps a PC/SC Card as a BIBO for CryptoParityTest's reader backend -->
         <dependency>
-            <groupId>com.github.martinpaljak</groupId>
+            <groupId>pro.javacard</groupId>
             <artifactId>apdu4j-pcsc</artifactId>
             <version>${apdu4j.version}</version>
             <scope>test</scope>
