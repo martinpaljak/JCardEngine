@@ -101,13 +101,6 @@
             <version>2.22.1</version>
         </dependency>
         <!-- unit tests -->
-        <!-- transport adapters: only the JSONAdapter integration test needs them (main engine does not) -->
-        <dependency>
-            <groupId>com.github.martinpaljak</groupId>
-            <artifactId>apdu4j-remote</artifactId>
-            <version>${apdu4j.version}</version>
-            <scope>test</scope>
-        </dependency>
         <!-- CardBIBO: wraps a PC/SC Card as a BIBO for CryptoParityTest's reader backend -->
         <dependency>
             <groupId>com.github.martinpaljak</groupId>

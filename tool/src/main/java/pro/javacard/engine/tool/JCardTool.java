@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.tool;
 
+import apdu4j.core.BIBO;
+import apdu4j.core.BIBOSA;
+import apdu4j.core.CardInfo;
 import apdu4j.remote.AbstractTCPAdapter;
 import apdu4j.remote.JCSDKClient;
 import apdu4j.remote.JCSDKServer;
-import apdu4j.remote.JSONAdapter;
 import apdu4j.remote.VSmartCardClient;
 import com.licel.jcardsim.base.InstallSpec;
 import javacard.framework.Applet;
@@ -30,6 +32,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public class JCardTool {
     static OptionParser parser = new OptionParser();
@@ -43,27 +46,19 @@ public class JCardTool {
     static OptionSpec<Void> OPT_VSMARTCARD = parser.accepts("vsmartcard", "Run a VSmartCard client");
     static OptionSpec<Integer> OPT_VSMARTCARD_PORT = parser.accepts("vsmartcard-port", "VSmartCard port").withRequiredArg().ofType(Integer.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_PORT);
     static OptionSpec<String> OPT_VSMARTCARD_HOST = parser.accepts("vsmartcard-host", "VSmartCard host").withRequiredArg().ofType(String.class).defaultsTo(VSmartCardClient.DEFAULT_VSMARTCARD_HOST);
-    static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class).defaultsTo(AbstractTCPAdapter.DEFAULT_ATR_HEX);
+    static OptionSpec<String> OPT_VSMARTCARD_ATR = parser.accepts("vsmartcard-atr", "VSmartCard ATR").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_VSMARTCARD_PROTOCOL = parser.accepts("vsmartcard-protocol", "VSmartCard protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
 
     // Oracle options
     static OptionSpec<Void> OPT_JCSDK = parser.accepts("jcsdk", "Run a JCSDK server");
     static OptionSpec<Integer> OPT_JCSDK_PORT = parser.accepts("jcsdk-port", "JCSDK port").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
     static OptionSpec<String> OPT_JCSDK_HOST = parser.accepts("jcsdk-host", "JCSDK host").withRequiredArg().ofType(String.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_HOST);
-    static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "JCSDK ATR").withRequiredArg().ofType(String.class).defaultsTo(AbstractTCPAdapter.DEFAULT_ATR_HEX);
+    static OptionSpec<String> OPT_JCSDK_ATR = parser.accepts("jcsdk-atr", "JCSDK ATR").withRequiredArg().ofType(String.class);
     static OptionSpec<String> OPT_JCSDK_PROTOCOL = parser.accepts("jcsdk-protocol", "JCSDK protocol").withRequiredArg().ofType(String.class).defaultsTo("*");
-
-    // JSON adapter options
-    static OptionSpec<Void> OPT_JSON = parser.accepts("json", "Run a JSON adapter");
-    static OptionSpec<Integer> OPT_JSON_PORT = parser.accepts("json-port", "JSON adapter port").withRequiredArg().ofType(Integer.class).defaultsTo(JSONAdapter.DEFAULT_JSON_PORT);
-    static OptionSpec<String> OPT_JSON_HOST = parser.accepts("json-host", "JSON adapter host").withRequiredArg().ofType(String.class).defaultsTo(JSONAdapter.DEFAULT_JSON_HOST);
 
     // Passthrough
     static OptionSpec<String> OPT_PASSTHROUGH_HOST = parser.accepts("passthrough-host", "JCSDK simulator host").withRequiredArg().ofType(String.class);
-
-    // Generic override.
-    static OptionSpec<String> OPT_ATR = parser.accepts("atr", "ATR to use (hex)").withRequiredArg().ofType(String.class).defaultsTo(AbstractTCPAdapter.DEFAULT_ATR_HEX);
-    static OptionSpec<String> OPT_PROTOCOL = parser.accepts("protocol", "Protocol to use").withRequiredArg().ofType(String.class).defaultsTo("*");
+    static OptionSpec<Integer> OPT_PASSTHROUGH_PORT = parser.accepts("passthrough-port", "JCSDK simulator port").withRequiredArg().ofType(Integer.class).defaultsTo(JCSDKServer.DEFAULT_JCSDK_PORT);
 
     // .cap/.jar files to load
     static OptionSpec<File> toLoad = parser.nonOptions("path to .cap or .jar or classes directory").ofType(File.class);
@@ -76,16 +71,15 @@ public class JCardTool {
     static final AppletClassLoader loader = new AppletClassLoader();
 
 
-    static AbstractTCPAdapter configureVSmartCard(AbstractTCPAdapter adapter, OptionSet options) {
-        adapter = adapter.withHost(options.valueOf(OPT_VSMARTCARD_HOST));
-        adapter = adapter.withPort(options.valueOf(OPT_VSMARTCARD_PORT));
-        if (options.has(OPT_ATR)) {
-            adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
+    // An adapter announces the card by what its session says, so an ATR asked for on the command
+    // line is published on the sessions handed to the adapter. Without one, the adapter picks a
+    // default the protocol in use can be negotiated from.
+    static Function<String, BIBO> withATR(Function<String, BIBO> sim, OptionSet options, OptionSpec<String> spec) {
+        if (!options.has(spec)) {
+            return sim;
         }
-        if (options.has(OPT_VSMARTCARD_ATR)) {
-            adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_VSMARTCARD_ATR)));
-        }
-        return adapter;
+        byte[] atr = Hex.decode(options.valueOf(spec));
+        return protocol -> new BIBOSA(sim.apply(protocol), CardInfo.params(atr, protocol));
     }
 
     public static void main(String[] args) {
@@ -114,9 +108,10 @@ public class JCardTool {
             List<AbstractTCPAdapter> adapters = new ArrayList<>();
 
             if (options.has(OPT_PASSTHROUGH_HOST)) {
-                JCSDKClient upstream = new JCSDKClient(options.valueOf(OPT_PASSTHROUGH_HOST), options.valueOf(OPT_JCSDK_PORT));
-                AbstractTCPAdapter adapter = new VSmartCardClient(upstream);
-                adapter = configureVSmartCard(adapter, options);
+                JCSDKClient upstream = new JCSDKClient(options.valueOf(OPT_PASSTHROUGH_HOST), options.valueOf(OPT_PASSTHROUGH_PORT));
+                AbstractTCPAdapter adapter = new VSmartCardClient(withATR(upstream, options, OPT_VSMARTCARD_ATR));
+                adapter = adapter.withHost(options.valueOf(OPT_VSMARTCARD_HOST));
+                adapter = adapter.withPort(options.valueOf(OPT_VSMARTCARD_PORT));
                 adapters.add(adapter);
             } else {
                 Set<String> availableApplets = new TreeSet<>();
@@ -181,36 +176,18 @@ public class JCardTool {
                 }
 
                 if (options.has(OPT_VSMARTCARD) || options.has(OPT_VSMARTCARD_PORT) || options.has(OPT_VSMARTCARD_HOST) || options.has(OPT_VSMARTCARD_PROTOCOL) || options.has(OPT_VSMARTCARD_ATR)) {
-                    var protocol = options.has(OPT_VSMARTCARD_PROTOCOL) ? options.valueOf(OPT_VSMARTCARD_PROTOCOL) : options.valueOf(OPT_PROTOCOL);
-                    AbstractTCPAdapter adapter = new VSmartCardClient(p -> sim.connectFor(Duration.ofSeconds(1), p, true)); // TODO: parameter for timeout
-                    adapter = adapter.withProtocol(protocol);
-                    adapter = configureVSmartCard(adapter, options);
+                    AbstractTCPAdapter adapter = new VSmartCardClient(withATR(p -> sim.connectFor(Duration.ofSeconds(1), p, true), options, OPT_VSMARTCARD_ATR)); // TODO: parameter for timeout
+                    adapter = adapter.withProtocol(options.valueOf(OPT_VSMARTCARD_PROTOCOL));
+                    adapter = adapter.withHost(options.valueOf(OPT_VSMARTCARD_HOST));
+                    adapter = adapter.withPort(options.valueOf(OPT_VSMARTCARD_PORT));
                     adapters.add(adapter);
                 }
 
                 if (options.has(OPT_JCSDK) || options.has(OPT_JCSDK_PORT) || options.has(OPT_JCSDK_HOST) || options.has(OPT_JCSDK_PROTOCOL) || options.has(OPT_JCSDK_ATR)) {
-                    var protocol = options.has(OPT_JCSDK_PROTOCOL) ? options.valueOf(OPT_JCSDK_PROTOCOL) : options.valueOf(OPT_PROTOCOL);
-                    AbstractTCPAdapter adapter = new JCSDKServer(sim::connect);
-                    adapter = adapter.withProtocol(protocol);
+                    AbstractTCPAdapter adapter = new JCSDKServer(withATR(sim::connect, options, OPT_JCSDK_ATR));
+                    adapter = adapter.withProtocol(options.valueOf(OPT_JCSDK_PROTOCOL));
                     adapter = adapter.withHost(options.valueOf(OPT_JCSDK_HOST));
                     adapter = adapter.withPort(options.valueOf(OPT_JCSDK_PORT));
-                    if (options.has(OPT_ATR)) {
-                        adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
-                    }
-                    if (options.has(OPT_JCSDK_ATR)) {
-                        adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_JCSDK_ATR)));
-                    }
-                    adapters.add(adapter);
-                }
-
-                if (options.has(OPT_JSON) || options.has(OPT_JSON_PORT) || options.has(OPT_JSON_HOST)) {
-                    AbstractTCPAdapter adapter = new JSONAdapter(p -> sim.connectFor(Duration.ofSeconds(1), p, true));
-                    adapter = adapter.withProtocol(options.valueOf(OPT_PROTOCOL));
-                    adapter = adapter.withHost(options.valueOf(OPT_JSON_HOST));
-                    adapter = adapter.withPort(options.valueOf(OPT_JSON_PORT));
-                    if (options.has(OPT_ATR)) {
-                        adapter = adapter.withATR(Hex.decode(options.valueOf(OPT_ATR)));
-                    }
                     adapters.add(adapter);
                 }
             }

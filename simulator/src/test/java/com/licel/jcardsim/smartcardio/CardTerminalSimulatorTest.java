@@ -94,7 +94,7 @@ public class CardTerminalSimulatorTest {
         engine.installApplet(AIDUtil.create(DUAL_AID), DualInterfaceApplet.class);
 
         // connect as contactless via pcsc-sim terminal
-        var terminal = engine.toTerminal("CL Reader");
+        var terminal = engine.toTerminal("CL Reader", "T=CL");
         var card = terminal.connect("T=CL");
         var channel = card.getBasicChannel();
 

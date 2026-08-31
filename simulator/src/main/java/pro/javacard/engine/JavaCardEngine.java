@@ -64,9 +64,15 @@ public interface JavaCardEngine {
     }
 
     default SynthesizedCardTerminal toTerminal(String name) {
-        var terminal = new SynthesizedCardTerminal(name, "T=1");
+        return toTerminal(name, "T=1");
+    }
+
+    // A reader is either contact or contactless, so the card behind it answers on that interface
+    // alone. Reaching a dual-interface card both ways takes a terminal for each.
+    default SynthesizedCardTerminal toTerminal(String name, String protocol) {
+        var terminal = new SynthesizedCardTerminal(name, protocol);
         // Factory mode: engine persists, fresh BIBO per connect, reset on close
-        terminal.presentFactory(protocol -> connect(protocol, true), getATR());
+        terminal.presentFactory(p -> connect(p, true), getATR());
         return terminal;
     }
 
