@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="jcardengine-applets" default="caps" basedir=".">
-  <property name="ant-javacard.jar" value="ant-javacard.jar"/>
-  <target name="-bootstrap">
-    <mkdir dir="target"/>
-    <get src="https://github.com/martinpaljak/ant-javacard/releases/latest/download/ant-javacard.jar" dest="${ant-javacard.jar}" usetimestamp="true" skipexisting="true"/>
-    <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpath="${ant-javacard.jar}"/>
-  </target>
-  <target name="caps" depends="-bootstrap">
-    <mkdir dir="target/caps"/>
-    <javacard jckit="sdks/jc320v26.0_kit">
+  <!-- Filled by the maven-dependency-plugin. Absolute, because ant-javacard resolves the export path against the working directory. -->
+  <property name="imports.dir" location="target/imports"/>
+  <property name="exports.dir" location="target/exports"/>
+  <target name="caps">
+    <!-- The task, like the jars below, comes from maven, so this file only runs under it. -->
+    <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpathref="maven.plugin.classpath"/>
+    <javacard jckit="target/sdk">
       <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java">
         <applet class="pro.javacard.engine.testapplets.MemoryApplet" aid="D233000000774D454D2D303101"/>
       </cap>
@@ -17,32 +15,32 @@
       </cap>
       <cap targetsdk="3.0.4" aid="D2330000007743524C2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRELTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRELTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.CRELTestApplet" aid="D2330000007743524C2D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
-        <import jar="gpapi-contactless_1.2.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
+        <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
       <cap targetsdk="3.0.4" aid="D233000000774352532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRSTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRSTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.CRSTestApplet" aid="D233000000774352532D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
-        <import jar="gpapi-contactless_1.2.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
+        <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
       <cap targetsdk="3.0.4" aid="D233000000775050532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/PPSEApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PPSEApplet.java">
         <applet class="pro.javacard.engine.testapplets.PPSEApplet" aid="D233000000775050532D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
-        <import jar="gpapi-contactless_1.2.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
+        <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
       <cap targetsdk="3.0.4" aid="D233000000775041592D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/PaymentApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PaymentApplet.java">
         <applet class="pro.javacard.engine.testapplets.PaymentApplet" aid="D233000000775041592D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
-        <import jar="gpapi-contactless_1.2.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
+        <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
       <cap targetsdk="3.0.4" aid="D233000000774753562D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/GlobalServiceTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/GlobalServiceTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.GlobalServiceTestApplet" aid="D233000000774753562D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
-        <import jar="gpapi-broker_1.1.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
+        <import jar="${imports.dir}/broker.jar" exps="${exports.dir}"/>
       </cap>
       <cap targetsdk="3.0.4" aid="D233000000774354582D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/ContextProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/ContextProbeApplet.java">
         <applet class="pro.javacard.engine.testapplets.ContextProbeApplet" aid="D233000000774354582D303101"/>
-        <import jar="gpapi-globalplatform_1.6.jar"/>
+        <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
       </cap>
     </javacard>
   </target>

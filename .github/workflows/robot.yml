@@ -27,18 +27,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          submodules: true
-          fetch-depth: 0 # To make git describe give the intended output
-          fetch-tags: true
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
           java-version: ${{ matrix.java }}
           distribution: zulu
           cache: maven
-      - name: Bootstrap
-        run: TZ=UTC ./mvnw -B initialize
       - name: Set up publishing
         if: env.PUBLISH == 'true'
         uses: martinpaljak/maven-ssh-deploy@v2

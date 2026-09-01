@@ -1,3 +1,0 @@
-[submodule "sdks"]
-	path = simulator/sdks
-	url = https://github.com/martinpaljak/oracle_javacard_sdks

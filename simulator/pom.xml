@@ -5,44 +5,52 @@
     <parent>
         <groupId>pro.javacard</groupId>
         <artifactId>jcardengine-package</artifactId>
-        <version>26.09.01-SNAPSHOT</version>
+        <version>26.09.02-SNAPSHOT</version>
     </parent>
     <artifactId>jcardengine</artifactId>
     <name>JCardEngine - JavaCard Simulator</name>
 
     <properties>
-        <javacard.version>3.0.5</javacard.version>
+        <!-- The API versions the engine implements -->
         <globalplatform.version>1.8</globalplatform.version>
         <globalplatform.contactless.version>1.4</globalplatform.contactless.version>
         <globalplatform.broker.version>1.1</globalplatform.broker.version>
+        <!-- The API versions the test applet CAPs link against -->
+        <globalplatform.import.version>1.6</globalplatform.import.version>
+        <globalplatform.contactless.import.version>1.2</globalplatform.contactless.import.version>
         <coverage.dir>${project.basedir}/../coverage</coverage.dir>
+        <caps.skip>false</caps.skip>
+        <jacoco.skip>false</jacoco.skip>
+        <!-- Overwritten by the JaCoCo agent. The placeholder keeps the forked weaving run
+             and the test JVMs with a valid argument when coverage is switched off. -->
+        <argLine>-Dfile.encoding=UTF-8</argLine>
     </properties>
 
     <dependencies>
-        <!-- The base JC API -->
         <dependency>
-            <groupId>oracle.javacard</groupId>
-            <artifactId>api_classic</artifactId>
-            <version>${javacard.version}</version>
+            <groupId>vnd.oracle</groupId>
+            <artifactId>javacard-sdk</artifactId>
+            <version>${javacard.sdk.version}</version>
+            <classifier>api-classic-${javacard.version}</classifier>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>org.globalplatform</groupId>
+            <groupId>vnd.globalplatform</groupId>
             <artifactId>api</artifactId>
             <version>${globalplatform.version}</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>org.globalplatform</groupId>
+            <groupId>vnd.globalplatform</groupId>
             <artifactId>contactless</artifactId>
             <version>${globalplatform.contactless.version}</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>org.globalplatform</groupId>
+            <groupId>vnd.globalplatform</groupId>
             <artifactId>broker</artifactId>
             <version>${globalplatform.broker.version}</version>
             <scope>provided</scope>
@@ -124,173 +132,130 @@
 
     <build>
         <plugins>
-            <!-- Install the JC API JAR as an addressable Maven dependency -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-install-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>javacard-api</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <configuration>
-                            <groupId>oracle.javacard</groupId>
-                            <artifactId>api_classic</artifactId>
-                            <version>${javacard.version}</version>
-                            <packaging>jar</packaging>
-                            <file>sdks/jc320v26.0_kit/lib/api_classic-${javacard.version}.jar</file>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>globalplatform-api</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <configuration>
-                            <groupId>org.globalplatform</groupId>
-                            <artifactId>api</artifactId>
-                            <version>${globalplatform.version}</version>
-                            <packaging>jar</packaging>
-                            <file>gpapi-globalplatform_${globalplatform.version}.jar</file>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>globalplatform-contactless</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <configuration>
-                            <groupId>org.globalplatform</groupId>
-                            <artifactId>contactless</artifactId>
-                            <version>${globalplatform.contactless.version}</version>
-                            <packaging>jar</packaging>
-                            <file>gpapi-contactless_${globalplatform.contactless.version}.jar</file>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>globalplatform-broker</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>install-file</goal>
-                        </goals>
-                        <configuration>
-                            <groupId>org.globalplatform</groupId>
-                            <artifactId>broker</artifactId>
-                            <version>${globalplatform.broker.version}</version>
-                            <packaging>jar</packaging>
-                            <file>gpapi-broker_${globalplatform.broker.version}.jar</file>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <!-- Extract java card API classes -->
+            <!-- Everything the vendor repository serves: unpacked before the weaver, copied before the CAP build -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>javacard-api</id>
+                        <id>unpack-vendor</id>
                         <phase>process-classes</phase>
                         <goals>
                             <goal>unpack</goal>
                         </goals>
                         <configuration>
+                            <!-- The weaver rewrites the API classes in place, so every run starts from pristine ones -->
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                            <includes>**/*.class,**/*.exp</includes>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>oracle.javacard</groupId>
-                                    <artifactId>api_classic</artifactId>
-                                    <version>${javacard.version}</version>
-                                    <type>jar</type>
-                                    <overWrite>true</overWrite>
-                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
-                                    <includes>**/*.class</includes>
+                                    <groupId>vnd.oracle</groupId>
+                                    <artifactId>javacard-sdk</artifactId>
+                                    <version>${javacard.sdk.version}</version>
+                                    <classifier>api-classic-${javacard.version}</classifier>
                                 </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>globalplatform-api</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.globalplatform</groupId>
+                                    <groupId>vnd.globalplatform</groupId>
                                     <artifactId>api</artifactId>
                                     <version>${globalplatform.version}</version>
-                                    <type>jar</type>
-                                    <overWrite>true</overWrite>
-                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
-                                    <includes>**/*.class</includes>
                                 </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>globalplatform-contactless</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.globalplatform</groupId>
+                                    <groupId>vnd.globalplatform</groupId>
                                     <artifactId>contactless</artifactId>
                                     <version>${globalplatform.contactless.version}</version>
-                                    <type>jar</type>
-                                    <overWrite>true</overWrite>
-                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
-                                    <includes>**/*.class</includes>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>broker</artifactId>
+                                    <version>${globalplatform.broker.version}</version>
+                                </artifactItem>
+                                <!-- The whole kit, for the converter -->
+                                <artifactItem>
+                                    <groupId>vnd.oracle</groupId>
+                                    <artifactId>javacard-sdk</artifactId>
+                                    <version>${javacard.sdk.version}</version>
+                                    <type>zip</type>
+                                    <includes>**</includes>
+                                    <outputDirectory>${project.build.directory}/sdk</outputDirectory>
+                                </artifactItem>
+                                <!-- Export files of the API versions the test applet CAPs link against -->
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>api</artifactId>
+                                    <version>${globalplatform.import.version}</version>
+                                    <classifier>export-2.3</classifier>
+                                    <outputDirectory>${project.build.directory}/exports</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>contactless</artifactId>
+                                    <version>${globalplatform.contactless.import.version}</version>
+                                    <classifier>export-2.3</classifier>
+                                    <outputDirectory>${project.build.directory}/exports</outputDirectory>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>broker</artifactId>
+                                    <version>${globalplatform.broker.version}</version>
+                                    <classifier>export-2.3</classifier>
+                                    <outputDirectory>${project.build.directory}/exports</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
+                    <!-- Classes the test applets compile against, older than the engine so a CAP loads on an older card -->
                     <execution>
-                        <id>globalplatform-broker</id>
+                        <id>applet-imports</id>
                         <phase>process-classes</phase>
                         <goals>
-                            <goal>unpack</goal>
+                            <goal>copy</goal>
                         </goals>
                         <configuration>
+                            <outputDirectory>${project.build.directory}/imports</outputDirectory>
+                            <stripVersion>true</stripVersion>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>org.globalplatform</groupId>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>api</artifactId>
+                                    <version>${globalplatform.import.version}</version>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
+                                    <artifactId>contactless</artifactId>
+                                    <version>${globalplatform.contactless.import.version}</version>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>vnd.globalplatform</groupId>
                                     <artifactId>broker</artifactId>
                                     <version>${globalplatform.broker.version}</version>
-                                    <type>jar</type>
-                                    <overWrite>true</overWrite>
-                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
-                                    <includes>**/*.class</includes>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
-            <!-- Now compile -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.2.0</version>
+                <!-- The converter, taskdef'd off maven.plugin.classpath in build.xml -->
+                <dependencies>
+                    <dependency>
+                        <groupId>pro.javacard</groupId>
+                        <artifactId>ant-javacard</artifactId>
+                        <version>${antjavacard.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <!-- Build the test applet CAPs -->
                     <execution>
                         <id>build-caps</id>
                         <phase>package</phase>
                         <configuration>
+                            <skip>${caps.skip}</skip>
                             <target>
-                                <ant antfile="build.xml" inheritAll="false"/>
+                                <ant antfile="build.xml" inheritAll="false" inheritRefs="true"/>
                             </target>
                         </configuration>
                         <goals>
@@ -327,11 +292,6 @@
                 <configuration>
                     <includePluginDependencies>true</includePluginDependencies>
                 </configuration>
-            </plugin>
-            <!-- Run tests, so that the classes have already been processed with proxy code -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -398,7 +358,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.2.0</version>
                         <dependencies>
                             <dependency>
                                 <groupId>org.jacoco</groupId>
@@ -414,6 +373,7 @@
                                     <goal>run</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${jacoco.skip}</skip>
                                     <target>
                                         <typedef resource="org/jacoco/ant/antlib.xml"/>
                                         <!-- Clean the previous report so removed classes leave no stale pages behind. -->
@@ -499,7 +459,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.2.0</version>
                         <dependencies>
                             <dependency>
                                 <groupId>org.jacoco</groupId>
@@ -515,6 +474,7 @@
                                     <goal>run</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${jacoco.skip}</skip>
                                     <target>
                                         <typedef resource="org/jacoco/ant/antlib.xml"/>
                                         <!-- Clean the previous report so removed classes leave no stale pages behind. -->
@@ -549,4 +509,3 @@
         </profile>
     </profiles>
 </project>
-

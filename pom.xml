@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>pro.javacard</groupId>
-    <version>26.09.01-SNAPSHOT</version>
+    <version>26.09.02-SNAPSHOT</version>
     <packaging>pom</packaging>
     <url>https://github.com/martinpaljak/JCardEngine</url>
     <artifactId>jcardengine-package</artifactId>
@@ -38,12 +38,16 @@
     </licenses>
 
     <properties>
-        <project.build.outputTimestamp>2026-09-01T13:04:40Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-09-02T08:23:28Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <apdu4j.version>26.08.28-SNAPSHOT</apdu4j.version>
         <gppro.version>26.09.01-SNAPSHOT</gppro.version>
+        <antjavacard.version>26.08.28-SNAPSHOT</antjavacard.version>
         <javacard.version>3.0.5</javacard.version>
+        <!-- The kit the API comes out of. One kit carries several API versions side by side,
+             and javacard.version picks which one of them is cut out. -->
+        <javacard.sdk.version>26.0</javacard.sdk.version>
     </properties>
 
     <distributionManagement>
@@ -61,6 +65,11 @@
         <repository>
             <id>javacard-pro-snapshots</id>
             <url>https://mvn.javacard.pro/public-snapshots/</url>
+        </repository>
+        <!-- Third party redistributables under vnd.*, served as the vendor ships them -->
+        <repository>
+            <id>javacard-pro-vendors</id>
+            <url>https://mvn.javacard.pro/vendors/</url>
         </repository>
     </repositories>
 
@@ -187,6 +196,16 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>3.11.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <version>3.2.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.6.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>

@@ -3,14 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>pro.javacard</groupId>
-        <version>26.09.01-SNAPSHOT</version>
+        <version>26.09.02-SNAPSHOT</version>
         <artifactId>jcardengine-package</artifactId>
     </parent>
     <artifactId>jcard-tool</artifactId>
     <name>jcard command line utility</name>
 
     <dependencies>
-        <!-- The base JC API -->
+        <!-- The engine -->
         <dependency>
             <groupId>pro.javacard</groupId>
             <artifactId>jcardengine</artifactId>
@@ -24,9 +24,10 @@
         </dependency>
         <!-- XXX: this is to please intellij, which would not know about unprocessed simulator code -->
         <dependency>
-            <groupId>oracle.javacard</groupId>
-            <artifactId>api_classic</artifactId>
-            <version>${javacard.version}</version>
+            <groupId>vnd.oracle</groupId>
+            <artifactId>javacard-sdk</artifactId>
+            <version>${javacard.sdk.version}</version>
+            <classifier>api-classic-${javacard.version}</classifier>
             <scope>provided</scope>
         </dependency>
         <!-- Command line utility -->
