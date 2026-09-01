@@ -11,11 +11,14 @@ import java.security.SecureRandom;
 public abstract class KeyWithParameters implements Key {
 
     protected short size;
+    // persistent KeyBuilder.TYPE_* constant, for internal comparisons
     protected byte type;
     protected byte memoryType;
+    private final KeyFamily family;
 
     protected KeyWithParameters(byte type, short size, byte memoryType) {
-        this.type = type;
+        this.family = KeyFamily.byType(type);
+        this.type = family == null ? type : family.persistent();
         this.size = size;
         this.memoryType = memoryType;
     }
@@ -26,10 +29,10 @@ public abstract class KeyWithParameters implements Key {
         return size;
     }
 
-    // KeyBuilder.TYPE_* of this key
+    // KeyBuilder.TYPE_* of this key, per its memory type
     @Override
     public byte getType() {
-        return type;
+        return family == null ? type : family.type(memoryType);
     }
 
     // JCSystem.MEMORY_TYPE_* constant for this key

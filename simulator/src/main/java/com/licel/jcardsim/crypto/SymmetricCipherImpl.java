@@ -8,6 +8,7 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
+import javacard.security.KeyBuilder;
 import javacardx.crypto.Cipher;
 import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.BufferedBlockCipher;
@@ -22,7 +23,6 @@ import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 /**
@@ -59,34 +59,34 @@ public final class SymmetricCipherImpl extends Cipher {
     // AES counter mode has no flexible mapping in the JC API, so both its cipher and padding are 0 -
     // it is reachable only through the single-byte ALG_*. paddingFactory is null for the unpadded modes.
     private enum CipherAlg {
-        DES_CBC_NOPAD(ALG_DES_CBC_NOPAD, CIPHER_DES_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_DES, Mode.CBC, null),
-        DES_CBC_ISO9797_M1(ALG_DES_CBC_ISO9797_M1, CIPHER_DES_CBC, PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES, Mode.CBC, ZeroBytePadding::new),
-        DES_CBC_ISO9797_M2(ALG_DES_CBC_ISO9797_M2, CIPHER_DES_CBC, PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES, Mode.CBC, ISO7816d4Padding::new),
-        DES_CBC_PKCS5(ALG_DES_CBC_PKCS5, CIPHER_DES_CBC, PAD_PKCS5, SymmetricKeyImpl.KF_DES, Mode.CBC, PKCS7Padding::new),
-        DES_ECB_NOPAD(ALG_DES_ECB_NOPAD, CIPHER_DES_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_DES, Mode.ECB, null),
-        DES_ECB_ISO9797_M1(ALG_DES_ECB_ISO9797_M1, CIPHER_DES_ECB, PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES, Mode.ECB, ZeroBytePadding::new),
-        DES_ECB_ISO9797_M2(ALG_DES_ECB_ISO9797_M2, CIPHER_DES_ECB, PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES, Mode.ECB, ISO7816d4Padding::new),
-        DES_ECB_PKCS5(ALG_DES_ECB_PKCS5, CIPHER_DES_ECB, PAD_PKCS5, SymmetricKeyImpl.KF_DES, Mode.ECB, PKCS7Padding::new),
-        AES_CBC_NOPAD(ALG_AES_BLOCK_128_CBC_NOPAD, CIPHER_AES_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.CBC, null),
-        AES_CBC_ISO9797_M1(ALG_AES_CBC_ISO9797_M1, CIPHER_AES_CBC, PAD_ISO9797_M1, SymmetricKeyImpl.KF_AES, Mode.CBC, ZeroBytePadding::new),
-        AES_CBC_ISO9797_M2(ALG_AES_CBC_ISO9797_M2, CIPHER_AES_CBC, PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES, Mode.CBC, ISO7816d4Padding::new),
-        AES_CBC_PKCS5(ALG_AES_CBC_PKCS5, CIPHER_AES_CBC, PAD_PKCS5, SymmetricKeyImpl.KF_AES, Mode.CBC, PKCS7Padding::new),
-        AES_ECB_NOPAD(ALG_AES_BLOCK_128_ECB_NOPAD, CIPHER_AES_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_AES, Mode.ECB, null),
-        AES_ECB_ISO9797_M1(ALG_AES_ECB_ISO9797_M1, CIPHER_AES_ECB, PAD_ISO9797_M1, SymmetricKeyImpl.KF_AES, Mode.ECB, ZeroBytePadding::new),
-        AES_ECB_ISO9797_M2(ALG_AES_ECB_ISO9797_M2, CIPHER_AES_ECB, PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES, Mode.ECB, ISO7816d4Padding::new),
-        AES_ECB_PKCS5(ALG_AES_ECB_PKCS5, CIPHER_AES_ECB, PAD_PKCS5, SymmetricKeyImpl.KF_AES, Mode.ECB, PKCS7Padding::new),
-        AES_CTR(ALG_AES_CTR, (byte) 0, (byte) 0, SymmetricKeyImpl.KF_AES, Mode.CTR, null),
-        KOREAN_SEED_ECB_NOPAD(ALG_KOREAN_SEED_ECB_NOPAD, CIPHER_KOREAN_SEED_ECB, PAD_NOPAD, SymmetricKeyImpl.KF_SEED, Mode.ECB, null),
-        KOREAN_SEED_CBC_NOPAD(ALG_KOREAN_SEED_CBC_NOPAD, CIPHER_KOREAN_SEED_CBC, PAD_NOPAD, SymmetricKeyImpl.KF_SEED, Mode.CBC, null);
+        DES_CBC_NOPAD(ALG_DES_CBC_NOPAD, CIPHER_DES_CBC, PAD_NOPAD, KeyBuilder.TYPE_DES, Mode.CBC, null),
+        DES_CBC_ISO9797_M1(ALG_DES_CBC_ISO9797_M1, CIPHER_DES_CBC, PAD_ISO9797_M1, KeyBuilder.TYPE_DES, Mode.CBC, ZeroBytePadding::new),
+        DES_CBC_ISO9797_M2(ALG_DES_CBC_ISO9797_M2, CIPHER_DES_CBC, PAD_ISO9797_M2, KeyBuilder.TYPE_DES, Mode.CBC, ISO7816d4Padding::new),
+        DES_CBC_PKCS5(ALG_DES_CBC_PKCS5, CIPHER_DES_CBC, PAD_PKCS5, KeyBuilder.TYPE_DES, Mode.CBC, PKCS7Padding::new),
+        DES_ECB_NOPAD(ALG_DES_ECB_NOPAD, CIPHER_DES_ECB, PAD_NOPAD, KeyBuilder.TYPE_DES, Mode.ECB, null),
+        DES_ECB_ISO9797_M1(ALG_DES_ECB_ISO9797_M1, CIPHER_DES_ECB, PAD_ISO9797_M1, KeyBuilder.TYPE_DES, Mode.ECB, ZeroBytePadding::new),
+        DES_ECB_ISO9797_M2(ALG_DES_ECB_ISO9797_M2, CIPHER_DES_ECB, PAD_ISO9797_M2, KeyBuilder.TYPE_DES, Mode.ECB, ISO7816d4Padding::new),
+        DES_ECB_PKCS5(ALG_DES_ECB_PKCS5, CIPHER_DES_ECB, PAD_PKCS5, KeyBuilder.TYPE_DES, Mode.ECB, PKCS7Padding::new),
+        AES_CBC_NOPAD(ALG_AES_BLOCK_128_CBC_NOPAD, CIPHER_AES_CBC, PAD_NOPAD, KeyBuilder.TYPE_AES, Mode.CBC, null),
+        AES_CBC_ISO9797_M1(ALG_AES_CBC_ISO9797_M1, CIPHER_AES_CBC, PAD_ISO9797_M1, KeyBuilder.TYPE_AES, Mode.CBC, ZeroBytePadding::new),
+        AES_CBC_ISO9797_M2(ALG_AES_CBC_ISO9797_M2, CIPHER_AES_CBC, PAD_ISO9797_M2, KeyBuilder.TYPE_AES, Mode.CBC, ISO7816d4Padding::new),
+        AES_CBC_PKCS5(ALG_AES_CBC_PKCS5, CIPHER_AES_CBC, PAD_PKCS5, KeyBuilder.TYPE_AES, Mode.CBC, PKCS7Padding::new),
+        AES_ECB_NOPAD(ALG_AES_BLOCK_128_ECB_NOPAD, CIPHER_AES_ECB, PAD_NOPAD, KeyBuilder.TYPE_AES, Mode.ECB, null),
+        AES_ECB_ISO9797_M1(ALG_AES_ECB_ISO9797_M1, CIPHER_AES_ECB, PAD_ISO9797_M1, KeyBuilder.TYPE_AES, Mode.ECB, ZeroBytePadding::new),
+        AES_ECB_ISO9797_M2(ALG_AES_ECB_ISO9797_M2, CIPHER_AES_ECB, PAD_ISO9797_M2, KeyBuilder.TYPE_AES, Mode.ECB, ISO7816d4Padding::new),
+        AES_ECB_PKCS5(ALG_AES_ECB_PKCS5, CIPHER_AES_ECB, PAD_PKCS5, KeyBuilder.TYPE_AES, Mode.ECB, PKCS7Padding::new),
+        AES_CTR(ALG_AES_CTR, (byte) 0, (byte) 0, KeyBuilder.TYPE_AES, Mode.CTR, null),
+        KOREAN_SEED_ECB_NOPAD(ALG_KOREAN_SEED_ECB_NOPAD, CIPHER_KOREAN_SEED_ECB, PAD_NOPAD, KeyBuilder.TYPE_KOREAN_SEED, Mode.ECB, null),
+        KOREAN_SEED_CBC_NOPAD(ALG_KOREAN_SEED_CBC_NOPAD, CIPHER_KOREAN_SEED_CBC, PAD_NOPAD, KeyBuilder.TYPE_KOREAN_SEED, Mode.CBC, null);
 
         final byte algByte;
         final byte cipher;
         final byte padding;
-        final List<Byte> family;
+        final byte family;
         final Mode mode;
         final Supplier<BlockCipherPadding> paddingFactory;
 
-        CipherAlg(byte algByte, byte cipher, byte padding, List<Byte> family, Mode mode, Supplier<BlockCipherPadding> paddingFactory) {
+        CipherAlg(byte algByte, byte cipher, byte padding, byte family, Mode mode, Supplier<BlockCipherPadding> paddingFactory) {
             this.algByte = algByte;
             this.cipher = cipher;
             this.padding = padding;
@@ -217,14 +217,15 @@ public final class SymmetricCipherImpl extends Cipher {
         if (!theKey.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        if (!(theKey instanceof SymmetricKeyImpl)) {
+        if (!(theKey instanceof SymmetricKeyImpl key)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            return;
         }
-        if (!spec.family.contains(theKey.getType())) {
+        if (spec.family != key.type) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
 
-        BlockCipher modeCipher = spec.mode.wrap(CipherUtils.of(theKey.getType(), theKey.getSize()));
+        BlockCipher modeCipher = spec.mode.wrap(CipherUtils.of(key.type, key.getSize()));
         // A real card's update() flushes every complete block immediately. BouncyCastle's
         // PaddedBufferedBlockCipher withholds the last block on encrypt because it cannot know
         // whether doFinal() still needs to pad it, so padded encrypt runs an unpadded engine and

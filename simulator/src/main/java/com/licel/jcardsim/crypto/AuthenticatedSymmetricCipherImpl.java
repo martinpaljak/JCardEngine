@@ -349,11 +349,11 @@ public final class AuthenticatedSymmetricCipherImpl extends AEADCipher {
         }
 
         SymmetricKeyImpl key = (SymmetricKeyImpl) theKey;
-        if (!SymmetricKeyImpl.KF_AES.contains(key.getType())) {
+        if (key.type != KeyBuilder.TYPE_AES) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         try {
-            engine = spec.engineFactory.apply(CipherUtils.of(key.getType(), key.getSize()));
+            engine = spec.engineFactory.apply(CipherUtils.of(key.type, key.getSize()));
         } catch (RuntimeException ex) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }

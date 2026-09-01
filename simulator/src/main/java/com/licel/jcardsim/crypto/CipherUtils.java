@@ -26,8 +26,9 @@ final class CipherUtils {
         }
     }
 
+    // type is the persistent KeyBuilder.TYPE_* constant
     static BlockCipher of(byte type, short size) {
-        if (SymmetricKeyImpl.KF_DES.contains(type)) {
+        if (type == KeyBuilder.TYPE_DES) {
             if (size == KeyBuilder.LENGTH_DES) {
                 return new DESEngine();
             }
@@ -36,10 +37,10 @@ final class CipherUtils {
             }
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        if (SymmetricKeyImpl.KF_AES.contains(type)) {
+        if (type == KeyBuilder.TYPE_AES) {
             return AESEngine.newInstance();
         }
-        if (SymmetricKeyImpl.KF_SEED.contains(type)) {
+        if (type == KeyBuilder.TYPE_KOREAN_SEED) {
             return new SEEDEngine();
         }
         CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);

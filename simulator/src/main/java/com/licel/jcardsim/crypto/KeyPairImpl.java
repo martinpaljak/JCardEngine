@@ -131,7 +131,9 @@ public final class KeyPairImpl {
     }
 
     private void selectAlgorithmByType(byte keyType) {
-        var a = Alg.byKeyType(keyType);
+        // keyType may be a transient variant
+        var family = KeyFamily.byType(keyType);
+        var a = Alg.byKeyType(family == null ? keyType : family.persistent());
         if (a == null) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }

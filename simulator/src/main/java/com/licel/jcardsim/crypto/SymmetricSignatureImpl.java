@@ -6,6 +6,7 @@ package com.licel.jcardsim.crypto;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.Key;
+import javacard.security.KeyBuilder;
 import javacard.security.MessageDigest;
 import javacard.security.Signature;
 import javacardx.crypto.Cipher;
@@ -23,7 +24,6 @@ import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.ZeroBytePadding;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 
-import java.util.List;
 
 /**
  * Implementation
@@ -48,59 +48,59 @@ public final class SymmetricSignatureImpl extends Signature {
     // The canonical identity of each MAC is its (messageDigest, cipher, padding) triple; the legacy single-byte
     // ALG_* constant and the key family that init() must match are recorded alongside.
     private enum MacAlg {
-        DES_MAC4_NOPAD(ALG_DES_MAC4_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_NOPAD(ALG_DES_MAC4_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_NOPAD, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, null)),
-        DES_MAC8_NOPAD(ALG_DES_MAC8_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_NOPAD(ALG_DES_MAC8_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_NOPAD, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, null)),
-        DES_MAC4_ISO9797_M1(ALG_DES_MAC4_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_ISO9797_M1(ALG_DES_MAC4_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M1, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ZeroBytePadding())),
-        DES_MAC8_ISO9797_M1(ALG_DES_MAC8_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M1, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_ISO9797_M1(ALG_DES_MAC8_ISO9797_M1, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M1, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ZeroBytePadding())),
-        DES_MAC4_ISO9797_M2(ALG_DES_MAC4_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_ISO9797_M2(ALG_DES_MAC4_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_M2, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new ISO7816d4Padding())),
-        DES_MAC8_ISO9797_M2(ALG_DES_MAC8_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_ISO9797_M2(ALG_DES_MAC8_ISO9797_M2, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_M2, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new ISO7816d4Padding())),
-        DES_MAC4_PKCS5(ALG_DES_MAC4_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_PKCS5(ALG_DES_MAC4_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_PKCS5, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 32, new PKCS7Padding())),
-        DES_MAC8_PKCS5(ALG_DES_MAC8_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_PKCS5, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_PKCS5(ALG_DES_MAC8_PKCS5, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_PKCS5, KeyBuilder.TYPE_DES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 64, new PKCS7Padding())),
 
         // Retail MAC (ISO 9797-1 algorithm 3): always a fresh single-DES engine, ignores the key cipher.
-        DES_MAC4_ISO9797_1_M1_ALG3(ALG_DES_MAC4_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M1_ALG3, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_ISO9797_1_M1_ALG3(ALG_DES_MAC4_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M1_ALG3, KeyBuilder.TYPE_DES,
                 (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 32, new ZeroBytePadding())),
-        DES_MAC8_ISO9797_1_M1_ALG3(ALG_DES_MAC8_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M1_ALG3, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_ISO9797_1_M1_ALG3(ALG_DES_MAC8_ISO9797_1_M1_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M1_ALG3, KeyBuilder.TYPE_DES,
                 (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 64, new ZeroBytePadding())),
-        DES_MAC4_ISO9797_1_M2_ALG3(ALG_DES_MAC4_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M2_ALG3, SymmetricKeyImpl.KF_DES,
+        DES_MAC4_ISO9797_1_M2_ALG3(ALG_DES_MAC4_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC4, Cipher.PAD_ISO9797_1_M2_ALG3, KeyBuilder.TYPE_DES,
                 (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 32, new ISO7816d4Padding())),
-        DES_MAC8_ISO9797_1_M2_ALG3(ALG_DES_MAC8_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M2_ALG3, SymmetricKeyImpl.KF_DES,
+        DES_MAC8_ISO9797_1_M2_ALG3(ALG_DES_MAC8_ISO9797_1_M2_ALG3, MessageDigest.ALG_NULL, SIG_CIPHER_DES_MAC8, Cipher.PAD_ISO9797_1_M2_ALG3, KeyBuilder.TYPE_DES,
                 (t, s) -> new ISO9797Alg3Mac(new DESEngine(), 64, new ISO7816d4Padding())),
 
-        AES_MAC_128_NOPAD(ALG_AES_MAC_128_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_AES_MAC128, Cipher.PAD_NOPAD, SymmetricKeyImpl.KF_AES,
+        AES_MAC_128_NOPAD(ALG_AES_MAC_128_NOPAD, MessageDigest.ALG_NULL, SIG_CIPHER_AES_MAC128, Cipher.PAD_NOPAD, KeyBuilder.TYPE_AES,
                 (t, s) -> new CBCBlockCipherMac(CipherUtils.of(t, s), 128, null)),
-        AES_CMAC_128(ALG_AES_CMAC_128, MessageDigest.ALG_NULL, SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2, SymmetricKeyImpl.KF_AES,
+        AES_CMAC_128(ALG_AES_CMAC_128, MessageDigest.ALG_NULL, SIG_CIPHER_AES_CMAC128, Cipher.PAD_ISO9797_M2, KeyBuilder.TYPE_AES,
                 (t, s) -> new CMac(CipherUtils.of(t, s), 128)),
 
-        HMAC_SHA1(ALG_HMAC_SHA1, MessageDigest.ALG_SHA, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_SHA1(ALG_HMAC_SHA1, MessageDigest.ALG_SHA, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new SHA1Digest())),
-        HMAC_SHA_256(ALG_HMAC_SHA_256, MessageDigest.ALG_SHA_256, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_SHA_256(ALG_HMAC_SHA_256, MessageDigest.ALG_SHA_256, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new SHA256Digest())),
-        HMAC_SHA_384(ALG_HMAC_SHA_384, MessageDigest.ALG_SHA_384, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_SHA_384(ALG_HMAC_SHA_384, MessageDigest.ALG_SHA_384, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new SHA384Digest())),
-        HMAC_SHA_512(ALG_HMAC_SHA_512, MessageDigest.ALG_SHA_512, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_SHA_512(ALG_HMAC_SHA_512, MessageDigest.ALG_SHA_512, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new SHA512Digest())),
-        HMAC_MD5(ALG_HMAC_MD5, MessageDigest.ALG_MD5, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_MD5(ALG_HMAC_MD5, MessageDigest.ALG_MD5, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new MD5Digest())),
-        HMAC_RIPEMD160(ALG_HMAC_RIPEMD160, MessageDigest.ALG_RIPEMD160, SIG_CIPHER_HMAC, Cipher.PAD_NULL, SymmetricKeyImpl.KF_HMAC,
+        HMAC_RIPEMD160(ALG_HMAC_RIPEMD160, MessageDigest.ALG_RIPEMD160, SIG_CIPHER_HMAC, Cipher.PAD_NULL, KeyBuilder.TYPE_HMAC,
                 (t, s) -> new HMac(new RIPEMD160Digest()));
 
         final byte algByte;
         final byte md;
         final byte cipher;
         final byte padding;
-        final List<Byte> family;
+        final byte family;
         final MacBuilder builder;
 
-        MacAlg(byte algByte, byte md, byte cipher, byte padding, List<Byte> family, MacBuilder builder) {
+        MacAlg(byte algByte, byte md, byte cipher, byte padding, byte family, MacBuilder builder) {
             this.algByte = algByte;
             this.md = md;
             this.cipher = cipher;
@@ -161,24 +161,25 @@ public final class SymmetricSignatureImpl extends Signature {
         if (!theKey.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        if (!(theKey instanceof SymmetricKeyImpl)) {
+        if (!(theKey instanceof SymmetricKeyImpl key)) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+            return;
         }
         // JC 3.2 Signature.init: the key family must match the MAC algorithm family.
-        if (!spec.family.contains(((SymmetricKeyImpl) theKey).getType())) {
+        if (spec.family != key.type) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
         CipherParameters cipherParams;
         if (bArray == null) {
-            cipherParams = ((SymmetricKeyImpl) theKey).getParameters();
+            cipherParams = key.getParameters();
         } else {
-            var probe = CipherUtils.of(theKey.getType(), theKey.getSize());
+            var probe = CipherUtils.of(key.type, key.getSize());
             if (bLen != probe.getBlockSize()) {
                 CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
             }
-            cipherParams = new ParametersWithIV(((SymmetricKeyImpl) theKey).getParameters(), bArray, bOff, bLen);
+            cipherParams = new ParametersWithIV(key.getParameters(), bArray, bOff, bLen);
         }
-        engine = spec.builder.build(theKey.getType(), theKey.getSize());
+        engine = spec.builder.build(key.type, key.getSize());
         engine.init(cipherParams);
         isInitialized = true;
     }
