@@ -4,6 +4,7 @@ package pro.javacard.engine.core;
 
 import javacard.framework.CardException;
 import javacard.framework.CardRuntimeException;
+import javacard.framework.ISOException;
 import javacard.framework.Shareable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,7 @@ public class ContextStackProxy {
     private static Object invoke(EngineRegistryEntry server, Deque<EngineRegistryEntry> stack, Shareable shareable, Method method, Object[] args, boolean platform) throws Throwable {
         Deque<EngineRegistryEntry> saved = null;
         if (platform) {
-            log.info("Switching from <platform> to {}", server.getAID());
+            log.debug("Switching from <platform> to {}", server.getAID());
             // Suspend the caller stack: the callee sees only [server].
             saved = new ArrayDeque<>(stack);
             stack.clear();
@@ -51,7 +52,7 @@ public class ContextStackProxy {
             if (caller == null) {
                 throw new IllegalStateException("Must be called from applet context");
             }
-            log.info("Switching context: {} -> {}", caller.getAID(), server.getAID());
+            log.debug("Switching context: {} -> {}", caller.getAID(), server.getAID());
         }
         stack.push(server);
         try {
@@ -67,7 +68,11 @@ public class ContextStackProxy {
             if (real instanceof CardException ce) {
                 log.warn("{} from shareable: {}", real.getClass().getSimpleName(), ce.getReason());
             } else if (real instanceof CardRuntimeException cre) {
-                log.warn("{} from shareable: {}", real.getClass().getSimpleName(), cre.getReason());
+                if (real instanceof ISOException iso && iso.getReason() == (short) 0x9000) {
+                    log.debug("{} from shareable: {}", real.getClass().getSimpleName(), Integer.toHexString(cre.getReason() & 0xFFFF));
+                } else {
+                    log.warn("{} from shareable: {}", real.getClass().getSimpleName(), Integer.toHexString(cre.getReason() & 0xFFFF));
+                }
             } else {
                 log.warn("{} from shareable", real.getClass().getSimpleName());
             }
