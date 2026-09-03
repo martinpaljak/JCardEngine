@@ -141,7 +141,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         // Raw ECDSA (ALG_NULL): sign a 32-byte hash directly, no internal digesting.
         Simulator base = (Simulator) Simulator.current();
         Simulator seeded = new Simulator(getClass().getClassLoader(), null,
-                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 42L);
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 42L, null);
         try (var ignored = seeded.asCurrent()) {
             KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 256);
             kp.genKeyPair();
@@ -347,7 +347,7 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         // sign pad, so the DER is the full 137-byte long form, which fits getLength().
         Simulator base = (Simulator) Simulator.current();
         Simulator seeded = new Simulator(getClass().getClassLoader(), null,
-                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 8L);
+                new GlobalPlatformEngine(SCPConfig.defaultConfig()), 8L, null);
         try (var ignored = seeded.asCurrent()) {
             KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 512);
             initBrainpoolParams(kp.getPublic(), "brainpoolP512r1");

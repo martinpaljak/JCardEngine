@@ -33,6 +33,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Semaphore;
+import java.util.regex.Pattern;
 
 /**
  * Simulates a JavaCard. This is the _external_ view of the simulated environment, and all external
@@ -107,17 +108,21 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     // GH #20: one SecureRandom per card. Real and non-blocking by default; deterministic when seeded.
     private final SecureRandom rng;
 
-    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform, Long seed) {
+    // Regex over the recorded comment lines; null loads applet classes without the trace calls
+    private final Pattern trace;
+
+    public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform, Long seed, Pattern trace) {
         this.transientMemory = new TransientMemory();
         this.globalPlatform = globalPlatform;
         this.currentAPDU = new CurrentAPDU(transientMemory);
-        this.classLoader = new IsolatingClassReloader(loader);
+        this.classLoader = new IsolatingClassReloader(loader, trace != null);
         this.faultConfig = faultConfig;
         this.rng = seed == null ? new SecureRandom() : new DeterministicRandom(seed);
+        this.trace = trace;
     }
 
     public Simulator(ClassLoader loader, FaultyConfig faultConfig, GlobalPlatformEngine globalPlatform) {
-        this(loader, faultConfig, globalPlatform, null);
+        this(loader, faultConfig, globalPlatform, null, null);
     }
 
     public Simulator(ClassLoader loader, FaultyConfig faultConfig) {
@@ -232,6 +237,18 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     public byte[] getATR() {
         // FIXME: remove from this layer unless GPSystem.setATRHistBytes gets implemented
         return Hex.decode(DEFAULT_ATR);
+    }
+
+    // Sink of the comment lines CommentTraceInterceptor injects into applet code
+    private static final Logger tracelog = LoggerFactory.getLogger("pro.javacard.engine.trace");
+
+    // Called from instrumented applet code, see CommentTrace; silent outside a card
+    @SuppressWarnings("unused")
+    public static void trace(String line) {
+        Simulator current = currentSimulator.get();
+        if (current != null && current.trace.matcher(line).find()) {
+            tracelog.info(line);
+        }
     }
 
     @SuppressWarnings("unused") // used from intercept

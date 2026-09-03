@@ -1,0 +1,46 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>pro.javacard</groupId>
+        <version>26.09.02-SNAPSHOT</version>
+        <artifactId>jcardengine-package</artifactId>
+    </parent>
+    <artifactId>jcardengine-maven-plugin</artifactId>
+    <packaging>maven-plugin</packaging>
+    <name>JCardEngine Maven Plugin</name>
+    <description>Records applet source comments into class files for the engine to log as the applet runs</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>pro.javacard</groupId>
+            <artifactId>jcardengine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>3.9.15</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>3.15.2</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+                <version>3.15.2</version>
+                <configuration>
+                    <goalPrefix>jcardengine</goalPrefix>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

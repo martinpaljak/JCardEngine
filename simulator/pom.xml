@@ -288,6 +288,25 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>trace-test-applets</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <arguments>
+                                <argument>${argLine}</argument>
+                                <argument>-classpath</argument>
+                                <classpath/>
+                                <argument>pro.javacard.engine.CommentTrace</argument>
+                                <argument>${project.build.testOutputDirectory}</argument>
+                                <argument>${project.build.testOutputDirectory}</argument>
+                                <argument>${project.basedir}/src/test/java</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
                 <configuration>
                     <includePluginDependencies>true</includePluginDependencies>

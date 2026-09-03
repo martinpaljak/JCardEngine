@@ -90,6 +90,7 @@
     <modules>
         <module>simulator</module>
         <module>tool</module>
+        <module>maven-plugin</module>
     </modules>
 
     <build>

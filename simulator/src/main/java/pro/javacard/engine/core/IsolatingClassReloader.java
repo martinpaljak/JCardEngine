@@ -21,6 +21,7 @@ public final class IsolatingClassReloader extends SecureClassLoader {
     private static final Logger log = LoggerFactory.getLogger(IsolatingClassReloader.class);
 
     private final Set<String> isolated = new HashSet<>();
+    private final boolean trace;
 
     public Class<?> reloadAndIsolate(Class<?> clazz) throws ClassNotFoundException {
         // Add package to isolated list
@@ -30,8 +31,9 @@ public final class IsolatingClassReloader extends SecureClassLoader {
         return loadClass(clazz.getName(), false);
     }
 
-    public IsolatingClassReloader(ClassLoader parent) {
+    public IsolatingClassReloader(ClassLoader parent, boolean trace) {
         super("isolating", parent);
+        this.trace = trace;
     }
 
     @Override
@@ -83,7 +85,7 @@ public final class IsolatingClassReloader extends SecureClassLoader {
             }
             log.trace("Transforming {}", name);
             // Transform the class to intercept byte array allocations
-            byte[] transformedBytes = BytecodeUtils.transform(classBytes, this);
+            byte[] transformedBytes = BytecodeUtils.transform(classBytes, this, trace);
             return defineClass(name, transformedBytes, 0, transformedBytes.length, orig.getProtectionDomain());
         } catch (Exception e) {
             throw new ClassNotFoundException("Failed to load and transform class: " + name, e);

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package pro.javacard.engine.core;
 
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,15 +17,16 @@ import java.util.HashSet;
 public final class BytecodeUtils {
     private static final Logger log = LoggerFactory.getLogger(BytecodeUtils.class);
 
-    public static byte[] transform(byte[] classBytes, ClassLoader classLoader) {
-
+    // trace injects the CommentTrace calls; without it the attribute passes through untouched
+    public static byte[] transform(byte[] classBytes, ClassLoader classLoader, boolean trace) {
         ClassReader classReader = new ClassReader(classBytes);
         ClassWriter classWriter = new CustomClassWriter(classReader, ClassWriter.COMPUTE_MAXS | ClassWriter.COMPUTE_FRAMES, classLoader);
 
-        MemoryAllocationInterceptor interceptor = new MemoryAllocationInterceptor(classWriter);
-        //classReader.accept(interceptor, 0);
-        FaultInjectionInterceptor other = new FaultInjectionInterceptor(interceptor);
-        classReader.accept(other, 0);
+        ClassVisitor chain = new MemoryAllocationInterceptor(classWriter);
+        if (trace) {
+            chain = new CommentTraceInterceptor(chain);
+        }
+        classReader.accept(new FaultInjectionInterceptor(chain), new Attribute[]{CommentTraceAttribute.PROTOTYPE}, 0);
 
         return classWriter.toByteArray();
     }

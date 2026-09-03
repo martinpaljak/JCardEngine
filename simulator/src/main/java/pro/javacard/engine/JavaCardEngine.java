@@ -6,6 +6,7 @@ import apdu4j.core.BIBO;
 import apdu4j.pcsc.sim.SynthesizedCardTerminal;
 import apdu4j.pcsc.sim.SynthesizedCardTerminals;
 import apdu4j.prefs.Preference;
+import apdu4j.prefs.PreferenceProvider;
 import apdu4j.prefs.Preferences;
 import com.licel.jcardsim.base.Simulator;
 import javacard.framework.AID;
@@ -16,12 +17,16 @@ import pro.javacard.engine.globalplatform.SCPConfig;
 
 import javax.smartcardio.TerminalFactory;
 import java.time.Duration;
+import java.util.regex.Pattern;
 
 // External programmer-facing interface: install/delete applets and open APDU (BIBO) sessions.
 public interface JavaCardEngine {
     // Optional deterministic RNG seed. Absent (Parameter, not Default) means a real random card;
     // a value seeds every card RNG for reproducible key generation and signatures. GH #20.
     Preference.Parameter<Long> RNG_SEED = Preference.parameter("jcardengine.rng.seed", Long.class, false);
+
+    // Regex searched in each traced comment line; only matching lines are logged, unset is silent.
+    Preference.Parameter<String> TRACE_FILTER = Preference.parameter("jcardengine.trace.filter", String.class, false);
 
     AID installApplet(AID aid, Class<? extends Applet> appletClass, byte[] parameters);
 
@@ -90,7 +95,7 @@ public interface JavaCardEngine {
         private ClassLoader classLoader = getClass().getClassLoader();
         private FaultyConfig faultConfig;
         private SCPConfig scpConfig = SCPConfig.defaultConfig();
-        private Preferences preferences = Preferences.of();
+        private Preferences preferences = Preferences.from(PreferenceProvider.systemProperties());
 
         public Builder withClassLoader(ClassLoader cl) {
             this.classLoader = cl;
@@ -115,7 +120,8 @@ public interface JavaCardEngine {
         public JavaCardEngine build() {
             var gp = new GlobalPlatformEngine(scpConfig);
             Long seed = preferences.valueOf(RNG_SEED).orElse(null);
-            var sim = new Simulator(classLoader, faultConfig, gp, seed);
+            Pattern trace = preferences.valueOf(TRACE_FILTER).map(Pattern::compile).orElse(null);
+            var sim = new Simulator(classLoader, faultConfig, gp, seed, trace);
             try (var c = sim.asCurrent()) {
                 // Constructors use JCSystem so we need the "current" reference
                 gp.bootstrap();

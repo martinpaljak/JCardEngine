@@ -7,20 +7,81 @@ import javacard.framework.*;
 public class MemoryApplet extends Applet {
 
     private static final byte INS_MEMORY  = (byte) 0x42;
+    private static final boolean DEBUG = false;
     private static final byte INS_GLOBALS = (byte) 0x43;
     private static final byte P1_QUERY    = (byte) 0x00;
     private static final byte P1_GC       = (byte) 0x01;
     private static final byte P2_EXTENDED = (byte) 0x00;
     private static final byte P2_LEGACY   = (byte) 0x01;
 
-    private final short[] scratch;
+    // Available memory readings in one of the two JCSystem formats, plus the GC request that frees some
+    interface Report {
+        // Writes the readings to dst at offset and returns their length
+        short extract(byte[] dst, short offset);
+
+        void gc();
+    }
+
+    // 32-bit readings via getAvailableMemory(short[], short, byte), four bytes per memory type
+    static final class Extended implements Report {
+        private final short[] scratch = JCSystem.makeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET);
+
+        public short extract(byte[] dst, short offset) {
+            write(dst, offset, JCSystem.MEMORY_TYPE_PERSISTENT);
+            write(dst, (short) (offset + 4), JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+            write(dst, (short) (offset + 8), JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
+            return 12;
+        }
+
+        private void write(byte[] dst, short off, byte memoryType) {
+            // Two shorts per reading
+            JCSystem.getAvailableMemory(scratch, (short) 0, memoryType);
+            Util.setShort(dst, off, scratch[0]);
+            Util.setShort(dst, (short) (off + 2), scratch[1]);
+        }
+
+        public void gc() {
+            // step: Refuse when the runtime cannot delete objects
+            if (!JCSystem.isObjectDeletionSupported()) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+            }
+            JCSystem.requestObjectDeletion();
+        }
+    }
+
+    // 16-bit readings via getAvailableMemory(byte), saturated at 32767
+    static final class Legacy implements Report {
+        private static final byte[] TYPES = {JCSystem.MEMORY_TYPE_PERSISTENT, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT};
+
+        public short extract(byte[] dst, short offset) {
+            short i = 0;
+            // step: Three readings
+            while (i < TYPES.length) {
+                // step: One reading
+                Util.setShort(dst, (short) (offset + 2 * i), JCSystem.getAvailableMemory(TYPES[i]));
+                i++;
+            }
+            return 6;
+        }
+
+        public void gc() {
+            // step: A refused request surfaces as SystemException
+            try {
+                JCSystem.requestObjectDeletion();
+            } catch (SystemException e) {
+                ISOException.throwIt(ISO7816.SW_COMMAND_NOT_ALLOWED);
+            }
+        }
+    }
+
+    private final Report extended = new Extended();
+    private final Report legacy = new Legacy();
 
     // isTransient() and length of the install() bArray; both can only be queried while install() runs
     private final byte installBuffer;
     private final short installBufferLength;
 
     private MemoryApplet(byte[] bArray) {
-        scratch = JCSystem.makeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET);
         installBuffer = JCSystem.isTransient(bArray);
         installBufferLength = (short) bArray.length;
     }
@@ -34,6 +95,11 @@ public class MemoryApplet extends Applet {
             return;
         }
 
+        if (DEBUG) {
+            // step: Never compiled
+            ISOException.throwIt(ISO7816.SW_UNKNOWN);
+        }
+        // step: Dispatch on INS
         byte[] buffer = apdu.getBuffer();
         if (buffer[ISO7816.OFFSET_INS] == INS_GLOBALS) {
             doGlobals(apdu, buffer);
@@ -43,16 +109,30 @@ public class MemoryApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
         }
 
+        // step: P2 picks the report format
+        Report report = report(buffer[ISO7816.OFFSET_P2]);
         switch (buffer[ISO7816.OFFSET_P1]) {
             case P1_QUERY:
-                doQuery(apdu, buffer, buffer[ISO7816.OFFSET_P2]);
+                apdu.setOutgoingAndSend((short) 0, report.extract(buffer, (short) 0));
                 break;
             case P1_GC:
-                doGc();
+                report.gc();
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
+        // step: Done
+    }
+
+    private Report report(byte p2) {
+        if (p2 == P2_EXTENDED) {
+            return extended;
+        }
+        if (p2 == P2_LEGACY) {
+            return legacy;
+        }
+        ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+        return null;
     }
 
     // Reports the memory type and length of the APDU buffer and the install() bArray recorded at construction.
@@ -62,41 +142,5 @@ public class MemoryApplet extends Applet {
         Util.setShort(buffer, (short) 2, (short) buffer.length);
         Util.setShort(buffer, (short) 4, installBufferLength);
         apdu.setOutgoingAndSend((short) 0, (short) 6);
-    }
-
-    private void doQuery(APDU apdu, byte[] buffer, byte p2) {
-        short len;
-        if (p2 == P2_EXTENDED) {
-            writeExtended(buffer, (short) 0, JCSystem.MEMORY_TYPE_PERSISTENT);
-            writeExtended(buffer, (short) 4, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-            writeExtended(buffer, (short) 8, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
-            len = (short) 12;
-        } else if (p2 == P2_LEGACY) {
-            Util.setShort(buffer, (short) 0, JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT));
-            Util.setShort(buffer, (short) 2, JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_TRANSIENT_RESET));
-            Util.setShort(buffer, (short) 4, JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT));
-            len = (short) 6;
-        } else {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-            return;
-        }
-        apdu.setOutgoingAndSend((short) 0, len);
-    }
-
-    private void writeExtended(byte[] buffer, short off, byte memoryType) {
-        JCSystem.getAvailableMemory(scratch, (short) 0, memoryType);
-        Util.setShort(buffer, off, scratch[0]);
-        Util.setShort(buffer, (short) (off + 2), scratch[1]);
-    }
-
-    private void doGc() {
-        if (!JCSystem.isObjectDeletionSupported()) {
-            ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-        }
-        try {
-            JCSystem.requestObjectDeletion();
-        } catch (SystemException e) {
-            ISOException.throwIt(ISO7816.SW_COMMAND_NOT_ALLOWED);
-        }
     }
 }
