@@ -1,4 +1,5 @@
-TZ = UTC # same as Github
+# same as Github
+TZ = UTC
 export TZ
 SHELL := /bin/bash
 JDK ?= zulu
@@ -33,6 +34,10 @@ today:
 
 reuse:
 	reuse --no-multiprocessing lint
+
+# Everything a commit must pass before it is ready: REUSE, then the full check build as CI runs it
+gate: reuse
+	CI=true ./mvnw -B -Pcheck clean verify
 
 format:
 	./mvnw -q spotless:apply
