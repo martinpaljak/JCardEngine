@@ -13,6 +13,7 @@ import java.security.SecureRandomSpi;
 // A SecureRandom whose stream is fully reproducible from a seed, so it drops into
 // ParametersWithRandom and KeyPair generation for deterministic test reproduction.
 public final class DeterministicRandom extends SecureRandom {
+    private static final long serialVersionUID = -8873573662285539333L;
 
     public DeterministicRandom(long seed) {
         super(new Spi(), null);
@@ -21,7 +22,10 @@ public final class DeterministicRandom extends SecureRandom {
     }
 
     private static final class Spi extends SecureRandomSpi {
-        final RandomGenerator engine = new DigestRandomGenerator(new SHA1Digest());
+        private static final long serialVersionUID = -9188863350503729492L;
+
+        // DigestRandomGenerator is not Serializable.
+        final transient RandomGenerator engine = new DigestRandomGenerator(new SHA1Digest());
 
         @Override
         protected void engineSetSeed(byte[] arg) {

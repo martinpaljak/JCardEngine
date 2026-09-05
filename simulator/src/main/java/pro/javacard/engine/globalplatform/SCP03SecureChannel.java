@@ -195,7 +195,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             }
             // Strip MAC if present
             if ((state & SecureChannel.C_MAC) == SecureChannel.C_MAC) {
-                bytes[offset + ISO7816.OFFSET_LC] -= maclen;
+                bytes[offset + ISO7816.OFFSET_LC] = (byte) (bytes[offset + ISO7816.OFFSET_LC] - maclen);
             }
             return (short) (ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
         } catch (GeneralSecurityException e) {
@@ -280,7 +280,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
     short maxResponseLength() {
         short max = 256;
         if ((state & SecureChannel.R_MAC) != 0) {
-            max -= s16 ? 16 : 8;
+            max = (short) (max - (s16 ? 16 : 8));
         }
         if ((state & SecureChannel.R_ENCRYPTION) != 0) {
             max -= 16;

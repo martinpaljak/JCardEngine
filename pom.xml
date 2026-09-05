@@ -147,8 +147,7 @@
                         <release>17</release>
                         <compilerArgs>
                             <arg>-Werror</arg>
-                            <arg>-Xlint:deprecation</arg>
-                            <arg>-Xlint:unchecked</arg>
+                            <arg>-Xlint:all</arg>
                         </compilerArgs>
                     </configuration>
                 </plugin>

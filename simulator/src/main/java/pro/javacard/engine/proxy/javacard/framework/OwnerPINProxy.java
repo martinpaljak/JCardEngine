@@ -51,7 +51,6 @@ public class OwnerPINProxy implements PIN {
         triesLeft = new byte[1];
         resetTriesRemaining();
         flags = JCSystem.makeTransientBooleanArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        setValidatedFlag(false);
     }
 
     /**

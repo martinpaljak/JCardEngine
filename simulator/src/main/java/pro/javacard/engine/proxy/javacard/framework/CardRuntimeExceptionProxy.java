@@ -8,6 +8,7 @@ package pro.javacard.engine.proxy.javacard.framework;
  * @see javacard.framework.CardRuntimeException
  */
 public class CardRuntimeExceptionProxy extends RuntimeException {
+    private static final long serialVersionUID = -1010907071061020447L;
 
     private short reason;
 

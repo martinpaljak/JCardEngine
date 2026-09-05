@@ -47,12 +47,11 @@ public class PersistentApplet extends Applet {
 
             ((AESKey) keyArr[i]).setKey(keyDataBuf, (short) 0);
         }
-        register();
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new PersistentApplet(bArray, bOffset, bLength);
+        new PersistentApplet(bArray, bOffset, bLength).register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     public void deselect() {

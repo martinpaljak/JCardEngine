@@ -125,13 +125,8 @@ public class JavaCardApiProcessor {
         ClassRemapper ra = new ClassRemapper(cnProxyRemapped, new SimpleRemapper(mapping));
         cnProxy.accept(ra);
 
-        // Derive the proxy's source file name so JaCoCo can map woven lines to the proxy .java.
-        String proxyLeaf = cnProxy.name.substring(cnProxy.name.lastIndexOf('/') + 1);
-        int dollar = proxyLeaf.indexOf('$');
-        String proxySource = (dollar < 0 ? proxyLeaf : proxyLeaf.substring(0, dollar)) + ".java";
-
         ClassWriter cw = new ClassWriter(crTarget, ClassWriter.COMPUTE_FRAMES);
-        MergeAdapter ma = new MergeAdapter(cw, cnProxyRemapped, skipConstructor, proxySource);
+        MergeAdapter ma = new MergeAdapter(cw, cnProxyRemapped, skipConstructor);
         cnTarget.accept(ma);
         fProxyClass.close();
         fTargetClass.close();
@@ -229,13 +224,11 @@ public class JavaCardApiProcessor {
         private HashMap<String, MethodNode> cnMethods = new HashMap<>();
         private HashMap<String, FieldNode> cnFields = new HashMap<>();
         private boolean skipConstructor;
-        private String proxySource;
 
-        public MergeAdapter(ClassVisitor cv, ClassNode cn, boolean skipConstructor, String proxySource) {
+        public MergeAdapter(ClassVisitor cv, ClassNode cn, boolean skipConstructor) {
             super(cv);
             this.cn = cn;
             this.skipConstructor = skipConstructor;
-            this.proxySource = proxySource;
             for (MethodNode mn : cn.methods) {
                 if (skipConstructor && mn.name.equals("<init>")) {
                     continue;
@@ -251,8 +244,11 @@ public class JavaCardApiProcessor {
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             super.visit(version, access, name, signature, superName, interfaces);
             this.cname = name;
-            // The API stub has no SourceFile to intercept via visitSource; set the ClassNode field directly.
-            this.sourceFile = proxySource;
+            // The API stub carries no SourceFile for visitSource to intercept.
+            // javac flags a class as auxiliary unless SourceFile is its own simple name.
+            int slash = name.lastIndexOf('/') + 1;
+            int dollar = name.indexOf('$', slash);
+            this.sourceFile = (dollar < 0 ? name.substring(slash) : name.substring(slash, dollar)) + ".java";
         }
 
         @Override

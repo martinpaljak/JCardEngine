@@ -28,12 +28,11 @@ public class GlobalArrayServerApplet extends Applet implements GlobalArrayAccess
 
     protected GlobalArrayServerApplet() {
         transientMemory = JCSystem.makeTransientByteArray(MAX_ALLOWED_GLOBAL_ARRAY_SIZE_BYTES, JCSystem.CLEAR_ON_DESELECT);
-        register();
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new GlobalArrayServerApplet();
+        new GlobalArrayServerApplet().register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     @Override

@@ -40,7 +40,7 @@ public final class CRC32 extends Checksum {
     public short doFinal(byte[] inBuff, short inOffset, short inLength, byte[] outBuff, short outOffset) {
         update(inBuff, inOffset, inLength);
         for (short i = 0; i < LENGTH; i++) {
-            crc32[i] ^= 0xff;
+            crc32[i] = (byte) (crc32[i] ^ 0xff);
         }
 
         Util.arrayCopy(crc32, (short) 0, outBuff, outOffset, LENGTH);
@@ -100,7 +100,7 @@ public final class CRC32 extends Checksum {
         byte reflected = 0;
         for (byte i = 0; i < 8; i++) {
             if ((input & (0x80 >> i)) > 0) {
-                reflected |= 1 << i;
+                reflected = (byte) (reflected | (1 << i));
             }
         }
         return reflected;
@@ -110,7 +110,7 @@ public final class CRC32 extends Checksum {
         short reflected = 0;
         for (byte i = 0; i < 16; i++) {
             if ((input & (0x8000 >> i)) > 0) {
-                reflected |= 1 << i;
+                reflected = (short) (reflected | (1 << i));
             }
         }
         return reflected;

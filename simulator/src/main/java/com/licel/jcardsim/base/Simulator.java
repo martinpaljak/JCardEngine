@@ -456,7 +456,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
             log.error("Do not call from a different thread.");
         }
         // We call into applet.
-        try (var sim = asCurrent()) {
+        var scope = asCurrent();
+        try (scope) {
             // First deselect the applet, if it is currently selected.
             if (selected != null && selected.getAID().equals(aid)) {
                 deselect(selected);
@@ -528,7 +529,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
         }
 
         // try-with-resources solely to trigger close()
-        try (var ignored = asCurrent()) {
+        var scope = asCurrent();
+        try (scope) {
             // Set before the applet's select() runs, so getProtocol() reports the command's interface.
             currentAPDU.protocol = protocol;
             if (command_counter == 1) {
@@ -934,7 +936,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
 
     @Override
     public void loadApplet(AID packageAid, AID appletAid, Class<? extends Applet> appletClass) {
-        try (var sim = asCurrent()) {
+        var scope = asCurrent();
+        try (scope) {
             Simulator.current().gp().loadClass(packageAid, appletAid, appletClass, null);
         }
     }
@@ -1025,7 +1028,8 @@ public class Simulator implements JavaCardEngine, JavaCardRuntime {
     }
 
     private AID installApplet(AID appletAID, Class<? extends Applet> appletClass, byte[] parameters, boolean exposed) {
-        try (var sim = asCurrent()) {
+        var scope = asCurrent();
+        try (scope) {
             // If there is a currently selected applet, deselect it. installApplet is like implicit selection of card manager
             if (selected != null) {
                 deselect(selected);

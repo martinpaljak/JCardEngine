@@ -429,8 +429,8 @@ public class CurrentAPDU {
             }
             System.arraycopy(outData, bOff, apdu_buffer, 0, sendLength);
             sendBytes((short) 0, (short) sendLength);
-            len -= sendLength;
-            bOff += sendLength;
+            len = (short) (len - sendLength);
+            bOff = (short) (bOff + sendLength);
         }
     }
 

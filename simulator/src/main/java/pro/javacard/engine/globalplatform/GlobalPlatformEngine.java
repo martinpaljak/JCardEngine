@@ -23,7 +23,7 @@ import pro.javacard.gp.data.BitField;
 
 import java.util.*;
 
-public class GlobalPlatformEngine {
+public final class GlobalPlatformEngine {
     private static final Logger log = LoggerFactory.getLogger(GlobalPlatformEngine.class);
     private final EngineSecureChannel sc;
     private final EngineGlobalPIN gpin = new EngineGlobalPIN();

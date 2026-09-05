@@ -21,8 +21,8 @@
         <coverage.dir>${project.basedir}/../coverage</coverage.dir>
         <caps.skip>false</caps.skip>
         <jacoco.skip>false</jacoco.skip>
-        <!-- Overwritten by the JaCoCo agent. The placeholder keeps the forked weaving run
-             and the test JVMs with a valid argument when coverage is switched off. -->
+        <!-- Overwritten by the JaCoCo agent. The placeholder gives the forked API rewrite
+             and the test JVMs a valid argument when coverage is off. -->
         <argLine>-Dfile.encoding=UTF-8</argLine>
     </properties>
 
@@ -132,7 +132,7 @@
 
     <build>
         <plugins>
-            <!-- Everything the vendor repository serves: unpacked before the weaver, copied before the CAP build -->
+            <!-- Everything the vendor repository serves: unpacked before the API rewrite, copied before the CAP build -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -144,7 +144,7 @@
                             <goal>unpack</goal>
                         </goals>
                         <configuration>
-                            <!-- The weaver rewrites the API classes in place, so every run starts from pristine ones -->
+                            <!-- JavaCardApiProcessor rewrites the API classes in place, so every run starts from pristine ones -->
                             <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
                             <outputDirectory>${project.build.directory}/classes</outputDirectory>
@@ -279,7 +279,7 @@
                             <executable>${java.home}/bin/java</executable>
                             <arguments>
                                 <!-- ${argLine} carries the JaCoCo agent (prepare-agent runs at process-resources, before this
-                                     process-classes phase), so this forked weaving run is instrumented and its data appends to the shared jacoco.exec. -->
+                                     process-classes phase), so the forked API rewrite is instrumented and its data appends to the shared jacoco.exec. -->
                                 <argument>${argLine}</argument>
                                 <argument>-classpath</argument>
                                 <classpath/>
@@ -403,7 +403,7 @@
                                             </executiondata>
                                             <structure name="${project.name}">
                                                 <classfiles>
-                                                    <!-- Host report = the engine plus the woven API proxies. Dropped:
+                                                    <!-- Host report = the engine plus the rewritten API proxies. Dropped:
                                                          applet code, the java.* and unimplemented JavaCard API packages,
                                                          and the no-proxy API stub classes (no host code, no debug info). -->
                                                     <fileset dir="${project.build.directory}/classes">
@@ -434,8 +434,11 @@
                                                 </classfiles>
                                                 <sourcefiles>
                                                     <fileset dir="${basedir}/src/main/java"/>
-                                                    <!-- Remap the proxy folder to its root so that jacoco would find the proxy classes at non-proxy path. -->
-                                                    <fileset dir="${basedir}/src/main/java/pro/javacard/engine/proxy"/>
+                                                    <!-- Rewritten API classes name the target source file; show the proxy sources under those names. -->
+                                                    <mappedresources>
+                                                        <fileset dir="${basedir}/src/main/java/pro/javacard/engine/proxy"/>
+                                                        <globmapper from="*Proxy.java" to="*.java"/>
+                                                    </mappedresources>
                                                 </sourcefiles>
                                             </structure>
                                             <html destdir="${coverage.dir}/host"/>

@@ -143,7 +143,8 @@ public class RandomDataImplTest extends SimulatorCoreTest {
 
             // An unseeded card uses a real SecureRandom, so it differs from the seeded stream too.
             var unseeded = (Simulator) new JavaCardEngine.Builder().build();
-            try (var ignored = unseeded.asCurrent()) {
+            var scope = unseeded.asCurrent();
+            try (scope) {
                 byte[] d = new byte[8];
                 RandomData.getInstance(RandomData.ALG_SECURE_RANDOM).generateData(d, (short) 0, (short) d.length);
                 assertFalse(Arrays.equals(a, d));
@@ -156,7 +157,8 @@ public class RandomDataImplTest extends SimulatorCoreTest {
     private static byte[] generateSeeded(long seed) {
         var prefs = Preferences.of().with(JavaCardEngine.RNG_SEED, seed);
         var sim = (Simulator) new JavaCardEngine.Builder().preferences(prefs).build();
-        try (var ignored = sim.asCurrent()) {
+        var scope = sim.asCurrent();
+        try (scope) {
             byte[] out = new byte[8];
             RandomData.getInstance(RandomData.ALG_SECURE_RANDOM).generateData(out, (short) 0, (short) out.length);
             return out;

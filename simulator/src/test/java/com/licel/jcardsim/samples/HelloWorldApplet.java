@@ -76,7 +76,6 @@ public class HelloWorldApplet extends Applet {
             Util.arrayCopyNonAtomic(bArray, (short) (bOffset + 1), initParamsBytes, (short) 0, aLen);
         }
         transientMemory = JCSystem.makeTransientByteArray(LENGTH_ECHO_BYTES, JCSystem.CLEAR_ON_RESET);
-        register();
     }
 
     /**
@@ -89,7 +88,7 @@ public class HelloWorldApplet extends Applet {
      */
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new HelloWorldApplet(bArray, bOffset, bLength);
+        new HelloWorldApplet(bArray, bOffset, bLength).register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     @Override

@@ -45,12 +45,11 @@ public class SymmetricCipherApplet extends Applet {
 
     public static void install(byte[] bArray, short bOffset, byte bLength)
             throws ISOException {
-        new SymmetricCipherApplet();
+        new SymmetricCipherApplet().register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     protected SymmetricCipherApplet() {
         transientMemory = JCSystem.makeTransientByteArray(MAX_DATA_BYTE_SIZE, JCSystem.CLEAR_ON_DESELECT);
-        register();
     }
 
     @Override

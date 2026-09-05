@@ -73,11 +73,7 @@ public class RuntimeExceptionApplet extends Applet {
     private static final byte INS_HAS_CATCH_EXCEPTION = 1;
 
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
-        new RuntimeExceptionApplet();
-    }
-
-    protected RuntimeExceptionApplet() {
-        register();
+        new RuntimeExceptionApplet().register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     @Override

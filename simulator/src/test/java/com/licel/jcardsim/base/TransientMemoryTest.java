@@ -173,7 +173,8 @@ public class TransientMemoryTest {
     @Test
     public void transientKeyClearsInitializedState() {
         var sim = new Simulator();
-        try (var current = sim.asCurrent()) {
+        var scope = sim.asCurrent();
+        try (scope) {
             AESKey key = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
             key.setKey(new byte[16], (short) 0);
             assertTrue(key.isInitialized());

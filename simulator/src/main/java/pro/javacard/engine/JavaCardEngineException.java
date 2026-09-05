@@ -6,6 +6,8 @@ package pro.javacard.engine;
  * thrown when JCRE is supposed to "eat" the exception
  */
 public class JavaCardEngineException extends RuntimeException {
+    private static final long serialVersionUID = -1272263939917676450L;
+
     public JavaCardEngineException(String message) {
         super(message);
     }

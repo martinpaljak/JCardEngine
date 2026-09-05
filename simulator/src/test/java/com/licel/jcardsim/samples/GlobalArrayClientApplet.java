@@ -34,7 +34,7 @@ public class GlobalArrayClientApplet extends Applet {
      * @throws ISOException if the install method failed
      */
     public static void install(byte[] bArray, short bOffset, byte bLength) throws ISOException {
-        new GlobalArrayClientApplet(bArray, bOffset, bLength);
+        new GlobalArrayClientApplet(bArray, bOffset, bLength).register(bArray, (short) (bOffset + 1), bArray[bOffset]);
     }
 
     protected GlobalArrayClientApplet(byte[] bArray, short bOffset, byte bLength) {
@@ -45,7 +45,6 @@ public class GlobalArrayClientApplet extends Applet {
         byte aidLen = bArray[bOffset];
         serverAppletAID = new AID(bArray, (short) (bOffset + 1), aidLen);
         dummy = new byte[13];
-        register();
     }
 
 

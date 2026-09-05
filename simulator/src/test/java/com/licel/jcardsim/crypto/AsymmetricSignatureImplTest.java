@@ -142,7 +142,8 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         Simulator base = (Simulator) Simulator.current();
         Simulator seeded = new Simulator(getClass().getClassLoader(), null,
                 new GlobalPlatformEngine(SCPConfig.defaultConfig()), 42L, null);
-        try (var ignored = seeded.asCurrent()) {
+        var scope = seeded.asCurrent();
+        try (scope) {
             KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 256);
             kp.genKeyPair();
             Signature signEngine = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_ECDSA,
@@ -348,7 +349,8 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         Simulator base = (Simulator) Simulator.current();
         Simulator seeded = new Simulator(getClass().getClassLoader(), null,
                 new GlobalPlatformEngine(SCPConfig.defaultConfig()), 8L, null);
-        try (var ignored = seeded.asCurrent()) {
+        var scope = seeded.asCurrent();
+        try (scope) {
             KeyPair kp = new KeyPair(KeyPair.ALG_EC_FP, (short) 512);
             initBrainpoolParams(kp.getPublic(), "brainpoolP512r1");
             initBrainpoolParams(kp.getPrivate(), "brainpoolP512r1");
