@@ -1,6 +1,7 @@
 name: Build robot
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - next
@@ -14,15 +15,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'deploy' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the release step attaches the jar
     strategy:
       matrix:
         java: [ 17, 21, 25 ]
     name: Java ${{ matrix.java }} build
     env:
-      PUBLISH: ${{ matrix.java == '17' && github.ref == 'refs/heads/next' }}
+      PUBLISH: ${{ matrix.java == '17' && ( github.ref == 'refs/heads/next' || startsWith(github.ref, 'refs/tags/v') ) }}
       RELEASE: ${{ matrix.java == '17' && startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - name: Checkout
@@ -41,12 +47,12 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           fingerprint: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
       - name: Build and deploy
-        run: TZ=UTC ./mvnw -B -U deploy -Dmaven.deploy.skip=${{ env.PUBLISH != 'true' }}
+        run: ./mvnw -B -U deploy -Dmaven.deploy.skip=${{ env.PUBLISH != 'true' }}
       - name: Release
         if: env.RELEASE == 'true'
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         with:
-          prerelease: true
+          prerelease: true # manually promoted
           files: ./tool/target/jcard.jar
           fail_on_unmatched_files: true
           body: Release ${{ github.ref_name }}
