@@ -12,6 +12,7 @@ path = [
     ".gitattributes",
     ".gitignore",
     ".github/**",
+    ".mvn/jvm.config",
     ".mvn/maven.config",
     "pom.xml",
     "**/pom.xml",
