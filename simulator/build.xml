@@ -7,38 +7,38 @@
     <!-- The task, like the jars below, comes from maven, so this file only runs under it. -->
     <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpathref="maven.plugin.classpath"/>
     <javacard jckit="target/sdk">
-      <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java,**/LegacyReport.java">
+      <cap targetsdk="3.0.5" aid="D233000000774D454D2D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/MemoryApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/MemoryApplet.java,**/LegacyReport.java">
         <applet class="pro.javacard.engine.testapplets.MemoryApplet" aid="D233000000774D454D2D303101"/>
       </cap>
-      <cap targetsdk="3.0.5" aid="D233000000774352592D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CryptoProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CryptoProbeApplet.java">
+      <cap targetsdk="3.0.5" aid="D233000000774352592D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/CryptoProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CryptoProbeApplet.java">
         <applet class="pro.javacard.engine.testapplets.CryptoProbeApplet" aid="D233000000774352592D303101"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D2330000007743524C2D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRELTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRELTestApplet.java">
+      <cap targetsdk="3.0.4" aid="D2330000007743524C2D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/CRELTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRELTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.CRELTestApplet" aid="D2330000007743524C2D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
         <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D233000000774352532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/CRSTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRSTestApplet.java">
+      <cap targetsdk="3.0.4" aid="D233000000774352532D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/CRSTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/CRSTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.CRSTestApplet" aid="D233000000774352532D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
         <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D233000000775050532D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/PPSEApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PPSEApplet.java">
+      <cap targetsdk="3.0.4" aid="D233000000775050532D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/PPSEApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PPSEApplet.java">
         <applet class="pro.javacard.engine.testapplets.PPSEApplet" aid="D233000000775050532D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
         <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D233000000775041592D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/PaymentApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PaymentApplet.java">
+      <cap targetsdk="3.0.4" aid="D233000000775041592D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/PaymentApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/PaymentApplet.java">
         <applet class="pro.javacard.engine.testapplets.PaymentApplet" aid="D233000000775041592D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
         <import jar="${imports.dir}/contactless.jar" exps="${exports.dir}"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D233000000774753562D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/GlobalServiceTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/GlobalServiceTestApplet.java">
+      <cap targetsdk="3.0.4" aid="D233000000774753562D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/GlobalServiceTestApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/GlobalServiceTestApplet.java">
         <applet class="pro.javacard.engine.testapplets.GlobalServiceTestApplet" aid="D233000000774753562D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
         <import jar="${imports.dir}/broker.jar" exps="${exports.dir}"/>
       </cap>
-      <cap targetsdk="3.0.4" aid="D233000000774354582D3031" package="pro.javacard.engine.testapplets" version="0.1" output="target/ContextProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/ContextProbeApplet.java">
+      <cap targetsdk="3.0.4" aid="D233000000774354582D3031" package="pro.javacard.engine.testapplets" version="1.0" output="target/ContextProbeApplet.cap" sources="src/test/java/pro/javacard/engine/testapplets" includes="**/ContextProbeApplet.java">
         <applet class="pro.javacard.engine.testapplets.ContextProbeApplet" aid="D233000000774354582D303101"/>
         <import jar="${imports.dir}/api.jar" exps="${exports.dir}"/>
       </cap>

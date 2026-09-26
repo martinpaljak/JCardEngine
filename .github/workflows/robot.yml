@@ -36,7 +36,14 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: zulu
-          cache: maven
+      - name: Maven cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.m2/wrapper
+          key: maven-java${{ matrix.java }}-${{ hashFiles('**/pom.xml', '.mvn/**') }}
+          restore-keys: maven-java${{ matrix.java }}-
       - name: Set up publishing
         if: env.PUBLISH == 'true'
         uses: martinpaljak/maven-ssh-deploy@v2
@@ -46,6 +53,12 @@ jobs:
           fingerprint: SHA256:auiF3nHWvDmvq2stDl+QEECCqMcDp+FY1/bDRnvxpRw
       - name: Build and deploy
         run: ./mvnw -B -U deploy -Dmaven.deploy.skip=${{ env.PUBLISH != 'true' }}
+      - name: Upload
+        if: matrix.java == '17'
+        uses: actions/upload-artifact@v7
+        with:
+          path: ./tool/target/jcard.jar
+          archive: false
       - name: Release
         if: env.RELEASE == 'true'
         uses: softprops/action-gh-release@v3.0.3
