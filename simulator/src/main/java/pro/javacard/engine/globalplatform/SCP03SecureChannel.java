@@ -105,7 +105,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             // Verify challenge
             byte[] host_cryptogram = GPCrypto.scp03_kdf(macKey, (byte) 0x01, ctx, s16 ? 128 : 64);
             if (!Arrays.equals(host_cryptogram, Arrays.copyOfRange(apdu.getBuffer(), ISO7816.OFFSET_CDATA, ISO7816.OFFSET_CDATA + host_cryptogram.length))) {
-                log.error("Host cryptogram check failed");
+                log.warn("Host cryptogram check failed");
                 ISOException.throwIt((short) 0x6300);
             }
             state = (byte) (SecureChannel.AUTHENTICATED | buffer[ISO7816.OFFSET_P1]);
@@ -126,7 +126,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
                 new byte[]{buffer[offset + ISO7816.OFFSET_LC]}, payload);
         byte[] check = Arrays.copyOf(cmac, maclen);
         if (!Arrays.equals(check, mac)) {
-            log.error("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
+            log.warn("MAC mismatch: calculated {}, presented {}", Hex.toHexString(check), Hex.toHexString(mac));
             abort();
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
@@ -199,7 +199,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             }
             return (short) (ISO7816.OFFSET_CDATA + (bytes[offset + ISO7816.OFFSET_LC] & 0xFF));
         } catch (GeneralSecurityException e) {
-            log.error("Decryption failed", e);
+            log.warn("Decryption failed", e);
             abort();
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             return 0;
@@ -221,7 +221,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             // once it exceeds 255 bytes (GPC v2.3.1 11.1.5.1), matching what was MAC'd off-card.
             byte[] cmac = cmac(cla, ins, p1, p2, GPUtils.encodeLcLength(wrapped.length, 256), data);
             if (!Arrays.equals(Arrays.copyOf(cmac, maclen), mac)) {
-                log.error("MAC mismatch on reassembled chained command");
+                log.warn("MAC mismatch on reassembled chained command");
                 abort();
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             }
@@ -235,7 +235,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             try {
                 return decryptCommand(body);
             } catch (GeneralSecurityException e) {
-                log.error("Decryption failed", e);
+                log.warn("Decryption failed", e);
                 abort();
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
                 return null;
@@ -257,7 +257,7 @@ public final class SCP03SecureChannel extends EngineSecureChannel {
             Util.arrayCopyNonAtomic(result, (short) 0, buffer, offset, (short) result.length);
             return (short) result.length;
         } catch (GeneralSecurityException e) {
-            log.error("Decrypt failed", e);
+            log.warn("Decrypt failed", e);
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
             return 0;
         }
