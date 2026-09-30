@@ -75,7 +75,13 @@ public class RSAKeyImpl extends KeyWithParameters implements RSAPrivateKey, RSAP
         if (!isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
-        return new RSAKeyParameters(isPrivate(), modulus.getBigInteger(), exponent.getBigInteger());
+        var n = modulus.getBigInteger();
+        var e = exponent.getBigInteger();
+        // JavaCard imposes no validity constraints on a raw RSA exponent, but BouncyCastle rejects
+        // an even *public* exponent. JCMathLib-style code legitimately sets e = 2 to use the RSA
+        // engine as a modular squaring primitive. Present such a key to BC as a private key, which
+        // takes the same plain modPow path without the public-key validation.
+        return new RSAKeyParameters(isPrivate() || !e.testBit(0), n, e);
     }
 
     @Override
