@@ -11,9 +11,13 @@ import javacardx.crypto.Cipher;
 import org.bouncycastle.asn1.teletrust.TeleTrusTNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.util.BigIntegers;
 import org.bouncycastle.util.encoders.Hex;
 import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
+
+import java.math.BigInteger;
+import java.util.Random;
 
 import static org.testng.Assert.*;
 
@@ -96,6 +100,34 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
     public void testSelfSignVerifyRSASHA256() {
         System.out.println("self test sign/verify rsa SHA-256");
         testSelfSignVerify(KeyPair.ALG_RSA_CRT, RSA_ETALON_KEY_SIZE, Signature.ALG_RSA_SHA_256_PKCS1, null);
+        // a 1023-bit modulus signs to 128 bytes
+        var rnd = new Random(1);
+        BigInteger p;
+        BigInteger q;
+        do {
+            p = BigInteger.probablePrime(512, rnd);
+            q = BigInteger.probablePrime(511, rnd);
+        } while (p.multiply(q).bitLength() != 1023);
+        var e = BigInteger.valueOf(65537);
+        var modulus = BigIntegers.asUnsignedByteArray(128, p.multiply(q));
+        var d = BigIntegers.asUnsignedByteArray(128, e.modInverse(p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE))));
+        var priv = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, (short) 1023, false);
+        priv.setModulus(modulus, (short) 0, (short) 128);
+        priv.setExponent(d, (short) 0, (short) 128);
+        var pub = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, (short) 1023, false);
+        pub.setModulus(modulus, (short) 0, (short) 128);
+        pub.setExponent(e.toByteArray(), (short) 0, (short) 3);
+        for (byte alg : new byte[]{Signature.ALG_RSA_SHA_256_PKCS1, Signature.ALG_RSA_SHA_ISO9796_MR}) {
+            var signer = Signature.getInstance(alg, false);
+            signer.init(priv, Signature.MODE_SIGN);
+            assertEquals(signer.getLength(), 128);
+        }
+        var signer = Signature.getInstance(Signature.ALG_RSA_SHA_256_PKCS1, false);
+        signer.init(priv, Signature.MODE_SIGN);
+        var signature = new byte[128];
+        assertEquals(signer.sign(modulus, (short) 0, (short) 20, signature, (short) 0), 128);
+        signer.init(pub, Signature.MODE_VERIFY);
+        assertTrue(signer.verify(modulus, (short) 0, (short) 20, signature, (short) 0, (short) 128));
     }
 
     @Test

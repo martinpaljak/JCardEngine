@@ -17,7 +17,7 @@ public final class DSAPublicKeyImpl extends DSAKeyImpl implements DSAPublicKey {
     public DSAPublicKeyImpl(short keySize, byte memoryType) {
         super(KeyBuilder.TYPE_DSA_PUBLIC, keySize, memoryType);
         // the public value y = g^x mod p ranges up to p, so it occupies the prime byte length
-        y = new ByteContainer(memoryType, keySize / 8);
+        y = new ByteContainer(memoryType, (keySize + 7) / 8);
     }
 
     @Override

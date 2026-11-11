@@ -6,6 +6,7 @@ import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
+import javacard.security.HMACKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import org.testng.annotations.Test;
@@ -54,6 +55,16 @@ public class SymmetricKeyImplTest extends SimulatorCoreTest {
         byte[] testKey = new byte[8];
         desKey.getKey(testKey, (short) 0);
         assertEquals(testKey, key);
+        // JC 3.2 HMACKey.getKey returns -1 above 127 bytes
+        HMACKey hmac = (HMACKey) KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC, (short) 1600, false);
+        byte[] secret = new byte[200];
+        Util.arrayFillNonAtomic(secret, (short) 0, (short) secret.length, (byte) 9);
+        hmac.setKey(secret, (short) 0, (short) secret.length);
+        byte[] out = new byte[200];
+        assertEquals(hmac.getKey(out, (short) 0), (byte) -1);
+        assertEquals(out, secret);
+        // JC 3.2 HMACKey: any length aligned on a multiple of 8 bits
+        assertEquals(expectThrows(CryptoException.class, () -> KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC, (short) 12, false)).getReason(), CryptoException.NO_SUCH_ALGORITHM);
     }
 
     @Test

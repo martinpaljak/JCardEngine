@@ -49,11 +49,14 @@ public abstract class DHKeyImpl extends KeyWithParameters implements DHKey {
 
     protected DHKeyImpl(byte type, short size, byte memoryType) {
         super(type, size, memoryType);
+        if (size < 512) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         // p and g are fixed at the prime byte length; q has no canonical width, so it uses a
         // prime-width buffer and returns only the significant bytes
-        p = new ByteContainer(memoryType, size / 8);
-        g = new ByteContainer(memoryType, size / 8);
-        q = new ByteContainer(memoryType, size / 8, true);
+        p = new ByteContainer(memoryType, (size + 7) / 8);
+        g = new ByteContainer(memoryType, (size + 7) / 8);
+        q = new ByteContainer(memoryType, (size + 7) / 8, true);
     }
 
     @Override

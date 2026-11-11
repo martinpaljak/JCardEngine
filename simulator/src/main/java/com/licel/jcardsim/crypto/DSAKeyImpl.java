@@ -5,6 +5,7 @@ package com.licel.jcardsim.crypto;
 
 import javacard.security.CryptoException;
 import javacard.security.DSAKey;
+import javacard.security.KeyBuilder;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.params.DSAKeyGenerationParameters;
@@ -23,11 +24,14 @@ public abstract class DSAKeyImpl extends KeyWithParameters implements DSAKey {
 
     protected DSAKeyImpl(byte type, short size, byte memoryType) {
         super(type, size, memoryType);
+        if (size < KeyBuilder.LENGTH_DSA_512) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         // p and g are sized to the prime width; q has no canonical width, so it is allocated
         // at prime width and read back at its actual length
-        p = new ByteContainer(memoryType, size / 8);
-        g = new ByteContainer(memoryType, size / 8);
-        q = new ByteContainer(memoryType, size / 8, true);
+        p = new ByteContainer(memoryType, (size + 7) / 8);
+        g = new ByteContainer(memoryType, (size + 7) / 8);
+        q = new ByteContainer(memoryType, (size + 7) / 8, true);
     }
 
     @Override

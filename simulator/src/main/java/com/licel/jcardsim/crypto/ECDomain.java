@@ -93,7 +93,7 @@ final class ECDomain {
     }
 
     void setG(byte[] buffer, short offset, short length) throws CryptoException {
-        g.setBytes(buffer, offset, length);
+        g.setExact(buffer, offset, length);
     }
 
     void setR(byte[] buffer, short offset, short length) throws CryptoException {

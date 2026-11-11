@@ -221,10 +221,10 @@ public final class AsymmetricSignatureImpl extends Signature implements Signatur
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
         }
         if (algorithm == ALG_RSA_SHA_ISO9796_MR) {
-            return (short) (key.getSize() >> 3);
+            return (short) ((key.getSize() + 7) / 8);
         }
         return switch (spec.lengthRule) {
-            case RSA_MODULUS -> (short) (key.getSize() >> 3);
+            case RSA_MODULUS -> (short) ((key.getSize() + 7) / 8);
             case ECDSA_DER -> getECDSASignatureLength();
         };
     }

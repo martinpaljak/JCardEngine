@@ -122,10 +122,38 @@ public class KeyPairImplTest extends SimulatorCoreTest {
     @Test
     public void testGenKeyPairRSAWithCustomPublicExponent() {
         for (byte type : new byte[]{KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.TYPE_RSA_CRT_PRIVATE}) {
-            for (short size : new short[]{-1, KeyBuilder.LENGTH_RSA_4096 + 1}) {
+            for (short size : new short[]{-1, KeyBuilder.LENGTH_RSA_512 - 1, KeyBuilder.LENGTH_RSA_4096 + 1}) {
                 assertEquals(expectThrows(CryptoException.class, () -> KeyBuilder.buildKey(type, size, false)).getReason(), CryptoException.NO_SUCH_ALGORITHM);
             }
         }
+        // FIPS 186-2 4 and RFC 2631 2.2 set a 512-bit minimum for p
+        for (byte type : new byte[]{KeyBuilder.TYPE_DSA_PUBLIC, KeyBuilder.TYPE_DSA_PRIVATE, KeyBuilder.TYPE_DH_PUBLIC, KeyBuilder.TYPE_DH_PRIVATE}) {
+            for (short size : new short[]{-1, 511}) {
+                assertEquals(expectThrows(CryptoException.class, () -> KeyBuilder.buildKey(type, size, false)).getReason(), CryptoException.NO_SUCH_ALGORITHM);
+            }
+        }
+        for (byte type : new byte[]{KeyBuilder.TYPE_HMAC, KeyBuilder.TYPE_EC_FP_PUBLIC}) {
+            for (short size : new short[]{-16, 0}) {
+                assertEquals(expectThrows(CryptoException.class, () -> KeyBuilder.buildKey(type, size, false)).getReason(), CryptoException.NO_SUCH_ALGORITHM);
+            }
+        }
+        for (byte exponent : new byte[]{0, 1, 4}) {
+            var pair = new KeyPair(KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_512);
+            ((RSAPublicKey) pair.getPublic()).setExponent(new byte[]{exponent}, (short) 0, (short) 1);
+            assertEquals(expectThrows(CryptoException.class, pair::genKeyPair).getReason(), CryptoException.NO_SUCH_ALGORITHM);
+        }
+        var ec = new KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_256);
+        var composite = new byte[32];
+        composite[31] = 4;
+        var ecpub = (ECPublicKey) ec.getPublic();
+        ecpub.setFieldFP(composite, (short) 0, (short) 32);
+        ecpub.setA(composite, (short) 0, (short) 32);
+        ecpub.setB(composite, (short) 0, (short) 32);
+        ecpub.setR(composite, (short) 0, (short) 32);
+        var point = new byte[65];
+        point[0] = 4;
+        ecpub.setG(point, (short) 0, (short) 65);
+        assertEquals(expectThrows(CryptoException.class, ec::genKeyPair).getReason(), CryptoException.NO_SUCH_ALGORITHM);
         byte[] customExponent = new byte[]{(byte) 0x03};
         RSAPublicKey publicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
         KeyPair instance = new KeyPair(publicKey, null);
@@ -240,6 +268,21 @@ public class KeyPairImplTest extends SimulatorCoreTest {
             PrivateKey privateKey = instance.getPrivate();
             assertTrue(privateKey instanceof DSAPrivateKey);
         }
+        // 1001 bits round up to 126 bytes
+        var dsa = (DSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_DSA_PUBLIC, (short) 1001, false);
+        var prime = bigEndian(126);
+        dsa.setP(prime, (short) 0, (short) prime.length);
+        assertEquals(dsa.getP(new byte[126], (short) 0), 126);
+        // JC 3.2 KeyPair.genKeyPair: default parameter sets MAY be used
+        var custom = new KeyPairImpl(KeyPair.ALG_DSA, (short) 576);
+        assertEquals(expectThrows(CryptoException.class, custom::genKeyPair).getReason(), CryptoException.ILLEGAL_VALUE);
+    }
+
+    private static byte[] bigEndian(int bytes) {
+        var value = new byte[bytes];
+        value[0] = 0x7F;
+        value[bytes - 1] = 1;
+        return value;
     }
 
     /**
@@ -257,5 +300,10 @@ public class KeyPairImplTest extends SimulatorCoreTest {
             PrivateKey privateKey = instance.getPrivate();
             assertTrue(privateKey instanceof DHPrivateKey);
         }
+        // 1025 bits round up to 129 bytes
+        var dh = (DHPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_DH_PUBLIC, (short) 1025, false);
+        var prime = bigEndian(129);
+        dh.setP(prime, (short) 0, (short) prime.length);
+        assertEquals(dh.getP(new byte[129], (short) 0), 129);
     }
 }

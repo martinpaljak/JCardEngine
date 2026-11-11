@@ -16,6 +16,9 @@ public final class SymmetricKeyImpl extends KeyWithParameters implements DESKey,
     // keySize is in bits; keyType is one of the KeyBuilder TYPE_* constants
     public SymmetricKeyImpl(byte keyType, short keySize, byte memoryType) {
         super(keyType, keySize, memoryType);
+        if (keySize % 8 != 0) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         // an HMAC key is set and read back at its own length, bounded by the requested capacity
         key = new ByteContainer(memoryType, keySize / 8, type == KeyBuilder.TYPE_HMAC);
     }
@@ -39,7 +42,8 @@ public final class SymmetricKeyImpl extends KeyWithParameters implements DESKey,
 
     @Override
     public byte getKey(byte[] keyData, short kOff) {
-        return (byte) key.getBytes(keyData, kOff);
+        short n = key.getBytes(keyData, kOff);
+        return n > 127 ? -1 : (byte) n;
     }
 
     @Override

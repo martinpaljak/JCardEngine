@@ -17,8 +17,7 @@ public final class RSAPrivateCrtKeyImpl extends RSAKeyImpl implements RSAPrivate
 
     public RSAPrivateCrtKeyImpl(short keySize, byte memoryType) {
         super(KeyBuilder.TYPE_RSA_CRT_PRIVATE, keySize, memoryType);
-        // each CRT prime component is half the modulus size in bytes (bits/8/2 = bits/16)
-        short half = (short) (keySize / 16);
+        short half = (short) ((keySize + 15) / 16);
         p = new ByteContainer(memoryType, half);
         q = new ByteContainer(memoryType, half);
         dp1 = new ByteContainer(memoryType, half);

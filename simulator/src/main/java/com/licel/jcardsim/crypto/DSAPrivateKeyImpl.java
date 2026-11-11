@@ -17,7 +17,7 @@ public final class DSAPrivateKeyImpl extends DSAKeyImpl implements DSAPrivateKey
     public DSAPrivateKeyImpl(short keySize, byte memoryType) {
         super(KeyBuilder.TYPE_DSA_PRIVATE, keySize, memoryType);
         // x is mod q so always fits a prime-width buffer; reads back at its actual length
-        x = new ByteContainer(memoryType, keySize / 8, true);
+        x = new ByteContainer(memoryType, (keySize + 7) / 8, true);
     }
 
     @Override

@@ -31,7 +31,7 @@ public final class ECPublicKeyImpl extends ECKeyImpl implements ECPublicKey {
 
     @Override
     public void setW(byte[] buffer, short offset, short length) throws CryptoException {
-        w.setBytes(buffer, offset, length);
+        w.setExact(buffer, offset, length);
     }
 
     @Override

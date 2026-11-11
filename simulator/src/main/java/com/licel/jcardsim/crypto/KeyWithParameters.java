@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.licel.jcardsim.crypto;
 
+import javacard.security.CryptoException;
 import javacard.security.Key;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.KeyGenerationParameters;
@@ -17,6 +18,9 @@ public abstract class KeyWithParameters implements Key {
     private final KeyFamily family;
 
     protected KeyWithParameters(byte type, short size, byte memoryType) {
+        if (size <= 0) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
         this.family = KeyFamily.byType(type);
         this.type = family == null ? type : family.persistent();
         this.size = size;

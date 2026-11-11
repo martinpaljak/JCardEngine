@@ -4,6 +4,7 @@ package com.licel.jcardsim.crypto;
 
 import com.licel.jcardsim.SimulatorCoreTest;
 import javacard.framework.JCSystem;
+import javacard.security.*;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.util.encoders.Hex;
 import org.testng.annotations.Test;
@@ -41,9 +42,6 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
         assertTrue(key.isInitialized());
     }
 
-    /**
-     * Generated CRT components read back at half the modulus length regardless of leading zeros.
-     */
     @Test
     public void testComponentsHalfModulusLength() {
         BigInteger p = new BigInteger(P, 16);
@@ -60,5 +58,31 @@ public class RSAPrivateCrtKeyImplTest extends SimulatorCoreTest {
         assertEquals(key.getDP1(buf, (short) 0), 128);
         assertEquals(key.getDQ1(buf, (short) 0), 128);
         assertEquals(key.getPQ(buf, (short) 0), 128);
+        // 1016-bit key: 127-byte modulus, 64-byte CRT components
+        var pair = new KeyPair(KeyPair.ALG_RSA_CRT, (short) 1016);
+        pair.genKeyPair();
+        var crt = (RSAPrivateCrtKey) pair.getPrivate();
+        assertEquals(crt.getP(buf, (short) 0), 64);
+        assertEquals(crt.getQ(buf, (short) 0), 64);
+        assertEquals(crt.getDP1(buf, (short) 0), 64);
+        assertEquals(crt.getDQ1(buf, (short) 0), 64);
+        assertEquals(crt.getPQ(buf, (short) 0), 64);
+        assertEquals(((RSAPublicKey) pair.getPublic()).getModulus(buf, (short) 0), 127);
+        // a 1023-bit modulus occupies 128 bytes
+        var odd = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, (short) 1023, false);
+        var mod = new byte[128];
+        mod[0] = 0x7F;
+        odd.setModulus(mod, (short) 0, (short) mod.length);
+        assertEquals(odd.getModulus(buf, (short) 0), 128);
+        // BouncyCastle cannot generate an odd-length RSA modulus
+        assertEquals(expectThrows(CryptoException.class, () -> new KeyPair(KeyPair.ALG_RSA, (short) 513)).getReason(),
+                CryptoException.NO_SUCH_ALGORITHM);
+        // a narrow component is right-aligned to the full slot width
+        var narrow = new byte[127];
+        narrow[0] = 0x7F;
+        key.setPQ(narrow, (short) 0, (short) narrow.length);
+        assertEquals(key.getPQ(buf, (short) 0), 128);
+        assertEquals(buf[0], 0);
+        assertEquals(buf[1], 0x7F);
     }
 }

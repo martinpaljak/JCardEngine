@@ -56,18 +56,7 @@ final class ByteContainer {
         // toByteArray() prepends a 0x00 sign byte when the high bit is set; strip it
         var array = bInteger.toByteArray();
         short from = (short) (array.length > 1 && array[0] == 0 ? 1 : 0);
-        short mlen = (short) (array.length - from);
-        if (minimalReadback) {
-            setBytes(array, from, mlen);
-        } else {
-            // a fixed-width component is stored left zero-padded to its exact width
-            if (mlen > data.length) {
-                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-            }
-            var padded = new byte[data.length];
-            System.arraycopy(array, from, padded, data.length - mlen, mlen);
-            setBytes(padded, (short) 0, (short) data.length);
-        }
+        setBytes(array, from, (short) (array.length - from));
     }
 
     void setBytes(byte[] buff) {
@@ -75,12 +64,25 @@ final class ByteContainer {
     }
 
     void setBytes(byte[] buff, short offset, short length) {
-        // a fixed-width slot demands the exact width; a minimal slot only bounds capacity
-        if (minimalReadback ? length > data.length : length != data.length) {
+        if (length <= 0 || length > data.length) {
             CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
         }
-        Util.arrayCopy(buff, offset, data, (short) 0, length);
-        len[0] = length;
+        if (minimalReadback) {
+            Util.arrayCopy(buff, offset, data, (short) 0, length);
+            len[0] = length;
+            return;
+        }
+        var padded = new byte[data.length];
+        Util.arrayCopyNonAtomic(buff, offset, padded, (short) (data.length - length), length);
+        Util.arrayCopy(padded, (short) 0, data, (short) 0, (short) data.length);
+        len[0] = (short) data.length;
+    }
+
+    void setExact(byte[] buff, short offset, short length) {
+        if (length != data.length) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
+        }
+        setBytes(buff, offset, length);
     }
 
     BigInteger getBigInteger() {

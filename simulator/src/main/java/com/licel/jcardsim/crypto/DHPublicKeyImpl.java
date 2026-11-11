@@ -16,7 +16,7 @@ public final class DHPublicKeyImpl extends DHKeyImpl implements DHPublicKey {
 
     public DHPublicKeyImpl(short size, byte memoryType) {
         super(KeyBuilder.TYPE_DH_PUBLIC, size, memoryType);
-        y = new ByteContainer(memoryType, size / 8);
+        y = new ByteContainer(memoryType, (size + 7) / 8);
     }
 
     @Override

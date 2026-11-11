@@ -17,7 +17,7 @@ public final class DHPrivateKeyImpl extends DHKeyImpl implements DHPrivateKey {
     public DHPrivateKeyImpl(short size, byte memoryType) {
         super(KeyBuilder.TYPE_DH_PRIVATE, size, memoryType);
         // x is bounded by p, so a prime-width buffer suffices; returns only significant bytes
-        x = new ByteContainer(memoryType, size / 8, true);
+        x = new ByteContainer(memoryType, (size + 7) / 8, true);
     }
 
     @Override

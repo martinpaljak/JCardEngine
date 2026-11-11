@@ -31,7 +31,7 @@ public final class KeyPairImpl {
         EC_F2M(KeyPair.ALG_EC_F2M, KeyBuilder.TYPE_EC_F2M_PUBLIC, KeyBuilder.TYPE_EC_F2M_PRIVATE,
                 ECKeyPairGenerator::new, (len, rnd) -> ECKeyImpl.getDefaultKeyGenerationParameters(KeyPair.ALG_EC_F2M, len, rnd)),
         DSA(KeyPair.ALG_DSA, KeyBuilder.TYPE_DSA_PUBLIC, KeyBuilder.TYPE_DSA_PRIVATE,
-                DSAKeyPairGenerator::new, Alg::dsaParams),
+                DSAKeyPairGenerator::new, (len, rnd) -> DSAKeyImpl.getDefaultKeyGenerationParameters(len, rnd)),
         DH(KeyPair.ALG_DH, KeyBuilder.TYPE_DH_PUBLIC, KeyBuilder.TYPE_DH_PRIVATE,
                 DHKeyPairGenerator::new, (len, rnd) -> DHKeyImpl.getDefaultKeyGenerationParameters(len, rnd));
 
@@ -48,14 +48,6 @@ public final class KeyPairImpl {
             this.privType = privType;
             this.generator = generator;
             this.defaultParams = defaultParams;
-        }
-
-        private static KeyGenerationParameters dsaParams(Short len, SecureRandom rnd) {
-            // DSA key length must be 512..1024 in steps of 64.
-            if (len < 512 || len > 1024 || len % 64 != 0) {
-                CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
-            }
-            return DSAKeyImpl.getDefaultKeyGenerationParameters(len, rnd);
         }
 
         static Alg byByte(byte algorithm) {
@@ -88,17 +80,30 @@ public final class KeyPairImpl {
     private KeyGenerationParameters keyGenerationParameters;
 
     public void genKeyPair() throws CryptoException {
-        initEngine();
-        createKeys();
-        AsymmetricCipherKeyPair kp = engine.generateKeyPair();
-        ((KeyWithParameters) publicKey).setParameters(kp.getPublic());
-        ((KeyWithParameters) privateKey).setParameters(kp.getPrivate());
+        // only CryptoException may cross the API
+        try {
+            initEngine();
+            createKeys();
+            AsymmetricCipherKeyPair kp = engine.generateKeyPair();
+            ((KeyWithParameters) publicKey).setParameters(kp.getPublic());
+            ((KeyWithParameters) privateKey).setParameters(kp.getPrivate());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
     }
 
     public KeyPairImpl(byte algorithm, short keyLength) throws CryptoException {
         this.algorithm = algorithm;
         this.keyLength = keyLength;
+        checkGenerable(algorithm, keyLength);
         createKeys();
+    }
+
+    // JC 3.2 KeyPair(byte, short) throws NO_SUCH_ALGORITHM for a size it cannot generate
+    private static void checkGenerable(byte algorithm, short keyLength) {
+        if ((algorithm == KeyPair.ALG_RSA || algorithm == KeyPair.ALG_RSA_CRT) && keyLength % 2 != 0) {
+            CryptoException.throwIt(CryptoException.NO_SUCH_ALGORITHM);
+        }
     }
 
     public KeyPairImpl(PublicKey publicKey, PrivateKey privateKey)
