@@ -17,6 +17,11 @@ import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 
 import java.math.BigInteger;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.PSSParameterSpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.util.Random;
 
 import static org.testng.Assert.*;
@@ -298,6 +303,43 @@ public class AsymmetricSignatureImplTest extends SimulatorCoreTest {
         System.out.println("self test sign/verify RSA RIPEMD160 PKCS1 PSS");
         testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_512, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS, null);
         testSelfSignVerify(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024, Signature.ALG_RSA_RIPEMD160_PKCS1_PSS, null);
+    }
+
+    /**
+     * ALG_RSA_SHA_PKCS1_PSS uses a salt of 20 bytes, the SHA-1 digest length. A sign/verify self test
+     * can not catch a wrong length, as the engine verifies with its own, so verify with the JDK instead.
+     */
+    @Test
+    public void testRSA_SHA_PKCS1_PSS_SaltLengthIsDigestLength() throws GeneralSecurityException {
+        KeyPair kp = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);
+        kp.genKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) kp.getPublic();
+        byte[] modulus = new byte[128];
+        short modulusLen = publicKey.getModulus(modulus, (short) 0);
+        byte[] exponent = new byte[128];
+        short exponentLen = publicKey.getExponent(exponent, (short) 0);
+        java.security.PublicKey jdkKey = KeyFactory.getInstance("RSA").generatePublic(new RSAPublicKeySpec(
+                new BigInteger(1, java.util.Arrays.copyOf(modulus, modulusLen)),
+                new BigInteger(1, java.util.Arrays.copyOf(exponent, exponentLen))));
+
+        java.security.Signature verifier = java.security.Signature.getInstance("RSASSA-PSS");
+        verifier.setParameter(new PSSParameterSpec("SHA-1", "MGF1", MGF1ParameterSpec.SHA1, 20, 1));
+
+        byte[] msg = Hex.decode(MESSAGE);
+        byte[] signature = new byte[128];
+        Signature signEngine = Signature.getInstance(Signature.ALG_RSA_SHA_PKCS1_PSS, false);
+        signEngine.init(kp.getPrivate(), Signature.MODE_SIGN);
+
+        short signLen = signEngine.sign(msg, (short) 0, (short) msg.length, signature, (short) 0);
+        verifier.initVerify(jdkKey);
+        verifier.update(msg);
+        assertTrue(verifier.verify(signature, 0, signLen), "sign");
+
+        byte[] digest = java.security.MessageDigest.getInstance("SHA-1").digest(msg);
+        signLen = signEngine.signPreComputedHash(digest, (short) 0, (short) digest.length, signature, (short) 0);
+        verifier.initVerify(jdkKey);
+        verifier.update(msg);
+        assertTrue(verifier.verify(signature, 0, signLen), "signPreComputedHash");
     }
 
     /**
