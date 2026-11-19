@@ -168,7 +168,7 @@ public class CurrentAPDU {
      * the currently selected applet implements the
      * </em><code>javacardx.apdu.ExtendedLength</code><em> interface.</em>
      * <li><em>In T=1 (Case 2E, 4E) protocol, this method will return 32767 when the
-     * Le field in the APDU command is 0x0000 and the currently selected applet implements the
+     * Le field in the APDU command is 0x0000 or greater than 32767 and the currently selected applet implements the
      * </em><code>javacardx.apdu.ExtendedLength</code><em> interface.</em>
      * <li><em>This method sets the state of the </em><code>APDU</code><em> object to
      * </em><code>STATE_OUTGOING</code><em>.</em>
@@ -680,7 +680,8 @@ public class CurrentAPDU {
         current_pos = (short) (extended ? 7 : 5);
 
         ramVars[LC] = remaining_bytes = (short) command.getNc();
-        ramVars[LE] = (short) command.getNe();
+        // Ne is up to 65536 (Le 0000), setOutgoing() reports anything above 32767 as 32767
+        ramVars[LE] = (short) Math.min(command.getNe(), Short.MAX_VALUE);
     }
 
     public APDU getAPDU() {
