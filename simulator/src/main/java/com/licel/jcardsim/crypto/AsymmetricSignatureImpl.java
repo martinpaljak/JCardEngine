@@ -75,7 +75,7 @@ public final class AsymmetricSignatureImpl extends Signature implements Signatur
                 () -> new RSADigestSigner(new RIPEMD160Digest()), new RSAPKCS1Precomputed(TeleTrusTObjectIdentifiers.ripemd160), LengthRule.RSA_MODULUS),
 
         RSA_SHA_PKCS1_PSS(ALG_RSA_SHA_PKCS1_PSS, MessageDigest.ALG_SHA, Signature.SIG_CIPHER_RSA, Cipher.PAD_PKCS1_PSS,
-                () -> new PSSSigner(new RSAEngine(), new SHA1Digest(), 16), new PSSPrecomputed(SHA1Digest::new, 16), LengthRule.RSA_MODULUS),
+                () -> new PSSSigner(new RSAEngine(), new SHA1Digest(), 20), new PSSPrecomputed(SHA1Digest::new, 20), LengthRule.RSA_MODULUS),
         RSA_SHA_224_PKCS1_PSS(ALG_RSA_SHA_224_PKCS1_PSS, MessageDigest.ALG_SHA_224, Signature.SIG_CIPHER_RSA, Cipher.PAD_PKCS1_PSS,
                 () -> new PSSSigner(new RSAEngine(), new SHA224Digest(), 28), new PSSPrecomputed(SHA224Digest::new, 28), LengthRule.RSA_MODULUS),
         RSA_SHA_256_PKCS1_PSS(ALG_RSA_SHA_256_PKCS1_PSS, MessageDigest.ALG_SHA_256, Signature.SIG_CIPHER_RSA, Cipher.PAD_PKCS1_PSS,
