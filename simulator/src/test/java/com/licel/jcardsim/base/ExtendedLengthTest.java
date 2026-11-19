@@ -9,6 +9,7 @@ import com.licel.jcardsim.samples.Sha1Applet;
 import com.licel.jcardsim.utils.AIDUtil;
 import javacard.framework.AID;
 import org.bouncycastle.util.encoders.Hex;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import pro.javacard.engine.JavaCardEngine;
 
@@ -172,6 +173,51 @@ public class ExtendedLengthTest {
 
             // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Lc/Le wire bytes.
             var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, 0, 1, DUMMY, 0x1F, (byte) 0xCA}));
+            assertEquals(responseApdu.getSW(), 0x9000);
+            assertEquals(responseApdu.getData(), expectedOutput);
+        }
+    }
+
+    // Le values that setOutgoing() must report as 32767 on T=1, for an applet implementing ExtendedLength
+    @DataProvider
+    public Object[][] leReportedAs32767() {
+        return new Object[][]{
+                {(byte) 0x7F, (byte) 0xFF}, // Ne = 32767, the largest value that fits a short
+                {(byte) 0x80, (byte) 0x00}, // Ne = 32768
+                {(byte) 0xFF, (byte) 0xFF}, // Ne = 65535
+                {(byte) 0x00, (byte) 0x00}, // Ne = 65536
+        };
+    }
+
+    @Test(dataProvider = "leReportedAs32767")
+    public void testExtendedApduCase2LeReportedAs32767(byte leHigh, byte leLow) {
+        byte[] expectedOutput = {0, 0, 0x7F, (byte) 0xFF};
+
+        JavaCardEngine instance = prepareSimulator();
+
+        try (var bibo = instance.connect("T=1")) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(sel.getSW(), 0x9000);
+
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, leHigh, leLow}));
+            assertEquals(responseApdu.getSW(), 0x9000);
+            assertEquals(responseApdu.getData(), expectedOutput);
+        }
+    }
+
+    @Test(dataProvider = "leReportedAs32767")
+    public void testExtendedApduCase4LeReportedAs32767(byte leHigh, byte leLow) {
+        byte[] expectedOutput = {0, 1, 0x7F, (byte) 0xFF};
+
+        JavaCardEngine instance = prepareSimulator();
+
+        try (var bibo = instance.connect("T=1")) {
+            var sel = bibo.transmit(AIDUtil.select(TEST_APPLET_AID));
+            assertEquals(sel.getSW(), 0x9000);
+
+            // Encoding-specific: use transceive(byte[]) since the applet asserts on extended Lc/Le wire bytes.
+            var responseApdu = new ResponseAPDU(bibo.transceive(new byte[]{(byte) CLA, (byte) INS_LEN, (byte) P1, (byte) P2, 0, 0, 1, DUMMY, leHigh, leLow}));
             assertEquals(responseApdu.getSW(), 0x9000);
             assertEquals(responseApdu.getData(), expectedOutput);
         }
